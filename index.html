@@ -9,7 +9,9 @@
     <title>CMMS Flota · Gestión de Mantenimiento</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&family=Archivo:wght@600;700;800&display=swap" rel="stylesheet" />
+    <!-- Carga async: no bloquea el render si Google Fonts tarda o falla -->
+    <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&family=Archivo:wght@600;700;800&display=swap" onload="this.onload=null;this.rel='stylesheet'" />
+    <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&family=Archivo:wght@600;700;800&display=swap" /></noscript>
     <style>
       * { box-sizing: border-box; margin: 0; padding: 0; }
       html, body, #root { height: 100%; }
