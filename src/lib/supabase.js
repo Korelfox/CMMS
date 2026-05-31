@@ -21,9 +21,6 @@ export const supabase = createClient(url || "", anonKey || "", {
 
 export const hasConfig = Boolean(url && anonKey);
 
-// Mensaje claro de arranque para diagnóstico (no expone la clave).
-if (hasConfig) {
-  console.info("[CMMS] Supabase configurado correctamente. URL:", url);
-} else {
+if (!hasConfig) {
   console.error("[CMMS] Supabase SIN configurar. Falta .env.local o el servidor no se reinició.");
 }

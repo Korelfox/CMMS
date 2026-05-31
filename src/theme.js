@@ -50,3 +50,37 @@ export const ESTADOS_EQUIPO = [
 ];
 export function estadoLabel(v) { return ESTADOS_EQUIPO.find((e) => e.value === v)?.label || v; }
 export function estadoTone(v) { return ESTADOS_EQUIPO.find((e) => e.value === v)?.tone || "slate"; }
+
+// Intervalos de mantenimiento preventivo (horas)
+export const PM_INTERVALS = [50, 100, 250, 500];
+
+// Mapeos para Órdenes de Trabajo (valor en BD ↔ etiqueta ↔ color)
+export const TIPOS_OT = [
+  { value: "preventivo", label: "Preventivo", tone: "green" },
+  { value: "correctivo", label: "Correctivo", tone: "red" },
+  { value: "modificativo", label: "Modificativo", tone: "purple" },
+  { value: "predictivo", label: "Predictivo", tone: "cyan" },
+];
+export const PRIORIDADES = [
+  { value: "baja", label: "Baja", tone: "slate" },
+  { value: "media", label: "Media", tone: "yellow" },
+  { value: "alta", label: "Alta", tone: "red" },
+  { value: "critica", label: "Crítica", tone: "red" },
+];
+export const ESTADOS_OT = [
+  { value: "solicitada", label: "Solicitada", tone: "slate" },
+  { value: "planificada", label: "Planificada", tone: "purple" },
+  { value: "programada", label: "Programada", tone: "steel" },
+  { value: "en_ejecucion", label: "En ejecución", tone: "yellow" },
+  { value: "cerrada", label: "Cerrada", tone: "green" },
+];
+export const ESTADOS_SOLICITUD = [
+  { value: "pendiente",  label: "Pendiente",  tone: "yellow" },
+  { value: "convertida", label: "Convertida", tone: "green" },
+  { value: "rechazada",  label: "Rechazada",  tone: "slate" },
+];
+// Tiempos objetivo de respuesta por prioridad (horas) — SLA típico
+export const SLA_HORAS = { critica: 4, alta: 8, media: 24, baja: 72 };
+export const DIAS_SEMANA = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
+export function lk(list, v) { return list.find((x) => x.value === v)?.label || v; }
+export function tn(list, v) { return list.find((x) => x.value === v)?.tone || "slate"; }

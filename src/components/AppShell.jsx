@@ -1,14 +1,35 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback, lazy, Suspense } from "react";
 import {
   Anchor, LayoutDashboard, Ship, Sailboat, CalendarClock, Calendar, Inbox, ClipboardList,
   Package, Warehouse, Gauge, Activity, AlertTriangle, ClipboardCheck, DollarSign,
-  TrendingUp, FileText, History, Layers, Bell, LogOut, UserCircle,
+  TrendingUp, FileText, History, Layers, Bell, LogOut, UserCircle, UserCog,
+  Wifi, WifiOff, RefreshCw, CheckCircle2,
 } from "lucide-react";
 import { useAuth } from "../lib/auth";
-import { C, archivo, rolLabel, ROLES } from "../theme";
-import { Card, PageHead } from "../ui";
-import Embarcaciones from "./Embarcaciones";
-import Equipos from "./Equipos";
+import { useOnline, outboxCount, flushOutbox } from "../lib/offline";
+import { C, archivo, rolLabel, ROLES, isAdmin } from "../theme";
+import { Card, InlineSpinner, PageHead } from "../ui";
+
+const Tablero       = lazy(() => import("./Tablero"));
+const Alertas       = lazy(() => import("./Alertas"));
+const MGM           = lazy(() => import("./MGM"));
+const Embarcaciones = lazy(() => import("./Embarcaciones"));
+const Equipos       = lazy(() => import("./Equipos"));
+const PlanPM        = lazy(() => import("./PlanPM"));
+const Programacion  = lazy(() => import("./Programacion"));
+const Solicitudes   = lazy(() => import("./Solicitudes"));
+const OrdenesTrabajo= lazy(() => import("./OrdenesTrabajo"));
+const Inventario    = lazy(() => import("./Inventario"));
+const Almacen       = lazy(() => import("./Almacen"));
+const KPIs          = lazy(() => import("./KPIs"));
+const Criticidad    = lazy(() => import("./Criticidad"));
+const Fallas        = lazy(() => import("./Fallas"));
+const AuditoriaMES  = lazy(() => import("./AuditoriaMES"));
+const CGM           = lazy(() => import("./CGM"));
+const Weibull       = lazy(() => import("./Weibull"));
+const Reportes      = lazy(() => import("./Reportes"));
+const Bitacora      = lazy(() => import("./Bitacora"));
+const Usuarios      = lazy(() => import("./Usuarios"));
 
 // Estructura de navegación (los módulos se conectan a la base de datos uno a uno)
 const NAV = [
@@ -31,19 +52,70 @@ const NAV = [
   { id: "optim", label: "Optimización", icon: TrendingUp, group: "Optimización" },
   { id: "reportes", label: "Reportes", icon: FileText, group: "Sistema" },
   { id: "bitacora", label: "Bitácora", icon: History, group: "Sistema" },
+  { id: "usuarios", label: "Usuarios", icon: UserCog, group: "Sistema", adminOnly: true },
 ];
 
-// Módulos ya conectados a la base de datos
+// Módulos ya conectados a la base de datos (los 18)
 const MODULOS = {
+  dashboard: Tablero,
+  alertas: Alertas,
+  mgm: MGM,
   embarcaciones: Embarcaciones,
   equipos: Equipos,
+  planpm: PlanPM,
+  programa: Programacion,
+  solicitudes: Solicitudes,
+  ots: OrdenesTrabajo,
+  inventario: Inventario,
+  almacen: Almacen,
+  kpis: KPIs,
+  criticidad: Criticidad,
+  fallas: Fallas,
+  auditoria: AuditoriaMES,
+  costos: CGM,
+  optim: Weibull,
+  reportes: Reportes,
+  bitacora: Bitacora,
+  usuarios: Usuarios,
 };
 
 export default function AppShell() {
   const { profile, empresa, signOut } = useAuth();
+  const online = useOnline();
   const [view, setView] = useState("dashboard");
-  const groups = [...new Set(NAV.map((n) => n.group))];
+  const [pendientes, setPendientes] = useState(0);
+  const [sincronizando, setSincronizando] = useState(false);
+  const [recienSync, setRecienSync] = useState(false);
+  // Oculta las entradas solo-admin a quien no lo es
+  const visibleNav = NAV.filter((n) => !n.adminOnly || isAdmin(profile?.rol));
+  const groups = [...new Set(visibleNav.map((n) => n.group))];
   const roleColor = ROLES[profile?.rol]?.color || C.steel;
+
+  const refrescarPendientes = useCallback(async () => { setPendientes(await outboxCount()); }, []);
+
+  const sincronizar = useCallback(async () => {
+    if (sincronizando) return;
+    setSincronizando(true);
+    try {
+      const r = await flushOutbox();
+      await refrescarPendientes();
+      if (r.ok > 0) { setRecienSync(true); setTimeout(() => setRecienSync(false), 3000); }
+    } finally { setSincronizando(false); }
+  }, [sincronizando, refrescarPendientes]);
+
+  // Cuenta inicial + escucha cambios del outbox
+  useEffect(() => {
+    refrescarPendientes();
+    const onChange = () => refrescarPendientes();
+    window.addEventListener("cmms-outbox", onChange);
+    return () => window.removeEventListener("cmms-outbox", onChange);
+  }, [refrescarPendientes]);
+
+  // Al recuperar señal, intenta subir lo pendiente automáticamente
+  useEffect(() => {
+    if (online) sincronizar();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [online]);
 
   return (
     <div style={{ display: "flex", height: "100vh", color: C.ink, overflow: "hidden" }}>
@@ -67,7 +139,7 @@ export default function AppShell() {
           {groups.map((g) => (
             <div key={g} style={{ marginBottom: 12 }}>
               <div style={{ fontSize: 9.5, letterSpacing: 2, textTransform: "uppercase", opacity: 0.4, padding: "4px 12px 6px", fontWeight: 600 }}>{g}</div>
-              {NAV.filter((n) => n.group === g).map((n) => {
+              {visibleNav.filter((n) => n.group === g).map((n) => {
                 const active = view === n.id; const Icon = n.icon;
                 return (
                   <button key={n.id} onClick={() => setView(n.id)}
@@ -99,10 +171,30 @@ export default function AppShell() {
 
       {/* CONTENIDO */}
       <main style={{ flex: 1, overflowY: "auto", background: C.mist }}>
+        {/* Barra de estado de conexión */}
+        <div style={{ position: "sticky", top: 0, zIndex: 20, display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 12, padding: "8px 34px", background: online ? "rgba(244,248,251,.92)" : C.yellowBg, borderBottom: `1px solid ${online ? C.line : C.amber}`, backdropFilter: "blur(6px)" }}>
+          {recienSync && (
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 600, color: C.green }}>
+              <CheckCircle2 size={15} /> Sincronizado
+            </span>
+          )}
+          {pendientes > 0 && (
+            <button onClick={sincronizar} disabled={!online || sincronizando}
+              style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 600, color: "#7a5b00", background: C.amber, border: "none", borderRadius: 20, padding: "5px 12px", cursor: online && !sincronizando ? "pointer" : "default", opacity: online && !sincronizando ? 1 : 0.7 }}>
+              <RefreshCw size={13} className={sincronizando ? "spin" : ""} style={sincronizando ? { animation: "spin 1s linear infinite" } : undefined} />
+              {sincronizando ? "Sincronizando…" : `${pendientes} por subir`}
+            </button>
+          )}
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 600, color: online ? C.green : "#7a5b00" }}>
+            {online ? <Wifi size={15} /> : <WifiOff size={15} />}
+            {online ? "En línea" : "Sin conexión"}
+          </span>
+        </div>
         <div style={{ maxWidth: 1180, margin: "0 auto", padding: "28px 34px 60px" }}>
+          <Suspense fallback={<InlineSpinner label="Cargando módulo…" />}>
           {(() => {
             const Modulo = MODULOS[view];
-            if (Modulo) return <Modulo />;
+            if (Modulo) return <Modulo onNavigate={setView} />;
             return (
               <>
                 <PageHead
@@ -124,6 +216,7 @@ export default function AppShell() {
               </>
             );
           })()}
+          </Suspense>
         </div>
       </main>
     </div>

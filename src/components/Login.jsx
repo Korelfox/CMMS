@@ -1,16 +1,17 @@
 import React, { useState } from "react";
-import { Anchor, Mail, Lock, User, LogIn, UserPlus } from "lucide-react";
+import { Anchor, Mail, Lock, User, LogIn, UserPlus, KeyRound } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { hasConfig } from "../lib/supabase";
 import { C, archivo } from "../theme";
 import { inputStyle, primaryBtn } from "../ui";
 
 export default function Login() {
-  const { signIn, signUp, authError } = useAuth();
-  const [modo, setModo] = useState("login"); // 'login' | 'signup'
+  const { signIn, signUp, resetPassword, authError } = useAuth();
+  const [modo, setModo] = useState("login"); // 'login' | 'signup' | 'recover'
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [nombre, setNombre] = useState("");
+  const [codigoEmpresa, setCodigoEmpresa] = useState("");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState(null);
 
@@ -19,9 +20,14 @@ export default function Login() {
     setBusy(true); setMsg(null);
     if (modo === "login") {
       await signIn(email.trim(), password);
+    } else if (modo === "recover") {
+      const ok = await resetPassword(email.trim());
+      if (ok) setMsg("Si el correo está registrado, te enviamos un enlace para restablecer tu contraseña. Revisa tu bandeja (y la carpeta de spam).");
     } else {
-      const ok = await signUp(email.trim(), password, nombre.trim());
-      if (ok) setMsg("Cuenta creada. Revisa tu correo para confirmarla, luego ingresa. Un administrador te asignará a tu empresa.");
+      const ok = await signUp(email.trim(), password, nombre.trim(), codigoEmpresa.trim());
+      if (ok) setMsg(codigoEmpresa.trim()
+        ? "Cuenta creada. Revisa tu correo para confirmarla, luego ingresa. Tu administrador te asignará el rol que corresponde."
+        : "Cuenta creada. Revisa tu correo para confirmarla. Sin código de empresa, un administrador deberá asignarte manualmente.");
     }
     setBusy(false);
   }
@@ -53,10 +59,10 @@ export default function Login() {
       {/* Panel derecho: formulario */}
       <div style={{ width: 480, background: "#fff", display: "flex", flexDirection: "column", justifyContent: "center", padding: "0 56px" }}>
         <h2 style={{ ...archivo, fontSize: 24, fontWeight: 800, color: C.abyss, marginBottom: 6 }}>
-          {modo === "login" ? "Iniciar sesión" : "Crear cuenta"}
+          {modo === "login" ? "Iniciar sesión" : modo === "recover" ? "Recuperar contraseña" : "Crear cuenta"}
         </h2>
         <p style={{ color: C.slate, fontSize: 13.5, marginBottom: 26 }}>
-          {modo === "login" ? "Ingresa con tu correo y contraseña." : "Regístrate para comenzar."}
+          {modo === "login" ? "Ingresa con tu correo y contraseña." : modo === "recover" ? "Te enviaremos un enlace a tu correo para crear una nueva contraseña." : "Regístrate para comenzar."}
         </p>
 
         {!hasConfig && (
@@ -71,28 +77,52 @@ export default function Login() {
               <input value={nombre} onChange={(e) => setNombre(e.target.value)} required style={{ ...inputStyle(), paddingLeft: 38 }} placeholder="Tu nombre" />
             </Field>
           )}
+          {modo === "signup" && (
+            <Field icon={KeyRound} label="Código de empresa (opcional)">
+              <input value={codigoEmpresa} onChange={(e) => setCodigoEmpresa(e.target.value.toUpperCase())} maxLength={12} style={{ ...inputStyle(), paddingLeft: 38, fontFamily: "'IBM Plex Mono', monospace", letterSpacing: 1 }} placeholder="Ej: A1B2C3" />
+            </Field>
+          )}
           <Field icon={Mail} label="Correo">
             <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required style={{ ...inputStyle(), paddingLeft: 38 }} placeholder="tu@correo.cl" />
           </Field>
-          <Field icon={Lock} label="Contraseña">
-            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} style={{ ...inputStyle(), paddingLeft: 38 }} placeholder="••••••••" />
-          </Field>
+          {modo !== "recover" && (
+            <Field icon={Lock} label="Contraseña">
+              <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} style={{ ...inputStyle(), paddingLeft: 38 }} placeholder="••••••••" />
+            </Field>
+          )}
+          {modo === "login" && (
+            <div style={{ textAlign: "right", marginTop: -8, marginBottom: 14 }}>
+              <button type="button" onClick={() => { setModo("recover"); setMsg(null); }}
+                style={{ background: "none", border: "none", color: C.steel, fontWeight: 600, cursor: "pointer", fontSize: 12.5 }}>
+                ¿Olvidaste tu contraseña?
+              </button>
+            </div>
+          )}
 
           {authError && <div style={{ color: C.red, fontSize: 13, marginBottom: 12, fontWeight: 500 }}>{authError}</div>}
           {msg && <div style={{ color: C.green, fontSize: 13, marginBottom: 12, fontWeight: 500, lineHeight: 1.5 }}>{msg}</div>}
 
           <button type="submit" disabled={busy || !hasConfig} style={{ ...primaryBtn, width: "100%", marginTop: 6, opacity: busy || !hasConfig ? 0.6 : 1 }}>
-            {modo === "login" ? <LogIn size={17} /> : <UserPlus size={17} />}
-            {busy ? "Procesando…" : modo === "login" ? "Ingresar" : "Crear cuenta"}
+            {modo === "login" ? <LogIn size={17} /> : modo === "recover" ? <Mail size={17} /> : <UserPlus size={17} />}
+            {busy ? "Procesando…" : modo === "login" ? "Ingresar" : modo === "recover" ? "Enviar enlace" : "Crear cuenta"}
           </button>
         </form>
 
         <div style={{ marginTop: 22, textAlign: "center", fontSize: 13, color: C.slate }}>
-          {modo === "login" ? "¿No tienes cuenta? " : "¿Ya tienes cuenta? "}
-          <button onClick={() => setModo(modo === "login" ? "signup" : "login")}
-            style={{ background: "none", border: "none", color: C.steel, fontWeight: 600, cursor: "pointer", fontSize: 13 }}>
-            {modo === "login" ? "Crear una" : "Iniciar sesión"}
-          </button>
+          {modo === "recover" ? (
+            <button onClick={() => { setModo("login"); setMsg(null); }}
+              style={{ background: "none", border: "none", color: C.steel, fontWeight: 600, cursor: "pointer", fontSize: 13 }}>
+              ← Volver a iniciar sesión
+            </button>
+          ) : (
+            <>
+              {modo === "login" ? "¿No tienes cuenta? " : "¿Ya tienes cuenta? "}
+              <button onClick={() => { setModo(modo === "login" ? "signup" : "login"); setMsg(null); }}
+                style={{ background: "none", border: "none", color: C.steel, fontWeight: 600, cursor: "pointer", fontSize: 13 }}>
+                {modo === "login" ? "Crear una" : "Iniciar sesión"}
+              </button>
+            </>
+          )}
         </div>
       </div>
     </div>

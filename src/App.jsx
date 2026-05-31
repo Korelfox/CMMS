@@ -5,20 +5,24 @@ import { C, archivo } from "./theme";
 import { Spinner } from "./ui";
 import Login from "./components/Login";
 import AppShell from "./components/AppShell";
+import ResetPassword from "./components/ResetPassword";
 
 export default function App() {
-  const { loading, isAuthenticated, isOnboarded, profile, signOut } = useAuth();
+  const { loading, isAuthenticated, isOnboarded, profile, signOut, passwordRecovery } = useAuth();
 
   // 1. Cargando sesión
   if (loading) return <Spinner label="Iniciando sistema…" />;
 
-  // 2. Sin sesión → pantalla de acceso
+  // 2. Llegó desde el enlace de "restablecer contraseña"
+  if (passwordRecovery) return <ResetPassword />;
+
+  // 3. Sin sesión → pantalla de acceso
   if (!isAuthenticated) return <Login />;
 
-  // 3. Con sesión pero sin empresa asignada → esperando onboarding
+  // 4. Con sesión pero sin empresa asignada → esperando onboarding
   if (!isOnboarded) return <PendingOnboarding nombre={profile?.nombre} signOut={signOut} />;
 
-  // 4. Autenticado y asignado a una empresa → aplicación
+  // 5. Autenticado y asignado a una empresa → aplicación
   return <AppShell />;
 }
 
