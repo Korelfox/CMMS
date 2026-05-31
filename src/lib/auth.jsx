@@ -51,6 +51,12 @@ export function AuthProvider({ children }) {
   // Inicializa la sesión y se suscribe a los cambios de autenticación.
   useEffect(() => {
     let mounted = true;
+
+    // Red de seguridad: si getSession() tardara demasiado por cualquier motivo,
+    // liberamos la pantalla de carga igual a los 5s para no quedar atrapados en
+    // "Iniciando sistema…". onAuthStateChange recuperará la sesión si llega tarde.
+    const failsafe = setTimeout(() => { if (mounted) setLoading(false); }, 5000);
+
     (async () => {
       try {
         const { data, error } = await supabase.auth.getSession();
@@ -62,6 +68,7 @@ export function AuthProvider({ children }) {
         console.error("[CMMS] Error al iniciar la sesión:", e?.message || e);
         if (mounted) setAuthError("No se pudo conectar con el servidor. Revisa la configuración de Supabase (.env.local) y tu conexión.");
       } finally {
+        clearTimeout(failsafe);
         if (mounted) setLoading(false);   // SIEMPRE deja de cargar, pase lo que pase
       }
     })();

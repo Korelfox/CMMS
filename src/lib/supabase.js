@@ -16,6 +16,12 @@ export const supabase = createClient(url || "", anonKey || "", {
     persistSession: true,       // mantiene la sesión entre recargas
     autoRefreshToken: true,     // renueva el token automáticamente
     detectSessionInUrl: true,   // soporta enlaces de confirmación/recuperación
+    // Lock sin Web Locks API. El lock por defecto (navigator.locks) puede
+    // quedar retenido si una pestaña murió mal y deja getSession() colgado
+    // para siempre (spinner infinito en modo normal; incógnito arranca limpio,
+    // por eso ahí sí cargaba). Para una PWA de un usuario por dispositivo esto
+    // es seguro y elimina el bloqueo de raíz.
+    lock: async (_name, _acquireTimeout, fn) => fn(),
   },
 });
 
