@@ -16,12 +16,15 @@ export function AuthProvider({ children }) {
   const [profile, setProfile] = useState(null);
   const [empresa, setEmpresa] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [profileLoaded, setProfileLoaded] = useState(false);  // ¿ya intentamos cargar el perfil?
+  const [profileError, setProfileError] = useState(false);    // ¿falló la carga del perfil?
   const [authError, setAuthError] = useState(null);
   const [passwordRecovery, setPasswordRecovery] = useState(false);
 
   // Carga el perfil del usuario (empresa_id, rol, nombre) y su empresa.
   const loadProfile = useCallback(async (userId) => {
-    if (!userId) { setProfile(null); setEmpresa(null); return; }
+    if (!userId) { setProfile(null); setEmpresa(null); setProfileLoaded(true); setProfileError(false); return; }
+    setProfileLoaded(false); setProfileError(false);  // empezamos a cargar
     try {
       const { data: prof, error } = await supabase
         .from("profiles")
@@ -45,6 +48,9 @@ export function AuthProvider({ children }) {
       console.error("[CMMS] Error cargando perfil:", e.message);
       setProfile(null);
       setEmpresa(null);
+      setProfileError(true);   // hubo error: NO es "pendiente de asignación"
+    } finally {
+      setProfileLoaded(true);
     }
   }, []);
 
@@ -130,7 +136,7 @@ export function AuthProvider({ children }) {
 
   const value = {
     session, user: session?.user || null,
-    profile, empresa, loading, authError, passwordRecovery,
+    profile, empresa, loading, profileLoaded, profileError, authError, passwordRecovery,
     signIn, signUp, signOut, refreshProfile, resetPassword, updatePassword,
     isAuthenticated: Boolean(session),
     isOnboarded: Boolean(profile?.empresa_id),
