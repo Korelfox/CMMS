@@ -157,6 +157,13 @@ function ReporteKPIs({ embs = [], ots = [] }) {
         <Big label="Proactividad" value={`${propProactivo.toFixed(0)}%`} />
       </div>
 
+      <div style={{ ...archivo, fontWeight: 700, fontSize: 15, color: C.abyss, marginBottom: 12 }}>Costos de Mantenimiento</div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 14, marginBottom: 18 }}>
+        <Big label="Mano de Obra" value={clp(costoMO)} />
+        <Big label="Materiales" value={clp(costoMat)} />
+        <Big label="Costo Total" value={clp(costoMO + costoMat)} />
+      </div>
+
       <div style={{ ...archivo, fontWeight: 700, fontSize: 15, color: C.abyss, marginBottom: 12 }}>Por Embarcación</div>
       <table style={{ width: "100%", borderCollapse: "collapse" }}>
         <thead><tr>
@@ -165,7 +172,9 @@ function ReporteKPIs({ embs = [], ots = [] }) {
           <th style={{ ...thStyle, textAlign: "right" }}>Abiertas</th>
           <th style={{ ...thStyle, textAlign: "right" }}>MTBF (h)</th>
           <th style={{ ...thStyle, textAlign: "right" }}>MTTR (h)</th>
-          <th style={{ ...thStyle, textAlign: "right" }}>Costo</th>
+          <th style={{ ...thStyle, textAlign: "right" }}>Costo MO</th>
+          <th style={{ ...thStyle, textAlign: "right" }}>Costo Mat.</th>
+          <th style={{ ...thStyle, textAlign: "right" }}>Total</th>
         </tr></thead>
         <tbody>
           {embs.map((e) => {
@@ -174,7 +183,8 @@ function ReporteKPIs({ embs = [], ots = [] }) {
             const ek = eo.filter((o) => o.estado === "cerrada");
             const eMtbf = ec.length ? ec.reduce((s, o) => s + (Number(o.hrs_oper_desde) || 0), 0) / ec.length : 0;
             const eMttr = ek.length ? ek.reduce((s, o) => s + (Number(o.mttr_horas) || 0), 0) / ek.length : 0;
-            const eCost = eo.reduce((s, o) => s + (Number(o.costo_mo) || 0) + (Number(o.costo_mat) || 0), 0);
+            const eMO = eo.reduce((s, o) => s + (Number(o.costo_mo) || 0), 0);
+            const eMat = eo.reduce((s, o) => s + (Number(o.costo_mat) || 0), 0);
             return (
               <tr key={e.id}>
                 <td style={tdStyle}><strong>{e.nombre}</strong></td>
@@ -182,7 +192,9 @@ function ReporteKPIs({ embs = [], ots = [] }) {
                 <td style={{ ...tdStyle, textAlign: "right" }}>{eo.filter((o) => o.estado !== "cerrada").length}</td>
                 <td style={{ ...tdStyle, textAlign: "right" }}>{num(eMtbf, 0)}</td>
                 <td style={{ ...tdStyle, textAlign: "right" }}>{num(eMttr, 1)}</td>
-                <td style={{ ...tdStyle, textAlign: "right", fontWeight: 600 }}>{clp(eCost)}</td>
+                <td style={{ ...tdStyle, textAlign: "right" }}>{clp(eMO)}</td>
+                <td style={{ ...tdStyle, textAlign: "right" }}>{clp(eMat)}</td>
+                <td style={{ ...tdStyle, textAlign: "right", fontWeight: 600 }}>{clp(eMO + eMat)}</td>
               </tr>);
           })}
           <tr style={{ background: C.mist, fontWeight: 700 }}>
@@ -191,6 +203,8 @@ function ReporteKPIs({ embs = [], ots = [] }) {
             <td style={{ ...tdStyle, textAlign: "right" }}>{ots.filter((o) => o.estado !== "cerrada").length}</td>
             <td style={{ ...tdStyle, textAlign: "right" }}>—</td>
             <td style={{ ...tdStyle, textAlign: "right" }}>—</td>
+            <td style={{ ...tdStyle, textAlign: "right" }}>{clp(costoMO)}</td>
+            <td style={{ ...tdStyle, textAlign: "right" }}>{clp(costoMat)}</td>
             <td style={{ ...tdStyle, textAlign: "right" }}>{clp(costoMO + costoMat)}</td>
           </tr>
         </tbody>
@@ -201,30 +215,47 @@ function ReporteKPIs({ embs = [], ots = [] }) {
 
 function ReporteOTs({ embs = [], ots = [] }) {
   const eName = (id) => embs.find((e) => e.id === id)?.nombre || "—";
+  const totMO = ots.reduce((s, o) => s + (Number(o.costo_mo) || 0), 0);
+  const totMat = ots.reduce((s, o) => s + (Number(o.costo_mat) || 0), 0);
   return (
     <Card>
       <div style={{ ...archivo, fontWeight: 700, fontSize: 15, color: C.abyss, marginBottom: 12 }}>
-        {ots.length} órdenes de trabajo
+        {ots.length} órdenes de trabajo · MO {clp(totMO)} · Materiales {clp(totMat)} · Total {clp(totMO + totMat)}
       </div>
       <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
         <thead><tr>
           <th style={thStyle}>Folio</th><th style={thStyle}>Fecha</th><th style={thStyle}>Embarcación</th>
           <th style={thStyle}>Sistema</th><th style={thStyle}>Tipo</th><th style={thStyle}>Prioridad</th>
-          <th style={{ ...thStyle, textAlign: "right" }}>Costo</th><th style={thStyle}>Estado</th>
+          <th style={{ ...thStyle, textAlign: "right" }}>Costo MO</th>
+          <th style={{ ...thStyle, textAlign: "right" }}>Costo Mat.</th>
+          <th style={{ ...thStyle, textAlign: "right" }}>Total</th>
+          <th style={thStyle}>Estado</th>
         </tr></thead>
         <tbody>
-          {ots.length === 0 ? <tr><td colSpan={8}><Empty>Sin OTs registradas.</Empty></td></tr> :
-            ots.map((o) => (
-              <tr key={o.id}>
-                <td style={{ ...tdStyle, fontFamily: "'IBM Plex Mono', monospace", fontWeight: 600 }}>{o.folio}</td>
-                <td style={tdStyle}>{o.fecha}</td>
-                <td style={tdStyle}>{eName(o.embarcacion_id)}</td>
-                <td style={tdStyle}>{o.sistema}</td>
-                <td style={tdStyle}>{lk(TIPOS_OT, o.tipo)}</td>
-                <td style={tdStyle}>{lk(PRIORIDADES, o.prioridad)}</td>
-                <td style={{ ...tdStyle, textAlign: "right", fontWeight: 600 }}>{clp((o.costo_mo || 0) + (o.costo_mat || 0))}</td>
-                <td style={tdStyle}>{lk(ESTADOS_OT, o.estado)}</td>
-              </tr>))}
+          {ots.length === 0 ? <tr><td colSpan={10}><Empty>Sin OTs registradas.</Empty></td></tr> : (
+            <>
+              {ots.map((o) => (
+                <tr key={o.id}>
+                  <td style={{ ...tdStyle, fontFamily: "'IBM Plex Mono', monospace", fontWeight: 600 }}>{o.folio}</td>
+                  <td style={tdStyle}>{o.fecha}</td>
+                  <td style={tdStyle}>{eName(o.embarcacion_id)}</td>
+                  <td style={tdStyle}>{o.sistema}</td>
+                  <td style={tdStyle}>{lk(TIPOS_OT, o.tipo)}</td>
+                  <td style={tdStyle}>{lk(PRIORIDADES, o.prioridad)}</td>
+                  <td style={{ ...tdStyle, textAlign: "right" }}>{clp(o.costo_mo || 0)}</td>
+                  <td style={{ ...tdStyle, textAlign: "right" }}>{clp(o.costo_mat || 0)}</td>
+                  <td style={{ ...tdStyle, textAlign: "right", fontWeight: 600 }}>{clp((o.costo_mo || 0) + (o.costo_mat || 0))}</td>
+                  <td style={tdStyle}>{lk(ESTADOS_OT, o.estado)}</td>
+                </tr>))}
+              <tr style={{ background: C.mist, fontWeight: 700 }}>
+                <td style={tdStyle} colSpan={6}>TOTAL</td>
+                <td style={{ ...tdStyle, textAlign: "right" }}>{clp(totMO)}</td>
+                <td style={{ ...tdStyle, textAlign: "right" }}>{clp(totMat)}</td>
+                <td style={{ ...tdStyle, textAlign: "right" }}>{clp(totMO + totMat)}</td>
+                <td style={tdStyle}></td>
+              </tr>
+            </>
+          )}
         </tbody>
       </table>
     </Card>
