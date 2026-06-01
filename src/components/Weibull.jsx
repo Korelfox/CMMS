@@ -1,9 +1,9 @@
 import React, { useEffect, useState, useCallback } from "react";
-import { TrendingUp, ChevronDown, ChevronRight, AlertCircle } from "lucide-react";
+import { TrendingUp, ChevronDown, ChevronRight, AlertCircle, Save, Check } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { fetchAll, upsertRow, logActivity } from "../lib/db";
 import { C, archivo, clp, num, canOperate } from "../theme";
-import { Card, PageHead, Pill, bluInput, inputStyle, FilterBtn, Empty, ErrorBanner, InlineSpinner } from "../ui";
+import { Card, PageHead, Pill, primaryBtn, bluInput, inputStyle, FilterBtn, Empty, ErrorBanner, InlineSpinner } from "../ui";
 
 const DEFAULT_W = { beta: 2.0, eta: 1000, gamma: 0, cf: 50000, ci: 12000, notas: "" };
 
@@ -71,6 +71,9 @@ export default function Weibull() {
   const [error, setError] = useState(null);
   const [filtro, setFiltro] = useState("all");
   const [abierto, setAbierto] = useState(null);
+  const [dirty, setDirty] = useState({});        // equipos con cambios sin guardar
+  const [guardadoOk, setGuardadoOk] = useState(null);  // feedback "✓ guardado"
+  const [guardando, setGuardando] = useState(null);
   const puedeOperar = canOperate(profile?.rol);
 
   const cargar = useCallback(async () => {
@@ -95,21 +98,35 @@ export default function Weibull() {
   }
   function embName(id) { return embarcaciones.find((e) => e.id === id)?.nombre || "—"; }
 
-  async function setCampo(equipoId, campo, valor) {
-    const current = getW(equipoId);
-    const next = { ...current, [campo]: valor };
+  // Edita el parámetro solo en memoria; los cálculos (MTBF, Ts*, decisión) se
+  // actualizan al instante, pero la base solo cambia al pulsar "Guardar cambios".
+  function setCampo(equipoId, campo, valor) {
     setDatos((p) => {
       const i = p.findIndex((c) => c.equipo_id === equipoId);
       if (i >= 0) { const copy = [...p]; copy[i] = { ...copy[i], [campo]: valor }; return copy; }
-      return [...p, { ...next, empresa_id: profile.empresa_id }];
+      return [...p, { ...DEFAULT_W, equipo_id: equipoId, [campo]: valor, empresa_id: profile.empresa_id }];
     });
+    setDirty((d) => ({ ...d, [equipoId]: true }));
+    if (guardadoOk === equipoId) setGuardadoOk(null);
+  }
+
+  // Guarda en la base los parámetros Weibull del equipo (INSERT o UPDATE).
+  async function guardar(equipoId) {
+    const w = getW(equipoId);
+    setError(null); setGuardando(equipoId);
     try {
       await upsertRow("weibull", profile.empresa_id, {
         equipo_id: equipoId,
-        beta: next.beta, eta: next.eta, gamma: next.gamma,
-        cf: next.cf, ci: next.ci, notas: next.notas,
+        beta: w.beta, eta: w.eta, gamma: w.gamma,
+        cf: w.cf, ci: w.ci, notas: w.notas,
       }, "equipo_id");
+      setDirty((d) => { const n = { ...d }; delete n[equipoId]; return n; });
+      const eq = equipos.find((e) => e.id === equipoId);
+      logActivity(profile, "Guardar Weibull", `${eq?.sistema || ""} · ${embName(eq?.embarcacion_id)}`);
+      setGuardadoOk(equipoId);
+      setTimeout(() => setGuardadoOk((g) => (g === equipoId ? null : g)), 2500);
     } catch (e) { setError("No se pudo guardar: " + e.message); cargar(); }
+    finally { setGuardando(null); }
   }
 
   const filtrados = filtro === "all" ? equipos : equipos.filter((e) => e.embarcacion_id === filtro);
@@ -232,6 +249,18 @@ export default function Weibull() {
                       onChange={(e) => setCampo(eq.id, "notas", e.target.value)}
                       style={inputStyle()} placeholder="Histórico de revisiones, decisiones tomadas, etc." />
                   </div>
+
+                  {puedeOperar && (
+                    <div style={{ marginTop: 14, display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 12 }}>
+                      {guardadoOk === eq.id
+                        ? <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12.5, fontWeight: 600, color: C.green }}><Check size={15} /> Cambios guardados</span>
+                        : dirty[eq.id] && <span style={{ fontSize: 12.5, fontWeight: 600, color: "#7a5b00" }}>Tienes cambios sin guardar</span>}
+                      <button onClick={() => guardar(eq.id)} disabled={!dirty[eq.id] || guardando === eq.id}
+                        style={{ ...primaryBtn, opacity: dirty[eq.id] && guardando !== eq.id ? 1 : 0.5, cursor: dirty[eq.id] && guardando !== eq.id ? "pointer" : "default" }}>
+                        <Save size={15} /> {guardando === eq.id ? "Guardando…" : "Guardar cambios"}
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
             </Card>);

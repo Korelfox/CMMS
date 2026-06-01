@@ -1,9 +1,9 @@
 import React, { useEffect, useState, useCallback } from "react";
-import { DollarSign, ChevronDown, ChevronRight, AlertCircle } from "lucide-react";
+import { DollarSign, ChevronDown, ChevronRight, AlertCircle, Save, Check } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { fetchAll, upsertRow, logActivity } from "../lib/db";
 import { C, archivo, clp, canOperate } from "../theme";
-import { Card, PageHead, Pill, bluInput, FilterBtn, Empty, ErrorBanner, InlineSpinner } from "../ui";
+import { Card, PageHead, Pill, primaryBtn, bluInput, FilterBtn, Empty, ErrorBanner, InlineSpinner } from "../ui";
 
 // Valores por defecto (mismos que el schema)
 const DEFAULT_CGM = {
@@ -38,6 +38,9 @@ export default function CGM() {
   const [error, setError] = useState(null);
   const [filtro, setFiltro] = useState("all");
   const [abierto, setAbierto] = useState(null);
+  const [dirty, setDirty] = useState({});        // equipos con cambios sin guardar
+  const [guardadoOk, setGuardadoOk] = useState(null);  // feedback "✓ guardado"
+  const [guardando, setGuardando] = useState(null);
   const puedeOperar = canOperate(profile?.rol);
 
   const cargar = useCallback(async () => {
@@ -60,25 +63,38 @@ export default function CGM() {
   }
   function embName(id) { return embarcaciones.find((e) => e.id === id)?.nombre || "—"; }
 
-  async function setCampo(equipoId, campo, valor) {
-    const current = getCGM(equipoId);
-    const next = { ...current, [campo]: valor };
-    // Optimista
+  // Edita el parámetro solo en memoria (no guarda hasta pulsar "Guardar cambios").
+  // Así los KPIs y barras muestran el efecto al instante, pero la base solo se
+  // actualiza cuando el usuario confirma.
+  function setCampo(equipoId, campo, valor) {
     setDatos((p) => {
       const i = p.findIndex((c) => c.equipo_id === equipoId);
       if (i >= 0) { const copy = [...p]; copy[i] = { ...copy[i], [campo]: valor }; return copy; }
-      return [...p, { ...next, empresa_id: profile.empresa_id }];
+      return [...p, { ...DEFAULT_CGM, equipo_id: equipoId, [campo]: valor, empresa_id: profile.empresa_id }];
     });
+    setDirty((d) => ({ ...d, [equipoId]: true }));
+    if (guardadoOk === equipoId) setGuardadoOk(null);
+  }
+
+  // Guarda en la base los parámetros del equipo (INSERT o UPDATE por equipo_id).
+  async function guardar(equipoId) {
+    const c = getCGM(equipoId);
+    setError(null); setGuardando(equipoId);
     try {
-      // En el upsert mandamos TODOS los campos para que INSERT y UPDATE queden correctos
       await upsertRow("cgm", profile.empresa_id, {
         equipo_id: equipoId,
-        hh_c: next.hh_c, hh_p: next.hh_p, c_hh: next.c_hh,
-        rep: next.rep, fung: next.fung,
-        hrs_par: next.hrs_par, val_prod: next.val_prod, g_extra: next.g_extra,
-        val_inv: next.val_inv, val_eq: next.val_eq, vida: next.vida,
+        hh_c: c.hh_c, hh_p: c.hh_p, c_hh: c.c_hh,
+        rep: c.rep, fung: c.fung,
+        hrs_par: c.hrs_par, val_prod: c.val_prod, g_extra: c.g_extra,
+        val_inv: c.val_inv, val_eq: c.val_eq, vida: c.vida,
       }, "equipo_id");
+      setDirty((d) => { const n = { ...d }; delete n[equipoId]; return n; });
+      const eq = equipos.find((e) => e.id === equipoId);
+      logActivity(profile, "Guardar CGM", `${eq?.sistema || ""} · ${embName(eq?.embarcacion_id)}`);
+      setGuardadoOk(equipoId);
+      setTimeout(() => setGuardadoOk((g) => (g === equipoId ? null : g)), 2500);
     } catch (e) { setError("No se pudo guardar: " + e.message); cargar(); }
+    finally { setGuardando(null); }
   }
 
   const filtrados = filtro === "all" ? equipos : equipos.filter((e) => e.embarcacion_id === filtro);
@@ -183,6 +199,18 @@ export default function CGM() {
                       <ResVal label="Total / mes" v={calc.total} color={C.gold} big />
                     </div>
                   </div>
+
+                  {puedeOperar && (
+                    <div style={{ marginTop: 14, display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 12 }}>
+                      {guardadoOk === eq.id
+                        ? <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12.5, fontWeight: 600, color: C.green }}><Check size={15} /> Cambios guardados</span>
+                        : dirty[eq.id] && <span style={{ fontSize: 12.5, fontWeight: 600, color: "#7a5b00" }}>Tienes cambios sin guardar</span>}
+                      <button onClick={() => guardar(eq.id)} disabled={!dirty[eq.id] || guardando === eq.id}
+                        style={{ ...primaryBtn, opacity: dirty[eq.id] && guardando !== eq.id ? 1 : 0.5, cursor: dirty[eq.id] && guardando !== eq.id ? "pointer" : "default" }}>
+                        <Save size={15} /> {guardando === eq.id ? "Guardando…" : "Guardar cambios"}
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
             </Card>);
