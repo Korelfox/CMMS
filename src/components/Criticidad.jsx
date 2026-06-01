@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback } from "react";
 import { Activity, AlertTriangle, Download } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { fetchAll, upsertRow, logActivity } from "../lib/db";
-import { C, archivo, canOperate } from "../theme";
+import { C, archivo, isAdmin } from "../theme";
 import { Card, PageHead, Pill, exportBtn, thStyle, tdStyle, Empty, ErrorBanner, InlineSpinner, FilterBtn } from "../ui";
 
 // Dimensiones del modelo INGEMAN / Parra & Crespo
@@ -25,7 +25,7 @@ export default function Criticidad() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [filtro, setFiltro] = useState("all");
-  const puedeOperar = canOperate(profile?.rol);
+  const puedeOperar = isAdmin(profile?.rol);  // análisis de criticidad: Jefe Mantención y superiores
 
   const cargar = useCallback(async () => {
     setLoading(true); setError(null);

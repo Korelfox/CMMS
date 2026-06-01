@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback } from "react";
 import { ClipboardCheck, Award } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { fetchAll, upsertRow, logActivity } from "../lib/db";
-import { C, archivo, canOperate } from "../theme";
+import { C, archivo, isAdmin } from "../theme";
 import { Card, PageHead, Pill, Empty, ErrorBanner, InlineSpinner } from "../ui";
 
 // 25 preguntas en 5 pilares (metodología Mora Gutiérrez · Auditoría MES)
@@ -61,7 +61,7 @@ export default function AuditoriaMES() {
   const [respuestas, setRespuestas] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const puedeOperar = canOperate(profile?.rol);
+  const puedeOperar = isAdmin(profile?.rol);  // auditoría de madurez: Jefe Mantención y superiores
 
   const cargar = useCallback(async () => {
     setLoading(true); setError(null);
