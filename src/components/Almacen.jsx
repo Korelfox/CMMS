@@ -437,7 +437,7 @@ function TabCompras({ profile, items, bodegas, compras, comprasItems, stockMap, 
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ proveedor: "", bodega_destino: bodegas[0]?.id || "", lead_dias: 7, items: [] });
   const [line, setLine] = useState({ item_id: "", cantidad: 1 });
-  const puedeOperar = canOperate(profile?.rol);
+  const puedeOperar = isAdmin(profile?.rol);  // crear/gestionar OC: Jefe Mantención y superiores (comprometen presupuesto)
   const puedeBorrar = isAdmin(profile?.rol);
   const puedeAprobar = isAdmin(profile?.rol);
 
