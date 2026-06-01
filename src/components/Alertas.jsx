@@ -100,7 +100,7 @@ export default function Alertas({ onNavigate }) {
         cat: "ot", sev: o.prioridad === "critica" ? "red" : "amber",
         titulo: `OT ${o.prioridad === "critica" ? "crítica" : "alta"} abierta · ${o.folio || ""}`,
         detalle: `${embName(o.embarcacion_id)} · ${o.sistema} · ${o.descripcion?.slice(0, 80) || ""}`,
-        ts: o.fecha,
+        ts: o.fecha, ref: o.id,   // id de la OT para abrirla filtrada al hacer clic
       });
     });
 
@@ -211,7 +211,7 @@ export default function Alertas({ onNavigate }) {
           const clicable = dest && onNavigate;
           return (
             <Card key={i}
-              onClick={clicable ? () => onNavigate(dest) : undefined}
+              onClick={clicable ? () => onNavigate(dest, a.cat === "ot" && a.ref ? { otId: a.ref } : null) : undefined}
               title={clicable ? `Ir a ${cat?.label} para gestionarla` : undefined}
               style={{ padding: 0, overflow: "hidden", borderLeft: `4px solid ${borderC}`, background: bg, cursor: clicable ? "pointer" : "default" }}>
               <div style={{ padding: "12px 16px", display: "grid", gridTemplateColumns: "auto 1fr auto", gap: 12, alignItems: "center" }}>

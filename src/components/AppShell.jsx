@@ -83,7 +83,14 @@ export default function AppShell() {
   const { profile, empresa, signOut } = useAuth();
   const online = useOnline();
   const [view, setView] = useState("dashboard");
+  const [navParams, setNavParams] = useState(null);  // contexto al navegar (ej. OT a resaltar)
   const [pendientes, setPendientes] = useState(0);
+
+  // Navega a un módulo, opcionalmente con parámetros (ej. { otId }).
+  const navegar = useCallback((destino, params = null) => {
+    setView(destino);
+    setNavParams(params);
+  }, []);
   const [sincronizando, setSincronizando] = useState(false);
   const [recienSync, setRecienSync] = useState(false);
   // Oculta las entradas solo-admin a quien no lo es
@@ -142,7 +149,7 @@ export default function AppShell() {
               {visibleNav.filter((n) => n.group === g).map((n) => {
                 const active = view === n.id; const Icon = n.icon;
                 return (
-                  <button key={n.id} onClick={() => setView(n.id)}
+                  <button key={n.id} onClick={() => navegar(n.id)}
                     style={{ width: "100%", display: "flex", alignItems: "center", gap: 11, padding: "8px 12px", marginBottom: 2, borderRadius: 8, border: "none", cursor: "pointer", textAlign: "left", background: active ? C.gold : "transparent", color: active ? C.abyss : C.foam, fontWeight: active ? 600 : 500, fontSize: 12.5, fontFamily: "inherit" }}>
                     <Icon size={16} strokeWidth={active ? 2.4 : 2} /><span>{n.label}</span>
                   </button>
@@ -194,7 +201,7 @@ export default function AppShell() {
           <Suspense fallback={<InlineSpinner label="Cargando módulo…" />}>
           {(() => {
             const Modulo = MODULOS[view];
-            if (Modulo) return <Modulo onNavigate={setView} />;
+            if (Modulo) return <Modulo onNavigate={navegar} navParams={navParams} />;
             return (
               <>
                 <PageHead

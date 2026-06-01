@@ -11,7 +11,7 @@ import {
 
 const HOY = () => new Date().toISOString().slice(0, 10);
 
-export default function OrdenesTrabajo() {
+export default function OrdenesTrabajo({ navParams }) {
   const { profile } = useAuth();
   const online = useOnline();
   const [embarcaciones, setEmbarcaciones] = useState([]);
@@ -21,6 +21,7 @@ export default function OrdenesTrabajo() {
   const [error, setError] = useState(null);
   const [usandoCache, setUsandoCache] = useState(false);
   const [filtro, setFiltro] = useState("all");
+  const [otDestacadaId, setOtDestacadaId] = useState(navParams?.otId || null);  // OT abierta desde Alertas
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(blank());
   const puedeOperar = canOperate(profile?.rol);
@@ -55,6 +56,16 @@ export default function OrdenesTrabajo() {
 
   useEffect(() => { cargar(); }, [cargar]);
 
+  // Al llegar desde una alerta de OT resaltamos esa orden; si se navega
+  // al módulo sin contexto (ej. desde el menú), se limpia la destacada.
+  useEffect(() => {
+    if (navParams?.otId) { setOtDestacadaId(navParams.otId); setFiltro("all"); }
+    else { setOtDestacadaId(null); }
+  }, [navParams]);
+
+  // Cambiar de filtro manualmente quita el modo "OT señalada".
+  function aplicarFiltro(f) { setFiltro(f); setOtDestacadaId(null); }
+
   // Cuando el outbox se vacía (volvió la señal y subió todo), recargamos del servidor.
   useEffect(() => {
     const onSynced = () => cargar();
@@ -65,7 +76,10 @@ export default function OrdenesTrabajo() {
   function embName(id) { return embarcaciones.find((e) => e.id === id)?.nombre || "—"; }
   const equiposDeNave = form.embarcacion_id ? equipos.filter((e) => e.embarcacion_id === form.embarcacion_id) : [];
 
-  const lista = filtro === "all" ? ots
+  // Si venimos de una alerta, mostramos solo esa OT; si no, el filtro normal.
+  const otDestacada = otDestacadaId ? ots.find((o) => o.id === otDestacadaId) : null;
+  const lista = otDestacada ? [otDestacada]
+    : filtro === "all" ? ots
     : ["solicitada", "planificada", "programada", "en_ejecucion", "cerrada"].includes(filtro)
       ? ots.filter((o) => o.estado === filtro)
       : ots.filter((o) => o.embarcacion_id === filtro);
@@ -212,11 +226,18 @@ export default function OrdenesTrabajo() {
         </Card>
       )}
 
+      {otDestacada && (
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, background: C.mist, border: `1px solid ${C.line}`, borderRadius: 10, padding: "10px 14px", marginBottom: 14, fontSize: 13 }}>
+          <span style={{ color: C.steel }}>Mostrando la orden <strong>{otDestacada.folio}</strong> señalada desde Alertas. Cambia su estado en la columna Estado.</span>
+          <button onClick={() => setOtDestacadaId(null)} style={{ ...ghostBtn, padding: "5px 12px", fontSize: 12.5, whiteSpace: "nowrap" }}>Ver todas</button>
+        </div>
+      )}
+
       <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
-        <FilterBtn active={filtro === "all"} onClick={() => setFiltro("all")}>Todas ({ots.length})</FilterBtn>
+        <FilterBtn active={!otDestacada && filtro === "all"} onClick={() => aplicarFiltro("all")}>Todas ({ots.length})</FilterBtn>
         {ESTADOS_OT.map((s) => {
           const n = ots.filter((o) => o.estado === s.value).length;
-          return <FilterBtn key={s.value} active={filtro === s.value} onClick={() => setFiltro(s.value)}>{s.label} ({n})</FilterBtn>;
+          return <FilterBtn key={s.value} active={!otDestacada && filtro === s.value} onClick={() => aplicarFiltro(s.value)}>{s.label} ({n})</FilterBtn>;
         })}
       </div>
 
