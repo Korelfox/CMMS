@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback } from "react";
 import { DollarSign, ChevronDown, ChevronRight, AlertCircle, Save, Check } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { fetchAll, upsertRow, logActivity } from "../lib/db";
-import { C, archivo, clp, canOperate } from "../theme";
+import { C, archivo, clp, isAdmin } from "../theme";
 import { Card, PageHead, Pill, primaryBtn, bluInput, FilterBtn, Empty, ErrorBanner, InlineSpinner } from "../ui";
 
 // Valores por defecto (mismos que el schema)
@@ -41,7 +41,7 @@ export default function CGM() {
   const [dirty, setDirty] = useState({});        // equipos con cambios sin guardar
   const [guardadoOk, setGuardadoOk] = useState(null);  // feedback "✓ guardado"
   const [guardando, setGuardando] = useState(null);
-  const puedeOperar = canOperate(profile?.rol);
+  const puedeOperar = isAdmin(profile?.rol);  // editar costos/CGM: Jefe Mantención y superiores
 
   const cargar = useCallback(async () => {
     setLoading(true); setError(null);

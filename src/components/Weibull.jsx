@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback } from "react";
 import { TrendingUp, ChevronDown, ChevronRight, AlertCircle, Save, Check } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { fetchAll, upsertRow, logActivity } from "../lib/db";
-import { C, archivo, clp, num, canOperate } from "../theme";
+import { C, archivo, clp, num, isAdmin } from "../theme";
 import { Card, PageHead, Pill, primaryBtn, bluInput, inputStyle, FilterBtn, Empty, ErrorBanner, InlineSpinner } from "../ui";
 
 const DEFAULT_W = { beta: 2.0, eta: 1000, gamma: 0, cf: 50000, ci: 12000, notas: "" };
@@ -74,7 +74,7 @@ export default function Weibull() {
   const [dirty, setDirty] = useState({});        // equipos con cambios sin guardar
   const [guardadoOk, setGuardadoOk] = useState(null);  // feedback "✓ guardado"
   const [guardando, setGuardando] = useState(null);
-  const puedeOperar = canOperate(profile?.rol);
+  const puedeOperar = isAdmin(profile?.rol);  // editar parámetros/costos: Jefe Mantención y superiores
 
   const cargar = useCallback(async () => {
     setLoading(true); setError(null);
