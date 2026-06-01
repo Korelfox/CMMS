@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from "react";
-import { ClipboardList, Plus, Trash2, Download, CloudOff, Clock, ChevronDown } from "lucide-react";
+import { ClipboardList, Plus, Trash2, Download, CloudOff, Clock, ChevronDown, DollarSign, Check } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { fetchAll, insertRow, updateRow, deleteRow, logActivity } from "../lib/db";
 import { useOnline, cacheTable, getCached, queueInsert, nuevoId } from "../lib/offline";
@@ -22,6 +22,8 @@ export default function OrdenesTrabajo({ navParams }) {
   const [usandoCache, setUsandoCache] = useState(false);
   const [filtro, setFiltro] = useState("all");
   const [otDestacadaId, setOtDestacadaId] = useState(navParams?.otId || null);  // OT abierta desde Alertas
+  const [modoCostos, setModoCostos] = useState(false);  // edición de costos por fila
+  const [costoOk, setCostoOk] = useState(null);          // feedback "✓ guardado" por OT
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(blank());
   const puedeOperar = canOperate(profile?.rol);
@@ -149,6 +151,23 @@ export default function OrdenesTrabajo({ navParams }) {
     }
   }
 
+  // Edición de costos: actualiza en memoria (el total se recalcula al instante).
+  function editarCosto(otId, campo, valor) {
+    setOts((p) => p.map((o) => (o.id === otId ? { ...o, [campo]: valor } : o)));
+    if (costoOk === otId) setCostoOk(null);
+  }
+
+  // Guarda los costos de una OT al salir del campo (onBlur).
+  async function guardarCosto(ot) {
+    setError(null);
+    try {
+      await updateRow("ordenes_trabajo", ot.id, { costo_mo: ot.costo_mo || 0, costo_mat: ot.costo_mat || 0 });
+      logActivity(profile, "Editar costos OT", `${ot.folio} · MO ${clp(ot.costo_mo || 0)} · Mat ${clp(ot.costo_mat || 0)}`);
+      setCostoOk(ot.id);
+      setTimeout(() => setCostoOk((c) => (c === ot.id ? null : c)), 2000);
+    } catch (e) { setError("No se pudieron guardar los costos: " + e.message); cargar(); }
+  }
+
   function exportar() {
     const filas = [["Folio", "Fecha", "Embarcación", "Sistema", "Tipo", "Prioridad", "Descripción", "MTTR", "Costo MO", "Costo Mat", "Estado"],
       ...ots.map((o) => [o.folio, o.fecha, embName(o.embarcacion_id), o.sistema, lk(TIPOS_OT, o.tipo), lk(PRIORIDADES, o.prioridad), o.descripcion, o.mttr_horas, o.costo_mo, o.costo_mat, lk(ESTADOS_OT, o.estado)])];
@@ -185,7 +204,9 @@ export default function OrdenesTrabajo({ navParams }) {
         <MiniStat label="OTs Totales" value={ots.length} sub={`${abiertas} abiertas`} />
         <MiniStat label="Abiertas" value={abiertas} tone={abiertas ? C.yellow : C.green} />
         <MiniStat label="Proactivo" value={`${propProactivo}%`} tone={propProactivo >= 60 ? C.green : C.yellow} sub={`${preventivas} preventivas`} />
-        <MiniStat label="Costo Total" value={clp(costoTotal)} tone={C.gold} />
+        <MiniStat label="Costo Total" value={clp(costoTotal)} tone={C.gold}
+          onClick={puedeOperar ? () => setModoCostos((v) => !v) : undefined}
+          hint={modoCostos ? "Cerrar edición" : "Ingresar costos"} />
       </div>
 
       {showForm && (
@@ -241,6 +262,15 @@ export default function OrdenesTrabajo({ navParams }) {
         })}
       </div>
 
+      {modoCostos && (
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, background: C.goldBg || "#FBF3DD", border: `1px solid ${C.gold}`, borderRadius: 10, padding: "10px 14px", marginBottom: 14, fontSize: 13 }}>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 8, color: "#7a5b00" }}>
+            <DollarSign size={16} /> Modo edición de costos: ingresa mano de obra (MO) y materiales (Mat) de cada orden. Se guarda al salir del campo.
+          </span>
+          <button onClick={() => setModoCostos(false)} style={{ ...ghostBtn, padding: "5px 12px", fontSize: 12.5, whiteSpace: "nowrap" }}>Listo</button>
+        </div>
+      )}
+
       <Card style={{ padding: 0, overflow: "hidden" }}>
         <div style={{ overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 960 }}>
@@ -264,7 +294,23 @@ export default function OrdenesTrabajo({ navParams }) {
                     <td style={tdStyle}><Pill tone={tn(TIPOS_OT, o.tipo)}>{lk(TIPOS_OT, o.tipo)}</Pill></td>
                     <td style={tdStyle}><Pill tone={tn(PRIORIDADES, o.prioridad)}>{lk(PRIORIDADES, o.prioridad)}</Pill></td>
                     <td style={{ ...tdStyle, maxWidth: 220 }}>{o.descripcion}</td>
-                    <td style={{ ...tdStyle, textAlign: "right", fontFamily: "'IBM Plex Mono', monospace", fontWeight: 600 }}>{clp((o.costo_mo || 0) + (o.costo_mat || 0))}</td>
+                    {modoCostos && puedeOperar && !o._pending && online ? (
+                      <td style={tdStyle}>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 4, alignItems: "flex-end" }}>
+                          <label style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 10, color: C.slate, fontWeight: 600 }}>
+                            MO <input type="number" step={1000} value={o.costo_mo || 0}
+                              onChange={(e) => editarCosto(o.id, "costo_mo", +e.target.value)} onBlur={() => guardarCosto(o)}
+                              style={{ ...bluInput, width: 96, padding: "4px 7px", fontSize: 12 }} /></label>
+                          <label style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 10, color: C.slate, fontWeight: 600 }}>
+                            Mat <input type="number" step={1000} value={o.costo_mat || 0}
+                              onChange={(e) => editarCosto(o.id, "costo_mat", +e.target.value)} onBlur={() => guardarCosto(o)}
+                              style={{ ...bluInput, width: 96, padding: "4px 7px", fontSize: 12 }} /></label>
+                          {costoOk === o.id && <span style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: 10, color: C.green, fontWeight: 600 }}><Check size={11} /> guardado</span>}
+                        </div>
+                      </td>
+                    ) : (
+                      <td style={{ ...tdStyle, textAlign: "right", fontFamily: "'IBM Plex Mono', monospace", fontWeight: 600 }}>{clp((o.costo_mo || 0) + (o.costo_mat || 0))}</td>
+                    )}
                     <td style={tdStyle}>
                       {puedeOperar && !o._pending && online
                         ? <EstadoSelect estado={o.estado} onChange={(nuevo) => cambiarEstado(o, nuevo)} />
@@ -310,12 +356,14 @@ function EstadoSelect({ estado, onChange }) {
   );
 }
 
-function MiniStat({ label, value, unit, tone, sub }) {
+function MiniStat({ label, value, unit, tone, sub, onClick, hint }) {
   return (
-    <Card style={{ padding: 16 }}>
+    <Card onClick={onClick} title={onClick ? hint : undefined}
+      style={{ padding: 16, cursor: onClick ? "pointer" : "default" }}>
       <div style={{ fontSize: 11, letterSpacing: 1, textTransform: "uppercase", color: C.slate, fontWeight: 600 }}>{label}</div>
       <div style={{ fontFamily: "'Archivo', sans-serif", fontSize: 26, fontWeight: 800, color: tone || C.steel, lineHeight: 1, marginTop: 8 }}>{value}</div>
       {sub && <div style={{ fontSize: 11.5, color: C.slate, marginTop: 6 }}>{sub}</div>}
+      {onClick && <div style={{ fontSize: 10.5, color: C.gold, fontWeight: 700, marginTop: 6 }}>{hint} ›</div>}
     </Card>
   );
 }
