@@ -27,6 +27,7 @@ function slaInfo(sol) {
 export default function Solicitudes() {
   const { profile } = useAuth();
   const [embarcaciones, setEmbarcaciones] = useState([]);
+  const [equipos, setEquipos] = useState([]);
   const [solicitudes, setSolicitudes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -43,17 +44,23 @@ export default function Solicitudes() {
   const cargar = useCallback(async () => {
     setLoading(true); setError(null);
     try {
-      const [embs, sols] = await Promise.all([
+      const [embs, eqs, sols] = await Promise.all([
         fetchAll("embarcaciones", { order: { col: "codigo", asc: true } }),
+        fetchAll("equipos", { order: { col: "id_visible", asc: true } }),
         fetchAll("solicitudes", { order: { col: "created_at", asc: false } }),
       ]);
-      setEmbarcaciones(embs); setSolicitudes(sols);
+      setEmbarcaciones(embs); setEquipos(eqs); setSolicitudes(sols);
     } catch (e) { setError("No se pudieron cargar las solicitudes. " + e.message); }
     finally { setLoading(false); }
   }, []);
   useEffect(() => { cargar(); }, [cargar]);
 
   function embName(id) { return embarcaciones.find((e) => e.id === id)?.nombre || "—"; }
+
+  // Sistemas a mostrar en el desplegable: los de los equipos de la embarcación
+  // elegida (o de toda la flota si aún no se eligió embarcación), sin repetir.
+  const equiposDeNave = form.embarcacion_id ? equipos.filter((e) => e.embarcacion_id === form.embarcacion_id) : equipos;
+  const sistemasDisponibles = [...new Set(equiposDeNave.map((e) => e.sistema).filter(Boolean))];
 
   async function crear() {
     if (!form.solicitante.trim() || !form.descripcion.trim()) { setError("Indica solicitante y descripción."); return; }
@@ -137,12 +144,17 @@ export default function Solicitudes() {
           <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12 }}>
             <Field label="Solicitante"><input value={form.solicitante} onChange={(e) => setForm({ ...form, solicitante: e.target.value })} style={inputStyle()} /></Field>
             <Field label="Embarcación">
-              <select value={form.embarcacion_id} onChange={(e) => setForm({ ...form, embarcacion_id: e.target.value })} style={inputStyle()}>
+              <select value={form.embarcacion_id} onChange={(e) => setForm({ ...form, embarcacion_id: e.target.value, sistema: "" })} style={inputStyle()}>
                 <option value="">— Selecciona —</option>
                 {embarcaciones.map((v) => <option key={v.id} value={v.id}>{v.nombre}</option>)}
               </select>
             </Field>
-            <Field label="Sistema"><input value={form.sistema} onChange={(e) => setForm({ ...form, sistema: e.target.value })} style={inputStyle()} placeholder="Motor Principal" /></Field>
+            <Field label="Sistema">
+              <select value={form.sistema} onChange={(e) => setForm({ ...form, sistema: e.target.value })} style={inputStyle()}>
+                <option value="">{sistemasDisponibles.length ? "— Selecciona —" : "— Sin sistemas registrados —"}</option>
+                {sistemasDisponibles.map((s) => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </Field>
             <Field label="Prioridad"><select value={form.prioridad} onChange={(e) => setForm({ ...form, prioridad: e.target.value })} style={inputStyle()}>{PRIORIDADES.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}</select></Field>
             <Field label="Descripción" span={3}><input value={form.descripcion} onChange={(e) => setForm({ ...form, descripcion: e.target.value })} style={inputStyle()} placeholder="Qué se necesita" /></Field>
             <Field label="Fecha"><input type="date" value={form.fecha} onChange={(e) => setForm({ ...form, fecha: e.target.value })} style={inputStyle()} /></Field>
