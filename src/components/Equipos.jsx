@@ -173,10 +173,11 @@ export default function Equipos() {
               <th style={{ ...thStyle, textAlign: "right" }}>Hrs Últ. PM</th>
               <th style={thStyle}>Estado</th>
               <th style={{ ...thStyle, textAlign: "center" }}>Prezarpe</th>
-              <th style={thStyle}>Niveles</th>{puedeBorrar && <th style={thStyle}></th>}
+              <th style={thStyle}>Niveles</th>
+              <th style={{ ...thStyle, textAlign: "center" }}>Cons. aceite</th>{puedeBorrar && <th style={thStyle}></th>}
             </tr></thead>
             <tbody>
-              {lista.length === 0 ? <tr><td colSpan={puedeBorrar ? 11 : 10}><Empty>Sin equipos en este filtro.</Empty></td></tr> :
+              {lista.length === 0 ? <tr><td colSpan={puedeBorrar ? 12 : 11}><Empty>Sin equipos en este filtro.</Empty></td></tr> :
                 lista.map((e) => (
                   <tr key={e.id}>
                     <td style={tdStyle}><input value={e.id_visible} disabled={!puedeOperar} onChange={(ev) => onChangeLocal(e.id, "id_visible", ev.target.value)} onBlur={(ev) => commit(e.id, "id_visible", ev.target.value)} style={{ ...bluInput, width: 120 }} /></td>
@@ -205,6 +206,12 @@ export default function Equipos() {
                       <select value={e.nivel_tipo || "ninguno"} disabled={!puedeOperar} onChange={(ev) => commit(e.id, "nivel_tipo", ev.target.value)} style={inputStyle(170)}>
                         {NIVEL_TIPOS.map((n) => <option key={n.value} value={n.value}>{n.label}</option>)}
                       </select>
+                    </td>
+                    <td style={{ ...tdStyle, textAlign: "center" }}>
+                      <input type="checkbox" checked={!!e.consume_aceite} disabled={!puedeOperar}
+                        onChange={(ev) => commit(e.id, "consume_aceite", ev.target.checked)}
+                        title="Este motor consume aceite de la tineta común (para repartir el consumo por horas)"
+                        style={{ width: 17, height: 17, cursor: puedeOperar ? "pointer" : "default", accentColor: C.steel }} />
                     </td>
                     {puedeBorrar && <td style={tdStyle}><button onClick={() => eliminar(e.id)} style={{ background: "none", border: "none", cursor: "pointer", color: C.slate }}><Trash2 size={15} /></button></td>}
                   </tr>))}

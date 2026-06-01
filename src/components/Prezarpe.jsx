@@ -24,6 +24,7 @@ export default function Prezarpe() {
   const [usandoCache, setUsandoCache] = useState(false);
   const [vista, setVista] = useState("flota");
   const [nave, setNave] = useState(null);
+  const [mareaRec, setMareaRec] = useState(null);   // marea a cerrar en recalada
   const puedeOperar = canOperate(profile?.rol);
 
   const cargar = useCallback(async () => {
@@ -64,13 +65,21 @@ export default function Prezarpe() {
     return obs;
   }
 
-  async function registrarRecalada(m) {
+  function abrirRecalada(m) {
     if (!online) { setError("Registrar la recalada requiere conexión."); return; }
-    if (!window.confirm(`¿Registrar recalada de ${embName(m.embarcacion_id)} y cerrar la marea?`)) return;
+    setMareaRec(m); setVista("recalada");
+  }
+
+  async function guardarRecalada(m, datos) {
     try {
-      await updateRow("mareas", m.id, { estado: "cerrada", recalada_at: new Date().toISOString() });
+      await updateRow("mareas", m.id, {
+        estado: "cerrada", recalada_at: new Date().toISOString(),
+        comb_fin: datos.comb_fin, agua_fin: datos.agua_fin, aceite_fin: datos.aceite_fin,
+        horometros_fin: datos.horometros_fin,
+      });
       logActivity(profile, "Recalada", embName(m.embarcacion_id));
-      cargar();
+      setVista("flota"); setMareaRec(null); setError(null);
+      await cargar();
     } catch (e) { setError("No se pudo registrar la recalada: " + e.message); }
   }
 
@@ -80,7 +89,8 @@ export default function Prezarpe() {
     const mareaId = nuevoId();
     const prezId = nuevoId();
     const folio = `M-${String(mareas.length + 1).padStart(3, "0")}`;
-    const marea = { id: mareaId, empresa_id: profile.empresa_id, embarcacion_id: nave.id, folio, estado: "navegando", zarpe_at: new Date().toISOString(), responsable: profile.nombre || "", created_by: profile.id };
+    const marea = { id: mareaId, empresa_id: profile.empresa_id, embarcacion_id: nave.id, folio, estado: "navegando", zarpe_at: new Date().toISOString(), responsable: profile.nombre || "", created_by: profile.id,
+      comb_ini: payload.combustible_l, agua_ini: payload.agua_l, aceite_ini: payload.aceite_l, horometros_ini: payload.horometros };
     const prez = { id: prezId, empresa_id: profile.empresa_id, embarcacion_id: nave.id, marea_id: mareaId, fecha: HOY(), responsable: profile.nombre || "", ...payload, created_by: profile.id };
 
     // Si el prezarpe NO es apto, se genera una solicitud para el Jefe de Mantención.
@@ -129,11 +139,19 @@ export default function Prezarpe() {
         </div>
       )}
 
-      {vista === "flota"
-        ? <VistaFlota embarcaciones={embarcaciones} mareaAbierta={mareaAbierta} puedeOperar={puedeOperar}
-            onIniciar={(n) => { setNave(n); setVista("checklist"); }} onRecalada={registrarRecalada} />
-        : <VistaChecklist nave={nave} equipos={equipos.filter((e) => e.embarcacion_id === nave.id)}
-            onVolver={() => { setVista("flota"); setNave(null); }} onGuardar={guardarPrezarpe} />}
+      {vista === "flota" && (
+        <VistaFlota embarcaciones={embarcaciones} mareaAbierta={mareaAbierta} puedeOperar={puedeOperar}
+          onIniciar={(n) => { setNave(n); setVista("checklist"); }} onRecalada={abrirRecalada} />
+      )}
+      {vista === "checklist" && (
+        <VistaChecklist nave={nave} equipos={equipos.filter((e) => e.embarcacion_id === nave.id)}
+          onVolver={() => { setVista("flota"); setNave(null); }} onGuardar={guardarPrezarpe} />
+      )}
+      {vista === "recalada" && (
+        <VistaRecalada marea={mareaRec} nave={embarcaciones.find((e) => e.id === mareaRec?.embarcacion_id)}
+          equipos={equipos.filter((e) => e.embarcacion_id === mareaRec?.embarcacion_id && (e.nivel_tipo || "ninguno") !== "ninguno")}
+          onVolver={() => { setVista("flota"); setMareaRec(null); }} onGuardar={(datos) => guardarRecalada(mareaRec, datos)} />
+      )}
     </div>
   );
 }
@@ -313,6 +331,87 @@ function VistaChecklist({ nave, equipos, onVolver, onGuardar }) {
           </button>
         </div>
       </Card>
+    </div>
+  );
+}
+
+// ---------- Pantalla 3: recalada (cierre de marea) ----------
+function VistaRecalada({ marea, nave, equipos, onVolver, onGuardar }) {
+  const [litros, setLitros] = useState({ combustible: 0, agua: 0, aceite: 0 });
+  const [horom, setHorom] = useState({});
+  const [guardando, setGuardando] = useState(false);
+
+  const iniH = marea?.horometros_ini || {};
+  const horomInvalido = equipos.some((e) => {
+    const v = horom[e.id]; const ant = Number(iniH[e.id] ?? e.horas_actual ?? 0);
+    return v !== undefined && v !== "" && Number(v) < ant;
+  });
+
+  async function guardar() {
+    if (horomInvalido) return;
+    if (!window.confirm(`¿Registrar recalada de ${nave?.nombre} y cerrar la marea?`)) return;
+    setGuardando(true);
+    const horometros_fin = {};
+    equipos.forEach((e) => { if (horom[e.id] !== undefined && horom[e.id] !== "") horometros_fin[e.id] = Number(horom[e.id]); });
+    await onGuardar({ comb_fin: litros.combustible, agua_fin: litros.agua, aceite_fin: litros.aceite, horometros_fin });
+    setGuardando(false);
+  }
+
+  return (
+    <div>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+        <button onClick={onVolver} style={{ ...ghostBtn, padding: "7px 12px" }}><ArrowLeft size={15} /> Flota</button>
+        <div style={{ ...archivo, fontSize: 18, fontWeight: 800, color: C.abyss }}>Recalada · {nave?.nombre}</div>
+      </div>
+
+      <div style={{ display: "flex", alignItems: "center", gap: 10, background: "#EAF4FF", border: `1px solid ${C.cyan}`, color: C.steel, padding: "10px 14px", borderRadius: 10, marginBottom: 14, fontSize: 12.5 }}>
+        <Anchor size={16} /> <span>Ingresa lo que <strong>quedó</strong> a bordo y la lectura final de horómetros. El sistema calculará el consumo de la marea.</span>
+      </div>
+
+      <Bloque titulo="Stock final a bordo" icon={Fuel}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px,1fr))", gap: 12 }}>
+          <StepperRef label="Combustible" unidad="L" icon={Fuel} ini={marea?.comb_ini} value={litros.combustible} onChange={(v) => setLitros((p) => ({ ...p, combustible: v }))} step={50} />
+          <StepperRef label="Agua dulce" unidad="L" icon={Waves} ini={marea?.agua_ini} value={litros.agua} onChange={(v) => setLitros((p) => ({ ...p, agua: v }))} step={20} />
+          <StepperRef label="Aceite" unidad="L" icon={Droplet} ini={marea?.aceite_ini} value={litros.aceite} onChange={(v) => setLitros((p) => ({ ...p, aceite: v }))} step={5} />
+        </div>
+      </Bloque>
+
+      {equipos.length > 0 && (
+        <Bloque titulo="Horómetros finales" icon={Gauge}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px,1fr))", gap: 12 }}>
+            {equipos.map((eq) => {
+              const ant = Number(iniH[eq.id] ?? eq.horas_actual ?? 0);
+              const val = horom[eq.id];
+              const invalida = val !== undefined && val !== "" && Number(val) < ant;
+              return (
+                <div key={eq.id} style={{ padding: "12px 14px", border: `1px solid ${invalida ? C.red : C.line}`, borderRadius: 10, background: "#fff" }}>
+                  <div style={{ fontSize: 12.5, fontWeight: 700, color: C.abyss }}>{eq.sistema || eq.id_visible}</div>
+                  <div style={{ fontSize: 11, color: C.slate, marginBottom: 6, fontFamily: "'IBM Plex Mono', monospace" }}>Al zarpar: {ant} h</div>
+                  <input type="number" placeholder={`≥ ${ant}`} value={val ?? ""}
+                    onChange={(e) => setHorom((p) => ({ ...p, [eq.id]: e.target.value }))}
+                    style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: `1px solid ${invalida ? C.red : "#CFE3F2"}`, fontFamily: "'IBM Plex Mono', monospace", fontSize: 14, fontWeight: 600, color: C.steel, background: "#F2F8FD" }} />
+                  {invalida && <div style={{ fontSize: 10.5, color: C.red, fontWeight: 600, marginTop: 4 }}>Debe ser ≥ {ant} h</div>}
+                </div>
+              );
+            })}
+          </div>
+        </Bloque>
+      )}
+
+      <button onClick={guardar} disabled={guardando || horomInvalido}
+        style={{ ...primaryBtn, width: "100%", justifyContent: "center", padding: "14px", fontSize: 15, opacity: horomInvalido ? 0.5 : 1, cursor: guardando || horomInvalido ? "default" : "pointer" }}>
+        <Anchor size={18} /> {guardando ? "Guardando…" : "Registrar recalada y cerrar marea"}
+      </button>
+    </div>
+  );
+}
+
+// Stepper que muestra el valor inicial como referencia
+function StepperRef({ label, unidad, icon, ini, value, onChange, step }) {
+  return (
+    <div>
+      <Stepper label={label} unidad={unidad} icon={icon} value={value} onChange={onChange} step={step} />
+      {ini !== undefined && ini !== null && <div style={{ fontSize: 10.5, color: C.slate, marginTop: 4, paddingLeft: 4 }}>Al zarpar: {ini} {unidad}</div>}
     </div>
   );
 }
