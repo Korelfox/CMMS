@@ -6,6 +6,7 @@ import {
   Wifi, WifiOff, RefreshCw, CheckCircle2,
 } from "lucide-react";
 import { useAuth } from "../lib/auth";
+import { fetchAll } from "../lib/db";
 import { useOnline, outboxCount, flushOutbox } from "../lib/offline";
 import { C, archivo, rolLabel, ROLES, isAdmin } from "../theme";
 import { Card, InlineSpinner, PageHead } from "../ui";
@@ -84,6 +85,7 @@ export default function AppShell() {
   const online = useOnline();
   const [view, setView] = useState("dashboard");
   const [navParams, setNavParams] = useState(null);  // contexto al navegar (ej. OT a resaltar)
+  const [armador, setArmador] = useState(null);      // usuario Armador (admin_empresa) de la organización
   const [pendientes, setPendientes] = useState(0);
 
   // Navega a un módulo, opcionalmente con parámetros (ej. { otId }).
@@ -124,6 +126,21 @@ export default function AppShell() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [online]);
 
+  // Identifica al Armador de la organización: el usuario con rol admin_empresa;
+  // si no hay, se usa el Super Admin como respaldo.
+  useEffect(() => {
+    if (!empresa?.id) return;
+    let vivo = true;
+    (async () => {
+      try {
+        const profs = await fetchAll("profiles");
+        const arm = profs.find((p) => p.rol === "admin_empresa") || profs.find((p) => p.rol === "super_admin");
+        if (vivo) setArmador(arm?.nombre || null);
+      } catch { /* sin datos: la barra usará el respaldo */ }
+    })();
+    return () => { vivo = false; };
+  }, [empresa?.id]);
+
   return (
     <div style={{ display: "flex", height: "100vh", color: C.ink, overflow: "hidden" }}>
       {/* SIDEBAR */}
@@ -134,9 +151,9 @@ export default function AppShell() {
               <Anchor size={21} color={C.abyss} strokeWidth={2.4} />
             </div>
             <div style={{ minWidth: 0 }}>
-              <div style={{ fontWeight: 700, fontSize: 14.5, lineHeight: 1.1 }}>CMMS Flota</div>
-              <div style={{ fontSize: 10, opacity: 0.6, letterSpacing: 1, textTransform: "uppercase", marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                {empresa?.nombre || "—"}
+              <div style={{ fontWeight: 700, fontSize: 14.5, lineHeight: 1.1 }}>CMMS Korelfox</div>
+              <div style={{ fontSize: 10, opacity: 0.6, marginTop: 3, lineHeight: 1.3 }}>
+                Energía que impulsa tu rumbo
               </div>
             </div>
           </div>
@@ -178,24 +195,30 @@ export default function AppShell() {
 
       {/* CONTENIDO */}
       <main style={{ flex: 1, overflowY: "auto", background: C.mist }}>
-        {/* Barra de estado de conexión */}
-        <div style={{ position: "sticky", top: 0, zIndex: 20, display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 12, padding: "8px 34px", background: online ? "rgba(244,248,251,.92)" : C.yellowBg, borderBottom: `1px solid ${online ? C.line : C.amber}`, backdropFilter: "blur(6px)" }}>
-          {recienSync && (
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 600, color: C.green }}>
-              <CheckCircle2 size={15} /> Sincronizado
-            </span>
-          )}
-          {pendientes > 0 && (
-            <button onClick={sincronizar} disabled={!online || sincronizando}
-              style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 600, color: "#7a5b00", background: C.amber, border: "none", borderRadius: 20, padding: "5px 12px", cursor: online && !sincronizando ? "pointer" : "default", opacity: online && !sincronizando ? 1 : 0.7 }}>
-              <RefreshCw size={13} className={sincronizando ? "spin" : ""} style={sincronizando ? { animation: "spin 1s linear infinite" } : undefined} />
-              {sincronizando ? "Sincronizando…" : `${pendientes} por subir`}
-            </button>
-          )}
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 600, color: online ? C.green : "#7a5b00" }}>
-            {online ? <Wifi size={15} /> : <WifiOff size={15} />}
-            {online ? "En línea" : "Sin conexión"}
+        {/* Barra superior: Armador + estado de conexión */}
+        <div style={{ position: "sticky", top: 0, zIndex: 20, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "8px 34px", background: online ? "rgba(244,248,251,.92)" : C.yellowBg, borderBottom: `1px solid ${online ? C.line : C.amber}`, backdropFilter: "blur(6px)" }}>
+          <span style={{ fontSize: 12, color: C.slate, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+            Armador: <strong style={{ color: C.steel }}>{armador || profile?.nombre || "—"}</strong>
+            {empresa?.puerto_base ? <span style={{ opacity: 0.7 }}> · {empresa.puerto_base}</span> : null}
           </span>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            {recienSync && (
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 600, color: C.green }}>
+                <CheckCircle2 size={15} /> Sincronizado
+              </span>
+            )}
+            {pendientes > 0 && (
+              <button onClick={sincronizar} disabled={!online || sincronizando}
+                style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 600, color: "#7a5b00", background: C.amber, border: "none", borderRadius: 20, padding: "5px 12px", cursor: online && !sincronizando ? "pointer" : "default", opacity: online && !sincronizando ? 1 : 0.7 }}>
+                <RefreshCw size={13} className={sincronizando ? "spin" : ""} style={sincronizando ? { animation: "spin 1s linear infinite" } : undefined} />
+                {sincronizando ? "Sincronizando…" : `${pendientes} por subir`}
+              </button>
+            )}
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 600, color: online ? C.green : "#7a5b00" }}>
+              {online ? <Wifi size={15} /> : <WifiOff size={15} />}
+              {online ? "En línea" : "Sin conexión"}
+            </span>
+          </div>
         </div>
         <div style={{ maxWidth: 1180, margin: "0 auto", padding: "28px 34px 60px" }}>
           <Suspense fallback={<InlineSpinner label="Cargando módulo…" />}>

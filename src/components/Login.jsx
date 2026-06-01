@@ -41,12 +41,12 @@ export default function Login() {
             <Anchor size={32} color={C.abyss} strokeWidth={2.4} />
           </div>
           <div>
-            <div style={{ ...archivo, fontSize: 26, fontWeight: 800, lineHeight: 1 }}>CMMS Flota</div>
+            <div style={{ ...archivo, fontSize: 26, fontWeight: 800, lineHeight: 1 }}>CMMS Korelfox</div>
             <div style={{ fontSize: 12, opacity: 0.6, letterSpacing: 2, textTransform: "uppercase", marginTop: 4 }}>Gestión de Mantenimiento</div>
           </div>
         </div>
         <h1 style={{ ...archivo, fontSize: 34, fontWeight: 800, lineHeight: 1.15, maxWidth: 460, marginBottom: 16 }}>
-          Mantenimiento naval, bajo control.
+          Energía que impulsa tu rumbo.
         </h1>
         <p style={{ fontSize: 15, opacity: 0.75, maxWidth: 440, lineHeight: 1.6 }}>
           Equipos, órdenes de trabajo, preventivo, inventario, confiabilidad y costos — para tu flota, en un solo lugar.

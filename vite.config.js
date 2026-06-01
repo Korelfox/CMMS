@@ -9,9 +9,9 @@ export default defineConfig({
       registerType: "autoUpdate",
       includeAssets: ["favicon.png", "icon-192.png", "icon-512.png", "icon-maskable.png"],
       manifest: {
-        name: "CMMS Flota · Gestión de Mantenimiento",
-        short_name: "CMMS Flota",
-        description: "Mantenimiento naval bajo control: equipos, OTs, preventivo e inventario.",
+        name: "CMMS Korelfox · Gestión de Mantenimiento",
+        short_name: "Korelfox",
+        description: "Energía que impulsa tu rumbo. Mantenimiento naval: equipos, OTs, preventivo e inventario.",
         theme_color: "#06182E",
         background_color: "#06182E",
         display: "standalone",

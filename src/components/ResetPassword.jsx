@@ -30,7 +30,7 @@ export default function ResetPassword() {
           <div style={{ width: 46, height: 46, borderRadius: 12, background: C.gold, display: "flex", alignItems: "center", justifyContent: "center" }}>
             <Anchor size={26} color={C.abyss} strokeWidth={2.4} />
           </div>
-          <div style={{ ...archivo, fontSize: 18, fontWeight: 800, color: C.abyss }}>CMMS Flota</div>
+          <div style={{ ...archivo, fontSize: 18, fontWeight: 800, color: C.abyss }}>CMMS Korelfox</div>
         </div>
 
         {listo ? (
