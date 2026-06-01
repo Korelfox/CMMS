@@ -24,9 +24,16 @@ const EQUIPOS_DEMO = [
   { id: "cm", nombre: "Contramarcha", niveles: "aceite", horometro: 1240 },
 ];
 
+// Origen "equipo": viene del módulo Equipos (marcado para prezarpe).
+// Origen "fijo": ítem de seguridad estándar que no siempre es un equipo registrado.
 const INSPECCION_VISUAL = [
-  "Motor Principal", "Motor Generador", "Sistema de gobierno",
-  "Bombas de achique", "Luces de navegación", "Equipo de seguridad",
+  { item: "Motor Principal", origen: "equipo" },
+  { item: "Motor Generador", origen: "equipo" },
+  { item: "Contramarcha", origen: "equipo" },
+  { item: "Sistema de gobierno", origen: "fijo" },
+  { item: "Bombas de achique", origen: "fijo" },
+  { item: "Luces de navegación", origen: "fijo" },
+  { item: "Equipo de seguridad", origen: "fijo" },
 ];
 
 export default function Prezarpe() {
@@ -116,18 +123,24 @@ function VistaChecklist({ nave, onVolver }) {
       </div>
 
       {/* BLOQUE A — Inspección visual */}
-      <Bloque titulo="A · Inspección visual de equipos" icon={Ship}
+      <Bloque titulo="A · Inspección visual" icon={Ship}
         extra={<span style={{ fontSize: 11.5, color: C.slate }}>{hechosVisual}/{totalVisual}</span>}>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px,1fr))", gap: 10 }}>
-          {INSPECCION_VISUAL.map((it) => (
-            <div key={it} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "10px 12px", border: `1px solid ${C.line}`, borderRadius: 10, background: "#fff" }}>
-              <span style={{ fontSize: 13, fontWeight: 600, color: C.ink }}>{it}</span>
+          {INSPECCION_VISUAL.map(({ item, origen }) => (
+            <div key={item} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "10px 12px", border: `1px solid ${C.line}`, borderRadius: 10, background: "#fff" }}>
+              <span style={{ fontSize: 13, fontWeight: 600, color: C.ink, display: "inline-flex", alignItems: "center", gap: 6 }}>
+                {item}
+                {origen === "equipo" && <span style={{ fontSize: 9, fontWeight: 700, color: C.steel, background: "#E4EFF8", padding: "1px 6px", borderRadius: 20, letterSpacing: 0.3 }}>EQUIPO</span>}
+              </span>
               <div style={{ display: "flex", gap: 6 }}>
-                <Semaforo activo={visual[it] === "ok"} tone="green" onClick={() => setVis(it, "ok")}><Check size={16} /></Semaforo>
-                <Semaforo activo={visual[it] === "falla"} tone="red" onClick={() => setVis(it, "falla")}><X size={16} /></Semaforo>
+                <Semaforo activo={visual[item] === "ok"} tone="green" onClick={() => setVis(item, "ok")}><Check size={16} /></Semaforo>
+                <Semaforo activo={visual[item] === "falla"} tone="red" onClick={() => setVis(item, "falla")}><X size={16} /></Semaforo>
               </div>
             </div>
           ))}
+        </div>
+        <div style={{ fontSize: 11.5, color: C.slate, marginTop: 10 }}>
+          Los marcados <strong>EQUIPO</strong> se agregan/quitan desde el módulo Equipos (opción "incluir en prezarpe"). Los demás son ítems de seguridad estándar.
         </div>
       </Bloque>
 
@@ -263,7 +276,12 @@ function Stepper({ label, unidad, icon: Icon, value, onChange, step = 1 }) {
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
         <button onClick={() => onChange(Math.max(0, value - step))} style={stepBtn}>−</button>
-        <div style={{ flex: 1, textAlign: "center", fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, fontSize: 16, color: C.steel }}>{value} <span style={{ fontSize: 11, color: C.slate }}>{unidad}</span></div>
+        <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 4, background: "#F2F8FD", border: "1px solid #CFE3F2", borderRadius: 8, padding: "4px 8px" }}>
+          <input type="number" value={value}
+            onChange={(e) => onChange(Math.max(0, Number(e.target.value) || 0))}
+            style={{ width: "100%", border: "none", background: "transparent", textAlign: "center", fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, fontSize: 16, color: C.steel, outline: "none" }} />
+          <span style={{ fontSize: 11, color: C.slate }}>{unidad}</span>
+        </div>
         <button onClick={() => onChange(value + step)} style={stepBtn}>+</button>
       </div>
     </div>
