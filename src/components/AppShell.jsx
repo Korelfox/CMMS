@@ -41,7 +41,7 @@ const NAV = [
   { id: "mgm", label: "Modelo MGM", icon: Layers, group: "Principal" },
   { id: "embarcaciones", label: "Embarcaciones", icon: Sailboat, group: "Flota" },
   { id: "equipos", label: "Equipos", icon: Ship, group: "Flota" },
-  { id: "prezarpe", label: "Prezarpe (preview)", icon: ShipWheel, group: "Flota" },
+  { id: "prezarpe", label: "Prezarpe", icon: ShipWheel, group: "Flota" },
   { id: "planpm", label: "Plan Preventivo", icon: CalendarClock, group: "Operación" },
   { id: "programa", label: "Programación", icon: Calendar, group: "Operación" },
   { id: "solicitudes", label: "Solicitudes", icon: Inbox, group: "Operación" },

@@ -8,6 +8,13 @@ import {
   thStyle, tdStyle, FilterBtn, Field, Empty, ErrorBanner, InlineSpinner,
 } from "../ui";
 
+// Tipo de niveles que se revisan en el prezarpe para este equipo
+const NIVEL_TIPOS = [
+  { value: "ninguno", label: "— No aplica" },
+  { value: "aceite", label: "Solo aceite" },
+  { value: "aceite_agua", label: "Aceite + agua chaqueta" },
+];
+
 export default function Equipos() {
   const { profile } = useAuth();
   const [embarcaciones, setEmbarcaciones] = useState([]);
@@ -164,10 +171,12 @@ export default function Equipos() {
               <th style={thStyle}>Marca</th><th style={thStyle}>Modelo</th>
               <th style={{ ...thStyle, textAlign: "right" }}>Horas Actuales</th>
               <th style={{ ...thStyle, textAlign: "right" }}>Hrs Últ. PM</th>
-              <th style={thStyle}>Estado</th>{puedeBorrar && <th style={thStyle}></th>}
+              <th style={thStyle}>Estado</th>
+              <th style={{ ...thStyle, textAlign: "center" }}>Prezarpe</th>
+              <th style={thStyle}>Niveles</th>{puedeBorrar && <th style={thStyle}></th>}
             </tr></thead>
             <tbody>
-              {lista.length === 0 ? <tr><td colSpan={puedeBorrar ? 9 : 8}><Empty>Sin equipos en este filtro.</Empty></td></tr> :
+              {lista.length === 0 ? <tr><td colSpan={puedeBorrar ? 11 : 10}><Empty>Sin equipos en este filtro.</Empty></td></tr> :
                 lista.map((e) => (
                   <tr key={e.id}>
                     <td style={tdStyle}><input value={e.id_visible} disabled={!puedeOperar} onChange={(ev) => onChangeLocal(e.id, "id_visible", ev.target.value)} onBlur={(ev) => commit(e.id, "id_visible", ev.target.value)} style={{ ...bluInput, width: 120 }} /></td>
@@ -184,6 +193,17 @@ export default function Equipos() {
                     <td style={tdStyle}>
                       <select value={e.estado} disabled={!puedeOperar} onChange={(ev) => commit(e.id, "estado", ev.target.value)} style={inputStyle(130)}>
                         {ESTADOS_EQUIPO.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+                      </select>
+                    </td>
+                    <td style={{ ...tdStyle, textAlign: "center" }}>
+                      <input type="checkbox" checked={!!e.prezarpe} disabled={!puedeOperar}
+                        onChange={(ev) => commit(e.id, "prezarpe", ev.target.checked)}
+                        title="Incluir este equipo en la inspección de prezarpe"
+                        style={{ width: 17, height: 17, cursor: puedeOperar ? "pointer" : "default", accentColor: C.steel }} />
+                    </td>
+                    <td style={tdStyle}>
+                      <select value={e.nivel_tipo || "ninguno"} disabled={!puedeOperar} onChange={(ev) => commit(e.id, "nivel_tipo", ev.target.value)} style={inputStyle(170)}>
+                        {NIVEL_TIPOS.map((n) => <option key={n.value} value={n.value}>{n.label}</option>)}
                       </select>
                     </td>
                     {puedeBorrar && <td style={tdStyle}><button onClick={() => eliminar(e.id)} style={{ background: "none", border: "none", cursor: "pointer", color: C.slate }}><Trash2 size={15} /></button></td>}

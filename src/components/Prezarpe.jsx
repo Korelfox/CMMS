@@ -1,93 +1,150 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   Ship, Anchor, Fuel, Droplet, Gauge, Check, X, AlertTriangle,
-  ArrowLeft, Camera, ClipboardCheck, ChevronRight, Waves,
+  ArrowLeft, Camera, ClipboardCheck, Waves, CloudOff, Clock,
 } from "lucide-react";
-import { C, archivo } from "../theme";
-import { Card, PageHead, Pill, primaryBtn, ghostBtn } from "../ui";
+import { useAuth } from "../lib/auth";
+import { fetchAll, insertRow, updateRow, logActivity } from "../lib/db";
+import { useOnline, cacheTable, getCached, queueInsert, nuevoId } from "../lib/offline";
+import { C, archivo, canOperate } from "../theme";
+import { Card, PageHead, Pill, primaryBtn, ghostBtn, InlineSpinner, ErrorBanner, Empty } from "../ui";
 
-// ============================================================
-//  MOCKUP / VISTA PREVIA — Prezarpe & Mareas
-//  Datos de ejemplo en memoria. NO toca Supabase ni guarda nada.
-//  Sirve solo para validar el flujo y el diseño visual.
-// ============================================================
-
-const FLOTA_DEMO = [
-  { id: "dm", nombre: "Don Miguel", codigo: "DM", estado: "en_puerto" },
-  { id: "ec", nombre: "Estrella del Carmen", codigo: "EC", estado: "navegando", zarpe: "Hoy 05:40" },
-];
-
-// Equipos con su marca de niveles (decisión #1): "aceite" o "aceite_agua"
-const EQUIPOS_DEMO = [
-  { id: "mp", nombre: "Motor Principal", niveles: "aceite_agua", horometro: 1240 },
-  { id: "mg", nombre: "Motor Generador", niveles: "aceite_agua", horometro: 860 },
-  { id: "cm", nombre: "Contramarcha", niveles: "aceite", horometro: 1240 },
-];
-
-// Origen "equipo": viene del módulo Equipos (marcado para prezarpe).
-// Origen "fijo": ítem de seguridad estándar que no siempre es un equipo registrado.
-const INSPECCION_VISUAL = [
-  { item: "Motor Principal", origen: "equipo" },
-  { item: "Motor Generador", origen: "equipo" },
-  { item: "Contramarcha", origen: "equipo" },
-  { item: "Sistema de gobierno", origen: "fijo" },
-  { item: "Bombas de achique", origen: "fijo" },
-  { item: "Luces de navegación", origen: "fijo" },
-  { item: "Equipo de seguridad", origen: "fijo" },
-];
+const HOY = () => new Date().toISOString().slice(0, 10);
+// Ítems de seguridad estándar (lista fija para toda la flota)
+const SEGURIDAD_FIJA = ["Sistema de gobierno", "Bombas de achique", "Luces de navegación", "Equipo de seguridad"];
 
 export default function Prezarpe() {
-  const [vista, setVista] = useState("flota");      // "flota" | "checklist"
+  const { profile } = useAuth();
+  const online = useOnline();
+  const [embarcaciones, setEmbarcaciones] = useState([]);
+  const [equipos, setEquipos] = useState([]);
+  const [mareas, setMareas] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [usandoCache, setUsandoCache] = useState(false);
+  const [vista, setVista] = useState("flota");
   const [nave, setNave] = useState(null);
+  const puedeOperar = canOperate(profile?.rol);
+
+  const cargar = useCallback(async () => {
+    setLoading(true); setError(null);
+    try {
+      const [embs, eqs, ms] = await Promise.all([
+        fetchAll("embarcaciones", { order: { col: "codigo", asc: true } }),
+        fetchAll("equipos", { order: { col: "id_visible", asc: true } }),
+        fetchAll("mareas", { order: { col: "zarpe_at", asc: false } }),
+      ]);
+      setEmbarcaciones(embs); setEquipos(eqs); setMareas(ms); setUsandoCache(false);
+      cacheTable("embarcaciones", embs); cacheTable("equipos", eqs); cacheTable("mareas", ms);
+    } catch (e) {
+      const [embs, eqs, ms] = await Promise.all([getCached("embarcaciones"), getCached("equipos"), getCached("mareas")]);
+      setEmbarcaciones(embs); setEquipos(eqs); setMareas(ms); setUsandoCache(true);
+      if (!embs.length) setError("No se pudo cargar y no hay copia local. Conéctate al menos una vez.");
+    } finally { setLoading(false); }
+  }, []);
+  useEffect(() => { cargar(); }, [cargar]);
+  useEffect(() => {
+    const f = () => cargar();
+    window.addEventListener("cmms-synced", f);
+    return () => window.removeEventListener("cmms-synced", f);
+  }, [cargar]);
+
+  const embName = (id) => embarcaciones.find((e) => e.id === id)?.nombre || "—";
+  const mareaAbierta = (embId) => mareas.find((m) => m.embarcacion_id === embId && m.estado === "navegando");
+
+  async function registrarRecalada(m) {
+    if (!online) { setError("Registrar la recalada requiere conexión."); return; }
+    if (!window.confirm(`¿Registrar recalada de ${embName(m.embarcacion_id)} y cerrar la marea?`)) return;
+    try {
+      await updateRow("mareas", m.id, { estado: "cerrada", recalada_at: new Date().toISOString() });
+      logActivity(profile, "Recalada", embName(m.embarcacion_id));
+      cargar();
+    } catch (e) { setError("No se pudo registrar la recalada: " + e.message); }
+  }
+
+  // Guarda el prezarpe: abre la marea + registra el checklist. El trigger de
+  // la base aplica los horómetros a los equipos (también al sincronizar offline).
+  async function guardarPrezarpe(payload) {
+    const mareaId = nuevoId();
+    const prezId = nuevoId();
+    const folio = `M-${String(mareas.length + 1).padStart(3, "0")}`;
+    const marea = { id: mareaId, empresa_id: profile.empresa_id, embarcacion_id: nave.id, folio, estado: "navegando", zarpe_at: new Date().toISOString(), responsable: profile.nombre || "", created_by: profile.id };
+    const prez = { id: prezId, empresa_id: profile.empresa_id, embarcacion_id: nave.id, marea_id: mareaId, fecha: HOY(), responsable: profile.nombre || "", ...payload, created_by: profile.id };
+    try {
+      if (online) {
+        const { empresa_id: _a, ...mRest } = marea; await insertRow("mareas", profile.empresa_id, mRest);
+        const { empresa_id: _b, ...pRest } = prez; await insertRow("prezarpes", profile.empresa_id, pRest);
+        logActivity(profile, "Prezarpe", `${nave.nombre} · ${payload.apto ? "APTO" : "NO APTO"}`);
+        await cargar();
+      } else {
+        await queueInsert("mareas", marea, `Zarpe ${nave.nombre}`);
+        await queueInsert("prezarpes", prez, `Prezarpe ${nave.nombre}`);
+        setMareas((p) => [{ ...marea, _pending: true }, ...p]);
+      }
+      setVista("flota"); setNave(null); setError(null);
+    } catch (e) { setError("No se pudo guardar el prezarpe: " + e.message); }
+  }
+
+  if (loading) return <div><PageHead kicker="Flota · Operación" title="Prezarpe & Mareas" /><Card><InlineSpinner label="Cargando flota…" /></Card></div>;
 
   return (
     <div>
       <PageHead kicker="Flota · Operación" title="Prezarpe & Mareas"
-        sub="Antes de cada zarpe, el maquinista inspecciona la embarcación y registra niveles, abastecimiento y horómetros." />
+        sub="Antes de cada zarpe, inspecciona la embarcación y registra niveles, abastecimiento y horómetros. La lectura de horómetros actualiza el Plan Preventivo." />
 
-      {/* Aviso de vista previa */}
-      <div style={{ display: "flex", alignItems: "center", gap: 10, background: C.purpleBg || "#EFE9FB", border: `1px dashed ${C.purple}`, color: C.purple, padding: "10px 14px", borderRadius: 10, marginBottom: 16, fontSize: 13 }}>
-        <ClipboardCheck size={16} />
-        <span><strong>Vista previa (mockup).</strong> Datos de ejemplo · todavía no se guarda nada. Sirve para revisar el flujo y el diseño.</span>
-      </div>
+      <ErrorBanner onRetry={cargar}>{error}</ErrorBanner>
+
+      {(!online || usandoCache) && (
+        <div style={{ display: "flex", alignItems: "center", gap: 10, background: C.yellowBg, border: `1px solid ${C.amber}`, color: "#7a5b00", padding: "10px 14px", borderRadius: 10, marginBottom: 14, fontSize: 13 }}>
+          <CloudOff size={17} />
+          <span>{online ? "Mostrando la última copia guardada en este dispositivo." : "Sin conexión: puedes registrar el prezarpe igual; se sube solo al recuperar señal. La recalada requiere conexión."}</span>
+        </div>
+      )}
 
       {vista === "flota"
-        ? <VistaFlota onIniciar={(n) => { setNave(n); setVista("checklist"); }} />
-        : <VistaChecklist nave={nave} onVolver={() => setVista("flota")} />}
+        ? <VistaFlota embarcaciones={embarcaciones} mareaAbierta={mareaAbierta} puedeOperar={puedeOperar}
+            onIniciar={(n) => { setNave(n); setVista("checklist"); }} onRecalada={registrarRecalada} />
+        : <VistaChecklist nave={nave} equipos={equipos.filter((e) => e.embarcacion_id === nave.id)}
+            onVolver={() => { setVista("flota"); setNave(null); }} onGuardar={guardarPrezarpe} />}
     </div>
   );
 }
 
-// ---------- Pantalla 1: tarjetas de embarcaciones ----------
-function VistaFlota({ onIniciar }) {
+// ---------- Pantalla 1: flota ----------
+function VistaFlota({ embarcaciones, mareaAbierta, puedeOperar, onIniciar, onRecalada }) {
+  if (embarcaciones.length === 0) {
+    return <Card><Empty><Ship size={30} color={C.amber} style={{ marginBottom: 10 }} /><br />Registra al menos una embarcación para usar el prezarpe.</Empty></Card>;
+  }
   return (
     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 14 }}>
-      {FLOTA_DEMO.map((n) => {
-        const enPuerto = n.estado === "en_puerto";
+      {embarcaciones.map((n) => {
+        const marea = mareaAbierta(n.id);
+        const navegando = !!marea;
         return (
           <Card key={n.id} style={{ padding: 0, overflow: "hidden" }}>
-            <div style={{ padding: "16px 18px", background: enPuerto ? C.mist : "#EAF4FF", display: "flex", alignItems: "center", gap: 12, borderBottom: `1px solid ${C.line}` }}>
-              <div style={{ width: 46, height: 46, borderRadius: 11, background: enPuerto ? C.steel : C.cyan, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                {enPuerto ? <Anchor size={24} color="#fff" /> : <Ship size={24} color="#fff" />}
+            <div style={{ padding: "16px 18px", background: navegando ? "#EAF4FF" : C.mist, display: "flex", alignItems: "center", gap: 12, borderBottom: `1px solid ${C.line}` }}>
+              <div style={{ width: 46, height: 46, borderRadius: 11, background: navegando ? C.cyan : C.steel, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                {navegando ? <Ship size={24} color="#fff" /> : <Anchor size={24} color="#fff" />}
               </div>
-              <div style={{ flex: 1 }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ ...archivo, fontSize: 17, fontWeight: 800, color: C.abyss }}>{n.nombre}</div>
                 <div style={{ fontSize: 11.5, color: C.slate, fontFamily: "'IBM Plex Mono', monospace" }}>{n.codigo}</div>
               </div>
-              <Pill tone={enPuerto ? "slate" : "cyan"}>{enPuerto ? "En puerto" : "Navegando"}</Pill>
+              <Pill tone={navegando ? "cyan" : "slate"}>{navegando ? "Navegando" : "En puerto"}</Pill>
             </div>
             <div style={{ padding: "14px 18px" }}>
-              {enPuerto ? (
-                <button onClick={() => onIniciar(n)} style={{ ...primaryBtn, width: "100%", justifyContent: "center", padding: "12px" }}>
-                  <ClipboardCheck size={17} /> Iniciar prezarpe
-                </button>
-              ) : (
+              {navegando ? (
                 <div>
-                  <div style={{ fontSize: 12.5, color: C.slate, marginBottom: 10 }}>Zarpó {n.zarpe} · marea en curso</div>
-                  <button style={{ ...ghostBtn, width: "100%", justifyContent: "center", padding: "11px", color: C.steel, borderColor: C.steel }}>
-                    <Anchor size={16} /> Registrar recalada
-                  </button>
+                  <div style={{ fontSize: 12.5, color: C.slate, marginBottom: 10 }}>
+                    Zarpó {new Date(marea.zarpe_at).toLocaleString("es-CL", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
+                    {marea._pending && <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 700, color: "#7a5b00", background: C.amber, padding: "1px 6px", borderRadius: 20 }}><Clock size={9} /> Pendiente</span>}
+                  </div>
+                  {puedeOperar && <button onClick={() => onRecalada(marea)} style={{ ...ghostBtn, width: "100%", justifyContent: "center", padding: "11px", color: C.steel, borderColor: C.steel }}><Anchor size={16} /> Registrar recalada</button>}
                 </div>
+              ) : (
+                puedeOperar
+                  ? <button onClick={() => onIniciar(n)} style={{ ...primaryBtn, width: "100%", justifyContent: "center", padding: "12px" }}><ClipboardCheck size={17} /> Iniciar prezarpe</button>
+                  : <div style={{ fontSize: 12.5, color: C.slate, textAlign: "center" }}>En puerto</div>
               )}
             </div>
           </Card>
@@ -97,23 +154,45 @@ function VistaFlota({ onIniciar }) {
   );
 }
 
-// ---------- Pantalla 2: checklist de prezarpe ----------
-function VistaChecklist({ nave, onVolver }) {
-  const [visual, setVisual] = useState({});       // item -> "ok" | "falla"
-  const [niveles, setNiveles] = useState({});     // eqId -> { aceite, agua }
-  const [litros, setLitros] = useState({ combustible: 600, agua: 200, aceite: 40 });
-  const [horom, setHorom] = useState({});         // eqId -> lectura nueva
-  const [apto, setApto] = useState(null);
+// ---------- Pantalla 2: checklist ----------
+function VistaChecklist({ nave, equipos, onVolver, onGuardar }) {
+  const visualEquipos = equipos.filter((e) => e.prezarpe).map((e) => ({ item: e.sistema || e.id_visible, origen: "equipo" }));
+  const visualItems = [...visualEquipos, ...SEGURIDAD_FIJA.map((s) => ({ item: s, origen: "fijo" }))];
+  const nivelEquipos = equipos.filter((e) => (e.nivel_tipo || "ninguno") !== "ninguno");
+
+  const [visual, setVisual] = useState({});
+  const [niveles, setNiveles] = useState({});
+  const [litros, setLitros] = useState({ combustible: 0, agua: 0, aceite: 0 });
+  const [horom, setHorom] = useState({});
+  const [guardando, setGuardando] = useState(false);
 
   const setVis = (it, v) => setVisual((p) => ({ ...p, [it]: p[it] === v ? null : v }));
   const setNiv = (id, campo, v) => setNiveles((p) => ({ ...p, [id]: { ...p[id], [campo]: (p[id]?.[campo] === v ? null : v) } }));
 
-  // Progreso y veredicto sugerido
-  const totalVisual = INSPECCION_VISUAL.length;
   const hechosVisual = Object.values(visual).filter(Boolean).length;
   const hayFalla = Object.values(visual).includes("falla");
   const hayBajo = Object.values(niveles).some((n) => n?.aceite === "bajo" || n?.agua === "bajo");
+  const horomInvalido = nivelEquipos.some((e) => { const v = horom[e.id]; return v !== undefined && v !== "" && Number(v) < (e.horas_actual || 0); });
   const sugerencia = hayFalla || hayBajo ? "no_apto" : "apto";
+
+  async function guardar(apto) {
+    if (horomInvalido) return;
+    const ok = apto
+      ? window.confirm(`Declarar ${nave.nombre} APTA para zarpar?`)
+      : window.confirm(`Marcar ${nave.nombre} como NO APTA? Se registrará el prezarpe con las observaciones.`);
+    if (!ok) return;
+    setGuardando(true);
+    // Solo horómetros con lectura ingresada
+    const horometros = {};
+    nivelEquipos.forEach((e) => { if (horom[e.id] !== undefined && horom[e.id] !== "") horometros[e.id] = Number(horom[e.id]); });
+    await onGuardar({
+      visual, niveles,
+      combustible_l: litros.combustible, agua_l: litros.agua, aceite_l: litros.aceite,
+      horometros, apto,
+      observaciones: "",
+    });
+    setGuardando(false);
+  }
 
   return (
     <div>
@@ -122,15 +201,13 @@ function VistaChecklist({ nave, onVolver }) {
         <div style={{ ...archivo, fontSize: 18, fontWeight: 800, color: C.abyss }}>Prezarpe · {nave?.nombre}</div>
       </div>
 
-      {/* BLOQUE A — Inspección visual */}
-      <Bloque titulo="A · Inspección visual" icon={Ship}
-        extra={<span style={{ fontSize: 11.5, color: C.slate }}>{hechosVisual}/{totalVisual}</span>}>
+      <Bloque titulo="A · Inspección visual" icon={Ship} extra={<span style={{ fontSize: 11.5, color: C.slate }}>{hechosVisual}/{visualItems.length}</span>}>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px,1fr))", gap: 10 }}>
-          {INSPECCION_VISUAL.map(({ item, origen }) => (
+          {visualItems.map(({ item, origen }) => (
             <div key={item} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "10px 12px", border: `1px solid ${C.line}`, borderRadius: 10, background: "#fff" }}>
               <span style={{ fontSize: 13, fontWeight: 600, color: C.ink, display: "inline-flex", alignItems: "center", gap: 6 }}>
                 {item}
-                {origen === "equipo" && <span style={{ fontSize: 9, fontWeight: 700, color: C.steel, background: "#E4EFF8", padding: "1px 6px", borderRadius: 20, letterSpacing: 0.3 }}>EQUIPO</span>}
+                {origen === "equipo" && <span style={{ fontSize: 9, fontWeight: 700, color: C.steel, background: "#E4EFF8", padding: "1px 6px", borderRadius: 20 }}>EQUIPO</span>}
               </span>
               <div style={{ display: "flex", gap: 6 }}>
                 <Semaforo activo={visual[item] === "ok"} tone="green" onClick={() => setVis(item, "ok")}><Check size={16} /></Semaforo>
@@ -139,29 +216,26 @@ function VistaChecklist({ nave, onVolver }) {
             </div>
           ))}
         </div>
-        <div style={{ fontSize: 11.5, color: C.slate, marginTop: 10 }}>
-          Los marcados <strong>EQUIPO</strong> se agregan/quitan desde el módulo Equipos (opción "incluir en prezarpe"). Los demás son ítems de seguridad estándar.
-        </div>
       </Bloque>
 
-      {/* BLOQUE B — Niveles de operación (cualitativo, según marca del equipo) */}
-      <Bloque titulo="B · Niveles de operación" icon={Droplet}>
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {EQUIPOS_DEMO.map((eq) => (
-            <div key={eq.id} style={{ padding: "12px 14px", border: `1px solid ${C.line}`, borderRadius: 10, background: "#fff" }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: C.abyss, marginBottom: 8 }}>
-                {eq.nombre} <span style={{ fontSize: 10.5, fontWeight: 600, color: C.slate }}>· {eq.niveles === "aceite_agua" ? "aceite + agua chaqueta" : "solo aceite"}</span>
+      {nivelEquipos.length > 0 && (
+        <Bloque titulo="B · Niveles de operación" icon={Droplet}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {nivelEquipos.map((eq) => (
+              <div key={eq.id} style={{ padding: "12px 14px", border: `1px solid ${C.line}`, borderRadius: 10, background: "#fff" }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: C.abyss, marginBottom: 8 }}>
+                  {eq.sistema || eq.id_visible} <span style={{ fontSize: 10.5, fontWeight: 600, color: C.slate }}>· {eq.nivel_tipo === "aceite_agua" ? "aceite + agua chaqueta" : "solo aceite"}</span>
+                </div>
+                <div style={{ display: "flex", gap: 18, flexWrap: "wrap" }}>
+                  <NivelItem label="Aceite" estado={niveles[eq.id]?.aceite} onSet={(v) => setNiv(eq.id, "aceite", v)} />
+                  {eq.nivel_tipo === "aceite_agua" && <NivelItem label="Agua chaqueta" estado={niveles[eq.id]?.agua} onSet={(v) => setNiv(eq.id, "agua", v)} />}
+                </div>
               </div>
-              <div style={{ display: "flex", gap: 18, flexWrap: "wrap" }}>
-                <NivelItem label="Aceite" estado={niveles[eq.id]?.aceite} onSet={(v) => setNiv(eq.id, "aceite", v)} />
-                {eq.niveles === "aceite_agua" && <NivelItem label="Agua chaqueta" estado={niveles[eq.id]?.agua} onSet={(v) => setNiv(eq.id, "agua", v)} />}
-              </div>
-            </div>
-          ))}
-        </div>
-      </Bloque>
+            ))}
+          </div>
+        </Bloque>
+      )}
 
-      {/* BLOQUE C — Abastecimiento en litros */}
       <Bloque titulo="C · Abastecimiento a bordo" icon={Fuel}>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px,1fr))", gap: 12 }}>
           <Stepper label="Combustible" unidad="L" icon={Fuel} value={litros.combustible} onChange={(v) => setLitros((p) => ({ ...p, combustible: v }))} step={50} />
@@ -170,59 +244,46 @@ function VistaChecklist({ nave, onVolver }) {
         </div>
       </Bloque>
 
-      {/* BLOQUE D — Horómetros (con validación >= anterior) */}
-      <Bloque titulo="D · Lectura de horómetros" icon={Gauge}>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px,1fr))", gap: 12 }}>
-          {EQUIPOS_DEMO.map((eq) => {
-            const val = horom[eq.id];
-            const invalida = val !== undefined && val !== "" && Number(val) < eq.horometro;
-            return (
-              <div key={eq.id} style={{ padding: "12px 14px", border: `1px solid ${invalida ? C.red : C.line}`, borderRadius: 10, background: "#fff" }}>
-                <div style={{ fontSize: 12.5, fontWeight: 700, color: C.abyss }}>{eq.nombre}</div>
-                <div style={{ fontSize: 11, color: C.slate, marginBottom: 6, fontFamily: "'IBM Plex Mono', monospace" }}>Anterior: {eq.horometro} h</div>
-                <input type="number" placeholder={`≥ ${eq.horometro}`} value={val ?? ""}
-                  onChange={(e) => setHorom((p) => ({ ...p, [eq.id]: e.target.value }))}
-                  style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: `1px solid ${invalida ? C.red : "#CFE3F2"}`, fontFamily: "'IBM Plex Mono', monospace", fontSize: 14, fontWeight: 600, color: C.steel, background: "#F2F8FD" }} />
-                {invalida && <div style={{ fontSize: 10.5, color: C.red, fontWeight: 600, marginTop: 4 }}>Debe ser igual o mayor a {eq.horometro} h</div>}
-              </div>
-            );
-          })}
-        </div>
-      </Bloque>
+      {nivelEquipos.length > 0 && (
+        <Bloque titulo="D · Lectura de horómetros" icon={Gauge}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px,1fr))", gap: 12 }}>
+            {nivelEquipos.map((eq) => {
+              const val = horom[eq.id];
+              const ant = eq.horas_actual || 0;
+              const invalida = val !== undefined && val !== "" && Number(val) < ant;
+              return (
+                <div key={eq.id} style={{ padding: "12px 14px", border: `1px solid ${invalida ? C.red : C.line}`, borderRadius: 10, background: "#fff" }}>
+                  <div style={{ fontSize: 12.5, fontWeight: 700, color: C.abyss }}>{eq.sistema || eq.id_visible}</div>
+                  <div style={{ fontSize: 11, color: C.slate, marginBottom: 6, fontFamily: "'IBM Plex Mono', monospace" }}>Anterior: {ant} h</div>
+                  <input type="number" placeholder={`≥ ${ant}`} value={val ?? ""}
+                    onChange={(e) => setHorom((p) => ({ ...p, [eq.id]: e.target.value }))}
+                    style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: `1px solid ${invalida ? C.red : "#CFE3F2"}`, fontFamily: "'IBM Plex Mono', monospace", fontSize: 14, fontWeight: 600, color: C.steel, background: "#F2F8FD" }} />
+                  {invalida && <div style={{ fontSize: 10.5, color: C.red, fontWeight: 600, marginTop: 4 }}>Debe ser ≥ {ant} h</div>}
+                </div>
+              );
+            })}
+          </div>
+        </Bloque>
+      )}
 
-      {/* Adjuntar foto (placeholder) */}
-      <Bloque titulo="Evidencia (opcional)" icon={Camera}>
-        <button style={{ ...ghostBtn, padding: "10px 16px" }}><Camera size={16} /> Agregar foto</button>
-        <span style={{ fontSize: 11.5, color: C.slate, marginLeft: 10 }}>Se guardaría en la nube, organizada por embarcación y marea.</span>
-      </Bloque>
-
-      {/* Veredicto */}
       <Card style={{ marginTop: 16, borderTop: `4px solid ${sugerencia === "apto" ? C.green : C.amber}` }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
-          {sugerencia === "apto"
-            ? <Check size={20} color={C.green} />
-            : <AlertTriangle size={20} color={C.amber} />}
+          {sugerencia === "apto" ? <Check size={20} color={C.green} /> : <AlertTriangle size={20} color={C.amber} />}
           <span style={{ fontSize: 13.5, color: C.slate }}>
-            {sugerencia === "apto"
-              ? "Sin observaciones detectadas. Puedes declarar la embarcación apta."
-              : "Hay ítems en falla o niveles bajos. Si no es apta, se generará una solicitud al Jefe de Mantención."}
+            {sugerencia === "apto" ? "Sin observaciones detectadas. Puedes declarar la embarcación apta." : "Hay ítems en falla o niveles bajos. Revisa antes de declarar el veredicto."}
           </span>
         </div>
+        {horomInvalido && <div style={{ fontSize: 12.5, color: C.red, fontWeight: 600, marginBottom: 10 }}>Corrige las lecturas de horómetro (deben ser ≥ a la anterior) para poder guardar.</div>}
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-          <button onClick={() => setApto("apto")}
-            style={{ flex: 1, minWidth: 160, justifyContent: "center", display: "inline-flex", alignItems: "center", gap: 8, padding: "14px", borderRadius: 10, border: "none", cursor: "pointer", fontSize: 15, fontWeight: 800, fontFamily: "inherit", background: apto === "apto" ? C.green : C.greenBg, color: apto === "apto" ? "#fff" : C.green }}>
-            <Check size={18} /> APTO PARA ZARPAR
+          <button onClick={() => guardar(true)} disabled={guardando || horomInvalido}
+            style={{ flex: 1, minWidth: 160, justifyContent: "center", display: "inline-flex", alignItems: "center", gap: 8, padding: "14px", borderRadius: 10, border: "none", cursor: guardando || horomInvalido ? "default" : "pointer", fontSize: 15, fontWeight: 800, fontFamily: "inherit", background: C.green, color: "#fff", opacity: horomInvalido ? 0.5 : 1 }}>
+            <Check size={18} /> {guardando ? "Guardando…" : "APTO PARA ZARPAR"}
           </button>
-          <button onClick={() => setApto("no_apto")}
-            style={{ flex: 1, minWidth: 160, justifyContent: "center", display: "inline-flex", alignItems: "center", gap: 8, padding: "14px", borderRadius: 10, border: "none", cursor: "pointer", fontSize: 15, fontWeight: 800, fontFamily: "inherit", background: apto === "no_apto" ? C.red : C.redBg, color: apto === "no_apto" ? "#fff" : C.red }}>
+          <button onClick={() => guardar(false)} disabled={guardando || horomInvalido}
+            style={{ flex: 1, minWidth: 160, justifyContent: "center", display: "inline-flex", alignItems: "center", gap: 8, padding: "14px", borderRadius: 10, border: `1.5px solid ${C.red}`, cursor: guardando || horomInvalido ? "default" : "pointer", fontSize: 15, fontWeight: 800, fontFamily: "inherit", background: C.redBg, color: C.red, opacity: horomInvalido ? 0.5 : 1 }}>
             <X size={18} /> NO APTO
           </button>
         </div>
-        {apto && (
-          <div style={{ marginTop: 14, padding: "10px 14px", borderRadius: 9, background: C.mist, fontSize: 12.5, color: C.slate }}>
-            (Mockup) Aquí se guardaría el prezarpe, se abriría la marea de <strong>{nave?.nombre}</strong>, se actualizarían los horómetros{apto === "no_apto" ? " y se generaría una solicitud por las observaciones." : "."}
-          </div>
-        )}
       </Card>
     </div>
   );
@@ -248,8 +309,7 @@ function Semaforo({ activo, tone, onClick, children }) {
   const col = tone === "green" ? C.green : C.red;
   const bg = tone === "green" ? C.greenBg : C.redBg;
   return (
-    <button onClick={onClick}
-      style={{ width: 40, height: 36, borderRadius: 9, border: `1.5px solid ${activo ? col : C.line}`, background: activo ? col : bg, color: activo ? "#fff" : col, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+    <button onClick={onClick} style={{ width: 40, height: 36, borderRadius: 9, border: `1.5px solid ${activo ? col : C.line}`, background: activo ? col : bg, color: activo ? "#fff" : col, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
       {children}
     </button>
   );
@@ -259,10 +319,8 @@ function NivelItem({ label, estado, onSet }) {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
       <span style={{ fontSize: 12.5, color: C.slate, minWidth: 96 }}>{label}</span>
-      <button onClick={() => onSet("ok")}
-        style={{ padding: "6px 11px", borderRadius: 8, border: `1.5px solid ${estado === "ok" ? C.green : C.line}`, background: estado === "ok" ? C.green : C.greenBg, color: estado === "ok" ? "#fff" : C.green, fontSize: 12, fontWeight: 700, cursor: "pointer" }}>Normal</button>
-      <button onClick={() => onSet("bajo")}
-        style={{ padding: "6px 11px", borderRadius: 8, border: `1.5px solid ${estado === "bajo" ? C.amber : C.line}`, background: estado === "bajo" ? C.amber : C.yellowBg, color: estado === "bajo" ? "#fff" : "#7a5b00", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>Bajo</button>
+      <button onClick={() => onSet("ok")} style={{ padding: "6px 11px", borderRadius: 8, border: `1.5px solid ${estado === "ok" ? C.green : C.line}`, background: estado === "ok" ? C.green : C.greenBg, color: estado === "ok" ? "#fff" : C.green, fontSize: 12, fontWeight: 700, cursor: "pointer" }}>Normal</button>
+      <button onClick={() => onSet("bajo")} style={{ padding: "6px 11px", borderRadius: 8, border: `1.5px solid ${estado === "bajo" ? C.amber : C.line}`, background: estado === "bajo" ? C.amber : C.yellowBg, color: estado === "bajo" ? "#fff" : "#7a5b00", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>Bajo</button>
     </div>
   );
 }
@@ -277,8 +335,7 @@ function Stepper({ label, unidad, icon: Icon, value, onChange, step = 1 }) {
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
         <button onClick={() => onChange(Math.max(0, value - step))} style={stepBtn}>−</button>
         <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 4, background: "#F2F8FD", border: "1px solid #CFE3F2", borderRadius: 8, padding: "4px 8px" }}>
-          <input type="number" value={value}
-            onChange={(e) => onChange(Math.max(0, Number(e.target.value) || 0))}
+          <input type="number" value={value} onChange={(e) => onChange(Math.max(0, Number(e.target.value) || 0))}
             style={{ width: "100%", border: "none", background: "transparent", textAlign: "center", fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, fontSize: 16, color: C.steel, outline: "none" }} />
           <span style={{ fontSize: 11, color: C.slate }}>{unidad}</span>
         </div>
