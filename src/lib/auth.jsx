@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
+import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from "react";
 import { supabase } from "./supabase";
 
 // ============================================================
@@ -20,6 +20,7 @@ export function AuthProvider({ children }) {
   const [profileError, setProfileError] = useState(false);    // ¿falló la carga del perfil?
   const [authError, setAuthError] = useState(null);
   const [passwordRecovery, setPasswordRecovery] = useState(false);
+  const loadedUserIdRef = useRef(undefined);  // último usuario cuyo perfil ya cargamos
 
   // Carga el perfil del usuario (empresa_id, rol, nombre) y su empresa.
   const loadProfile = useCallback(async (userId) => {
@@ -68,8 +69,10 @@ export function AuthProvider({ children }) {
         const { data, error } = await supabase.auth.getSession();
         if (error) throw error;
         if (!mounted) return;
+        const uid = data.session?.user?.id ?? null;
         setSession(data.session);
-        await loadProfile(data.session?.user?.id);
+        loadedUserIdRef.current = uid;
+        await loadProfile(uid);
       } catch (e) {
         console.error("[CMMS] Error al iniciar la sesión:", e?.message || e);
         if (mounted) setAuthError("No se pudo conectar con el servidor. Revisa la configuración de Supabase (.env.local) y tu conexión.");
@@ -82,8 +85,15 @@ export function AuthProvider({ children }) {
     const { data: sub } = supabase.auth.onAuthStateChange(async (event, newSession) => {
       if (event === "PASSWORD_RECOVERY") setPasswordRecovery(true);
       setSession(newSession);
-      try { await loadProfile(newSession?.user?.id); }
-      catch (e) { console.error("[CMMS] Error cargando perfil tras cambio de sesión:", e?.message || e); }
+      const uid = newSession?.user?.id ?? null;
+      // Solo recargamos el perfil cuando CAMBIA el usuario (login/logout real).
+      // Eventos como TOKEN_REFRESHED —que se disparan al volver de otra pestaña—
+      // mantienen el mismo usuario: recargar ahí dejaba la app en "Cargando…".
+      if (uid !== loadedUserIdRef.current) {
+        loadedUserIdRef.current = uid;
+        try { await loadProfile(uid); }
+        catch (e) { console.error("[CMMS] Error cargando perfil tras cambio de sesión:", e?.message || e); }
+      }
     });
 
     return () => { mounted = false; sub.subscription.unsubscribe(); };
