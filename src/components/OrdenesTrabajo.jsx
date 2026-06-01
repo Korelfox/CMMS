@@ -1,13 +1,15 @@
 import React, { useEffect, useState, useCallback } from "react";
-import { ClipboardList, Plus, Trash2, Download, CloudOff, Clock, ChevronDown, DollarSign, Check } from "lucide-react";
+import { ClipboardList, Plus, Trash2, Download, CloudOff, Clock, ChevronDown, DollarSign, Check, Camera } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { fetchAll, insertRow, updateRow, deleteRow, logActivity } from "../lib/db";
 import { useOnline, cacheTable, getCached, queueInsert, nuevoId } from "../lib/offline";
+import { subirFotos } from "../lib/fotos";
 import { C, clp, num, isAdmin, canOperate, TIPOS_OT, PRIORIDADES, ESTADOS_OT, lk, tn } from "../theme";
 import {
   Card, PageHead, Pill, primaryBtn, ghostBtn, exportBtn, inputStyle, bluInput,
   thStyle, tdStyle, FilterBtn, Field, Empty, ErrorBanner, InlineSpinner,
 } from "../ui";
+import { FotoInput, FotoGaleria } from "./Fotos";
 
 const HOY = () => new Date().toISOString().slice(0, 10);
 
@@ -26,6 +28,8 @@ export default function OrdenesTrabajo({ navParams }) {
   const [costoOk, setCostoOk] = useState(null);          // feedback "✓ guardado" por OT
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(blank());
+  const [fotos, setFotos] = useState([]);          // fotos en memoria para la nueva OT
+  const [fotosOT, setFotosOT] = useState(null);    // OT cuya galería de fotos está abierta
   const puedeOperar = canOperate(profile?.rol);
   const puedeBorrar = isAdmin(profile?.rol);
   const puedeCostos = isAdmin(profile?.rol);  // valorizar costos: Jefe Mantención y superiores
@@ -116,13 +120,19 @@ export default function OrdenesTrabajo({ navParams }) {
         const nueva = await insertRow("ordenes_trabajo", profile.empresa_id, resto);
         setOts((p) => [nueva, ...p]);
         logActivity(profile, "Crear OT", `${fila.folio} · ${embName(form.embarcacion_id)} · ${lk(TIPOS_OT, form.tipo)} · ${form.descripcion}`);
-        setForm(blank()); setShowForm(false); setError(null);
+        // Subir fotos opcionales asociadas a la OT recién creada
+        if (fotos.length) {
+          const { errores } = await subirFotos(fotos, { empresaId: profile.empresa_id, entidad: "ot", entidadId: nueva.id, profileId: profile.id });
+          if (errores.length) setError("La OT se creó, pero algunas fotos no se subieron: " + errores[0]);
+        }
+        setForm(blank()); setFotos([]); setShowForm(false);
       } catch (e) { setError("No se pudo crear la OT: " + e.message); }
     } else {
       // Sin señal: a la cola. Sube sola al recuperar conexión.
       await queueInsert("ordenes_trabajo", fila, `OT ${embName(form.embarcacion_id)} · ${form.descripcion}`);
       setOts((p) => [{ ...fila, _pending: true }, ...p]);
-      setForm(blank()); setShowForm(false); setError(null);
+      if (fotos.length) setError("La OT quedó en cola (sin conexión). Las fotos se podrán adjuntar al recuperar señal desde el botón de cámara.");
+      setForm(blank()); setFotos([]); setShowForm(false);
     }
   }
 
@@ -241,6 +251,10 @@ export default function OrdenesTrabajo({ navParams }) {
             <Field label="Costo MO ($)"><input type="number" value={form.costo_mo} onChange={(e) => setForm({ ...form, costo_mo: +e.target.value })} style={bluInput} /></Field>
             <Field label="Costo Mat. ($)"><input type="number" value={form.costo_mat} onChange={(e) => setForm({ ...form, costo_mat: +e.target.value })} style={bluInput} /></Field>
           </div>
+          <div style={{ marginTop: 14 }}>
+            <div style={{ fontSize: 11, color: C.slate, marginBottom: 6, fontWeight: 600 }}>Fotos (opcional)</div>
+            <FotoInput files={fotos} onChange={setFotos} max={5} disabled={!online} />
+          </div>
           <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
             <button onClick={crear} style={primaryBtn}>Guardar OT</button>
             <button onClick={() => { setShowForm(false); setError(null); }} style={ghostBtn}>Cancelar</button>
@@ -279,12 +293,13 @@ export default function OrdenesTrabajo({ navParams }) {
               <th style={thStyle}>Folio</th><th style={thStyle}>Fecha</th><th style={thStyle}>Embarcación</th>
               <th style={thStyle}>Sistema</th><th style={thStyle}>Tipo</th><th style={thStyle}>Prioridad</th>
               <th style={thStyle}>Descripción</th><th style={{ ...thStyle, textAlign: "right" }}>Costo</th>
-              <th style={thStyle}>Estado</th>{puedeBorrar && <th style={thStyle}></th>}
+              <th style={thStyle}>Estado</th><th style={thStyle}></th>
             </tr></thead>
             <tbody>
-              {lista.length === 0 ? <tr><td colSpan={puedeBorrar ? 10 : 9}><Empty>Sin órdenes en este filtro.</Empty></td></tr> :
+              {lista.length === 0 ? <tr><td colSpan={10}><Empty>Sin órdenes en este filtro.</Empty></td></tr> :
                 lista.map((o) => (
-                  <tr key={o.id} style={o._pending ? { background: C.yellowBg } : undefined}>
+                  <React.Fragment key={o.id}>
+                  <tr style={o._pending ? { background: C.yellowBg } : undefined}>
                     <td style={{ ...tdStyle, fontFamily: "'IBM Plex Mono', monospace", fontWeight: 600, color: C.steel }}>
                       {o.folio}
                       {o._pending && <span title="Pendiente de sincronizar" style={{ display: "inline-flex", alignItems: "center", gap: 3, marginLeft: 6, fontSize: 10, fontFamily: "'Archivo',sans-serif", fontWeight: 700, color: "#7a5b00", background: C.amber, padding: "1px 6px", borderRadius: 20 }}><Clock size={9} /> Pendiente</span>}
@@ -317,8 +332,24 @@ export default function OrdenesTrabajo({ navParams }) {
                         ? <EstadoSelect estado={o.estado} onChange={(nuevo) => cambiarEstado(o, nuevo)} />
                         : <Pill tone={tn(ESTADOS_OT, o.estado)}>{lk(ESTADOS_OT, o.estado)}</Pill>}
                     </td>
-                    {puedeBorrar && <td style={tdStyle}>{!o._pending && <button onClick={() => eliminar(o.id)} style={{ background: "none", border: "none", cursor: "pointer", color: C.slate }}><Trash2 size={15} /></button>}</td>}
-                  </tr>))}
+                    <td style={tdStyle}>
+                      <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                        {!o._pending && online && (
+                          <button onClick={() => setFotosOT(fotosOT === o.id ? null : o.id)} title="Fotos" style={{ background: "none", border: "none", cursor: "pointer", color: fotosOT === o.id ? C.steel : C.slate }}><Camera size={15} /></button>
+                        )}
+                        {puedeBorrar && !o._pending && <button onClick={() => eliminar(o.id)} title="Eliminar" style={{ background: "none", border: "none", cursor: "pointer", color: C.slate }}><Trash2 size={15} /></button>}
+                      </div>
+                    </td>
+                  </tr>
+                  {fotosOT === o.id && (
+                    <tr>
+                      <td colSpan={10} style={{ ...tdStyle, background: C.mist }}>
+                        <div style={{ fontSize: 11, color: C.slate, fontWeight: 600, marginBottom: 8 }}>Fotos de {o.folio}</div>
+                        <FotoGaleria entidad="ot" entidadId={o.id} puedeAgregar={puedeOperar} puedeBorrar={puedeBorrar} online={online} />
+                      </td>
+                    </tr>
+                  )}
+                  </React.Fragment>))}
             </tbody>
           </table>
         </div>

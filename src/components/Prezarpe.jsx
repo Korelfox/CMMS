@@ -6,8 +6,10 @@ import {
 import { useAuth } from "../lib/auth";
 import { fetchAll, insertRow, updateRow, logActivity } from "../lib/db";
 import { useOnline, cacheTable, getCached, queueInsert, nuevoId } from "../lib/offline";
+import { subirFotos } from "../lib/fotos";
 import { C, archivo, canOperate } from "../theme";
 import { Card, PageHead, Pill, primaryBtn, ghostBtn, InlineSpinner, ErrorBanner, Empty } from "../ui";
+import { FotoInput } from "./Fotos";
 
 const HOY = () => new Date().toISOString().slice(0, 10);
 // Ítems de seguridad estándar (lista fija para toda la flota)
@@ -85,7 +87,7 @@ export default function Prezarpe() {
 
   // Guarda el prezarpe: abre la marea + registra el checklist. El trigger de
   // la base aplica los horómetros a los equipos (también al sincronizar offline).
-  async function guardarPrezarpe(payload) {
+  async function guardarPrezarpe(payload, fotos = []) {
     const mareaId = nuevoId();
     const prezId = nuevoId();
     const folio = `M-${String(mareas.length + 1).padStart(3, "0")}`;
@@ -111,6 +113,7 @@ export default function Prezarpe() {
         const { empresa_id: _a, ...mRest } = marea; await insertRow("mareas", profile.empresa_id, mRest);
         const { empresa_id: _b, ...pRest } = prez; await insertRow("prezarpes", profile.empresa_id, pRest);
         if (sol) { const { empresa_id: _c, ...sRest } = sol; await insertRow("solicitudes", profile.empresa_id, sRest); }
+        if (fotos.length) await subirFotos(fotos, { empresaId: profile.empresa_id, entidad: "prezarpe", entidadId: prezId, profileId: profile.id });
         logActivity(profile, "Prezarpe", `${nave.nombre} · ${payload.apto ? "APTO" : "NO APTO" + (sol ? " · solicitud generada" : "")}`);
         await cargar();
       } else {
@@ -144,7 +147,7 @@ export default function Prezarpe() {
           onIniciar={(n) => { setNave(n); setVista("checklist"); }} onRecalada={abrirRecalada} />
       )}
       {vista === "checklist" && (
-        <VistaChecklist nave={nave} equipos={equipos.filter((e) => e.embarcacion_id === nave.id)}
+        <VistaChecklist nave={nave} equipos={equipos.filter((e) => e.embarcacion_id === nave.id)} online={online}
           onVolver={() => { setVista("flota"); setNave(null); }} onGuardar={guardarPrezarpe} />
       )}
       {vista === "recalada" && (
@@ -201,7 +204,7 @@ function VistaFlota({ embarcaciones, mareaAbierta, puedeOperar, onIniciar, onRec
 }
 
 // ---------- Pantalla 2: checklist ----------
-function VistaChecklist({ nave, equipos, onVolver, onGuardar }) {
+function VistaChecklist({ nave, equipos, online, onVolver, onGuardar }) {
   const visualEquipos = equipos.filter((e) => e.prezarpe).map((e) => ({ item: e.sistema || e.id_visible, origen: "equipo" }));
   const visualItems = [...visualEquipos, ...SEGURIDAD_FIJA.map((s) => ({ item: s, origen: "fijo" }))];
   const nivelEquipos = equipos.filter((e) => (e.nivel_tipo || "ninguno") !== "ninguno");
@@ -210,6 +213,7 @@ function VistaChecklist({ nave, equipos, onVolver, onGuardar }) {
   const [niveles, setNiveles] = useState({});
   const [litros, setLitros] = useState({ combustible: 0, agua: 0, aceite: 0 });
   const [horom, setHorom] = useState({});
+  const [fotos, setFotos] = useState([]);
   const [guardando, setGuardando] = useState(false);
 
   const setVis = (it, v) => setVisual((p) => ({ ...p, [it]: p[it] === v ? null : v }));
@@ -236,7 +240,7 @@ function VistaChecklist({ nave, equipos, onVolver, onGuardar }) {
       combustible_l: litros.combustible, agua_l: litros.agua, aceite_l: litros.aceite,
       horometros, apto,
       observaciones: "",
-    });
+    }, fotos);
     setGuardando(false);
   }
 
@@ -311,6 +315,11 @@ function VistaChecklist({ nave, equipos, onVolver, onGuardar }) {
           </div>
         </Bloque>
       )}
+
+      <Bloque titulo="Evidencia (opcional)" icon={Camera}>
+        <FotoInput files={fotos} onChange={setFotos} max={5} disabled={!online} />
+        {!online && <div style={{ fontSize: 11, color: "#7a5b00", marginTop: 6 }}>Sin conexión: el prezarpe se guarda igual; las fotos se podrán agregar con señal.</div>}
+      </Bloque>
 
       <Card style={{ marginTop: 16, borderTop: `4px solid ${sugerencia === "apto" ? C.green : C.amber}` }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
