@@ -3,7 +3,7 @@ import {
   Anchor, LayoutDashboard, Ship, Sailboat, CalendarClock, Calendar, Inbox, ClipboardList,
   Package, Warehouse, Gauge, Activity, AlertTriangle, ClipboardCheck, DollarSign,
   TrendingUp, FileText, History, Layers, Bell, LogOut, UserCircle, UserCog,
-  Wifi, WifiOff, RefreshCw, CheckCircle2, BarChart3,
+  Wifi, WifiOff, RefreshCw, CheckCircle2, BarChart3, ShipWheel,
 } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { fetchAll } from "../lib/db";
@@ -16,6 +16,7 @@ const Alertas       = lazy(() => import("./Alertas"));
 const MGM           = lazy(() => import("./MGM"));
 const Embarcaciones = lazy(() => import("./Embarcaciones"));
 const Equipos       = lazy(() => import("./Equipos"));
+const Prezarpe      = lazy(() => import("./Prezarpe"));
 const PlanPM        = lazy(() => import("./PlanPM"));
 const Programacion  = lazy(() => import("./Programacion"));
 const Solicitudes   = lazy(() => import("./Solicitudes"));
@@ -40,6 +41,7 @@ const NAV = [
   { id: "mgm", label: "Modelo MGM", icon: Layers, group: "Principal" },
   { id: "embarcaciones", label: "Embarcaciones", icon: Sailboat, group: "Flota" },
   { id: "equipos", label: "Equipos", icon: Ship, group: "Flota" },
+  { id: "prezarpe", label: "Prezarpe (preview)", icon: ShipWheel, group: "Flota" },
   { id: "planpm", label: "Plan Preventivo", icon: CalendarClock, group: "Operación" },
   { id: "programa", label: "Programación", icon: Calendar, group: "Operación" },
   { id: "solicitudes", label: "Solicitudes", icon: Inbox, group: "Operación" },
@@ -65,6 +67,7 @@ const MODULOS = {
   mgm: MGM,
   embarcaciones: Embarcaciones,
   equipos: Equipos,
+  prezarpe: Prezarpe,
   planpm: PlanPM,
   programa: Programacion,
   solicitudes: Solicitudes,
