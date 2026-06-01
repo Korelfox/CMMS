@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback, useMemo } from "react";
 import {
-  Bell, AlertTriangle, Package, Wrench, Clock, Ship, ShoppingCart, ChevronRight, Check,
+  Bell, AlertTriangle, Package, Wrench, Clock, Ship, ShoppingCart, ChevronRight, Check, Droplet,
 } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { fetchAll } from "../lib/db";
@@ -13,6 +13,7 @@ const CATEGORIAS = [
   { id: "ot",       label: "OTs críticas",    icon: AlertTriangle },
   { id: "sla",      label: "SLA vencido",     icon: Clock },
   { id: "equipo",   label: "Equipos",         icon: Ship },
+  { id: "consumo",  label: "Consumo aceite",  icon: Droplet },
   { id: "compra",   label: "Compras",         icon: ShoppingCart },
 ];
 
@@ -23,6 +24,7 @@ const NAV_POR_CAT = {
   ot: "ots",
   sla: "solicitudes",
   equipo: "equipos",
+  consumo: "prezarpe",
   compra: "almacen",
 };
 
@@ -35,6 +37,7 @@ export default function Alertas({ onNavigate }) {
   const [ots, setOts] = useState([]);
   const [solicitudes, setSolicitudes] = useState([]);
   const [compras, setCompras] = useState([]);
+  const [prezarpes, setPrezarpes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [filtro, setFiltro] = useState("all");
@@ -42,7 +45,7 @@ export default function Alertas({ onNavigate }) {
   const cargar = useCallback(async () => {
     setLoading(true); setError(null);
     try {
-      const [embs, eqs, its, stk, otsAll, sols, cps] = await Promise.all([
+      const [embs, eqs, its, stk, otsAll, sols, cps, pzs] = await Promise.all([
         fetchAll("embarcaciones", { order: { col: "codigo", asc: true } }),
         fetchAll("equipos"),
         fetchAll("inventario_items"),
@@ -50,9 +53,10 @@ export default function Alertas({ onNavigate }) {
         fetchAll("ordenes_trabajo"),
         fetchAll("solicitudes"),
         fetchAll("compras"),
+        fetchAll("prezarpes", { order: { col: "fecha", asc: false } }),
       ]);
       setEmbarcaciones(embs); setEquipos(eqs); setItems(its); setStock(stk);
-      setOts(otsAll); setSolicitudes(sols); setCompras(cps);
+      setOts(otsAll); setSolicitudes(sols); setCompras(cps); setPrezarpes(pzs);
     } catch (e) { setError("No se pudieron cargar las alertas. " + e.message); }
     finally { setLoading(false); }
   }, []);
@@ -148,13 +152,34 @@ export default function Alertas({ onNavigate }) {
       }
     });
 
+    // 7) Consumo de aceite anómalo: nivel de aceite marcado "bajo" en prezarpes.
+    //    Recurrente (≥2) = crítico (posible fuga/desgaste); 1 vez = atención.
+    const bajoPorEquipo = {};
+    prezarpes.forEach((pz) => {
+      Object.entries(pz.niveles || {}).forEach(([eqId, n]) => {
+        if (n?.aceite === "bajo") {
+          if (!bajoPorEquipo[eqId]) bajoPorEquipo[eqId] = { n: 0, ts: pz.fecha };
+          bajoPorEquipo[eqId].n += 1;
+        }
+      });
+    });
+    Object.entries(bajoPorEquipo).forEach(([eqId, info]) => {
+      const eq = equipos.find((e) => e.id === eqId);
+      all.push({
+        cat: "consumo", sev: info.n >= 2 ? "red" : "amber",
+        titulo: `Consumo de aceite · ${eq?.sistema || eq?.id_visible || "equipo"}`,
+        detalle: `${embName(eq?.embarcacion_id)} · nivel bajo en ${info.n} prezarpe${info.n !== 1 ? "s" : ""} · ${info.n >= 2 ? "posible fuga o desgaste, revisar" : "vigilar consumo"}`,
+        ts: info.ts,
+      });
+    });
+
     // Orden: rojo primero, luego ámbar, dentro de cada uno por timestamp descendente
     return all.sort((a, b) => {
       const sevOrder = { red: 0, amber: 1, yellow: 2 };
       if (sevOrder[a.sev] !== sevOrder[b.sev]) return sevOrder[a.sev] - sevOrder[b.sev];
       return new Date(b.ts || 0).getTime() - new Date(a.ts || 0).getTime();
     });
-  }, [equipos, items, stock, ots, solicitudes, compras, embarcaciones]); // eslint-disable-line
+  }, [equipos, items, stock, ots, solicitudes, compras, prezarpes, embarcaciones]); // eslint-disable-line
 
   const conteoPorCat = (id) => alertas.filter((a) => a.cat === id).length;
   const listaFiltrada = filtro === "all" ? alertas : alertas.filter((a) => a.cat === filtro);
