@@ -3,7 +3,7 @@ import {
   Anchor, LayoutDashboard, Ship, Sailboat, CalendarClock, Calendar, Inbox, ClipboardList,
   Package, Warehouse, Gauge, Activity, AlertTriangle, ClipboardCheck, DollarSign,
   TrendingUp, FileText, History, Layers, Bell, LogOut, UserCircle, UserCog,
-  Wifi, WifiOff, RefreshCw, CheckCircle2, BarChart3, ShipWheel,
+  Wifi, WifiOff, RefreshCw, CheckCircle2, BarChart3, ShipWheel, Fuel,
 } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { fetchAll } from "../lib/db";
@@ -27,6 +27,7 @@ const KPIs          = lazy(() => import("./KPIs"));
 const Criticidad    = lazy(() => import("./Criticidad"));
 const Fallas        = lazy(() => import("./Fallas"));
 const Pareto        = lazy(() => import("./Pareto"));
+const Consumos      = lazy(() => import("./Consumos"));
 const AuditoriaMES  = lazy(() => import("./AuditoriaMES"));
 const CGM           = lazy(() => import("./CGM"));
 const Weibull       = lazy(() => import("./Weibull"));
@@ -52,6 +53,7 @@ const NAV = [
   { id: "criticidad", label: "Criticidad", icon: Activity, group: "Análisis" },
   { id: "fallas", label: "Análisis de Fallas", icon: AlertTriangle, group: "Análisis" },
   { id: "pareto", label: "Pareto (80/20)", icon: BarChart3, group: "Análisis" },
+  { id: "consumos", label: "Consumos & Eficiencia", icon: Fuel, group: "Análisis" },
   { id: "auditoria", label: "Auditoría MES", icon: ClipboardCheck, group: "Análisis" },
   { id: "costos", label: "Costo Global (CGM)", icon: DollarSign, group: "Optimización" },
   { id: "optim", label: "Optimización", icon: TrendingUp, group: "Optimización" },
@@ -78,6 +80,7 @@ const MODULOS = {
   criticidad: Criticidad,
   fallas: Fallas,
   pareto: Pareto,
+  consumos: Consumos,
   auditoria: AuditoriaMES,
   costos: CGM,
   optim: Weibull,
