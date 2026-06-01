@@ -16,7 +16,17 @@ const CATEGORIAS = [
   { id: "compra",   label: "Compras",         icon: ShoppingCart },
 ];
 
-export default function Alertas() {
+// A qué módulo lleva cada categoría de alerta al hacer clic.
+const NAV_POR_CAT = {
+  pm: "planpm",
+  stock: "inventario",
+  ot: "ots",
+  sla: "solicitudes",
+  equipo: "equipos",
+  compra: "almacen",
+};
+
+export default function Alertas({ onNavigate }) {
   const { profile } = useAuth();
   const [embarcaciones, setEmbarcaciones] = useState([]);
   const [equipos, setEquipos] = useState([]);
@@ -197,8 +207,13 @@ export default function Alertas() {
           const Icon = cat?.icon || Bell;
           const bg = a.sev === "red" ? C.redBg : C.yellowBg;
           const borderC = a.sev === "red" ? C.red : C.amber;
+          const dest = NAV_POR_CAT[a.cat];
+          const clicable = dest && onNavigate;
           return (
-            <Card key={i} style={{ padding: 0, overflow: "hidden", borderLeft: `4px solid ${borderC}`, background: bg }}>
+            <Card key={i}
+              onClick={clicable ? () => onNavigate(dest) : undefined}
+              title={clicable ? `Ir a ${cat?.label} para gestionarla` : undefined}
+              style={{ padding: 0, overflow: "hidden", borderLeft: `4px solid ${borderC}`, background: bg, cursor: clicable ? "pointer" : "default" }}>
               <div style={{ padding: "12px 16px", display: "grid", gridTemplateColumns: "auto 1fr auto", gap: 12, alignItems: "center" }}>
                 <div style={{ width: 38, height: 38, borderRadius: 9, background: "#fff", display: "flex", alignItems: "center", justifyContent: "center" }}>
                   <Icon size={18} color={borderC} />
@@ -210,8 +225,9 @@ export default function Alertas() {
                   </div>
                   <div style={{ fontSize: 12.5, color: C.slate }}>{a.detalle}</div>
                 </div>
-                <div style={{ fontSize: 11, color: C.slate, fontFamily: "'IBM Plex Mono', monospace", textAlign: "right" }}>
-                  {cat?.label}
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ fontSize: 11, color: C.slate, fontFamily: "'IBM Plex Mono', monospace", textAlign: "right" }}>{cat?.label}</span>
+                  {clicable && <ChevronRight size={18} color={borderC} />}
                 </div>
               </div>
             </Card>);
