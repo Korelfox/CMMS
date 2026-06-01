@@ -210,18 +210,16 @@ export default function Solicitudes() {
                       <td style={tdStyle}><Pill tone={tn(ESTADOS_SOLICITUD, s.estado)}>{lk(ESTADOS_SOLICITUD, s.estado)}</Pill></td>
                       <td style={tdStyle}>
                         <div style={{ display: "flex", gap: 6 }}>
-                          {s.estado === "pendiente" && puedeOperar && (
+                          {s.estado === "pendiente" && isAdmin(profile?.rol) && (
                             <>
                               <button onClick={() => convertir(s)} title="Convertir a OT"
                                 style={{ ...ghostBtn, padding: "5px 9px", fontSize: 11.5, color: C.green, borderColor: C.green }}>
                                 <ArrowRight size={13} /> OT
                               </button>
-                              {isAdmin(profile?.rol) && (
-                                <button onClick={() => rechazar(s)} title="Rechazar"
-                                  style={{ ...ghostBtn, padding: "5px 9px", fontSize: 11.5, color: C.red, borderColor: C.red }}>
-                                  <X size={13} />
-                                </button>
-                              )}
+                              <button onClick={() => rechazar(s)} title="Rechazar"
+                                style={{ ...ghostBtn, padding: "5px 9px", fontSize: 11.5, color: C.red, borderColor: C.red }}>
+                                <X size={13} />
+                              </button>
                             </>
                           )}
                           {puedeBorrar && <button onClick={() => eliminar(s.id)} style={{ background: "none", border: "none", cursor: "pointer", color: C.slate }}><Trash2 size={14} /></button>}

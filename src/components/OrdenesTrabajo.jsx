@@ -28,6 +28,7 @@ export default function OrdenesTrabajo({ navParams }) {
   const [form, setForm] = useState(blank());
   const puedeOperar = canOperate(profile?.rol);
   const puedeBorrar = isAdmin(profile?.rol);
+  const puedeCostos = isAdmin(profile?.rol);  // valorizar costos: Jefe Mantención y superiores
 
   function blank() {
     return { embarcacion_id: "", equipo_id: "", sistema: "", tipo: "preventivo", prioridad: "media",
@@ -205,7 +206,7 @@ export default function OrdenesTrabajo({ navParams }) {
         <MiniStat label="Abiertas" value={abiertas} tone={abiertas ? C.yellow : C.green} />
         <MiniStat label="Proactivo" value={`${propProactivo}%`} tone={propProactivo >= 60 ? C.green : C.yellow} sub={`${preventivas} preventivas`} />
         <MiniStat label="Costo Total" value={clp(costoTotal)} tone={C.gold}
-          onClick={puedeOperar ? () => setModoCostos((v) => !v) : undefined}
+          onClick={puedeCostos ? () => setModoCostos((v) => !v) : undefined}
           hint={modoCostos ? "Cerrar edición" : "Ingresar costos"} />
       </div>
 
@@ -294,7 +295,7 @@ export default function OrdenesTrabajo({ navParams }) {
                     <td style={tdStyle}><Pill tone={tn(TIPOS_OT, o.tipo)}>{lk(TIPOS_OT, o.tipo)}</Pill></td>
                     <td style={tdStyle}><Pill tone={tn(PRIORIDADES, o.prioridad)}>{lk(PRIORIDADES, o.prioridad)}</Pill></td>
                     <td style={{ ...tdStyle, maxWidth: 220 }}>{o.descripcion}</td>
-                    {modoCostos && puedeOperar && !o._pending && online ? (
+                    {modoCostos && puedeCostos && !o._pending && online ? (
                       <td style={tdStyle}>
                         <div style={{ display: "flex", flexDirection: "column", gap: 4, alignItems: "flex-end" }}>
                           <label style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 10, color: C.slate, fontWeight: 600 }}>
