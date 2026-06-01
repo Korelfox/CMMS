@@ -50,7 +50,19 @@ export default function Prezarpe() {
   }, [cargar]);
 
   const embName = (id) => embarcaciones.find((e) => e.id === id)?.nombre || "—";
+  const eqNom = (id) => { const e = equipos.find((x) => x.id === id); return e?.sistema || e?.id_visible || "Equipo"; };
   const mareaAbierta = (embId) => mareas.find((m) => m.embarcacion_id === embId && m.estado === "navegando");
+
+  // Arma la descripción de no conformidades a partir del checklist.
+  function observacionesDe(payload) {
+    const obs = [];
+    Object.entries(payload.visual || {}).forEach(([k, v]) => { if (v === "falla") obs.push(`${k}: falla`); });
+    Object.entries(payload.niveles || {}).forEach(([id, n]) => {
+      if (n?.aceite === "bajo") obs.push(`${eqNom(id)}: aceite bajo`);
+      if (n?.agua === "bajo") obs.push(`${eqNom(id)}: agua chaqueta baja`);
+    });
+    return obs;
+  }
 
   async function registrarRecalada(m) {
     if (!online) { setError("Registrar la recalada requiere conexión."); return; }
@@ -70,15 +82,31 @@ export default function Prezarpe() {
     const folio = `M-${String(mareas.length + 1).padStart(3, "0")}`;
     const marea = { id: mareaId, empresa_id: profile.empresa_id, embarcacion_id: nave.id, folio, estado: "navegando", zarpe_at: new Date().toISOString(), responsable: profile.nombre || "", created_by: profile.id };
     const prez = { id: prezId, empresa_id: profile.empresa_id, embarcacion_id: nave.id, marea_id: mareaId, fecha: HOY(), responsable: profile.nombre || "", ...payload, created_by: profile.id };
+
+    // Si el prezarpe NO es apto, se genera una solicitud para el Jefe de Mantención.
+    let sol = null;
+    if (!payload.apto) {
+      const obs = observacionesDe(payload);
+      sol = {
+        id: nuevoId(), empresa_id: profile.empresa_id,
+        folio: `SOL-PZ-${Date.now().toString().slice(-6)}`,
+        solicitante: profile.nombre || "", embarcacion_id: nave.id, sistema: "Prezarpe",
+        descripcion: `Prezarpe NO APTO de ${nave.nombre}. ${obs.length ? "Observaciones: " + obs.join("; ") + "." : ""}`.trim(),
+        prioridad: "alta", fecha: HOY(), estado: "pendiente", created_by: profile.id,
+      };
+    }
+
     try {
       if (online) {
         const { empresa_id: _a, ...mRest } = marea; await insertRow("mareas", profile.empresa_id, mRest);
         const { empresa_id: _b, ...pRest } = prez; await insertRow("prezarpes", profile.empresa_id, pRest);
-        logActivity(profile, "Prezarpe", `${nave.nombre} · ${payload.apto ? "APTO" : "NO APTO"}`);
+        if (sol) { const { empresa_id: _c, ...sRest } = sol; await insertRow("solicitudes", profile.empresa_id, sRest); }
+        logActivity(profile, "Prezarpe", `${nave.nombre} · ${payload.apto ? "APTO" : "NO APTO" + (sol ? " · solicitud generada" : "")}`);
         await cargar();
       } else {
         await queueInsert("mareas", marea, `Zarpe ${nave.nombre}`);
         await queueInsert("prezarpes", prez, `Prezarpe ${nave.nombre}`);
+        if (sol) await queueInsert("solicitudes", sol, `Solicitud prezarpe ${nave.nombre}`);
         setMareas((p) => [{ ...marea, _pending: true }, ...p]);
       }
       setVista("flota"); setNave(null); setError(null);
