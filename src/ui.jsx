@@ -5,9 +5,9 @@ import { C, archivo } from "./theme";
 //  Primitivas de interfaz reutilizables
 // ============================================================
 
-export function Card({ children, style }) {
+export function Card({ children, style, ...rest }) {
   return (
-    <div style={{ background: "#fff", border: `1px solid ${C.line}`, borderRadius: 14, padding: 20, boxShadow: "0 1px 3px rgba(10,26,42,.04)", ...style }}>
+    <div {...rest} style={{ background: "#fff", border: `1px solid ${C.line}`, borderRadius: 14, padding: 20, boxShadow: "0 1px 3px rgba(10,26,42,.04)", ...style }}>
       {children}
     </div>
   );
