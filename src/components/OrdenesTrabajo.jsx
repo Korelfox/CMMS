@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from "react";
-import { ClipboardList, Plus, Trash2, Download, CloudOff, Clock } from "lucide-react";
+import { ClipboardList, Plus, Trash2, Download, CloudOff, Clock, ChevronDown } from "lucide-react";
 import { useAuth } from "../lib/auth";
-import { fetchAll, insertRow, deleteRow, logActivity } from "../lib/db";
+import { fetchAll, insertRow, updateRow, deleteRow, logActivity } from "../lib/db";
 import { useOnline, cacheTable, getCached, queueInsert, nuevoId } from "../lib/offline";
 import { C, clp, num, isAdmin, canOperate, TIPOS_OT, PRIORIDADES, ESTADOS_OT, lk, tn } from "../theme";
 import {
@@ -118,6 +118,23 @@ export default function OrdenesTrabajo() {
     catch (e) { setOts(respaldo); setError("No se pudo eliminar: " + e.message); }
   }
 
+  // Avanza/cambia el estado de una OT (Solicitada → … → Cerrada).
+  async function cambiarEstado(ot, nuevoEstado) {
+    if (!nuevoEstado || nuevoEstado === ot.estado) return;
+    const anterior = ot.estado;
+    // Actualización optimista: la UI cambia al instante.
+    setOts((p) => p.map((o) => (o.id === ot.id ? { ...o, estado: nuevoEstado } : o)));
+    setError(null);
+    try {
+      await updateRow("ordenes_trabajo", ot.id, { estado: nuevoEstado });
+      logActivity(profile, "Cambiar estado OT", `${ot.folio}: ${lk(ESTADOS_OT, anterior)} → ${lk(ESTADOS_OT, nuevoEstado)}`);
+    } catch (e) {
+      // Si falla, revertimos al estado anterior.
+      setOts((p) => p.map((o) => (o.id === ot.id ? { ...o, estado: anterior } : o)));
+      setError("No se pudo cambiar el estado: " + e.message);
+    }
+  }
+
   function exportar() {
     const filas = [["Folio", "Fecha", "Embarcación", "Sistema", "Tipo", "Prioridad", "Descripción", "MTTR", "Costo MO", "Costo Mat", "Estado"],
       ...ots.map((o) => [o.folio, o.fecha, embName(o.embarcacion_id), o.sistema, lk(TIPOS_OT, o.tipo), lk(PRIORIDADES, o.prioridad), o.descripcion, o.mttr_horas, o.costo_mo, o.costo_mat, lk(ESTADOS_OT, o.estado)])];
@@ -227,13 +244,47 @@ export default function OrdenesTrabajo() {
                     <td style={tdStyle}><Pill tone={tn(PRIORIDADES, o.prioridad)}>{lk(PRIORIDADES, o.prioridad)}</Pill></td>
                     <td style={{ ...tdStyle, maxWidth: 220 }}>{o.descripcion}</td>
                     <td style={{ ...tdStyle, textAlign: "right", fontFamily: "'IBM Plex Mono', monospace", fontWeight: 600 }}>{clp((o.costo_mo || 0) + (o.costo_mat || 0))}</td>
-                    <td style={tdStyle}><Pill tone={tn(ESTADOS_OT, o.estado)}>{lk(ESTADOS_OT, o.estado)}</Pill></td>
+                    <td style={tdStyle}>
+                      {puedeOperar && !o._pending && online
+                        ? <EstadoSelect estado={o.estado} onChange={(nuevo) => cambiarEstado(o, nuevo)} />
+                        : <Pill tone={tn(ESTADOS_OT, o.estado)}>{lk(ESTADOS_OT, o.estado)}</Pill>}
+                    </td>
                     {puedeBorrar && <td style={tdStyle}>{!o._pending && <button onClick={() => eliminar(o.id)} style={{ background: "none", border: "none", cursor: "pointer", color: C.slate }}><Trash2 size={15} /></button>}</td>}
                   </tr>))}
             </tbody>
           </table>
         </div>
       </Card>
+    </div>
+  );
+}
+
+// Selector de estado: permite avanzar la OT de Solicitada hasta Cerrada
+// (y corregir si fuera necesario). Se ve como una píldora con el color del estado.
+function EstadoSelect({ estado, onChange }) {
+  const map = {
+    green: [C.green, C.greenBg], yellow: [C.yellow, C.yellowBg], slate: [C.slate, C.foam],
+    steel: [C.steel, "#E4EFF8"], purple: [C.purple, C.purpleBg], red: [C.red, C.redBg],
+  };
+  const [fg, bg] = map[tn(ESTADOS_OT, estado)] || map.slate;
+  return (
+    <div style={{ position: "relative", display: "inline-flex", alignItems: "center" }}>
+      <select
+        value={estado}
+        onChange={(e) => onChange(e.target.value)}
+        title="Cambiar estado de la orden"
+        style={{
+          appearance: "none", WebkitAppearance: "none", MozAppearance: "none",
+          background: bg, color: fg, border: `1px solid ${fg}40`, borderRadius: 20,
+          padding: "4px 26px 4px 11px", fontSize: 11.5, fontWeight: 600,
+          cursor: "pointer", fontFamily: "inherit",
+        }}
+      >
+        {ESTADOS_OT.map((s) => (
+          <option key={s.value} value={s.value} style={{ background: "#fff", color: C.ink }}>{s.label}</option>
+        ))}
+      </select>
+      <ChevronDown size={13} color={fg} style={{ position: "absolute", right: 8, pointerEvents: "none" }} />
     </div>
   );
 }
