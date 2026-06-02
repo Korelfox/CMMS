@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useCallback } from "react";
 import {
   Ship, Anchor, Fuel, Droplet, Gauge, Check, X, AlertTriangle,
-  ArrowLeft, Camera, ClipboardCheck, Waves, CloudOff, Clock,
+  ArrowLeft, Camera, ClipboardCheck, Waves, CloudOff, Clock, Trash2,
 } from "lucide-react";
 import { useAuth } from "../lib/auth";
-import { fetchAll, insertRow, updateRow, logActivity } from "../lib/db";
+import { fetchAll, insertRow, updateRow, deleteRow, logActivity } from "../lib/db";
 import { useOnline, cacheTable, getCached, queueInsert, nuevoId } from "../lib/offline";
-import { subirFotos } from "../lib/fotos";
-import { C, archivo, canOperate } from "../theme";
+import { subirFotos, listarFotos, borrarFoto } from "../lib/fotos";
+import { C, archivo, canOperate, isAdmin } from "../theme";
 import { Card, PageHead, Pill, primaryBtn, ghostBtn, InlineSpinner, ErrorBanner, Empty } from "../ui";
 import { FotoInput, FotoGaleria } from "./Fotos";
 
@@ -30,6 +30,7 @@ export default function Prezarpe() {
   const [mareaRec, setMareaRec] = useState(null);   // marea a cerrar en recalada
   const [prezarpeSel, setPrezarpeSel] = useState(null);  // informe abierto
   const puedeOperar = canOperate(profile?.rol);
+  const puedeBorrar = isAdmin(profile?.rol);   // eliminar prezarpe/marea: solo administración
 
   const cargar = useCallback(async () => {
     setLoading(true); setError(null);
@@ -129,6 +130,22 @@ export default function Prezarpe() {
     } catch (e) { setError("No se pudo guardar el prezarpe: " + e.message); }
   }
 
+  // Elimina un prezarpe creado por error: borra sus fotos, el prezarpe y su
+  // marea asociada. Solo administración. Las horas del equipo ya aplicadas no
+  // se revierten (corregir en Equipos si fue un error de horómetro).
+  async function eliminarPrezarpe(p) {
+    if (!online) { setError("Eliminar requiere conexión."); return; }
+    if (!window.confirm(`¿Eliminar el prezarpe de ${embName(p.embarcacion_id)} del ${p.fecha} y su marea asociada? Esta acción no se puede deshacer.`)) return;
+    try {
+      try { const fs = await listarFotos("prezarpe", p.id); for (const f of fs) await borrarFoto(f); } catch { /* sin fotos */ }
+      await deleteRow("prezarpes", p.id);
+      if (p.marea_id) await deleteRow("mareas", p.marea_id);
+      logActivity(profile, "Eliminar prezarpe", `${embName(p.embarcacion_id)} · ${p.fecha}`);
+      setVista("historial"); setPrezarpeSel(null); setError(null);
+      await cargar();
+    } catch (e) { setError("No se pudo eliminar: " + e.message); }
+  }
+
   if (loading) return <div><PageHead kicker="Flota · Operación" title="Prezarpe & Mareas" /><Card><InlineSpinner label="Cargando flota…" /></Card></div>;
 
   return (
@@ -165,12 +182,12 @@ export default function Prezarpe() {
           onVolver={() => { setVista("flota"); setMareaRec(null); }} onGuardar={(datos) => guardarRecalada(mareaRec, datos)} />
       )}
       {vista === "historial" && (
-        <VistaHistorial prezarpes={prezarpes} embName={embName} mareas={mareas}
-          onAbrir={(p) => { setPrezarpeSel(p); setVista("informe"); }} />
+        <VistaHistorial prezarpes={prezarpes} embName={embName} mareas={mareas} puedeBorrar={puedeBorrar}
+          onAbrir={(p) => { setPrezarpeSel(p); setVista("informe"); }} onEliminar={eliminarPrezarpe} />
       )}
       {vista === "informe" && (
-        <VistaInforme prezarpe={prezarpeSel} equipos={equipos} embName={embName} online={online}
-          onVolver={() => { setVista("historial"); setPrezarpeSel(null); }} />
+        <VistaInforme prezarpe={prezarpeSel} equipos={equipos} embName={embName} online={online} puedeBorrar={puedeBorrar}
+          onVolver={() => { setVista("historial"); setPrezarpeSel(null); }} onEliminar={eliminarPrezarpe} />
       )}
     </div>
   );
@@ -443,7 +460,7 @@ function StepperRef({ label, unidad, icon, ini, value, onChange, step }) {
 }
 
 // ---------- Pantalla 4: historial de prezarpes ----------
-function VistaHistorial({ prezarpes, embName, mareas, onAbrir }) {
+function VistaHistorial({ prezarpes, embName, mareas, puedeBorrar, onAbrir, onEliminar }) {
   if (prezarpes.length === 0) {
     return <Card><Empty><ClipboardCheck size={30} color={C.amber} style={{ marginBottom: 10 }} /><br />Aún no hay prezarpes registrados. Inicia uno desde Operación.</Empty></Card>;
   }
@@ -454,7 +471,7 @@ function VistaHistorial({ prezarpes, embName, mareas, onAbrir }) {
           <thead><tr>
             <th style={thStyle}>Fecha</th><th style={thStyle}>Embarcación</th>
             <th style={thStyle}>Responsable</th><th style={thStyle}>Marea</th>
-            <th style={thStyle}>Veredicto</th><th style={thStyle}></th>
+            <th style={thStyle}>Veredicto</th><th style={thStyle}></th>{puedeBorrar && <th style={thStyle}></th>}
           </tr></thead>
           <tbody>
             {prezarpes.map((p) => {
@@ -467,6 +484,7 @@ function VistaHistorial({ prezarpes, embName, mareas, onAbrir }) {
                   <td style={{ ...tdStyle, fontFamily: "'IBM Plex Mono', monospace", fontSize: 12 }}>{m?.folio || "—"}</td>
                   <td style={tdStyle}><Pill tone={p.apto ? "green" : "red"}>{p.apto ? "Apto" : "No apto"}</Pill></td>
                   <td style={{ ...tdStyle, textAlign: "right", color: C.steel, fontSize: 12, fontWeight: 600 }}>Ver informe ›</td>
+                  {puedeBorrar && <td style={tdStyle}><button onClick={(e) => { e.stopPropagation(); onEliminar(p); }} title="Eliminar prezarpe" style={{ background: "none", border: "none", cursor: "pointer", color: C.slate }}><Trash2 size={15} /></button></td>}
                 </tr>
               );
             })}
@@ -478,7 +496,7 @@ function VistaHistorial({ prezarpes, embName, mareas, onAbrir }) {
 }
 
 // ---------- Pantalla 5: informe de un prezarpe ----------
-function VistaInforme({ prezarpe: p, equipos, embName, online, onVolver }) {
+function VistaInforme({ prezarpe: p, equipos, embName, online, puedeBorrar, onVolver, onEliminar }) {
   if (!p) return null;
   const eqNom = (id) => { const e = equipos.find((x) => x.id === id); return e?.sistema || e?.id_visible || id; };
   const visual = Object.entries(p.visual || {});
@@ -490,6 +508,7 @@ function VistaInforme({ prezarpe: p, equipos, embName, online, onVolver }) {
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }} className="no-print">
         <button onClick={onVolver} style={{ ...ghostBtn, padding: "7px 12px" }}><ArrowLeft size={15} /> Historial</button>
         <button onClick={() => window.print()} style={primaryBtn}>Imprimir / PDF</button>
+        {puedeBorrar && <button onClick={() => onEliminar(p)} style={{ ...ghostBtn, padding: "7px 12px", color: C.red, borderColor: C.red }}><Trash2 size={15} /> Eliminar</button>}
       </div>
 
       <div id="informe-prezarpe">
