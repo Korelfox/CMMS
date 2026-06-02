@@ -87,3 +87,35 @@ export async function borrarFoto(adj) {
   await supabase.storage.from(BUCKET).remove([adj.storage_path]);
   await supabase.from("adjuntos").delete().eq("id", adj.id);
 }
+
+// ---------- Documentos (PDF o imagen) para cumplimiento normativo ----------
+// Sube el archivo al storage (comprime si es imagen; PDF tal cual) y devuelve
+// la metadata para guardar en la tabla "documentos". No registra en adjuntos.
+export async function subirArchivoDocumento(file, { empresaId, embarcacionId }) {
+  let blob = file, mime = file.type, ext = "bin";
+  if (file.type.startsWith("image/")) {
+    blob = await comprimirImagen(file, { maxLado: 2000, maxBytes: 1200 * 1024 });
+    mime = "image/jpeg"; ext = "jpg";
+  } else if (file.type === "application/pdf") {
+    ext = "pdf"; mime = "application/pdf";
+    if (file.size > 10 * 1024 * 1024) throw new Error("El PDF supera 10 MB.");
+  } else {
+    throw new Error("Solo se permiten archivos PDF o imágenes.");
+  }
+  const path = `${empresaId}/documento/${embarcacionId}/${nuevoId()}.${ext}`;
+  const { error } = await supabase.storage.from(BUCKET).upload(path, blob, { contentType: mime, upsert: false });
+  if (error) throw error;
+  return { storage_path: path, mime, nombre_archivo: (file.name || `documento.${ext}`).slice(0, 120), tamano: blob.size };
+}
+
+// URL firmada temporal para ver/descargar un archivo del storage.
+export async function urlFirmada(path) {
+  if (!path) return null;
+  const { data } = await supabase.storage.from(BUCKET).createSignedUrl(path, 3600);
+  return data?.signedUrl || null;
+}
+
+// Borra el archivo de un documento del storage (el registro se borra aparte).
+export async function borrarArchivoStorage(path) {
+  if (path) await supabase.storage.from(BUCKET).remove([path]);
+}
