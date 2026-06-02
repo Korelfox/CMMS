@@ -8,7 +8,7 @@ import { fetchAll, insertRow, updateRow, deleteRow, logActivity } from "../lib/d
 import { useOnline, cacheTable, getCached, queueInsert, nuevoId } from "../lib/offline";
 import { subirFotos, listarFotos, borrarFoto } from "../lib/fotos";
 import { C, archivo, canOperate, isAdmin } from "../theme";
-import { Card, PageHead, Pill, primaryBtn, ghostBtn, InlineSpinner, ErrorBanner, Empty } from "../ui";
+import { Card, PageHead, Pill, primaryBtn, ghostBtn, thStyle, tdStyle, InlineSpinner, ErrorBanner, Empty } from "../ui";
 import { FotoInput, FotoGaleria } from "./Fotos";
 
 const HOY = () => new Date().toISOString().slice(0, 10);
