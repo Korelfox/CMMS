@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from "react";
-import { FileText, Printer, ClipboardList, Package, Calendar, Gauge } from "lucide-react";
+import { FileText, Printer, ClipboardList, Package, Calendar, Gauge, ClipboardCheck } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { fetchAll } from "../lib/db";
 import { C, archivo, clp, num, rolLabel, TIPOS_OT, PRIORIDADES, ESTADOS_OT, lk } from "../theme";
@@ -12,6 +12,7 @@ const REPORTES = [
   { id: "ots",      titulo: "Órdenes de Trabajo",   icon: ClipboardList, desc: "Listado completo con tipo, costos, MTTR y estado." },
   { id: "inv",      titulo: "Inventario y Stock",   icon: Package,       desc: "Catálogo con clasificación ABC, stock total y valor." },
   { id: "programa", titulo: "Programa Semanal",     icon: Calendar,      desc: "Tareas programadas por día con HH y cumplimiento." },
+  { id: "prezarpes", titulo: "Prezarpes",           icon: ClipboardCheck, desc: "Inspecciones de prezarpe por embarcación, con veredicto y abastecimiento." },
 ];
 
 function fechaLarga() {
@@ -52,6 +53,12 @@ export default function Reportes() {
           fetchAll("programacion", { order: { col: "created_at", asc: true } }),
         ]);
         setData({ embs, prog });
+      } else if (t === "prezarpes") {
+        const [embs, pzs] = await Promise.all([
+          fetchAll("embarcaciones"),
+          fetchAll("prezarpes", { order: { col: "created_at", asc: false } }),
+        ]);
+        setData({ embs, pzs });
       }
     } catch (e) { setError("No se pudo generar el reporte. " + e.message); }
     finally { setLoading(false); }
@@ -100,6 +107,7 @@ export default function Reportes() {
           {tipo === "ots" && <ReporteOTs {...data} />}
           {tipo === "inv" && <ReporteInv {...data} />}
           {tipo === "programa" && <ReportePrograma {...data} />}
+          {tipo === "prezarpes" && <ReportePrezarpes {...data} />}
         </div>
       )}
 
@@ -331,6 +339,41 @@ function ReportePrograma({ embs = [], prog = [] }) {
                 <td style={{ ...tdStyle, textAlign: "right", fontWeight: 600 }}>{p.hh}h</td>
                 <td style={{ ...tdStyle, fontFamily: "'IBM Plex Mono', monospace" }}>{p.ot_folio || "—"}</td>
                 <td style={tdStyle}>{p.done ? "✓ Hecho" : "Pendiente"}</td>
+              </tr>))}
+        </tbody>
+      </table>
+    </Card>
+  );
+}
+
+function ReportePrezarpes({ embs = [], pzs = [] }) {
+  const eName = (id) => embs.find((e) => e.id === id)?.nombre || "—";
+  const aptos = pzs.filter((p) => p.apto).length;
+  const noAptos = pzs.length - aptos;
+  return (
+    <Card>
+      <div style={{ ...archivo, fontWeight: 700, fontSize: 15, color: C.abyss, marginBottom: 12 }}>
+        {pzs.length} prezarpes · {aptos} aptos · {noAptos} no aptos
+      </div>
+      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+        <thead><tr>
+          <th style={thStyle}>Fecha</th><th style={thStyle}>Embarcación</th><th style={thStyle}>Responsable</th>
+          <th style={{ ...thStyle, textAlign: "right" }}>Combustible</th>
+          <th style={{ ...thStyle, textAlign: "right" }}>Agua</th>
+          <th style={{ ...thStyle, textAlign: "right" }}>Aceite</th>
+          <th style={thStyle}>Veredicto</th>
+        </tr></thead>
+        <tbody>
+          {pzs.length === 0 ? <tr><td colSpan={7}><Empty>Sin prezarpes registrados.</Empty></td></tr> :
+            pzs.map((p) => (
+              <tr key={p.id}>
+                <td style={tdStyle}>{p.fecha}</td>
+                <td style={tdStyle}>{eName(p.embarcacion_id)}</td>
+                <td style={tdStyle}>{p.responsable || "—"}</td>
+                <td style={{ ...tdStyle, textAlign: "right" }}>{p.combustible_l || 0} L</td>
+                <td style={{ ...tdStyle, textAlign: "right" }}>{p.agua_l || 0} L</td>
+                <td style={{ ...tdStyle, textAlign: "right" }}>{p.aceite_l || 0} L</td>
+                <td style={tdStyle}><Pill tone={p.apto ? "green" : "red"}>{p.apto ? "Apto" : "No apto"}</Pill></td>
               </tr>))}
         </tbody>
       </table>

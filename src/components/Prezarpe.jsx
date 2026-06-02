@@ -9,7 +9,7 @@ import { useOnline, cacheTable, getCached, queueInsert, nuevoId } from "../lib/o
 import { subirFotos } from "../lib/fotos";
 import { C, archivo, canOperate } from "../theme";
 import { Card, PageHead, Pill, primaryBtn, ghostBtn, InlineSpinner, ErrorBanner, Empty } from "../ui";
-import { FotoInput } from "./Fotos";
+import { FotoInput, FotoGaleria } from "./Fotos";
 
 const HOY = () => new Date().toISOString().slice(0, 10);
 // Ítems de seguridad estándar (lista fija para toda la flota)
@@ -24,24 +24,27 @@ export default function Prezarpe() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [usandoCache, setUsandoCache] = useState(false);
+  const [prezarpes, setPrezarpes] = useState([]);
   const [vista, setVista] = useState("flota");
   const [nave, setNave] = useState(null);
   const [mareaRec, setMareaRec] = useState(null);   // marea a cerrar en recalada
+  const [prezarpeSel, setPrezarpeSel] = useState(null);  // informe abierto
   const puedeOperar = canOperate(profile?.rol);
 
   const cargar = useCallback(async () => {
     setLoading(true); setError(null);
     try {
-      const [embs, eqs, ms] = await Promise.all([
+      const [embs, eqs, ms, pzs] = await Promise.all([
         fetchAll("embarcaciones", { order: { col: "codigo", asc: true } }),
         fetchAll("equipos", { order: { col: "id_visible", asc: true } }),
         fetchAll("mareas", { order: { col: "zarpe_at", asc: false } }),
+        fetchAll("prezarpes", { order: { col: "created_at", asc: false } }),
       ]);
-      setEmbarcaciones(embs); setEquipos(eqs); setMareas(ms); setUsandoCache(false);
-      cacheTable("embarcaciones", embs); cacheTable("equipos", eqs); cacheTable("mareas", ms);
+      setEmbarcaciones(embs); setEquipos(eqs); setMareas(ms); setPrezarpes(pzs); setUsandoCache(false);
+      cacheTable("embarcaciones", embs); cacheTable("equipos", eqs); cacheTable("mareas", ms); cacheTable("prezarpes", pzs);
     } catch (e) {
-      const [embs, eqs, ms] = await Promise.all([getCached("embarcaciones"), getCached("equipos"), getCached("mareas")]);
-      setEmbarcaciones(embs); setEquipos(eqs); setMareas(ms); setUsandoCache(true);
+      const [embs, eqs, ms, pzs] = await Promise.all([getCached("embarcaciones"), getCached("equipos"), getCached("mareas"), getCached("prezarpes")]);
+      setEmbarcaciones(embs); setEquipos(eqs); setMareas(ms); setPrezarpes(pzs); setUsandoCache(true);
       if (!embs.length) setError("No se pudo cargar y no hay copia local. Conéctate al menos una vez.");
     } finally { setLoading(false); }
   }, []);
@@ -131,7 +134,13 @@ export default function Prezarpe() {
   return (
     <div>
       <PageHead kicker="Flota · Operación" title="Prezarpe & Mareas"
-        sub="Antes de cada zarpe, inspecciona la embarcación y registra niveles, abastecimiento y horómetros. La lectura de horómetros actualiza el Plan Preventivo." />
+        sub="Antes de cada zarpe, inspecciona la embarcación y registra niveles, abastecimiento y horómetros. La lectura de horómetros actualiza el Plan Preventivo."
+        action={(vista === "flota" || vista === "historial") && (
+          <div style={{ display: "flex", gap: 8 }} className="no-print">
+            <button onClick={() => setVista("flota")} style={vista === "flota" ? primaryBtn : ghostBtn}>Operación</button>
+            <button onClick={() => setVista("historial")} style={vista === "historial" ? primaryBtn : ghostBtn}>Historial</button>
+          </div>
+        )} />
 
       <ErrorBanner onRetry={cargar}>{error}</ErrorBanner>
 
@@ -154,6 +163,14 @@ export default function Prezarpe() {
         <VistaRecalada marea={mareaRec} nave={embarcaciones.find((e) => e.id === mareaRec?.embarcacion_id)}
           equipos={equipos.filter((e) => e.embarcacion_id === mareaRec?.embarcacion_id && (e.nivel_tipo || "ninguno") !== "ninguno")}
           onVolver={() => { setVista("flota"); setMareaRec(null); }} onGuardar={(datos) => guardarRecalada(mareaRec, datos)} />
+      )}
+      {vista === "historial" && (
+        <VistaHistorial prezarpes={prezarpes} embName={embName} mareas={mareas}
+          onAbrir={(p) => { setPrezarpeSel(p); setVista("informe"); }} />
+      )}
+      {vista === "informe" && (
+        <VistaInforme prezarpe={prezarpeSel} equipos={equipos} embName={embName} online={online}
+          onVolver={() => { setVista("historial"); setPrezarpeSel(null); }} />
       )}
     </div>
   );
@@ -421,6 +438,139 @@ function StepperRef({ label, unidad, icon, ini, value, onChange, step }) {
     <div>
       <Stepper label={label} unidad={unidad} icon={icon} value={value} onChange={onChange} step={step} />
       {ini !== undefined && ini !== null && <div style={{ fontSize: 10.5, color: C.slate, marginTop: 4, paddingLeft: 4 }}>Al zarpar: {ini} {unidad}</div>}
+    </div>
+  );
+}
+
+// ---------- Pantalla 4: historial de prezarpes ----------
+function VistaHistorial({ prezarpes, embName, mareas, onAbrir }) {
+  if (prezarpes.length === 0) {
+    return <Card><Empty><ClipboardCheck size={30} color={C.amber} style={{ marginBottom: 10 }} /><br />Aún no hay prezarpes registrados. Inicia uno desde Operación.</Empty></Card>;
+  }
+  return (
+    <Card style={{ padding: 0, overflow: "hidden" }}>
+      <div style={{ overflowX: "auto" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 720 }}>
+          <thead><tr>
+            <th style={thStyle}>Fecha</th><th style={thStyle}>Embarcación</th>
+            <th style={thStyle}>Responsable</th><th style={thStyle}>Marea</th>
+            <th style={thStyle}>Veredicto</th><th style={thStyle}></th>
+          </tr></thead>
+          <tbody>
+            {prezarpes.map((p) => {
+              const m = mareas.find((x) => x.id === p.marea_id);
+              return (
+                <tr key={p.id} style={{ cursor: "pointer" }} onClick={() => onAbrir(p)}>
+                  <td style={{ ...tdStyle, fontFamily: "'IBM Plex Mono', monospace", fontSize: 12 }}>{p.fecha}</td>
+                  <td style={tdStyle}>{embName(p.embarcacion_id)}</td>
+                  <td style={{ ...tdStyle, fontSize: 12.5 }}>{p.responsable || "—"}</td>
+                  <td style={{ ...tdStyle, fontFamily: "'IBM Plex Mono', monospace", fontSize: 12 }}>{m?.folio || "—"}</td>
+                  <td style={tdStyle}><Pill tone={p.apto ? "green" : "red"}>{p.apto ? "Apto" : "No apto"}</Pill></td>
+                  <td style={{ ...tdStyle, textAlign: "right", color: C.steel, fontSize: 12, fontWeight: 600 }}>Ver informe ›</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </Card>
+  );
+}
+
+// ---------- Pantalla 5: informe de un prezarpe ----------
+function VistaInforme({ prezarpe: p, equipos, embName, online, onVolver }) {
+  if (!p) return null;
+  const eqNom = (id) => { const e = equipos.find((x) => x.id === id); return e?.sistema || e?.id_visible || id; };
+  const visual = Object.entries(p.visual || {});
+  const niveles = Object.entries(p.niveles || {});
+  const horometros = Object.entries(p.horometros || {});
+
+  return (
+    <div>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }} className="no-print">
+        <button onClick={onVolver} style={{ ...ghostBtn, padding: "7px 12px" }}><ArrowLeft size={15} /> Historial</button>
+        <button onClick={() => window.print()} style={primaryBtn}>Imprimir / PDF</button>
+      </div>
+
+      <div id="informe-prezarpe">
+        <Card style={{ borderTop: `5px solid ${p.apto ? C.green : C.red}`, marginBottom: 14 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 10 }}>
+            <div>
+              <div style={{ fontSize: 10.5, letterSpacing: 2, textTransform: "uppercase", color: C.slate, fontWeight: 700 }}>Informe de Prezarpe</div>
+              <div style={{ ...archivo, fontSize: 22, fontWeight: 800, color: C.abyss, marginTop: 4 }}>{embName(p.embarcacion_id)}</div>
+            </div>
+            <div style={{ textAlign: "right", fontSize: 11.5, color: C.slate, lineHeight: 1.7 }}>
+              <div><strong>Fecha:</strong> {p.fecha}</div>
+              <div><strong>Responsable:</strong> {p.responsable || "—"}</div>
+              <div style={{ marginTop: 4 }}><Pill tone={p.apto ? "green" : "red"}>{p.apto ? "APTO PARA ZARPAR" : "NO APTO"}</Pill></div>
+            </div>
+          </div>
+        </Card>
+
+        <Bloque titulo="A · Inspección visual" icon={Ship}>
+          {visual.length === 0 ? <span style={{ fontSize: 12.5, color: C.slate }}>Sin registros.</span> : (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px,1fr))", gap: 8 }}>
+              {visual.map(([item, v]) => (
+                <div key={item} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 12px", border: `1px solid ${C.line}`, borderRadius: 8 }}>
+                  <span style={{ fontSize: 12.5, color: C.ink }}>{item}</span>
+                  <Pill tone={v === "ok" ? "green" : "red"}>{v === "ok" ? "OK" : "Falla"}</Pill>
+                </div>
+              ))}
+            </div>
+          )}
+        </Bloque>
+
+        {niveles.length > 0 && (
+          <Bloque titulo="B · Niveles de operación" icon={Droplet}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px,1fr))", gap: 8 }}>
+              {niveles.map(([id, n]) => (
+                <div key={id} style={{ padding: "8px 12px", border: `1px solid ${C.line}`, borderRadius: 8 }}>
+                  <div style={{ fontSize: 12.5, fontWeight: 700, color: C.abyss, marginBottom: 4 }}>{eqNom(id)}</div>
+                  <div style={{ display: "flex", gap: 12 }}>
+                    <span style={{ fontSize: 12 }}>Aceite: <Pill tone={n?.aceite === "bajo" ? "yellow" : "green"}>{n?.aceite === "bajo" ? "Bajo" : "Normal"}</Pill></span>
+                    {n?.agua !== undefined && n?.agua !== null && <span style={{ fontSize: 12 }}>Agua: <Pill tone={n?.agua === "bajo" ? "yellow" : "green"}>{n?.agua === "bajo" ? "Bajo" : "Normal"}</Pill></span>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Bloque>
+        )}
+
+        <Bloque titulo="C · Abastecimiento a bordo" icon={Fuel}>
+          <div style={{ display: "flex", gap: 24, flexWrap: "wrap", fontSize: 13 }}>
+            <div><span style={{ color: C.slate }}>Combustible:</span> <strong>{p.combustible_l || 0} L</strong></div>
+            <div><span style={{ color: C.slate }}>Agua dulce:</span> <strong>{p.agua_l || 0} L</strong></div>
+            <div><span style={{ color: C.slate }}>Aceite:</span> <strong>{p.aceite_l || 0} L</strong></div>
+          </div>
+        </Bloque>
+
+        {horometros.length > 0 && (
+          <Bloque titulo="D · Horómetros" icon={Gauge}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px,1fr))", gap: 8 }}>
+              {horometros.map(([id, v]) => (
+                <div key={id} style={{ padding: "8px 12px", border: `1px solid ${C.line}`, borderRadius: 8 }}>
+                  <div style={{ fontSize: 12, color: C.slate }}>{eqNom(id)}</div>
+                  <div style={{ ...archivo, fontSize: 16, fontWeight: 800, color: C.steel }}>{v} h</div>
+                </div>
+              ))}
+            </div>
+          </Bloque>
+        )}
+
+        <Bloque titulo="Evidencia" icon={Camera}>
+          <FotoGaleria entidad="prezarpe" entidadId={p.id} puedeAgregar={false} puedeBorrar={false} online={online} />
+        </Bloque>
+      </div>
+
+      <style>{`
+        @media print {
+          @page { size: A4; margin: 12mm; }
+          body { background: #fff !important; }
+          .no-print { display: none !important; }
+          aside, nav { display: none !important; }
+          main { padding: 0 !important; }
+        }
+      `}</style>
     </div>
   );
 }
