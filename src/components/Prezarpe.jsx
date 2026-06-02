@@ -29,6 +29,7 @@ export default function Prezarpe() {
   const [nave, setNave] = useState(null);
   const [mareaRec, setMareaRec] = useState(null);   // marea a cerrar en recalada
   const [prezarpeSel, setPrezarpeSel] = useState(null);  // informe abierto
+  const [confirmar, setConfirmar] = useState(null);      // modal de eliminación con motivo
   const puedeOperar = canOperate(profile?.rol);
   const puedeBorrar = isAdmin(profile?.rol);   // eliminar prezarpe/marea: solo administración
 
@@ -130,32 +131,30 @@ export default function Prezarpe() {
     } catch (e) { setError("No se pudo guardar el prezarpe: " + e.message); }
   }
 
-  // Elimina un prezarpe creado por error: borra sus fotos, el prezarpe y su
-  // marea asociada. Solo administración. Las horas del equipo ya aplicadas no
-  // se revierten (corregir en Equipos si fue un error de horómetro).
-  async function eliminarPrezarpe(p) {
-    if (!online) { setError("Eliminar requiere conexión."); return; }
-    if (!window.confirm(`¿Eliminar el prezarpe de ${embName(p.embarcacion_id)} del ${p.fecha} y su marea asociada? Esta acción no se puede deshacer.`)) return;
-    try {
-      try { const fs = await listarFotos("prezarpe", p.id); for (const f of fs) await borrarFoto(f); } catch { /* sin fotos */ }
-      await deleteRow("prezarpes", p.id);
-      if (p.marea_id) await deleteRow("mareas", p.marea_id);
-      logActivity(profile, "Eliminar prezarpe", `${embName(p.embarcacion_id)} · ${p.fecha}`);
-      setVista("historial"); setPrezarpeSel(null); setError(null);
-      await cargar();
-    } catch (e) { setError("No se pudo eliminar: " + e.message); }
+  // Abre el modal de eliminación (pide motivo). Solo administración.
+  function pedirEliminarPrezarpe(p) {
+    setConfirmar({ prezId: p.id, mareaId: p.marea_id, nombre: embName(p.embarcacion_id), fecha: p.fecha });
+  }
+  function pedirEliminarZarpe(m) {
+    const prez = prezarpes.find((p) => p.marea_id === m.id);
+    setConfirmar({ prezId: prez?.id || null, mareaId: m.id, nombre: embName(m.embarcacion_id), fecha: prez?.fecha });
   }
 
-  // Elimina el zarpe (marea + su prezarpe + fotos) desde la tarjeta de la
-  // embarcación, útil cuando se inició por error. Solo administración.
-  async function eliminarZarpe(m) {
-    const prez = prezarpes.find((p) => p.marea_id === m.id);
-    if (prez) return eliminarPrezarpe(prez);
+  // Ejecuta la eliminación con el motivo elegido: borra fotos + prezarpe +
+  // marea, y registra el motivo en la bitácora. Las horas ya aplicadas al
+  // equipo no se revierten (corregir en Equipos si fue error de horómetro).
+  async function ejecutarEliminacion(motivo) {
+    const t = confirmar; setConfirmar(null);
+    if (!t) return;
     if (!online) { setError("Eliminar requiere conexión."); return; }
-    if (!window.confirm(`¿Eliminar el zarpe de ${embName(m.embarcacion_id)}? Esta acción no se puede deshacer.`)) return;
     try {
-      await deleteRow("mareas", m.id);
-      logActivity(profile, "Eliminar zarpe", embName(m.embarcacion_id));
+      if (t.prezId) {
+        try { const fs = await listarFotos("prezarpe", t.prezId); for (const f of fs) await borrarFoto(f); } catch { /* sin fotos */ }
+        await deleteRow("prezarpes", t.prezId);
+      }
+      if (t.mareaId) await deleteRow("mareas", t.mareaId);
+      logActivity(profile, "Eliminar zarpe", `${t.nombre}${t.fecha ? " · " + t.fecha : ""} · Motivo: ${motivo}`);
+      setVista("flota"); setPrezarpeSel(null); setError(null);
       await cargar();
     } catch (e) { setError("No se pudo eliminar: " + e.message); }
   }
@@ -184,7 +183,7 @@ export default function Prezarpe() {
 
       {vista === "flota" && (
         <VistaFlota embarcaciones={embarcaciones} mareaAbierta={mareaAbierta} puedeOperar={puedeOperar} puedeBorrar={puedeBorrar}
-          onIniciar={(n) => { setNave(n); setVista("checklist"); }} onRecalada={abrirRecalada} onEliminarZarpe={eliminarZarpe} />
+          onIniciar={(n) => { setNave(n); setVista("checklist"); }} onRecalada={abrirRecalada} onEliminarZarpe={pedirEliminarZarpe} />
       )}
       {vista === "checklist" && (
         <VistaChecklist nave={nave} equipos={equipos.filter((e) => e.embarcacion_id === nave.id)} online={online}
@@ -197,12 +196,14 @@ export default function Prezarpe() {
       )}
       {vista === "historial" && (
         <VistaHistorial prezarpes={prezarpes} embName={embName} mareas={mareas} puedeBorrar={puedeBorrar}
-          onAbrir={(p) => { setPrezarpeSel(p); setVista("informe"); }} onEliminar={eliminarPrezarpe} />
+          onAbrir={(p) => { setPrezarpeSel(p); setVista("informe"); }} onEliminar={pedirEliminarPrezarpe} />
       )}
       {vista === "informe" && (
         <VistaInforme prezarpe={prezarpeSel} equipos={equipos} embName={embName} online={online} puedeBorrar={puedeBorrar}
-          onVolver={() => { setVista("historial"); setPrezarpeSel(null); }} onEliminar={eliminarPrezarpe} />
+          onVolver={() => { setVista("historial"); setPrezarpeSel(null); }} onEliminar={pedirEliminarPrezarpe} />
       )}
+
+      {confirmar && <ModalEliminar target={confirmar} onCancel={() => setConfirmar(null)} onConfirm={ejecutarEliminacion} />}
     </div>
   );
 }
@@ -605,6 +606,61 @@ function VistaInforme({ prezarpe: p, equipos, embName, online, puedeBorrar, onVo
           main { padding: 0 !important; }
         }
       `}</style>
+    </div>
+  );
+}
+
+// ---------- Modal de eliminación con motivo ----------
+const MOTIVOS_ELIM = [
+  "Creado por error",
+  "Datos incorrectos",
+  "Zarpe duplicado",
+  "Registro de prueba",
+  "Se canceló la salida",
+  "Otro",
+];
+
+function ModalEliminar({ target, onCancel, onConfirm }) {
+  const [motivo, setMotivo] = useState("");
+  const [otro, setOtro] = useState("");
+  const final = motivo === "Otro" ? otro.trim() : motivo;
+
+  return (
+    <div onClick={onCancel}
+      style={{ position: "fixed", inset: 0, background: "rgba(6,24,46,.55)", backdropFilter: "blur(3px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100, padding: 20 }}>
+      <div onClick={(e) => e.stopPropagation()}
+        style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: 440, boxShadow: "0 20px 60px rgba(0,0,0,.3)", overflow: "hidden" }}>
+        <div style={{ padding: "22px 24px 0" }}>
+          <div style={{ width: 48, height: 48, borderRadius: 12, background: C.redBg, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 14 }}>
+            <Trash2 size={24} color={C.red} />
+          </div>
+          <div style={{ ...archivo, fontSize: 20, fontWeight: 800, color: C.abyss }}>Eliminar zarpe</div>
+          <div style={{ fontSize: 13, color: C.slate, marginTop: 6, lineHeight: 1.5 }}>
+            <strong style={{ color: C.ink }}>{target.nombre}</strong>{target.fecha ? ` · ${target.fecha}` : ""}. Se borrará el prezarpe, su marea y fotos. Esta acción no se puede deshacer.
+          </div>
+        </div>
+
+        <div style={{ padding: "16px 24px 0" }}>
+          <label style={{ fontSize: 11, letterSpacing: 1, textTransform: "uppercase", color: C.slate, fontWeight: 700 }}>Motivo de la eliminación</label>
+          <select value={motivo} onChange={(e) => setMotivo(e.target.value)}
+            style={{ width: "100%", marginTop: 7, padding: "11px 12px", borderRadius: 10, border: `1px solid ${C.line}`, fontSize: 14, fontFamily: "inherit", color: motivo ? C.ink : C.slate, background: "#fff", cursor: "pointer" }}>
+            <option value="">— Selecciona un motivo —</option>
+            {MOTIVOS_ELIM.map((m) => <option key={m} value={m}>{m}</option>)}
+          </select>
+          {motivo === "Otro" && (
+            <input value={otro} onChange={(e) => setOtro(e.target.value)} placeholder="Describe el motivo"
+              style={{ width: "100%", marginTop: 10, padding: "11px 12px", borderRadius: 10, border: `1px solid ${C.line}`, fontSize: 14, fontFamily: "inherit" }} autoFocus />
+          )}
+        </div>
+
+        <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", padding: "20px 24px 22px" }}>
+          <button onClick={onCancel} style={{ ...ghostBtn, padding: "10px 18px" }}>Cancelar</button>
+          <button onClick={() => onConfirm(final)} disabled={!final}
+            style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "10px 18px", borderRadius: 9, border: "none", background: final ? C.red : "#E4B4B0", color: "#fff", fontSize: 13.5, fontWeight: 700, cursor: final ? "pointer" : "default", fontFamily: "inherit" }}>
+            <Trash2 size={15} /> Eliminar
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
