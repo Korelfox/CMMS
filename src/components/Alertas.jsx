@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback, useMemo } from "react";
 import {
-  Bell, AlertTriangle, Package, Wrench, Clock, Ship, ShoppingCart, ChevronRight, Check, Droplet,
+  Bell, AlertTriangle, Package, Wrench, Clock, Ship, ShoppingCart, ChevronRight, Check, Droplet, ShieldCheck,
 } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { fetchAll } from "../lib/db";
@@ -14,6 +14,7 @@ const CATEGORIAS = [
   { id: "sla",      label: "SLA vencido",     icon: Clock },
   { id: "equipo",   label: "Equipos",         icon: Ship },
   { id: "consumo",  label: "Consumo aceite",  icon: Droplet },
+  { id: "documento", label: "Documentos",     icon: ShieldCheck },
   { id: "compra",   label: "Compras",         icon: ShoppingCart },
 ];
 
@@ -25,8 +26,16 @@ const NAV_POR_CAT = {
   sla: "solicitudes",
   equipo: "equipos",
   consumo: "prezarpe",
+  documento: "cumplimiento",
   compra: "almacen",
 };
+
+// Días hábiles (lun-vie) entre dos fechas (no cuenta feriados).
+function diasHabiles(desde, hasta) {
+  let n = 0; const d = new Date(desde); d.setHours(0, 0, 0, 0); const fin = new Date(hasta); fin.setHours(0, 0, 0, 0);
+  while (d < fin) { d.setDate(d.getDate() + 1); const w = d.getDay(); if (w !== 0 && w !== 6) n++; }
+  return n;
+}
 
 export default function Alertas({ onNavigate }) {
   const { profile } = useAuth();
@@ -38,6 +47,7 @@ export default function Alertas({ onNavigate }) {
   const [solicitudes, setSolicitudes] = useState([]);
   const [compras, setCompras] = useState([]);
   const [prezarpes, setPrezarpes] = useState([]);
+  const [documentos, setDocumentos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [filtro, setFiltro] = useState("all");
@@ -45,7 +55,7 @@ export default function Alertas({ onNavigate }) {
   const cargar = useCallback(async () => {
     setLoading(true); setError(null);
     try {
-      const [embs, eqs, its, stk, otsAll, sols, cps, pzs] = await Promise.all([
+      const [embs, eqs, its, stk, otsAll, sols, cps, pzs, docs] = await Promise.all([
         fetchAll("embarcaciones", { order: { col: "codigo", asc: true } }),
         fetchAll("equipos"),
         fetchAll("inventario_items"),
@@ -54,9 +64,10 @@ export default function Alertas({ onNavigate }) {
         fetchAll("solicitudes"),
         fetchAll("compras"),
         fetchAll("prezarpes", { order: { col: "fecha", asc: false } }),
+        fetchAll("documentos"),
       ]);
       setEmbarcaciones(embs); setEquipos(eqs); setItems(its); setStock(stk);
-      setOts(otsAll); setSolicitudes(sols); setCompras(cps); setPrezarpes(pzs);
+      setOts(otsAll); setSolicitudes(sols); setCompras(cps); setPrezarpes(pzs); setDocumentos(docs);
     } catch (e) { setError("No se pudieron cargar las alertas. " + e.message); }
     finally { setLoading(false); }
   }, []);
@@ -173,13 +184,26 @@ export default function Alertas({ onNavigate }) {
       });
     });
 
+    // 8) Documentos / certificados vencidos o por vencer (15 días hábiles)
+    const hoyD = new Date(); hoyD.setHours(0, 0, 0, 0);
+    documentos.forEach((d) => {
+      if (!d.vencimiento) return;
+      const venc = new Date(d.vencimiento + "T00:00:00");
+      if (venc < hoyD) {
+        all.push({ cat: "documento", sev: "red", titulo: `Documento vencido · ${d.tipo}`, detalle: `${embName(d.embarcacion_id)} · venció el ${d.vencimiento}`, ts: d.vencimiento });
+      } else {
+        const dh = diasHabiles(hoyD, venc);
+        if (dh <= 15) all.push({ cat: "documento", sev: "amber", titulo: `Documento por vencer · ${d.tipo}`, detalle: `${embName(d.embarcacion_id)} · vence el ${d.vencimiento} (${dh} días háb.)`, ts: d.vencimiento });
+      }
+    });
+
     // Orden: rojo primero, luego ámbar, dentro de cada uno por timestamp descendente
     return all.sort((a, b) => {
       const sevOrder = { red: 0, amber: 1, yellow: 2 };
       if (sevOrder[a.sev] !== sevOrder[b.sev]) return sevOrder[a.sev] - sevOrder[b.sev];
       return new Date(b.ts || 0).getTime() - new Date(a.ts || 0).getTime();
     });
-  }, [equipos, items, stock, ots, solicitudes, compras, prezarpes, embarcaciones]); // eslint-disable-line
+  }, [equipos, items, stock, ots, solicitudes, compras, prezarpes, documentos, embarcaciones]); // eslint-disable-line
 
   const conteoPorCat = (id) => alertas.filter((a) => a.cat === id).length;
   const listaFiltrada = filtro === "all" ? alertas : alertas.filter((a) => a.cat === filtro);

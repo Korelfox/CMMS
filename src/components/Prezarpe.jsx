@@ -25,6 +25,7 @@ export default function Prezarpe() {
   const [error, setError] = useState(null);
   const [usandoCache, setUsandoCache] = useState(false);
   const [prezarpes, setPrezarpes] = useState([]);
+  const [documentos, setDocumentos] = useState([]);
   const [vista, setVista] = useState("flota");
   const [nave, setNave] = useState(null);
   const [mareaRec, setMareaRec] = useState(null);   // marea a cerrar en recalada
@@ -36,17 +37,18 @@ export default function Prezarpe() {
   const cargar = useCallback(async () => {
     setLoading(true); setError(null);
     try {
-      const [embs, eqs, ms, pzs] = await Promise.all([
+      const [embs, eqs, ms, pzs, docs] = await Promise.all([
         fetchAll("embarcaciones", { order: { col: "codigo", asc: true } }),
         fetchAll("equipos", { order: { col: "id_visible", asc: true } }),
         fetchAll("mareas", { order: { col: "zarpe_at", asc: false } }),
         fetchAll("prezarpes", { order: { col: "created_at", asc: false } }),
+        fetchAll("documentos"),
       ]);
-      setEmbarcaciones(embs); setEquipos(eqs); setMareas(ms); setPrezarpes(pzs); setUsandoCache(false);
-      cacheTable("embarcaciones", embs); cacheTable("equipos", eqs); cacheTable("mareas", ms); cacheTable("prezarpes", pzs);
+      setEmbarcaciones(embs); setEquipos(eqs); setMareas(ms); setPrezarpes(pzs); setDocumentos(docs); setUsandoCache(false);
+      cacheTable("embarcaciones", embs); cacheTable("equipos", eqs); cacheTable("mareas", ms); cacheTable("prezarpes", pzs); cacheTable("documentos", docs);
     } catch (e) {
-      const [embs, eqs, ms, pzs] = await Promise.all([getCached("embarcaciones"), getCached("equipos"), getCached("mareas"), getCached("prezarpes")]);
-      setEmbarcaciones(embs); setEquipos(eqs); setMareas(ms); setPrezarpes(pzs); setUsandoCache(true);
+      const [embs, eqs, ms, pzs, docs] = await Promise.all([getCached("embarcaciones"), getCached("equipos"), getCached("mareas"), getCached("prezarpes"), getCached("documentos")]);
+      setEmbarcaciones(embs); setEquipos(eqs); setMareas(ms); setPrezarpes(pzs); setDocumentos(docs); setUsandoCache(true);
       if (!embs.length) setError("No se pudo cargar y no hay copia local. Conéctate al menos una vez.");
     } finally { setLoading(false); }
   }, []);
@@ -60,6 +62,11 @@ export default function Prezarpe() {
   const embName = (id) => embarcaciones.find((e) => e.id === id)?.nombre || "—";
   const eqNom = (id) => { const e = equipos.find((x) => x.id === id); return e?.sistema || e?.id_visible || "Equipo"; };
   const mareaAbierta = (embId) => mareas.find((m) => m.embarcacion_id === embId && m.estado === "navegando");
+  // Documentos vencidos de una nave (aviso de cumplimiento al zarpar)
+  const docsVencidos = (embId) => {
+    const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
+    return documentos.filter((d) => d.embarcacion_id === embId && d.vencimiento && new Date(d.vencimiento + "T00:00:00") < hoy);
+  };
 
   // Arma la descripción de no conformidades a partir del checklist.
   function observacionesDe(payload) {
@@ -182,7 +189,7 @@ export default function Prezarpe() {
       )}
 
       {vista === "flota" && (
-        <VistaFlota embarcaciones={embarcaciones} mareaAbierta={mareaAbierta} puedeOperar={puedeOperar} puedeBorrar={puedeBorrar}
+        <VistaFlota embarcaciones={embarcaciones} mareaAbierta={mareaAbierta} docsVencidos={docsVencidos} puedeOperar={puedeOperar} puedeBorrar={puedeBorrar}
           onIniciar={(n) => { setNave(n); setVista("checklist"); }} onRecalada={abrirRecalada} onEliminarZarpe={pedirEliminarZarpe} />
       )}
       {vista === "checklist" && (
@@ -209,7 +216,7 @@ export default function Prezarpe() {
 }
 
 // ---------- Pantalla 1: flota ----------
-function VistaFlota({ embarcaciones, mareaAbierta, puedeOperar, puedeBorrar, onIniciar, onRecalada, onEliminarZarpe }) {
+function VistaFlota({ embarcaciones, mareaAbierta, docsVencidos, puedeOperar, puedeBorrar, onIniciar, onRecalada, onEliminarZarpe }) {
   if (embarcaciones.length === 0) {
     return <Card><Empty><Ship size={30} color={C.amber} style={{ marginBottom: 10 }} /><br />Registra al menos una embarcación para usar el prezarpe.</Empty></Card>;
   }
@@ -218,6 +225,7 @@ function VistaFlota({ embarcaciones, mareaAbierta, puedeOperar, puedeBorrar, onI
       {embarcaciones.map((n) => {
         const marea = mareaAbierta(n.id);
         const navegando = !!marea;
+        const vencidos = docsVencidos ? docsVencidos(n.id) : [];
         return (
           <Card key={n.id} style={{ padding: 0, overflow: "hidden" }}>
             <div style={{ padding: "16px 18px", background: navegando ? "#EAF4FF" : C.mist, display: "flex", alignItems: "center", gap: 12, borderBottom: `1px solid ${C.line}` }}>
@@ -230,6 +238,11 @@ function VistaFlota({ embarcaciones, mareaAbierta, puedeOperar, puedeBorrar, onI
               </div>
               <Pill tone={navegando ? "cyan" : "slate"}>{navegando ? "Navegando" : "En puerto"}</Pill>
             </div>
+            {vencidos.length > 0 && (
+              <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 18px", background: C.redBg, color: C.red, fontSize: 12, fontWeight: 600, borderBottom: `1px solid ${C.line}` }}>
+                <AlertTriangle size={15} /> {vencidos.length} documento{vencidos.length !== 1 ? "s" : ""} vencido{vencidos.length !== 1 ? "s" : ""} — revisar Cumplimiento antes de zarpar
+              </div>
+            )}
             <div style={{ padding: "14px 18px" }}>
               {navegando ? (
                 <div>
