@@ -146,6 +146,20 @@ export default function Prezarpe() {
     } catch (e) { setError("No se pudo eliminar: " + e.message); }
   }
 
+  // Elimina el zarpe (marea + su prezarpe + fotos) desde la tarjeta de la
+  // embarcación, útil cuando se inició por error. Solo administración.
+  async function eliminarZarpe(m) {
+    const prez = prezarpes.find((p) => p.marea_id === m.id);
+    if (prez) return eliminarPrezarpe(prez);
+    if (!online) { setError("Eliminar requiere conexión."); return; }
+    if (!window.confirm(`¿Eliminar el zarpe de ${embName(m.embarcacion_id)}? Esta acción no se puede deshacer.`)) return;
+    try {
+      await deleteRow("mareas", m.id);
+      logActivity(profile, "Eliminar zarpe", embName(m.embarcacion_id));
+      await cargar();
+    } catch (e) { setError("No se pudo eliminar: " + e.message); }
+  }
+
   if (loading) return <div><PageHead kicker="Flota · Operación" title="Prezarpe & Mareas" /><Card><InlineSpinner label="Cargando flota…" /></Card></div>;
 
   return (
@@ -169,8 +183,8 @@ export default function Prezarpe() {
       )}
 
       {vista === "flota" && (
-        <VistaFlota embarcaciones={embarcaciones} mareaAbierta={mareaAbierta} puedeOperar={puedeOperar}
-          onIniciar={(n) => { setNave(n); setVista("checklist"); }} onRecalada={abrirRecalada} />
+        <VistaFlota embarcaciones={embarcaciones} mareaAbierta={mareaAbierta} puedeOperar={puedeOperar} puedeBorrar={puedeBorrar}
+          onIniciar={(n) => { setNave(n); setVista("checklist"); }} onRecalada={abrirRecalada} onEliminarZarpe={eliminarZarpe} />
       )}
       {vista === "checklist" && (
         <VistaChecklist nave={nave} equipos={equipos.filter((e) => e.embarcacion_id === nave.id)} online={online}
@@ -194,7 +208,7 @@ export default function Prezarpe() {
 }
 
 // ---------- Pantalla 1: flota ----------
-function VistaFlota({ embarcaciones, mareaAbierta, puedeOperar, onIniciar, onRecalada }) {
+function VistaFlota({ embarcaciones, mareaAbierta, puedeOperar, puedeBorrar, onIniciar, onRecalada, onEliminarZarpe }) {
   if (embarcaciones.length === 0) {
     return <Card><Empty><Ship size={30} color={C.amber} style={{ marginBottom: 10 }} /><br />Registra al menos una embarcación para usar el prezarpe.</Empty></Card>;
   }
@@ -223,6 +237,7 @@ function VistaFlota({ embarcaciones, mareaAbierta, puedeOperar, onIniciar, onRec
                     {marea._pending && <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 700, color: "#7a5b00", background: C.amber, padding: "1px 6px", borderRadius: 20 }}><Clock size={9} /> Pendiente</span>}
                   </div>
                   {puedeOperar && <button onClick={() => onRecalada(marea)} style={{ ...ghostBtn, width: "100%", justifyContent: "center", padding: "11px", color: C.steel, borderColor: C.steel }}><Anchor size={16} /> Registrar recalada</button>}
+                  {puedeBorrar && <button onClick={() => onEliminarZarpe(marea)} style={{ ...ghostBtn, width: "100%", justifyContent: "center", padding: "9px", marginTop: 8, color: C.red, borderColor: C.red, fontSize: 12.5 }}><Trash2 size={14} /> Eliminar zarpe (creado por error)</button>}
                 </div>
               ) : (
                 puedeOperar
