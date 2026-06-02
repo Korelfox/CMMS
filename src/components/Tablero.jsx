@@ -68,12 +68,7 @@ export default function Tablero({ onNavigate }) {
       color: ESTADO_COLOR[e.value],
     }));
 
-    // ── Diagnóstico de sistemas (gráfico hexagonal) ──────────────────────
-    // Sistemas estándar de una embarcación pesquera.
-    // Salud = 100 puntos de base descontando: OT correctiva abierta (-20),
-    // OT correctiva cerrada reciente < 90 días (-10), equipo fuera de
-    // servicio/reparación (-25), equipo con desgaste (-10), PM vencido (-15).
-    // Cada sistema queda entre 0 y 100.
+    // ── Diagnóstico de sistemas POR EMBARCACIÓN (gráfico hexagonal) ──────
     const SISTEMAS_HEX = [
       { key: "Motor",       kw: ["motor", "propulsión", "propulsion", "diésel", "diesel", "generador"] },
       { key: "Casco",       kw: ["casco", "cubierta", "hull", "fondo", "estructura"] },
@@ -84,34 +79,33 @@ export default function Tablero({ onNavigate }) {
     ];
     const nowMs = Date.now();
     const diasMs = 90 * 24 * 36e5;
+    const match = (txt = "", kw) => kw.some((k) => txt.toLowerCase().includes(k));
 
-    const hexData = SISTEMAS_HEX.map(({ key, kw }) => {
-      const match = (txt = "") => kw.some((k) => txt.toLowerCase().includes(k));
-      const eqsS = eqs.filter((e) => match(e.sistema) || match(e.id_visible));
-      const otsS = ots.filter((o) => match(o.sistema) || match(o.descripcion));
+    // Calcula los 6 sistemas para una embarcación específica
+    const calcHex = (embId) => SISTEMAS_HEX.map(({ key, kw }) => {
+      const eqsS = eqs.filter((e) => e.embarcacion_id === embId && (match(e.sistema, kw) || match(e.id_visible, kw)));
+      const otsS = ots.filter((o) => o.embarcacion_id === embId && (match(o.sistema, kw) || match(o.descripcion, kw)));
       let score = 100;
-      // Equipos fuera de servicio / en reparación → penalización seria
       eqsS.forEach((e) => { if (e.estado === "fuera_servicio") score -= 25; else if (e.estado === "en_reparacion") score -= 20; else if (e.estado === "desgaste") score -= 10; });
-      // PM vencido → penaliza por intervalo
       eqsS.forEach((e) => { const el = (e.horas_actual || 0) - (e.horas_ult_pm || 0); if (el >= PM_INTERVALS[0]) score -= 15; });
-      // OTs correctivas abiertas → penaliza por urgencia
-      otsS.filter((o) => o.tipo === "correctivo" && o.estado !== "cerrada").forEach((o) => {
-        score -= o.prioridad === "critica" ? 25 : o.prioridad === "alta" ? 18 : 12;
-      });
-      // OTs correctivas cerradas recientes → penaliza levemente (historial)
+      otsS.filter((o) => o.tipo === "correctivo" && o.estado !== "cerrada").forEach((o) => { score -= o.prioridad === "critica" ? 25 : o.prioridad === "alta" ? 18 : 12; });
       otsS.filter((o) => o.tipo === "correctivo" && o.estado === "cerrada" && (nowMs - new Date(o.fecha).getTime()) < diasMs).forEach(() => { score -= 8; });
-      // Sin equipos ni OTs mapeadas → neutro
       if (eqsS.length === 0 && otsS.length === 0) score = 85;
       return { sistema: key, salud: Math.max(0, Math.min(100, score)) };
     });
 
-    const saludPromedio = Math.round(hexData.reduce((s, d) => s + d.salud, 0) / hexData.length);
+    // Un conjunto de datos por embarcación
+    const diagnostico = embs.map((emb) => {
+      const hexData = calcHex(emb.id);
+      const saludPromedio = Math.round(hexData.reduce((s, d) => s + d.salud, 0) / hexData.length);
+      return { emb, hexData, saludPromedio };
+    });
 
     return {
       flota: embs.length, equipos: eqs.length, otsTotal: ots.length, otsAbiertas: otsAbiertas.length,
       otsCriticas: otsCriticas.length, pmVencidos, stockBajo, solPend,
       mtbf, costoTotal, costoMes, porEstado, otsRec: ots.slice(0, 5),
-      hexData, saludPromedio,
+      diagnostico,
     };
   }, [data]);
 
@@ -154,48 +148,63 @@ export default function Tablero({ onNavigate }) {
         <Stat icon={ClipboardList} label="Solicitudes" value={m.solPend} tone={m.solPend ? C.amber : C.green} sub="pendientes de revisar" onClick={() => onNavigate?.("solicitudes")} />
       </div>
 
-      {/* Diagnóstico hexagonal de sistemas */}
-      <Card style={{ marginBottom: 18 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-          <div>
-            <div style={{ ...archivo, fontWeight: 800, fontSize: 15, color: C.abyss }}>Diagnóstico de Sistemas</div>
-            <div style={{ fontSize: 12, color: C.slate, marginTop: 2 }}>Salud operacional calculada desde equipos, PM y OTs correctivas</div>
-          </div>
-          <div style={{ textAlign: "right" }}>
-            <div style={{ ...archivo, fontSize: 28, fontWeight: 800, color: m.saludPromedio >= 80 ? C.green : m.saludPromedio >= 60 ? C.amber : C.red }}>{m.saludPromedio}%</div>
-            <div style={{ fontSize: 11, color: C.slate }}>salud promedio</div>
-          </div>
-        </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 20, alignItems: "center" }}>
-          <ResponsiveContainer width="100%" height={280}>
-            <RadarChart data={m.hexData} margin={{ top: 10, right: 30, bottom: 10, left: 30 }}>
-              <PolarGrid gridType="polygon" stroke={C.line} />
-              <PolarAngleAxis dataKey="sistema" tick={{ fontSize: 12, fontWeight: 600, fill: C.ink, fontFamily: "IBM Plex Sans, sans-serif" }} />
-              <PolarRadiusAxis domain={[0, 100]} tick={{ fontSize: 9, fill: C.slate }} tickCount={4} />
-              <Tooltip formatter={(v) => [`${v}%`, "Salud"]} contentStyle={{ fontSize: 12, borderRadius: 8 }} />
-              <Radar name="Salud" dataKey="salud" stroke={C.steel} fill={C.steel} fillOpacity={0.18} strokeWidth={2.5} dot={{ r: 4, fill: C.steel, strokeWidth: 0 }} />
-            </RadarChart>
-          </ResponsiveContainer>
-          <div style={{ display: "flex", flexDirection: "column", gap: 7, minWidth: 160 }}>
-            {m.hexData.map((d) => {
-              const color = d.salud >= 80 ? C.green : d.salud >= 60 ? C.amber : C.red;
+      {/* Diagnóstico hexagonal por embarcación */}
+      {(m.diagnostico || []).length > 0 && (
+        <div style={{ marginBottom: 18 }}>
+          <div style={{ ...archivo, fontWeight: 800, fontSize: 15, color: C.abyss, marginBottom: 4 }}>Diagnóstico de Sistemas</div>
+          <div style={{ fontSize: 12, color: C.slate, marginBottom: 14 }}>Salud operacional por embarcación — calculada desde equipos, PM y OTs correctivas</div>
+          <div style={{ display: "grid", gridTemplateColumns: `repeat(${Math.min(m.diagnostico.length, 2)}, 1fr)`, gap: 14 }}>
+            {m.diagnostico.map(({ emb, hexData, saludPromedio }) => {
+              const colorSalud = saludPromedio >= 80 ? C.green : saludPromedio >= 60 ? C.amber : C.red;
               return (
-                <div key={d.sistema} style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
-                      <span style={{ fontSize: 12, fontWeight: 600, color: C.ink }}>{d.sistema}</span>
-                      <span style={{ fontSize: 12, fontWeight: 800, color, fontFamily: "'IBM Plex Mono', monospace" }}>{d.salud}%</span>
+                <Card key={emb.id} style={{ padding: 18 }}>
+                  {/* Cabecera de la nave */}
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
+                    <div>
+                      <div style={{ fontSize: 10, letterSpacing: 1.5, textTransform: "uppercase", color: C.slate, fontWeight: 700 }}>Salud del Buque</div>
+                      <div style={{ ...archivo, fontSize: 18, fontWeight: 800, color: C.abyss, lineHeight: 1.2, marginTop: 2 }}>{emb.nombre}</div>
+                      <div style={{ fontSize: 11, color: C.slate, fontFamily: "'IBM Plex Mono', monospace" }}>{emb.codigo}</div>
                     </div>
-                    <div style={{ height: 5, borderRadius: 3, background: C.foam, overflow: "hidden" }}>
-                      <div style={{ height: "100%", width: `${d.salud}%`, background: color, borderRadius: 3, transition: "width .4s" }} />
+                    <div style={{ textAlign: "right" }}>
+                      <div style={{ ...archivo, fontSize: 30, fontWeight: 800, color: colorSalud, lineHeight: 1 }}>{saludPromedio}%</div>
+                      <div style={{ fontSize: 10.5, color: colorSalud, fontWeight: 600 }}>{saludPromedio >= 80 ? "Óptimo" : saludPromedio >= 60 ? "Atención" : "Crítico"}</div>
                     </div>
                   </div>
-                </div>
+
+                  {/* Hexágono + barras */}
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 160px", gap: 12, alignItems: "center" }}>
+                    <ResponsiveContainer width="100%" height={250}>
+                      <RadarChart data={hexData} margin={{ top: 10, right: 28, bottom: 10, left: 28 }}>
+                        <PolarGrid gridType="polygon" stroke={C.line} />
+                        <PolarAngleAxis dataKey="sistema" tick={{ fontSize: 11, fontWeight: 600, fill: C.ink, fontFamily: "IBM Plex Sans, sans-serif" }} />
+                        <PolarRadiusAxis domain={[0, 100]} tick={false} tickCount={4} axisLine={false} />
+                        <Tooltip formatter={(v) => [`${v}%`, "Salud"]} contentStyle={{ fontSize: 12, borderRadius: 8 }} />
+                        <Radar dataKey="salud" stroke={colorSalud} fill={colorSalud} fillOpacity={0.15} strokeWidth={2.5} dot={{ r: 4, fill: colorSalud, strokeWidth: 0 }} />
+                      </RadarChart>
+                    </ResponsiveContainer>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                      {hexData.map((d) => {
+                        const c = d.salud >= 80 ? C.green : d.salud >= 60 ? C.amber : C.red;
+                        return (
+                          <div key={d.sistema}>
+                            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
+                              <span style={{ fontSize: 11, fontWeight: 600, color: C.ink }}>{d.sistema}</span>
+                              <span style={{ fontSize: 11, fontWeight: 800, color: c, fontFamily: "'IBM Plex Mono', monospace" }}>{d.salud}%</span>
+                            </div>
+                            <div style={{ height: 5, borderRadius: 3, background: C.foam, overflow: "hidden" }}>
+                              <div style={{ height: "100%", width: `${d.salud}%`, background: c, borderRadius: 3, transition: "width .4s" }} />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </Card>
               );
             })}
           </div>
         </div>
-      </Card>
+      )}
 
       {/* Gráfico + actividad reciente */}
       <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 14 }}>
