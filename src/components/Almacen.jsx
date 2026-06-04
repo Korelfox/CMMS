@@ -28,6 +28,7 @@ export default function Almacen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [tab, setTab] = useState("stock");
+  const [ocInit, setOcInit] = useState(null); // ítem pre-cargado al navegar desde "Reponer"
 
   const cargar = useCallback(async () => {
     setLoading(true); setError(null);
@@ -56,9 +57,16 @@ export default function Almacen() {
     return m;
   }, [stock]);
 
-  const itemDesc = (id) => items.find((i) => i.id === id)?.descripcion || "—";
+  const itemDesc   = (id) => items.find((i) => i.id === id)?.descripcion || "—";
   const itemPrecio = (id) => items.find((i) => i.id === id)?.precio || 0;
-  const whName = (id) => bodegas.find((b) => b.id === id)?.nombre || "—";
+  const whName     = (id) => bodegas.find((b) => b.id === id)?.nombre || "—";
+
+  function reponer(item) {
+    const total     = bodegas.reduce((s, b) => s + (stockMap.get(skey(item.id, b.id)) || 0), 0);
+    const sugerido  = Math.max(1, (item.stock_max || item.stock_min * 2 || 5) - total);
+    setOcInit({ proveedor: item.proveedor || "", items: [{ item_id: item.id, cantidad: sugerido, precio: item.precio || 0 }] });
+    setTab("compras");
+  }
 
   if (loading) return <div><PageHead kicker="Gestión de Almacenes" title="Almacén & Compras" /><Card><InlineSpinner label="Cargando almacén…" /></Card></div>;
 
@@ -82,7 +90,7 @@ export default function Almacen() {
       )}
       {tab === "stock" && (
         <TabStock profile={profile} items={items} setItems={setItems} bodegas={bodegas} stockMap={stockMap}
-          stock={stock} setStock={setStock} setError={setError} />
+          stock={stock} setStock={setStock} setError={setError} onReponer={reponer} />
       )}
       {tab === "movs" && (
         <TabMovimientos profile={profile} items={items} bodegas={bodegas} ots={ots}
@@ -93,6 +101,7 @@ export default function Almacen() {
         <TabCompras profile={profile} items={items} bodegas={bodegas} compras={compras}
           comprasItems={comprasItems} stockMap={stockMap}
           itemDesc={itemDesc} itemPrecio={itemPrecio} whName={whName}
+          ocInit={ocInit} onOcInitUsed={() => setOcInit(null)}
           recargar={cargar} setError={setError} />
       )}
     </div>
@@ -225,7 +234,7 @@ function TabBodegas({ profile, empresa, embarcaciones, bodegas, setBodegas, reca
 }
 
 /* ============================ TAB · STOCK por bodega ============================ */
-function TabStock({ profile, items, setItems, bodegas, stockMap, stock, setStock, setError }) {
+function TabStock({ profile, items, setItems, bodegas, stockMap, stock, setStock, setError, onReponer }) {
   const puedeOperar = canOperate(profile?.rol);
   const [stockEdit, setStockEdit] = useState({ item_id: null, bodega_id: null, valor: "" });
   const [descEdit, setDescEdit]   = useState({ id: null, valor: "" });
@@ -420,9 +429,17 @@ function TabStock({ profile, items, setItems, bodegas, stockMap, stock, setStock
 
                     <td style={{ ...tdStyle, textAlign: "right", fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700 }}>{t}</td>
                     <td style={{ ...tdStyle, textAlign: "right", fontFamily: "'IBM Plex Mono', monospace" }}>{i.stock_min}</td>
-                    <td style={{ ...tdStyle, minWidth: 130 }}>
+                    <td style={{ ...tdStyle, minWidth: 140 }}>
                       <NivelBar total={t} min={i.stock_min} max={i.stock_max} />
-                      <div style={{ marginTop: 5 }}><Pill tone={st[0]}>{st[1]}</Pill></div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 5 }}>
+                        <Pill tone={st[0]}>{st[1]}</Pill>
+                        {puedeOperar && (
+                          <button onClick={() => onReponer(i)} title="Crear OC para reponer este ítem"
+                            style={{ fontSize: 10.5, padding: "2px 7px", borderRadius: 4, border: `1px solid ${C.cyan}`, background: "none", color: C.cyan, cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap" }}>
+                            ↑ Reponer
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 );
@@ -562,13 +579,24 @@ function TabMovimientos({ profile, items, bodegas, ots, movimientos, stockMap, i
 }
 
 /* ============================ TAB · COMPRAS ============================ */
-function TabCompras({ profile, items, bodegas, compras, comprasItems, stockMap, itemDesc, itemPrecio, whName, recargar, setError }) {
+function TabCompras({ profile, items, bodegas, compras, comprasItems, stockMap, itemDesc, itemPrecio, whName, ocInit, onOcInitUsed, recargar, setError }) {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ proveedor: "", bodega_destino: bodegas[0]?.id || "", lead_dias: 7, ref_proveedor: "", notas: "", items: [] });
   const [line, setLine] = useState({ item_id: "", cantidad: 1 });
-  const puedeOperar = isAdmin(profile?.rol);  // crear/gestionar OC: Jefe Mantención y superiores (comprometen presupuesto)
+  const [recepPanel, setRecepPanel] = useState(null);  // oc.id al recibir parcialmente
+  const [recepCants, setRecepCants] = useState({});    // { compra_item_id: cantidad_a_recibir }
+  const puedeOperar = isAdmin(profile?.rol);
   const puedeBorrar = isAdmin(profile?.rol);
   const puedeAprobar = isAdmin(profile?.rol);
+
+  // Inicializar form desde botón "Reponer" en Stock
+  React.useEffect(() => {
+    if (ocInit?.items?.length > 0) {
+      setForm((f) => ({ ...f, proveedor: ocInit.proveedor || f.proveedor, items: ocInit.items }));
+      setShowForm(true);
+      onOcInitUsed?.();
+    }
+  }, [ocInit]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const itemCodigo    = (id) => items.find((i) => i.id === id)?.codigo     || "";
   const itemCategoria = (id) => items.find((i) => i.id === id)?.categoria || "";
@@ -588,6 +616,46 @@ function TabCompras({ profile, items, bodegas, compras, comprasItems, stockMap, 
     setLine({ item_id: "", cantidad: 1 });
   }
   function rmLine(idx) { setForm((f) => ({ ...f, items: f.items.filter((_, i) => i !== idx) })); }
+
+  // ── Recepción parcial ─────────────────────────────────────────
+  function abrirRecepcion(oc) {
+    const cants = {};
+    ocItemsList(oc).forEach((it) => {
+      const pendiente = Math.max(0, it.cantidad - (it.cantidad_recibida || 0));
+      cants[it.id] = pendiente;
+    });
+    setRecepCants(cants);
+    setRecepPanel(oc.id);
+  }
+  async function confirmarRecepcion(oc) {
+    const its = ocItemsList(oc);
+    try {
+      let todoRecibido = true;
+      for (const it of its) {
+        const yaRecibido  = it.cantidad_recibida || 0;
+        const aRecibir    = Math.min(Math.max(0, +recepCants[it.id] || 0), it.cantidad - yaRecibido);
+        const nuevoTotal  = yaRecibido + aRecibir;
+        if (nuevoTotal < it.cantidad) todoRecibido = false;
+        if (aRecibir <= 0) continue;
+        const prevStock = stockMap.get(skey(it.item_id, oc.bodega_destino)) || 0;
+        await upsertRow("stock", profile.empresa_id, { item_id: it.item_id, bodega_id: oc.bodega_destino, cantidad: prevStock + aRecibir }, "item_id,bodega_id");
+        await insertRow("movimientos", profile.empresa_id, {
+          fecha: HOY(), tipo: "entrada", item_id: it.item_id, bodega_to: oc.bodega_destino,
+          cantidad: aRecibir, responsable: profile.nombre || "Compras",
+          motivo: `Recepción ${todoRecibido ? "completa" : "parcial"} ${oc.folio}`, created_by: profile.id,
+        });
+        await updateRow("compras_items", it.id, { cantidad_recibida: nuevoTotal });
+      }
+      if (todoRecibido) {
+        await updateRow("compras", oc.id, { estado: "recibida", fecha_recepcion: HOY() });
+        logActivity(profile, "Recibir OC completa", `${oc.folio} → ${whName(oc.bodega_destino)}`);
+      } else {
+        logActivity(profile, "Recepción parcial OC", `${oc.folio} — pendiente de completar`);
+      }
+      setRecepPanel(null); setRecepCants({});
+      recargar();
+    } catch (e) { setError("No se pudo procesar la recepción: " + e.message); }
+  }
 
   async function crearOC() {
     if (!form.proveedor.trim() || form.items.length === 0) { setError("Indica proveedor y al menos un ítem."); return; }
@@ -756,6 +824,63 @@ function TabCompras({ profile, items, bodegas, compras, comprasItems, stockMap, 
         </Card>
       )}
 
+      {/* ── Panel de recepción parcial ── */}
+      {recepPanel && (() => {
+        const oc  = compras.find((o) => o.id === recepPanel);
+        const its = ocItemsList(oc);
+        return (
+          <Card style={{ marginBottom: 16, borderLeft: `4px solid ${C.cyan}`, background: "#F0FAFF" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 14 }}>
+              <div>
+                <div style={{ fontSize: 10, letterSpacing: 2, textTransform: "uppercase", color: C.slate, fontWeight: 700 }}>Recepción de mercadería</div>
+                <div style={{ fontWeight: 800, fontSize: 15, color: C.abyss, marginTop: 2 }}>
+                  {oc.folio} · {oc.proveedor} — indica las cantidades que efectivamente llegaron
+                </div>
+              </div>
+              <button onClick={() => setRecepPanel(null)} style={{ background: "none", border: "none", cursor: "pointer", color: C.slate }}><X size={18} /></button>
+            </div>
+            <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 14 }}>
+              <thead><tr>
+                <th style={thStyle}>Ítem</th>
+                <th style={{ ...thStyle, textAlign: "right" }}>Ordenado</th>
+                <th style={{ ...thStyle, textAlign: "right" }}>Ya recibido</th>
+                <th style={{ ...thStyle, textAlign: "right" }}>Pendiente</th>
+                <th style={{ ...thStyle, textAlign: "center", width: 130 }}>Recibir ahora</th>
+              </tr></thead>
+              <tbody>
+                {its.map((it) => {
+                  const yaRecibido = it.cantidad_recibida || 0;
+                  const pendiente  = Math.max(0, it.cantidad - yaRecibido);
+                  return (
+                    <tr key={it.id}>
+                      <td style={tdStyle}>
+                        <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, color: C.steel }}>{itemCodigo(it.item_id)}</div>
+                        <div style={{ fontSize: 12.5 }}>{itemDesc(it.item_id)}</div>
+                      </td>
+                      <td style={{ ...tdStyle, textAlign: "right", fontFamily: "'IBM Plex Mono', monospace" }}>{it.cantidad}</td>
+                      <td style={{ ...tdStyle, textAlign: "right", fontFamily: "'IBM Plex Mono', monospace", color: yaRecibido > 0 ? C.green : C.slate }}>{yaRecibido}</td>
+                      <td style={{ ...tdStyle, textAlign: "right", fontFamily: "'IBM Plex Mono', monospace", color: pendiente > 0 ? C.amber : C.green, fontWeight: 700 }}>{pendiente}</td>
+                      <td style={{ ...tdStyle, textAlign: "center" }}>
+                        {pendiente > 0 ? (
+                          <input type="number" min={0} max={pendiente}
+                            value={recepCants[it.id] ?? pendiente}
+                            onChange={(e) => setRecepCants((p) => ({ ...p, [it.id]: Math.min(+e.target.value, pendiente) }))}
+                            style={{ ...bluInput, width: 70, textAlign: "center" }} />
+                        ) : <span style={{ fontSize: 12, color: C.green }}>✓ Completo</span>}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button onClick={() => confirmarRecepcion(oc)} style={primaryBtn}><Check size={15} /> Confirmar recepción</button>
+              <button onClick={() => setRecepPanel(null)} style={ghostBtn}>Cancelar</button>
+            </div>
+          </Card>
+        );
+      })()}
+
       <Card style={{ padding: 0, overflow: "hidden" }}>
         <div style={{ overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 920 }}>
@@ -801,9 +926,16 @@ function TabCompras({ profile, items, bodegas, compras, comprasItems, stockMap, 
                       </td>
                       <td style={{ ...tdStyle, minWidth: 180 }}><OCStepper estado={o.estado} /></td>
                       <td style={tdStyle}>{o.estado !== "recibida" && puedeAprobar ? (
-                        <button onClick={() => avanzar(o)} style={{ ...ghostBtn, padding: "5px 10px", fontSize: 12 }}>
-                          {o.estado === "solicitada" ? "Aprobar" : o.estado === "aprobada" ? "Enviar" : "Recibir →"}
-                        </button>
+                        o.estado === "enviada" ? (
+                          <button onClick={() => abrirRecepcion(o)}
+                            style={{ ...primaryBtn, padding: "5px 10px", fontSize: 12, background: C.cyan, borderColor: C.cyan }}>
+                            ↓ Recibir
+                          </button>
+                        ) : (
+                          <button onClick={() => avanzar(o)} style={{ ...ghostBtn, padding: "5px 10px", fontSize: 12 }}>
+                            {o.estado === "solicitada" ? "Aprobar" : "Enviar →"}
+                          </button>
+                        )
                       ) : o.estado === "recibida" ? <span style={{ fontSize: 11.5, color: C.green, fontFamily: "'IBM Plex Mono', monospace" }}>{o.fecha_recepcion}</span> : <span style={{ fontSize: 11, color: C.slate }}>requiere Jefe</span>}</td>
                       {puedeBorrar && <td style={tdStyle}><button onClick={() => eliminar(o.id)} style={{ background: "none", border: "none", cursor: "pointer", color: C.slate }}><Trash2 size={15} /></button></td>}
                     </tr>);
