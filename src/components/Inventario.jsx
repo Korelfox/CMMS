@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from "react";
-import { Package, Plus, Trash2, Download, Anchor, X } from "lucide-react";
+import { Package, Plus, Trash2, Download, Anchor, X, Pencil, Check } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { fetchAll, insertRow, updateRow, deleteRow, logActivity } from "../lib/db";
 import { C, clp, isAdmin, canOperate } from "../theme";
@@ -41,6 +41,7 @@ export default function Inventario() {
   const [form, setForm] = useState(blank());
   const [destinoPanel, setDestinoPanel] = useState(null); // item_id | null
   const [filtroCat, setFiltroCat] = useState("all");
+  const [codigoEdit, setCodigoEdit] = useState({ id: null, valor: "" });
   const puedeOperar = canOperate(profile?.rol);
   const puedeBorrar = isAdmin(profile?.rol);
 
@@ -127,6 +128,22 @@ export default function Inventario() {
     onChangeLocal(id, c, v);
     try { await updateRow("inventario_items", id, { [c]: v }); }
     catch (e) { onChangeLocal(id, c, previo); setError("No se pudo guardar: " + e.message); }
+  }
+
+  function iniciarEditCodigo(id, valorActual) {
+    setCodigoEdit({ id, valor: valorActual });
+    setError(null);
+  }
+  function cancelarCodigo() { setCodigoEdit({ id: null, valor: "" }); }
+  async function confirmarCodigo(id) {
+    const nuevo = codigoEdit.valor.trim().toUpperCase();
+    if (!nuevo) { setError("El código no puede quedar vacío."); return; }
+    if (items.some((i) => i.codigo === nuevo && i.id !== id)) { setError(`El código "${nuevo}" ya existe en otro ítem.`); return; }
+    const previo = items.find((i) => i.id === id)?.codigo;
+    setItems((p) => p.map((i) => i.id === id ? { ...i, codigo: nuevo } : i));
+    setCodigoEdit({ id: null, valor: "" });
+    try { await updateRow("inventario_items", id, { codigo: nuevo }); logActivity(profile, "Editar código", `${previo} → ${nuevo}`); }
+    catch (e) { setItems((p) => p.map((i) => i.id === id ? { ...i, codigo: previo } : i)); setError("No se pudo actualizar: " + e.message); }
   }
 
   async function eliminar(id) {
@@ -334,7 +351,40 @@ export default function Inventario() {
                   const isOpen = destinoPanel === i.id;
                   return (
                     <tr key={i.id} style={{ background: isOpen ? "#EFF6FF" : undefined }}>
-                      <td style={{ ...tdStyle, fontFamily: "'IBM Plex Mono', monospace", fontWeight: 600, color: C.steel }}>{i.codigo}</td>
+                      <td style={tdStyle}>
+                        {codigoEdit.id === i.id ? (
+                          <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                            <input
+                              value={codigoEdit.valor}
+                              autoFocus
+                              onChange={(e) => setCodigoEdit((p) => ({ ...p, valor: e.target.value.toUpperCase() }))}
+                              onKeyDown={(e) => { if (e.key === "Enter") confirmarCodigo(i.id); if (e.key === "Escape") cancelarCodigo(); }}
+                              style={{ ...inputStyle(80), fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, color: C.abyss, textTransform: "uppercase" }}
+                            />
+                            <button onClick={() => confirmarCodigo(i.id)}
+                              title="Confirmar"
+                              style={{ background: C.green, border: "none", borderRadius: 5, cursor: "pointer", color: "#fff", padding: "3px 7px", display: "flex", alignItems: "center" }}>
+                              <Check size={13} strokeWidth={2.5} />
+                            </button>
+                            <button onClick={cancelarCodigo}
+                              title="Cancelar"
+                              style={{ background: "none", border: `1px solid ${C.line}`, borderRadius: 5, cursor: "pointer", color: C.slate, padding: "3px 7px", display: "flex", alignItems: "center" }}>
+                              <X size={13} />
+                            </button>
+                          </div>
+                        ) : (
+                          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                            <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontWeight: 600, color: C.steel }}>{i.codigo}</span>
+                            {puedeOperar && (
+                              <button onClick={() => iniciarEditCodigo(i.id, i.codigo)}
+                                title="Editar código"
+                                style={{ background: "none", border: "none", cursor: "pointer", color: C.slate, padding: 2, opacity: 0.45, lineHeight: 1 }}>
+                                <Pencil size={12} />
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </td>
                       <td style={{ ...tdStyle, textAlign: "center" }}><Pill tone={abcTone}>{i.abc}</Pill></td>
                       <td style={tdStyle}>
                         <input value={i.descripcion} disabled={!puedeOperar}
