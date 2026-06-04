@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback, useMemo } from "react";
 import {
   Warehouse, ArrowRightLeft, ShoppingCart, Plus, Trash2, Download,
-  ChevronRight, X, PackagePlus, Ship, Anchor, Check, AlertCircle,
+  ChevronRight, X, PackagePlus, Ship, Anchor, Check, AlertCircle, Pencil,
 } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { fetchAll, insertRow, updateRow, deleteRow, upsertRow, logActivity } from "../lib/db";
@@ -81,7 +81,7 @@ export default function Almacen() {
           bodegas={bodegas} setBodegas={setBodegas} recargar={cargar} setError={setError} />
       )}
       {tab === "stock" && (
-        <TabStock profile={profile} items={items} bodegas={bodegas} stockMap={stockMap}
+        <TabStock profile={profile} items={items} setItems={setItems} bodegas={bodegas} stockMap={stockMap}
           stock={stock} setStock={setStock} setError={setError} />
       )}
       {tab === "movs" && (
@@ -225,16 +225,15 @@ function TabBodegas({ profile, empresa, embarcaciones, bodegas, setBodegas, reca
 }
 
 /* ============================ TAB · STOCK por bodega ============================ */
-function TabStock({ profile, items, bodegas, stockMap, stock, setStock, setError }) {
+function TabStock({ profile, items, setItems, bodegas, stockMap, stock, setStock, setError }) {
   const puedeOperar = canOperate(profile?.rol);
+  const [stockEdit, setStockEdit] = useState({ item_id: null, bodega_id: null, valor: "" });
+  const [descEdit, setDescEdit]   = useState({ id: null, valor: "" });
 
-  // Edita una celda: upsert (item_id, bodega_id) ← cantidad
-  async function setCantidad(item_id, bodega_id, cantidad) {
-    const k = skey(item_id, bodega_id);
-    const previo = stockMap.get(k) || 0;
-    const v = Math.max(0, +cantidad || 0);
+  // ── Stock ────────────────────────────────────────────────────
+  async function setCantidad(item_id, bodega_id, v) {
+    const previo = stockMap.get(skey(item_id, bodega_id)) || 0;
     if (v === previo) return;
-    // Optimista: actualiza el array local de stock
     setStock((p) => {
       const idx = p.findIndex((s) => s.item_id === item_id && s.bodega_id === bodega_id);
       if (idx >= 0) { const c = [...p]; c[idx] = { ...c[idx], cantidad: v }; return c; }
@@ -243,17 +242,44 @@ function TabStock({ profile, items, bodegas, stockMap, stock, setStock, setError
     try {
       await upsertRow("stock", profile.empresa_id, { item_id, bodega_id, cantidad: v }, "item_id,bodega_id");
     } catch (e) {
-      setStock((p) => p.map((s) => (s.item_id === item_id && s.bodega_id === bodega_id ? { ...s, cantidad: previo } : s)));
+      setStock((p) => p.map((s) => s.item_id === item_id && s.bodega_id === bodega_id ? { ...s, cantidad: previo } : s));
       setError("No se pudo guardar el stock: " + e.message);
     }
+  }
+  function iniciarEditStock(item_id, bodega_id) {
+    setStockEdit({ item_id, bodega_id, valor: String(stockMap.get(skey(item_id, bodega_id)) || 0) });
+  }
+  async function confirmarStock() {
+    const { item_id, bodega_id, valor } = stockEdit;
+    const v = Math.max(0, +valor || 0);
+    setStockEdit({ item_id: null, bodega_id: null, valor: "" });
+    await setCantidad(item_id, bodega_id, v);
+  }
+  function cancelarStock() { setStockEdit({ item_id: null, bodega_id: null, valor: "" }); }
+
+  // ── Descripción ──────────────────────────────────────────────
+  function iniciarEditDesc(id, valorActual) { setDescEdit({ id, valor: valorActual }); }
+  function cancelarDesc() { setDescEdit({ id: null, valor: "" }); }
+  async function confirmarDesc(id) {
+    const nuevo = descEdit.valor.trim();
+    if (!nuevo) { setError("La descripción no puede quedar vacía."); return; }
+    const previo = items.find((i) => i.id === id)?.descripcion;
+    setItems((p) => p.map((i) => i.id === id ? { ...i, descripcion: nuevo } : i));
+    setDescEdit({ id: null, valor: "" });
+    try { await updateRow("inventario_items", id, { descripcion: nuevo }); }
+    catch (e) { setItems((p) => p.map((i) => i.id === id ? { ...i, descripcion: previo } : i)); setError("No se pudo guardar: " + e.message); }
   }
 
   function totalItem(item_id) { return bodegas.reduce((s, b) => s + (stockMap.get(skey(item_id, b.id)) || 0), 0); }
   function valorBodega(b) { return items.reduce((s, i) => s + (stockMap.get(skey(i.id, b.id)) || 0) * (i.precio || 0), 0); }
   const valorTotal = items.reduce((s, i) => s + totalItem(i.id) * (i.precio || 0), 0);
 
+  const btnConfirm = { background: C.green, border: "none", borderRadius: 5, cursor: "pointer", color: "#fff", padding: "2px 6px", display: "flex", alignItems: "center" };
+  const btnCancel  = { background: "none", border: `1px solid ${C.line}`, borderRadius: 5, cursor: "pointer", color: C.slate, padding: "2px 6px", display: "flex", alignItems: "center" };
+  const btnEdit    = { background: "none", border: "none", cursor: "pointer", color: C.slate, padding: 2, opacity: 0.45, lineHeight: 1 };
+
   if (bodegas.length === 0) return <Card><Empty><AlertCircle size={28} color={C.amber} /><br/>Primero crea bodegas en la pestaña <strong>Bodegas</strong>.</Empty></Card>;
-  if (items.length === 0) return <Card><Empty><AlertCircle size={28} color={C.amber} /><br/>Primero carga ítems en <strong>Inventario</strong>.</Empty></Card>;
+  if (items.length === 0)   return <Card><Empty><AlertCircle size={28} color={C.amber} /><br/>Primero carga ítems en <strong>Inventario</strong>.</Empty></Card>;
 
   return (
     <div>
@@ -267,17 +293,20 @@ function TabStock({ profile, items, bodegas, stockMap, stock, setStock, setError
             <div style={{ fontSize: 11, letterSpacing: 1, textTransform: "uppercase", color: C.slate, fontWeight: 600 }}>{b.nombre}</div>
             <div style={{ ...archivo, fontSize: 18, fontWeight: 800, color: b.tipo === "a_bordo" ? C.cyan : C.steel, marginTop: 6 }}>{clp(valorBodega(b))}</div>
             <div style={{ fontSize: 10.5, color: C.slate, marginTop: 2 }}>{b.tipo === "a_bordo" ? "a bordo" : "tierra"}</div>
-          </Card>))}
+          </Card>
+        ))}
       </div>
 
       <Card style={{ padding: 0, overflow: "hidden" }}>
         <div style={{ overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 860 }}>
             <thead><tr>
-              <th style={thStyle}>Código</th><th style={thStyle}>Descripción</th>
+              <th style={thStyle}>Código</th>
+              <th style={thStyle}>Descripción</th>
               {bodegas.map((b) => <th key={b.id} style={{ ...thStyle, textAlign: "center" }}>{b.codigo.replace("BOD-", "")}</th>)}
               <th style={{ ...thStyle, textAlign: "right" }}>Total</th>
-              <th style={{ ...thStyle, textAlign: "right" }}>Mín</th><th style={thStyle}>Estado</th>
+              <th style={{ ...thStyle, textAlign: "right" }}>Mín</th>
+              <th style={thStyle}>Estado</th>
             </tr></thead>
             <tbody>
               {items.map((i) => {
@@ -286,17 +315,56 @@ function TabStock({ profile, items, bodegas, stockMap, stock, setStock, setError
                 return (
                   <tr key={i.id}>
                     <td style={{ ...tdStyle, fontFamily: "'IBM Plex Mono', monospace", color: C.steel, fontWeight: 600 }}>{i.codigo}</td>
-                    <td style={{ ...tdStyle, fontSize: 12.5 }}>{i.descripcion}</td>
-                    {bodegas.map((b) => (
-                      <td key={b.id} style={{ ...tdStyle, textAlign: "center" }}>
-                        <input type="number" value={stockMap.get(skey(i.id, b.id)) || 0} disabled={!puedeOperar}
-                          onChange={(e) => setCantidad(i.id, b.id, e.target.value)}
-                          style={{ ...bluInput, width: 60, textAlign: "center" }} />
-                      </td>))}
+
+                    {/* Descripción editable */}
+                    <td style={{ ...tdStyle, fontSize: 12.5 }}>
+                      {descEdit.id === i.id ? (
+                        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                          <input value={descEdit.valor} autoFocus
+                            onChange={(e) => setDescEdit((p) => ({ ...p, valor: e.target.value }))}
+                            onKeyDown={(e) => { if (e.key === "Enter") confirmarDesc(i.id); if (e.key === "Escape") cancelarDesc(); }}
+                            style={{ ...inputStyle(180), fontSize: 12.5 }} />
+                          <button onClick={() => confirmarDesc(i.id)} title="Confirmar" style={btnConfirm}><Check size={12} strokeWidth={2.5} /></button>
+                          <button onClick={cancelarDesc} title="Cancelar" style={btnCancel}><X size={12} /></button>
+                        </div>
+                      ) : (
+                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                          <span>{i.descripcion}</span>
+                          {puedeOperar && <button onClick={() => iniciarEditDesc(i.id, i.descripcion)} title="Editar descripción" style={btnEdit}><Pencil size={12} /></button>}
+                        </div>
+                      )}
+                    </td>
+
+                    {/* Celdas de stock por bodega con confirmación */}
+                    {bodegas.map((b) => {
+                      const editando = stockEdit.item_id === i.id && stockEdit.bodega_id === b.id;
+                      const cantidad = stockMap.get(skey(i.id, b.id)) || 0;
+                      return (
+                        <td key={b.id} style={{ ...tdStyle, textAlign: "center" }}>
+                          {puedeOperar && editando ? (
+                            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 3 }}>
+                              <input type="number" value={stockEdit.valor} autoFocus
+                                onChange={(e) => setStockEdit((p) => ({ ...p, valor: e.target.value }))}
+                                onKeyDown={(e) => { if (e.key === "Enter") confirmarStock(); if (e.key === "Escape") cancelarStock(); }}
+                                style={{ ...bluInput, width: 54, textAlign: "center" }} />
+                              <button onClick={confirmarStock} title="Confirmar" style={btnConfirm}><Check size={12} strokeWidth={2.5} /></button>
+                              <button onClick={cancelarStock} title="Cancelar" style={btnCancel}><X size={12} /></button>
+                            </div>
+                          ) : (
+                            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
+                              <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontWeight: 600 }}>{cantidad}</span>
+                              {puedeOperar && <button onClick={() => iniciarEditStock(i.id, b.id)} title="Editar stock" style={btnEdit}><Pencil size={11} /></button>}
+                            </div>
+                          )}
+                        </td>
+                      );
+                    })}
+
                     <td style={{ ...tdStyle, textAlign: "right", fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700 }}>{t}</td>
                     <td style={{ ...tdStyle, textAlign: "right", fontFamily: "'IBM Plex Mono', monospace" }}>{i.stock_min}</td>
                     <td style={tdStyle}><Pill tone={st[0]}>{st[1]}</Pill></td>
-                  </tr>);
+                  </tr>
+                );
               })}
             </tbody>
           </table>
