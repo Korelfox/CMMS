@@ -3,6 +3,7 @@ import { Ship, Plus, Trash2, Download, AlertCircle, GitBranch } from "lucide-rea
 import { useAuth } from "../lib/auth";
 import { fetchAll, insertRow, updateRow, deleteRow, logActivity } from "../lib/db";
 import { C, isAdmin, canOperate, ESTADOS_EQUIPO, estadoLabel } from "../theme";
+import { buildEquipoTree } from "../lib/equipTree";
 import {
   Card, PageHead, primaryBtn, ghostBtn, exportBtn, inputStyle, bluInput,
   thStyle, tdStyle, FilterBtn, Field, Empty, ErrorBanner, InlineSpinner,
@@ -15,28 +16,6 @@ const NIVEL_TIPOS = [
   { value: "aceite_agua", label: "Aceite + agua chaqueta" },
 ];
 
-// ── Árbol de equipos ──────────────────────────────────────────
-// Devuelve lista plana en orden de árbol, con campo `depth` (0 = raíz).
-// Exportada para que otros módulos la usen.
-export function buildEquipoTree(equipos) {
-  const byId = new Map(equipos.map((e) => [e.id, e]));
-  const inSet = new Set(equipos.map((e) => e.id));
-  // Raíces: sin parent o con parent fuera del conjunto actual
-  const roots = equipos.filter((e) => !e.parent_id || !inSet.has(e.parent_id));
-  const visited = new Set();
-  const result  = [];
-
-  function traverse(node, depth) {
-    if (visited.has(node.id)) return; // guard circular
-    visited.add(node.id);
-    result.push({ ...node, depth });
-    equipos.filter((c) => c.parent_id === node.id).forEach((c) => traverse(c, depth + 1));
-  }
-  roots.forEach((r) => traverse(r, 0));
-  // Huérfanos (parent borrado): los agrego al final como raíz
-  equipos.filter((e) => !visited.has(e.id)).forEach((e) => result.push({ ...e, depth: 0 }));
-  return result;
-}
 
 function blankForm(embId = "") {
   return { embarcacion_id: embId, id_visible: "", sistema: "", subsistema: "", marca: "", modelo: "", parent_id: "" };

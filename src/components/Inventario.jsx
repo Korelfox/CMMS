@@ -3,6 +3,7 @@ import { Package, Plus, Trash2, Download, Anchor, X, Pencil, Check } from "lucid
 import { useAuth } from "../lib/auth";
 import { fetchAll, insertRow, updateRow, deleteRow, logActivity } from "../lib/db";
 import { C, clp, isAdmin, canOperate } from "../theme";
+import { buildEquipoTree } from "../lib/equipTree";
 import {
   Card, PageHead, Pill, FilterBtn, primaryBtn, ghostBtn, exportBtn, inputStyle, bluInput,
   thStyle, tdStyle, Field, Empty, ErrorBanner, InlineSpinner,
@@ -234,7 +235,7 @@ export default function Inventario() {
               </div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 20 }}>
                 {embarcaciones.map((emb) => {
-                  const eqsNave = equipos.filter((eq) => eq.embarcacion_id === emb.id);
+                  const eqsNave = buildEquipoTree(equipos.filter((eq) => eq.embarcacion_id === emb.id));
                   if (!eqsNave.length) return null;
                   return (
                     <div key={emb.id} style={{ minWidth: 170 }}>
@@ -242,13 +243,14 @@ export default function Inventario() {
                         <Anchor size={12} /> {emb.nombre}
                       </div>
                       {eqsNave.map((eq) => (
-                        <label key={eq.id} style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 12.5, color: C.ink, marginBottom: 5, cursor: "pointer" }}>
+                        <label key={eq.id} style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 12.5, color: C.ink, marginBottom: 5, cursor: "pointer", paddingLeft: eq.depth * 14 }}>
                           <input type="checkbox"
                             checked={form.equipoIds.includes(eq.id)}
                             onChange={(e) => setForm((f) => ({
                               ...f, equipoIds: e.target.checked ? [...f.equipoIds, eq.id] : f.equipoIds.filter((id) => id !== eq.id),
                             }))}
                           />
+                          {eq.depth > 0 && <span style={{ color: C.slate, fontSize: 11 }}>└─</span>}
                           <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 10.5, color: C.slate, minWidth: 58 }}>{eq.id_visible}</span>
                           <span>{eq.sistema}</span>
                         </label>
@@ -301,11 +303,12 @@ export default function Inventario() {
                     {eqsNave.map((eq) => {
                       const destino = itemDests.find((d) => d.equipo_id === eq.id);
                       return (
-                        <label key={eq.id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12.5, color: C.ink, marginBottom: 6, cursor: "pointer" }}>
+                        <label key={eq.id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12.5, color: C.ink, marginBottom: 6, cursor: "pointer", paddingLeft: eq.depth * 14 }}>
                           <input type="checkbox"
                             checked={!!destino}
                             onChange={() => destino ? quitarDestino(destino.id) : agregarDestino(destinoPanel, eq.id)}
                           />
+                          {eq.depth > 0 && <span style={{ color: C.slate, fontSize: 11, flexShrink: 0 }}>└─</span>}
                           <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 10.5, color: C.slate, minWidth: 60 }}>{eq.id_visible}</span>
                           <span>{eq.sistema}</span>
                         </label>

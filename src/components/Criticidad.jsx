@@ -1,15 +1,16 @@
-import React, { useEffect, useState, useCallback } from "react";
+﻿import React, { useEffect, useState, useCallback } from "react";
 import { Activity, AlertTriangle, Download } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { fetchAll, upsertRow, logActivity } from "../lib/db";
+import { buildEquipoTree } from "../lib/equipTree";
 import { C, archivo, isAdmin } from "../theme";
 import { Card, PageHead, Pill, exportBtn, thStyle, tdStyle, Empty, ErrorBanner, InlineSpinner, FilterBtn } from "../ui";
 
 // Dimensiones del modelo INGEMAN / Parra & Crespo
 const DIMS = [
-  { key: "frec",  label: "Frecuencia",  desc: "qué tan seguido falla" },
-  { key: "prod",  label: "Producción",  desc: "impacto en la captura" },
-  { key: "seg",   label: "Seguridad",   desc: "riesgo a la tripulación" },
+  { key: "frec",  label: "Frecuencia",  desc: "quÃ© tan seguido falla" },
+  { key: "prod",  label: "ProducciÃ³n",  desc: "impacto en la captura" },
+  { key: "seg",   label: "Seguridad",   desc: "riesgo a la tripulaciÃ³n" },
   { key: "amb",   label: "Ambiente",    desc: "impacto ambiental" },
   { key: "costo", label: "Costo",       desc: "costo de la falla" },
 ];
@@ -25,7 +26,7 @@ export default function Criticidad() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [filtro, setFiltro] = useState("all");
-  const puedeOperar = isAdmin(profile?.rol);  // análisis de criticidad: Jefe Mantención y superiores
+  const puedeOperar = isAdmin(profile?.rol);  // anÃ¡lisis de criticidad: Jefe MantenciÃ³n y superiores
 
   const cargar = useCallback(async () => {
     setLoading(true); setError(null);
@@ -45,7 +46,7 @@ export default function Criticidad() {
     const found = crit.find((c) => c.equipo_id === equipoId);
     return found || { ...DEFAULT, equipo_id: equipoId };
   }
-  function embName(id) { return embarcaciones.find((e) => e.id === id)?.nombre || "—"; }
+  function embName(id) { return embarcaciones.find((e) => e.id === id)?.nombre || "â€”"; }
 
   async function setScore(equipoId, dim, v) {
     const current = getC(equipoId);
@@ -61,14 +62,14 @@ export default function Criticidad() {
         equipo_id: equipoId, frec: next.frec, prod: next.prod, seg: next.seg, amb: next.amb, costo: next.costo,
       }, "equipo_id");
       const eq = equipos.find((x) => x.id === equipoId);
-      logActivity(profile, "Editar criticidad", `${eq?.id_visible || ""} · ${dim}=${v}`);
+      logActivity(profile, "Editar criticidad", `${eq?.id_visible || ""} Â· ${dim}=${v}`);
     } catch (e) {
       setError("No se pudo guardar: " + e.message);
       cargar();
     }
   }
 
-  const filtrados = filtro === "all" ? equipos : equipos.filter((e) => e.embarcacion_id === filtro);
+  const filtrados = buildEquipoTree(filtro === "all" ? equipos : equipos.filter((e) => e.embarcacion_id === filtro));
   const lista = filtrados.map((eq) => { const c = getC(eq.id); return { eq, c, ct: calcCT(c) }; })
     .sort((a, b) => b.ct - a.ct);
 
@@ -78,19 +79,19 @@ export default function Criticidad() {
   const promedio = lista.length ? Math.round(lista.reduce((s, x) => s + x.ct, 0) / lista.length) : 0;
 
   function exportar() {
-    const filas = [["Equipo", "Embarcación", "F", "P", "S", "A", "C", "CT", "Categoría"],
+    const filas = [["Equipo", "EmbarcaciÃ³n", "F", "P", "S", "A", "C", "CT", "CategorÃ­a"],
       ...lista.map(({ eq, c, ct }) => [eq.id_visible, embName(eq.embarcacion_id), c.frec, c.prod, c.seg, c.amb, c.costo, ct, catCT(ct)[1]])];
     const csv = filas.map((r) => r.map((c) => { const s = String(c ?? ""); return /[",\n;]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; }).join(";")).join("\n");
     const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8;" });
     const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "criticidad.csv"; a.click();
   }
 
-  if (loading) return <div><PageHead kicker="Análisis · INGEMAN" title="Criticidad de Equipos" /><Card><InlineSpinner label="Cargando criticidad…" /></Card></div>;
+  if (loading) return <div><PageHead kicker="AnÃ¡lisis Â· INGEMAN" title="Criticidad de Equipos" /><Card><InlineSpinner label="Cargando criticidadâ€¦" /></Card></div>;
 
   if (equipos.length === 0) {
     return (
       <div>
-        <PageHead kicker="Análisis · INGEMAN" title="Criticidad de Equipos" />
+        <PageHead kicker="AnÃ¡lisis Â· INGEMAN" title="Criticidad de Equipos" />
         <Card><Empty>
           <AlertTriangle size={32} color={C.amber} style={{ marginBottom: 10 }} /><br />
           No hay equipos registrados. Carga equipos primero para asignarles criticidad.
@@ -101,15 +102,15 @@ export default function Criticidad() {
 
   return (
     <div>
-      <PageHead kicker="Análisis · Parra & Crespo / INGEMAN" title="Criticidad de Equipos"
-        sub="CT = Frecuencia × (Producción + Seguridad + Ambiente + Costo). Cada dimensión 1–5. Define dónde concentrar los recursos."
+      <PageHead kicker="AnÃ¡lisis Â· Parra & Crespo / INGEMAN" title="Criticidad de Equipos"
+        sub="CT = Frecuencia Ã— (ProducciÃ³n + Seguridad + Ambiente + Costo). Cada dimensiÃ³n 1â€“5. Define dÃ³nde concentrar los recursos."
         action={<button onClick={exportar} style={exportBtn}><Download size={15} /> Exportar</button>} />
 
       <ErrorBanner onRetry={cargar}>{error}</ErrorBanner>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14, marginBottom: 16 }}>
-        <KPI label="Equipos Críticos" value={altas} tone={altas ? C.red : C.green} sub="CT ≥ 50 · prioridad alta" />
-        <KPI label="Criticidad Media" value={medias} tone={C.amber} sub="CT 20–49" />
+        <KPI label="Equipos CrÃ­ticos" value={altas} tone={altas ? C.red : C.green} sub="CT â‰¥ 50 Â· prioridad alta" />
+        <KPI label="Criticidad Media" value={medias} tone={C.amber} sub="CT 20â€“49" />
         <KPI label="Baja Criticidad" value={bajas} tone={C.green} sub="CT < 20" />
         <KPI label="Promedio Flota" value={promedio} tone={catCT(promedio)[0] === "red" ? C.red : catCT(promedio)[0] === "yellow" ? C.amber : C.green} sub={catCT(promedio)[1]} />
       </div>
@@ -130,7 +131,7 @@ export default function Criticidad() {
               <th style={thStyle}>Equipo</th>
               {DIMS.map((d) => <th key={d.key} style={{ ...thStyle, textAlign: "center" }} title={d.desc}>{d.label[0]}</th>)}
               <th style={{ ...thStyle, textAlign: "right" }}>CT</th>
-              <th style={{ ...thStyle, textAlign: "center" }}>Categoría</th>
+              <th style={{ ...thStyle, textAlign: "center" }}>CategorÃ­a</th>
             </tr></thead>
             <tbody>
               {lista.map(({ eq, c, ct }) => {
@@ -139,7 +140,7 @@ export default function Criticidad() {
                   <tr key={eq.id}>
                     <td style={tdStyle}>
                       <div style={{ fontWeight: 600 }}>{eq.sistema}</div>
-                      <div style={{ fontSize: 11, color: C.slate }}>{embName(eq.embarcacion_id)} · <span style={{ fontFamily: "'IBM Plex Mono', monospace" }}>{eq.id_visible}</span></div>
+                      <div style={{ fontSize: 11, color: C.slate }}>{embName(eq.embarcacion_id)} Â· <span style={{ fontFamily: "'IBM Plex Mono', monospace" }}>{eq.id_visible}</span></div>
                     </td>
                     {DIMS.map((d) => (
                       <td key={d.key} style={{ ...tdStyle, textAlign: "center" }}>
@@ -157,11 +158,11 @@ export default function Criticidad() {
 
       <Card style={{ marginTop: 16, background: C.mist }}>
         <div style={{ fontSize: 12.5, color: C.slate, lineHeight: 1.7 }}>
-          <strong style={{ color: C.ink }}>Cómo usarlo:</strong> haz clic en los números 1–5 de cada columna para definir el puntaje de cada dimensión.
-          <strong style={{ color: C.ink }}> CT</strong> se recalcula al instante con la fórmula <em>Frecuencia × (Producción + Seguridad + Ambiente + Costo)</em>.
-          <strong style={{ color: C.ink }}> F</strong> = frecuencia de falla · <strong style={{ color: C.ink }}>P</strong> = impacto producción ·
-          <strong style={{ color: C.ink }}> S</strong> = seguridad · <strong style={{ color: C.ink }}>A</strong> = ambiente · <strong style={{ color: C.ink }}>C</strong> = costo.
-          Los equipos <Pill tone="red">Alta</Pill> deben ir primero en el plan preventivo y stock crítico.
+          <strong style={{ color: C.ink }}>CÃ³mo usarlo:</strong> haz clic en los nÃºmeros 1â€“5 de cada columna para definir el puntaje de cada dimensiÃ³n.
+          <strong style={{ color: C.ink }}> CT</strong> se recalcula al instante con la fÃ³rmula <em>Frecuencia Ã— (ProducciÃ³n + Seguridad + Ambiente + Costo)</em>.
+          <strong style={{ color: C.ink }}> F</strong> = frecuencia de falla Â· <strong style={{ color: C.ink }}>P</strong> = impacto producciÃ³n Â·
+          <strong style={{ color: C.ink }}> S</strong> = seguridad Â· <strong style={{ color: C.ink }}>A</strong> = ambiente Â· <strong style={{ color: C.ink }}>C</strong> = costo.
+          Los equipos <Pill tone="red">Alta</Pill> deben ir primero en el plan preventivo y stock crÃ­tico.
         </div>
       </Card>
     </div>
@@ -192,3 +193,5 @@ function KPI({ label, value, tone, sub }) {
     </Card>
   );
 }
+
+

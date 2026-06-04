@@ -3,6 +3,7 @@ import { ClipboardList, Plus, Trash2, Download, CloudOff, Clock, ChevronDown, Do
 import { useAuth } from "../lib/auth";
 import { fetchAll, insertRow, updateRow, deleteRow, logActivity } from "../lib/db";
 import { useOnline, cacheTable, getCached, queueInsert, nuevoId } from "../lib/offline";
+import { buildEquipoTree } from "../lib/equipTree";
 import { subirFotos } from "../lib/fotos";
 import { C, clp, num, isAdmin, canOperate, TIPOS_OT, PRIORIDADES, ESTADOS_OT, lk, tn } from "../theme";
 import {
@@ -236,7 +237,11 @@ export default function OrdenesTrabajo({ navParams }) {
                 setForm({ ...form, equipo_id: e.target.value, sistema: eq?.sistema || form.sistema });
               }} style={inputStyle()}>
                 <option value="">— Ninguno —</option>
-                {equiposDeNave.map((eq) => <option key={eq.id} value={eq.id}>{eq.id_visible} · {eq.sistema}</option>)}
+                {buildEquipoTree(equiposDeNave).map((eq) => (
+                  <option key={eq.id} value={eq.id}>
+                    {"　".repeat(eq.depth)}{eq.depth > 0 ? "└─ " : ""}{eq.id_visible} · {eq.sistema}
+                  </option>
+                ))}
               </select>
             </Field>
             <Field label="Sistema"><input value={form.sistema} onChange={(e) => setForm({ ...form, sistema: e.target.value })} style={inputStyle()} placeholder="Motor Principal" /></Field>
