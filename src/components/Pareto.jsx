@@ -7,6 +7,7 @@ import {
 import { useAuth } from "../lib/auth";
 import { fetchAll } from "../lib/db";
 import { C, archivo, clp, num } from "../theme";
+import { buildEquipoTree } from "../lib/equipTree";
 import { Card, PageHead, Pill, FilterBtn, thStyle, tdStyle, Empty, ErrorBanner, InlineSpinner } from "../ui";
 
 // Análisis de Pareto (80/20): qué pocos sistemas/equipos concentran la mayor
@@ -36,9 +37,15 @@ export default function Pareto() {
   }, []);
   useEffect(() => { cargar(); }, [cargar]);
 
+  // Etiqueta con ruta completa si tiene padre: "Motor Prop > Reductora"
   function eqLabel(id) {
     const eq = equipos.find((e) => e.id === id);
-    return eq ? `${eq.id_visible} · ${eq.sistema}` : null;
+    if (!eq) return null;
+    if (eq.parent_id) {
+      const padre = equipos.find((e) => e.id === eq.parent_id);
+      return padre ? `${padre.sistema} › ${eq.sistema}` : `${eq.id_visible} · ${eq.sistema}`;
+    }
+    return `${eq.id_visible} · ${eq.sistema}`;
   }
 
   const { grupos, total, vitales, pctVitales } = useMemo(() => {
