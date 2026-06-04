@@ -229,6 +229,8 @@ function TabStock({ profile, items, setItems, bodegas, stockMap, stock, setStock
   const puedeOperar = canOperate(profile?.rol);
   const [stockEdit, setStockEdit] = useState({ item_id: null, bodega_id: null, valor: "" });
   const [descEdit, setDescEdit]   = useState({ id: null, valor: "" });
+  const [filtroSt, setFiltroSt]   = useState("all");
+  const [busqueda, setBusqueda]   = useState("");
 
   // ── Stock ────────────────────────────────────────────────────
   async function setCantidad(item_id, bodega_id, v) {
@@ -278,6 +280,14 @@ function TabStock({ profile, items, setItems, bodegas, stockMap, stock, setStock
   const btnCancel  = { background: "none", border: `1px solid ${C.line}`, borderRadius: 5, cursor: "pointer", color: C.slate, padding: "2px 6px", display: "flex", alignItems: "center" };
   const btnEdit    = { background: "none", border: "none", cursor: "pointer", color: C.slate, padding: 2, opacity: 0.45, lineHeight: 1 };
 
+  const itemsFiltrados = items.filter((i) => {
+    const t  = totalItem(i.id);
+    const st = t <= i.stock_min ? "bajo" : t <= i.stock_min * 1.5 ? "revisar" : "ok";
+    const q  = busqueda.toLowerCase();
+    return (filtroSt === "all" || st === filtroSt)
+      && (!q || i.codigo.toLowerCase().includes(q) || i.descripcion.toLowerCase().includes(q) || (i.categoria || "").toLowerCase().includes(q));
+  });
+
   if (bodegas.length === 0) return <Card><Empty><AlertCircle size={28} color={C.amber} /><br/>Primero crea bodegas en la pestaña <strong>Bodegas</strong>.</Empty></Card>;
   if (items.length === 0)   return <Card><Empty><AlertCircle size={28} color={C.amber} /><br/>Primero carga ítems en <strong>Inventario</strong>.</Empty></Card>;
 
@@ -297,6 +307,37 @@ function TabStock({ profile, items, setItems, bodegas, stockMap, stock, setStock
         ))}
       </div>
 
+      {/* ── Filtros y buscador ── */}
+      <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap", alignItems: "center" }}>
+        <input value={busqueda} onChange={(e) => setBusqueda(e.target.value)}
+          placeholder="Buscar código, descripción o categoría…"
+          style={{ ...inputStyle(260), fontSize: 13 }} />
+        {[["all","Todos"], ["bajo","Bajo mínimo"], ["revisar","Por revisar"], ["ok","OK"]].map(([v, lbl]) => {
+          const tone = v === "bajo" ? C.red : v === "revisar" ? C.amber : v === "ok" ? C.green : C.slate;
+          const active = filtroSt === v;
+          return (
+            <button key={v} onClick={() => setFiltroSt(v)}
+              style={{ padding: "6px 13px", borderRadius: 7, border: `1px solid ${active ? tone : C.line}`,
+                background: active ? tone : "#fff", color: active ? "#fff" : C.slate,
+                fontSize: 12.5, fontWeight: 600, cursor: "pointer" }}>
+              {lbl}
+              {v !== "all" && <span style={{ marginLeft: 5, opacity: 0.75, fontSize: 11 }}>
+                ({items.filter(i => { const t = totalItem(i.id); return v === "bajo" ? t <= i.stock_min : v === "revisar" ? t > i.stock_min && t <= i.stock_min * 1.5 : t > i.stock_min * 1.5; }).length})
+              </span>}
+            </button>
+          );
+        })}
+        {(busqueda || filtroSt !== "all") && (
+          <button onClick={() => { setBusqueda(""); setFiltroSt("all"); }}
+            style={{ padding: "6px 10px", borderRadius: 7, border: `1px solid ${C.line}`, background: "none", color: C.slate, fontSize: 12, cursor: "pointer" }}>
+            <X size={13} style={{ display: "inline", verticalAlign: "middle" }} /> Limpiar
+          </button>
+        )}
+        <span style={{ marginLeft: "auto", fontSize: 12, color: C.slate }}>
+          {itemsFiltrados.length} de {items.length} ítems
+        </span>
+      </div>
+
       <Card style={{ padding: 0, overflow: "hidden" }}>
         <div style={{ overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 860 }}>
@@ -309,7 +350,10 @@ function TabStock({ profile, items, setItems, bodegas, stockMap, stock, setStock
               <th style={thStyle}>Nivel de Stock</th>
             </tr></thead>
             <tbody>
-              {items.map((i) => {
+              {itemsFiltrados.length === 0 && (
+                <tr><td colSpan={4 + bodegas.length} style={{ textAlign: "center", padding: 24, color: C.slate, fontSize: 13 }}>Sin ítems para los filtros seleccionados.</td></tr>
+              )}
+              {itemsFiltrados.map((i) => {
                 const t = totalItem(i.id);
                 const st = t <= i.stock_min ? ["red", "Bajo"] : t <= i.stock_min * 1.5 ? ["yellow", "Revisar"] : ["green", "OK"];
                 return (
