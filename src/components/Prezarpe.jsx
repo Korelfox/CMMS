@@ -8,6 +8,7 @@ import { fetchAll, insertRow, updateRow, deleteRow, logActivity } from "../lib/d
 import { useOnline, cacheTable, getCached, queueInsert, nuevoId } from "../lib/offline";
 import { subirFotos, listarFotos, borrarFoto } from "../lib/fotos";
 import { C, archivo, canOperate, isAdmin } from "../theme";
+import { buildEquipoTree } from "../lib/equipTree";
 import { Card, PageHead, Pill, primaryBtn, ghostBtn, thStyle, tdStyle, InlineSpinner, ErrorBanner, Empty } from "../ui";
 import { FotoInput, FotoGaleria } from "./Fotos";
 
@@ -193,12 +194,12 @@ export default function Prezarpe() {
           onIniciar={(n) => { setNave(n); setVista("checklist"); }} onRecalada={abrirRecalada} onEliminarZarpe={pedirEliminarZarpe} />
       )}
       {vista === "checklist" && (
-        <VistaChecklist nave={nave} equipos={equipos.filter((e) => e.embarcacion_id === nave.id)} online={online}
+        <VistaChecklist nave={nave} equipos={buildEquipoTree(equipos.filter((e) => e.embarcacion_id === nave.id))} online={online}
           onVolver={() => { setVista("flota"); setNave(null); }} onGuardar={guardarPrezarpe} />
       )}
       {vista === "recalada" && (
         <VistaRecalada marea={mareaRec} nave={embarcaciones.find((e) => e.id === mareaRec?.embarcacion_id)}
-          equipos={equipos.filter((e) => e.embarcacion_id === mareaRec?.embarcacion_id && (e.nivel_tipo || "ninguno") !== "ninguno")}
+          equipos={buildEquipoTree(equipos.filter((e) => e.embarcacion_id === mareaRec?.embarcacion_id && (e.nivel_tipo || "ninguno") !== "ninguno"))}
           onVolver={() => { setVista("flota"); setMareaRec(null); }} onGuardar={(datos) => guardarRecalada(mareaRec, datos)} />
       )}
       {vista === "historial" && (
@@ -335,8 +336,9 @@ function VistaChecklist({ nave, equipos, online, onVolver, onGuardar }) {
         <Bloque titulo="B · Niveles de operación" icon={Droplet}>
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             {nivelEquipos.map((eq) => (
-              <div key={eq.id} style={{ padding: "12px 14px", border: `1px solid ${C.line}`, borderRadius: 10, background: "#fff" }}>
+              <div key={eq.id} style={{ padding: "12px 14px", border: `1px solid ${C.line}`, borderRadius: 10, background: "#fff", marginLeft: (eq.depth || 0) * 16 }}>
                 <div style={{ fontSize: 13, fontWeight: 700, color: C.abyss, marginBottom: 8 }}>
+                  {(eq.depth || 0) > 0 && <span style={{ color: C.slate, fontSize: 12, marginRight: 5 }}>└─</span>}
                   {eq.sistema || eq.id_visible} <span style={{ fontSize: 10.5, fontWeight: 600, color: C.slate }}>· {eq.nivel_tipo === "aceite_agua" ? "aceite + agua chaqueta" : "solo aceite"}</span>
                 </div>
                 <div style={{ display: "flex", gap: 18, flexWrap: "wrap" }}>
