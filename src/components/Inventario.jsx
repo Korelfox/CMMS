@@ -4,7 +4,7 @@ import { useAuth } from "../lib/auth";
 import { fetchAll, insertRow, updateRow, deleteRow, logActivity } from "../lib/db";
 import { C, clp, isAdmin, canOperate } from "../theme";
 import {
-  Card, PageHead, Pill, primaryBtn, ghostBtn, exportBtn, inputStyle, bluInput,
+  Card, PageHead, Pill, FilterBtn, primaryBtn, ghostBtn, exportBtn, inputStyle, bluInput,
   thStyle, tdStyle, Field, Empty, ErrorBanner, InlineSpinner,
 } from "../ui";
 
@@ -23,7 +23,6 @@ const CATEGORIAS = [
   "Sellos y Juntas",
   "Sistema de Enfriamiento",
   "Mangueras y Tuberías",
-  "Neumático",
   "Combustible y Aditivos",
   "Pintura y Anticorrosivo",
   "Estructural / Casco",
@@ -41,6 +40,7 @@ export default function Inventario() {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(blank());
   const [destinoPanel, setDestinoPanel] = useState(null); // item_id | null
+  const [filtroCat, setFiltroCat] = useState("all");
   const puedeOperar = canOperate(profile?.rol);
   const puedeBorrar = isAdmin(profile?.rol);
 
@@ -75,6 +75,9 @@ export default function Inventario() {
   const totalValor = enriquecidos.reduce((s, x) => s + x.valor, 0);
   let cum = 0;
   const conABC = enriquecidos.map((x) => { cum += x.valor; const pct = totalValor ? cum / totalValor : 0; return { ...x, abc: pct <= 0.8 ? "A" : pct <= 0.95 ? "B" : "C" }; });
+
+  const categoriasUsadas = [...new Set(items.map((i) => i.categoria).filter(Boolean))].sort();
+  const tablaFiltrada = filtroCat === "all" ? conABC : conABC.filter((i) => i.categoria === filtroCat);
 
   // ── Destinos ─────────────────────────────────────────────────
   function destinosDeItem(itemId) { return destinos.filter((d) => d.item_id === itemId); }
@@ -176,6 +179,18 @@ export default function Inventario() {
         <MiniStat label="Bajo Mínimo" value={conABC.filter((x) => x.total <= x.stock_min).length} tone={C.red} />
         <MiniStat label="Total Ítems" value={items.length} />
       </div>
+
+      {/* ── Filtro por categoría ── */}
+      {categoriasUsadas.length > 0 && (
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 }}>
+          <FilterBtn active={filtroCat === "all"} onClick={() => setFiltroCat("all")}>Todas</FilterBtn>
+          {categoriasUsadas.map((cat) => (
+            <FilterBtn key={cat} active={filtroCat === cat} onClick={() => setFiltroCat(cat)}>
+              {cat} <span style={{ opacity: 0.6, fontSize: 10.5 }}>({conABC.filter((i) => i.categoria === cat).length})</span>
+            </FilterBtn>
+          ))}
+        </div>
+      )}
 
       {/* ── Formulario nuevo ítem ── */}
       {showForm && (
@@ -312,7 +327,7 @@ export default function Inventario() {
                 {puedeBorrar && <th style={thStyle}></th>}
               </tr></thead>
               <tbody>
-                {conABC.map((i) => {
+                {tablaFiltrada.map((i) => {
                   const abcTone = { A: "red", B: "yellow", C: "green" }[i.abc];
                   const st = i.total <= i.stock_min ? ["red", "Bajo"] : i.total <= i.stock_min * 1.5 ? ["yellow", "Revisar"] : ["green", "OK"];
                   const itemDests = destinosDeItem(i.id);
