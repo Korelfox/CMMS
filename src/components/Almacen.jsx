@@ -509,6 +509,9 @@ function TabCompras({ profile, items, bodegas, compras, comprasItems, stockMap, 
   const puedeBorrar = isAdmin(profile?.rol);
   const puedeAprobar = isAdmin(profile?.rol);
 
+  const itemCodigo    = (id) => items.find((i) => i.id === id)?.codigo     || "";
+  const itemCategoria = (id) => items.find((i) => i.id === id)?.categoria || "";
+
   // Sugerencias de reposición: ítems bajo mínimo (total)
   const totalItem = (id) => bodegas.reduce((s, b) => s + (stockMap.get(skey(id, b.id)) || 0), 0);
   const sugerencias = items.map((i) => ({ ...i, total: totalItem(i.id) })).filter((i) => i.total <= i.stock_min)
@@ -653,7 +656,12 @@ function TabCompras({ profile, items, bodegas, compras, comprasItems, stockMap, 
             <div style={{ background: "#fff", border: `1px solid ${C.line}`, borderRadius: 8, padding: 8, marginBottom: 12 }}>
               {form.items.map((it, idx) => (
                 <div key={idx} style={{ display: "flex", justifyContent: "space-between", padding: "5px 6px", borderBottom: idx < form.items.length - 1 ? `1px solid ${C.foam}` : "none", fontSize: 12.5 }}>
-                  <span>{itemDesc(it.item_id)} · <span style={{ fontFamily: "'IBM Plex Mono', monospace" }}>{it.cantidad} × {clp(it.precio)}</span></span>
+                  <span>
+                    <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, color: C.steel }}>{itemCodigo(it.item_id)}</span>
+                    {" · "}{itemDesc(it.item_id)}
+                    {itemCategoria(it.item_id) && <span style={{ color: C.slate, fontSize: 11.5 }}> [{itemCategoria(it.item_id)}]</span>}
+                    {" · "}<span style={{ fontFamily: "'IBM Plex Mono', monospace" }}>{it.cantidad} × {clp(it.precio)}</span>
+                  </span>
                   <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                     <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontWeight: 600 }}>{clp(it.cantidad * it.precio)}</span>
                     <button onClick={() => rmLine(idx)} style={{ background: "none", border: "none", cursor: "pointer", color: C.slate }}><X size={14} /></button>
@@ -684,7 +692,15 @@ function TabCompras({ profile, items, bodegas, compras, comprasItems, stockMap, 
                       <td style={{ ...tdStyle, fontFamily: "'IBM Plex Mono', monospace", fontWeight: 600, color: C.steel }}>{o.folio}</td>
                       <td style={{ ...tdStyle, fontFamily: "'IBM Plex Mono', monospace", fontSize: 12 }}>{o.fecha}</td>
                       <td style={tdStyle}>{o.proveedor}</td>
-                      <td style={{ ...tdStyle, fontSize: 12, color: C.slate, maxWidth: 240 }}>{its.map((it) => `${it.cantidad}× ${itemDesc(it.item_id)}`).join(", ")}</td>
+                      <td style={{ ...tdStyle, maxWidth: 260 }}>
+                        {its.map((it, idx) => (
+                          <div key={idx} style={{ fontSize: 12, lineHeight: 1.5 }}>
+                            <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, color: C.steel, fontSize: 11 }}>{itemCodigo(it.item_id)}</span>
+                            <span style={{ color: C.ink }}> {it.cantidad}× {itemDesc(it.item_id)}</span>
+                            {itemCategoria(it.item_id) && <span style={{ color: C.slate, fontSize: 11 }}> [{itemCategoria(it.item_id)}]</span>}
+                          </div>
+                        ))}
+                      </td>
                       <td style={{ ...tdStyle, fontSize: 12 }}>{whName(o.bodega_destino)}</td>
                       <td style={{ ...tdStyle, textAlign: "right", fontFamily: "'IBM Plex Mono', monospace", fontWeight: 600 }}>{clp(ocTotal(o))}</td>
                       <td style={{ ...tdStyle, textAlign: "center", fontFamily: "'IBM Plex Mono', monospace", fontSize: 12 }}>{o.lead_dias}d</td>
