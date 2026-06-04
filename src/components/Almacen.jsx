@@ -632,8 +632,24 @@ function TabCompras({ profile, items, bodegas, compras, comprasItems, stockMap, 
     catch (e) { setError("No se pudo eliminar: " + e.message); }
   }
 
-  const estTone = { solicitada: "slate", aprobada: "purple", enviada: "steel", recibida: "green" };
+  const estTone  = { solicitada: "slate", aprobada: "purple", enviada: "steel", recibida: "green" };
   const estLabel = { solicitada: "Solicitada", aprobada: "Aprobada", enviada: "Enviada", recibida: "Recibida" };
+
+  function calcETA(fecha, lead_dias) {
+    if (!fecha || !lead_dias) return null;
+    const d = new Date(fecha); d.setDate(d.getDate() + Number(lead_dias));
+    return d.toISOString().slice(0, 10);
+  }
+  function etaSemaforo(oc) {
+    if (oc.estado === "recibida") return null;
+    const eta = calcETA(oc.fecha, oc.lead_dias);
+    if (!eta) return null;
+    const hoy = HOY();
+    const diasRestantes = Math.ceil((new Date(eta) - new Date(hoy)) / 86400000);
+    if (diasRestantes < 0)  return { color: C.red,   label: `${Math.abs(diasRestantes)}d atrasada`, eta };
+    if (diasRestantes <= 3) return { color: C.amber,  label: `llega en ${diasRestantes}d`, eta };
+    return                         { color: C.green,  label: `llega en ${diasRestantes}d`, eta };
+  }
 
   if (items.length === 0 || bodegas.length === 0) {
     return <Card><Empty><AlertCircle size={28} color={C.amber} /><br/>Necesitas ítems en Inventario y al menos una bodega para crear compras.</Empty></Card>;
@@ -727,7 +743,8 @@ function TabCompras({ profile, items, bodegas, compras, comprasItems, stockMap, 
             <thead><tr>
               <th style={thStyle}>Folio</th><th style={thStyle}>Fecha</th><th style={thStyle}>Proveedor</th>
               <th style={thStyle}>Ítems</th><th style={thStyle}>Destino</th>
-              <th style={{ ...thStyle, textAlign: "right" }}>Total</th><th style={{ ...thStyle, textAlign: "center" }}>Lead</th>
+              <th style={{ ...thStyle, textAlign: "right" }}>Total</th>
+              <th style={thStyle}>ETA</th>
               <th style={thStyle}>Estado</th><th style={thStyle}>Acción</th>{puedeBorrar && <th style={thStyle}></th>}
             </tr></thead>
             <tbody>
@@ -750,7 +767,14 @@ function TabCompras({ profile, items, bodegas, compras, comprasItems, stockMap, 
                       </td>
                       <td style={{ ...tdStyle, fontSize: 12 }}>{whName(o.bodega_destino)}</td>
                       <td style={{ ...tdStyle, textAlign: "right", fontFamily: "'IBM Plex Mono', monospace", fontWeight: 600 }}>{clp(ocTotal(o))}</td>
-                      <td style={{ ...tdStyle, textAlign: "center", fontFamily: "'IBM Plex Mono', monospace", fontSize: 12 }}>{o.lead_dias}d</td>
+                      <td style={tdStyle}>
+                        {(() => { const s = etaSemaforo(o); return s ? (
+                          <div>
+                            <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, color: C.slate }}>{s.eta}</div>
+                            <div style={{ fontSize: 11, fontWeight: 700, color: s.color, marginTop: 2 }}>● {s.label}</div>
+                          </div>
+                        ) : o.estado === "recibida" ? <span style={{ fontSize: 11, color: C.green }}>✓ Recibida</span> : <span style={{ fontSize: 11, color: C.slate }}>—</span>; })()}
+                      </td>
                       <td style={tdStyle}><Pill tone={estTone[o.estado]}>{estLabel[o.estado]}</Pill></td>
                       <td style={tdStyle}>{o.estado !== "recibida" && puedeAprobar ? (
                         <button onClick={() => avanzar(o)} style={{ ...ghostBtn, padding: "5px 10px", fontSize: 12 }}>
