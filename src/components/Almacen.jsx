@@ -306,7 +306,7 @@ function TabStock({ profile, items, setItems, bodegas, stockMap, stock, setStock
               {bodegas.map((b) => <th key={b.id} style={{ ...thStyle, textAlign: "center" }}>{b.codigo.replace("BOD-", "")}</th>)}
               <th style={{ ...thStyle, textAlign: "right" }}>Total</th>
               <th style={{ ...thStyle, textAlign: "right" }}>Mín</th>
-              <th style={thStyle}>Estado</th>
+              <th style={thStyle}>Nivel de Stock</th>
             </tr></thead>
             <tbody>
               {items.map((i) => {
@@ -362,7 +362,10 @@ function TabStock({ profile, items, setItems, bodegas, stockMap, stock, setStock
 
                     <td style={{ ...tdStyle, textAlign: "right", fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700 }}>{t}</td>
                     <td style={{ ...tdStyle, textAlign: "right", fontFamily: "'IBM Plex Mono', monospace" }}>{i.stock_min}</td>
-                    <td style={tdStyle}><Pill tone={st[0]}>{st[1]}</Pill></td>
+                    <td style={{ ...tdStyle, minWidth: 130 }}>
+                      <NivelBar total={t} min={i.stock_min} max={i.stock_max} />
+                      <div style={{ marginTop: 5 }}><Pill tone={st[0]}>{st[1]}</Pill></div>
+                    </td>
                   </tr>
                 );
               })}
@@ -717,6 +720,29 @@ function TabCompras({ profile, items, bodegas, compras, comprasItems, stockMap, 
           </table>
         </div>
       </Card>
+    </div>
+  );
+}
+
+/* ── Barra visual de nivel de stock ─────────────────────────── */
+function NivelBar({ total, min, max }) {
+  const cap    = (max > 0 && max > min) ? max : Math.max(min * 2, total * 1.2, 1);
+  const pct    = Math.min(100, cap > 0 ? (total / cap) * 100 : 0);
+  const minPct = Math.min(99,  cap > 0 ? (min   / cap) * 100 : 0);
+  const color  = total <= min ? C.red : total <= min * 1.5 ? C.amber : C.green;
+  return (
+    <div style={{ minWidth: 110 }}>
+      <div style={{ height: 8, background: "#EDF0F5", borderRadius: 4, position: "relative" }}>
+        <div style={{ position: "absolute", inset: "0 auto 0 0", width: `${pct}%`, background: color, borderRadius: 4, transition: "width .3s ease" }} />
+        {min > 0 && (
+          <div title={`Mínimo: ${min}`}
+            style={{ position: "absolute", top: -3, left: `${minPct}%`, transform: "translateX(-50%)", width: 2, height: 14, background: C.slate, borderRadius: 1, opacity: 0.55 }} />
+        )}
+      </div>
+      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 9.5, marginTop: 2 }}>
+        <span style={{ color, fontWeight: 700 }}>{total}</span>
+        <span style={{ color: C.slate, opacity: 0.6 }}>máx {cap}</span>
+      </div>
     </div>
   );
 }
