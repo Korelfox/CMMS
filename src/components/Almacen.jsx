@@ -785,7 +785,7 @@ function TabCompras({ profile, items, bodegas, compras, comprasItems, stockMap, 
                         {o.notas && <div style={{ fontSize: 11.5, color: C.slate, marginTop: 2 }}>{o.notas}</div>}
                         {!o.ref_proveedor && !o.notas && <span style={{ color: C.line }}>—</span>}
                       </td>
-                      <td style={tdStyle}><Pill tone={estTone[o.estado]}>{estLabel[o.estado]}</Pill></td>
+                      <td style={{ ...tdStyle, minWidth: 180 }}><OCStepper estado={o.estado} /></td>
                       <td style={tdStyle}>{o.estado !== "recibida" && puedeAprobar ? (
                         <button onClick={() => avanzar(o)} style={{ ...ghostBtn, padding: "5px 10px", fontSize: 12 }}>
                           {o.estado === "solicitada" ? "Aprobar" : o.estado === "aprobada" ? "Enviar" : "Recibir →"}
@@ -798,6 +798,37 @@ function TabCompras({ profile, items, bodegas, compras, comprasItems, stockMap, 
           </table>
         </div>
       </Card>
+    </div>
+  );
+}
+
+/* ── Timeline visual de estado OC ───────────────────────────── */
+const OC_STEPS = [
+  { key: "solicitada", label: "Solicitada" },
+  { key: "aprobada",   label: "Aprobada"   },
+  { key: "enviada",    label: "Enviada"     },
+  { key: "recibida",   label: "Recibida"   },
+];
+function OCStepper({ estado }) {
+  const idx = OC_STEPS.findIndex((s) => s.key === estado);
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 0 }}>
+      {OC_STEPS.map((step, i) => {
+        const done    = i < idx;
+        const current = i === idx;
+        const color   = done || current ? (estado === "recibida" ? C.green : C.cyan) : "#CBD5E1";
+        return (
+          <React.Fragment key={step.key}>
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
+              <div style={{ width: 10, height: 10, borderRadius: "50%", background: color, border: current ? `2px solid ${color}` : "none", boxShadow: current ? `0 0 0 3px ${color}30` : "none", flexShrink: 0 }} />
+              <span style={{ fontSize: 8.5, color: current ? color : done ? C.slate : "#CBD5E1", fontWeight: current ? 700 : 400, whiteSpace: "nowrap" }}>{step.label}</span>
+            </div>
+            {i < OC_STEPS.length - 1 && (
+              <div style={{ width: 22, height: 2, background: done ? color : "#CBD5E1", marginBottom: 11, flexShrink: 0 }} />
+            )}
+          </React.Fragment>
+        );
+      })}
     </div>
   );
 }
