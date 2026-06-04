@@ -550,7 +550,7 @@ function TabMovimientos({ profile, items, bodegas, ots, movimientos, stockMap, i
 /* ============================ TAB · COMPRAS ============================ */
 function TabCompras({ profile, items, bodegas, compras, comprasItems, stockMap, itemDesc, itemPrecio, whName, recargar, setError }) {
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ proveedor: "", bodega_destino: bodegas[0]?.id || "", lead_dias: 7, items: [] });
+  const [form, setForm] = useState({ proveedor: "", bodega_destino: bodegas[0]?.id || "", lead_dias: 7, ref_proveedor: "", notas: "", items: [] });
   const [line, setLine] = useState({ item_id: "", cantidad: 1 });
   const puedeOperar = isAdmin(profile?.rol);  // crear/gestionar OC: Jefe Mantención y superiores (comprometen presupuesto)
   const puedeBorrar = isAdmin(profile?.rol);
@@ -581,7 +581,8 @@ function TabCompras({ profile, items, bodegas, compras, comprasItems, stockMap, 
     try {
       const cab = await insertRow("compras", profile.empresa_id, {
         folio, proveedor: form.proveedor.trim(), bodega_destino: form.bodega_destino,
-        lead_dias: form.lead_dias, estado: "solicitada", fecha: HOY(), created_by: profile.id,
+        lead_dias: form.lead_dias, ref_proveedor: form.ref_proveedor.trim() || null,
+        notas: form.notas.trim() || null, estado: "solicitada", fecha: HOY(), created_by: profile.id,
       });
       for (const it of form.items) {
         await insertRow("compras_items", profile.empresa_id, {
@@ -589,7 +590,7 @@ function TabCompras({ profile, items, bodegas, compras, comprasItems, stockMap, 
         });
       }
       logActivity(profile, "Crear OC", `${folio} · ${form.proveedor} · ${form.items.length} ítems`);
-      setForm({ proveedor: "", bodega_destino: bodegas[0]?.id || "", lead_dias: 7, items: [] });
+      setForm({ proveedor: "", bodega_destino: bodegas[0]?.id || "", lead_dias: 7, ref_proveedor: "", notas: "", items: [] });
       setShowForm(false); recargar();
     } catch (e) { setError("No se pudo crear la OC: " + e.message); }
   }
@@ -700,12 +701,16 @@ function TabCompras({ profile, items, bodegas, compras, comprasItems, stockMap, 
       {showForm && (
         <Card style={{ marginBottom: 16, background: C.mist }}>
           <div style={{ fontWeight: 700, fontSize: 15, color: C.abyss, marginBottom: 14 }}>Nueva Orden de Compra</div>
-          <div style={{ display: "grid", gridTemplateColumns: "2fr 2fr 1fr", gap: 12, marginBottom: 12 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "2fr 2fr 1fr 1fr", gap: 12, marginBottom: 12 }}>
             <Field label="Proveedor"><input value={form.proveedor} onChange={(e) => setForm({ ...form, proveedor: e.target.value })} style={inputStyle()} /></Field>
             <Field label="Bodega destino"><select value={form.bodega_destino} onChange={(e) => setForm({ ...form, bodega_destino: e.target.value })} style={inputStyle()}>
               {bodegas.map((b) => <option key={b.id} value={b.id}>{b.nombre}</option>)}
             </select></Field>
             <Field label="Lead días"><input type="number" value={form.lead_dias} onChange={(e) => setForm({ ...form, lead_dias: +e.target.value })} style={bluInput} /></Field>
+            <Field label="N° ref. proveedor"><input value={form.ref_proveedor} onChange={(e) => setForm({ ...form, ref_proveedor: e.target.value })} style={inputStyle()} placeholder="OC-PROV-001" /></Field>
+          </div>
+          <div style={{ marginBottom: 12 }}>
+            <Field label="Notas u observaciones"><input value={form.notas} onChange={(e) => setForm({ ...form, notas: e.target.value })} style={{ ...inputStyle(), width: "100%" }} placeholder="Instrucciones de entrega, contacto, urgencia…" /></Field>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "3fr 1fr auto", gap: 12, alignItems: "flex-end", marginBottom: 12 }}>
             <Field label="Ítem"><select value={line.item_id} onChange={(e) => setLine({ ...line, item_id: e.target.value })} style={inputStyle()}>
@@ -744,7 +749,7 @@ function TabCompras({ profile, items, bodegas, compras, comprasItems, stockMap, 
               <th style={thStyle}>Folio</th><th style={thStyle}>Fecha</th><th style={thStyle}>Proveedor</th>
               <th style={thStyle}>Ítems</th><th style={thStyle}>Destino</th>
               <th style={{ ...thStyle, textAlign: "right" }}>Total</th>
-              <th style={thStyle}>ETA</th>
+              <th style={thStyle}>ETA</th><th style={thStyle}>Ref / Notas</th>
               <th style={thStyle}>Estado</th><th style={thStyle}>Acción</th>{puedeBorrar && <th style={thStyle}></th>}
             </tr></thead>
             <tbody>
@@ -774,6 +779,11 @@ function TabCompras({ profile, items, bodegas, compras, comprasItems, stockMap, 
                             <div style={{ fontSize: 11, fontWeight: 700, color: s.color, marginTop: 2 }}>● {s.label}</div>
                           </div>
                         ) : o.estado === "recibida" ? <span style={{ fontSize: 11, color: C.green }}>✓ Recibida</span> : <span style={{ fontSize: 11, color: C.slate }}>—</span>; })()}
+                      </td>
+                      <td style={{ ...tdStyle, maxWidth: 180 }}>
+                        {o.ref_proveedor && <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, fontWeight: 600, color: C.steel }}>{o.ref_proveedor}</div>}
+                        {o.notas && <div style={{ fontSize: 11.5, color: C.slate, marginTop: 2 }}>{o.notas}</div>}
+                        {!o.ref_proveedor && !o.notas && <span style={{ color: C.line }}>—</span>}
                       </td>
                       <td style={tdStyle}><Pill tone={estTone[o.estado]}>{estLabel[o.estado]}</Pill></td>
                       <td style={tdStyle}>{o.estado !== "recibida" && puedeAprobar ? (
