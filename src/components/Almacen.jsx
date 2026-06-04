@@ -280,6 +280,14 @@ function TabStock({ profile, items, setItems, bodegas, stockMap, stock, setStock
   const btnCancel  = { background: "none", border: `1px solid ${C.line}`, borderRadius: 5, cursor: "pointer", color: C.slate, padding: "2px 6px", display: "flex", alignItems: "center" };
   const btnEdit    = { background: "none", border: "none", cursor: "pointer", color: C.slate, padding: 2, opacity: 0.45, lineHeight: 1 };
 
+  // ABC calculado localmente con los datos disponibles en Almacén
+  const conABC = (() => {
+    const enr = items.map((i) => ({ ...i, val: totalItem(i.id) * (i.precio || 0) })).sort((a, b) => b.val - a.val);
+    const tot = enr.reduce((s, x) => s + x.val, 0);
+    let cum = 0;
+    return new Map(enr.map((x) => { cum += x.val; const p = tot ? cum / tot : 0; return [x.id, p <= 0.8 ? "A" : p <= 0.95 ? "B" : "C"]; }));
+  })();
+
   const itemsFiltrados = items.filter((i) => {
     const t  = totalItem(i.id);
     const st = t <= i.stock_min ? "bajo" : t <= i.stock_min * 1.5 ? "revisar" : "ok";
@@ -343,6 +351,8 @@ function TabStock({ profile, items, setItems, bodegas, stockMap, stock, setStock
           <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 860 }}>
             <thead><tr>
               <th style={thStyle}>Código</th>
+              <th style={{ ...thStyle, textAlign: "center" }}>ABC</th>
+              <th style={thStyle}>Categoría</th>
               <th style={thStyle}>Descripción</th>
               {bodegas.map((b) => <th key={b.id} style={{ ...thStyle, textAlign: "center" }}>{b.codigo.replace("BOD-", "")}</th>)}
               <th style={{ ...thStyle, textAlign: "right" }}>Total</th>
@@ -359,6 +369,10 @@ function TabStock({ profile, items, setItems, bodegas, stockMap, stock, setStock
                 return (
                   <tr key={i.id}>
                     <td style={{ ...tdStyle, fontFamily: "'IBM Plex Mono', monospace", color: C.steel, fontWeight: 600 }}>{i.codigo}</td>
+                    <td style={{ ...tdStyle, textAlign: "center" }}>
+                      <Pill tone={{ A: "red", B: "yellow", C: "green" }[conABC.get(i.id)]}>{conABC.get(i.id)}</Pill>
+                    </td>
+                    <td style={{ ...tdStyle, fontSize: 12, color: C.slate }}>{i.categoria || <span style={{ opacity: 0.35 }}>—</span>}</td>
 
                     {/* Descripción editable */}
                     <td style={{ ...tdStyle, fontSize: 12.5 }}>
