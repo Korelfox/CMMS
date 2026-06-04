@@ -1,7 +1,8 @@
 import React, { useEffect, useState, useCallback, useMemo } from "react";
 import { Fuel, Droplet, Waves, AlertCircle, TrendingUp, Gauge } from "lucide-react";
 import {
-  ComposedChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend,
+  ComposedChart, Area, Line, XAxis, YAxis, Tooltip, ResponsiveContainer,
+  CartesianGrid, ReferenceLine, Legend,
 } from "recharts";
 import { useAuth } from "../lib/auth"; // eslint-disable-line no-unused-vars
 import { fetchAll } from "../lib/db";
@@ -65,7 +66,7 @@ export default function Consumos() {
 
   const embName = (id) => embarcaciones.find((e) => e.id === id)?.nombre || "—";
 
-  const { filas, kpis, serie, motoresAlerta } = useMemo(() => {
+  const { filas, kpis, serie, motoresAlerta, semestreData, avgCombLh } = useMemo(() => {
     const cerradas = mareas.filter((m) => m.estado === "cerrada" && (filtro === "all" || m.embarcacion_id === filtro));
     const fs = cerradas.map((m) => {
       const eqNave = equipos.filter((e) => e.embarcacion_id === m.embarcacion_id);
@@ -86,6 +87,31 @@ export default function Consumos() {
       combLh: +f.calc.combLh.toFixed(1),
       aceiteL100h: +f.calc.aceiteL100h.toFixed(2),
     }));
+    // ── Serie semestral: agrupar por mes los últimos 6 meses ─────────────
+    const MESES_ES = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
+    const hoy = new Date();
+    const semestre = Array.from({ length: 6 }, (_, i) => {
+      const d = new Date(hoy.getFullYear(), hoy.getMonth() - 5 + i, 1);
+      return { key: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`, label: `${MESES_ES[d.getMonth()]} ${d.getFullYear().toString().slice(2)}`, combTotal: 0, horasTotal: 0, mareas: 0 };
+    });
+    fs.forEach(({ m, calc }) => {
+      const fechaBase = m.zarpe_at || m.recalada_at;
+      if (!fechaBase || calc.combCons <= 0) return;
+      const d = new Date(fechaBase);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      const mes = semestre.find((s) => s.key === key);
+      if (mes) { mes.combTotal += calc.combCons; mes.horasTotal += calc.horasNave; mes.mareas++; }
+    });
+    const semestreData = semestre.map((s) => ({
+      ...s,
+      combLh: s.horasTotal > 0 ? +(s.combTotal / s.horasTotal).toFixed(1) : null,
+    }));
+    const maxComb = Math.max(...semestreData.map((s) => s.combTotal), 1);
+    const avgCombLh = (() => {
+      const validos = semestreData.filter((s) => s.combLh !== null);
+      return validos.length ? +(validos.reduce((a, s) => a + s.combLh, 0) / validos.length).toFixed(1) : null;
+    })();
+
     // Alerta de tendencia por motor: último L/100h vs promedio previo (>30% = en aumento)
     const porMotor = {};
     fs.forEach((f) => f.calc.aceitePorMotor.forEach((am) => {
@@ -101,7 +127,7 @@ export default function Consumos() {
         if (prom > 0 && ult > prom * 1.3) motoresAlerta.push({ nombre: mt.nombre, ult, prom });
       }
     });
-    return { filas: fs, kpis, serie, motoresAlerta };
+    return { filas: fs, kpis, serie, motoresAlerta, semestreData, maxComb, avgCombLh };
   }, [mareas, equipos, filtro]);
 
   if (loading) return <div><PageHead kicker="Análisis · Eficiencia" title="Consumos & Eficiencia" /><Card><InlineSpinner label="Calculando consumos…" /></Card></div>;
@@ -139,6 +165,76 @@ export default function Consumos() {
         <KPI label="Combustible" value={`${num(kpis.combLh, 1)} L/h`} tone={C.gold} sub="promedio de la nave" />
         <KPI label="Aceite" value={`${num(kpis.aceiteL100h, 2)} L/100h`} tone={kpis.aceiteL100h > 0 ? C.amber : C.green} sub="salud del motor" />
       </div>
+
+      {/* ── Gráfico semestral de combustible ── */}
+      <Card style={{ marginBottom: 18, padding: "26px 28px 18px" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 24 }}>
+          <div>
+            <div style={{ fontSize: 10.5, letterSpacing: 2, textTransform: "uppercase", color: C.slate, fontWeight: 700 }}>Consumo semestral</div>
+            <div style={{ ...archivo, fontSize: 20, fontWeight: 800, color: C.abyss, marginTop: 3 }}>Combustible — Últimos 6 meses</div>
+            <div style={{ fontSize: 12.5, color: C.slate, marginTop: 3 }}>Litros consumidos por mes · Eficiencia L/h</div>
+          </div>
+          <div style={{ textAlign: "right" }}>
+            <div style={{ fontSize: 10.5, color: C.slate, letterSpacing: 1, textTransform: "uppercase", fontWeight: 700 }}>Eficiencia promedio</div>
+            <div style={{ ...archivo, fontSize: 26, fontWeight: 800, color: C.gold, lineHeight: 1.1, marginTop: 4 }}>
+              {avgCombLh !== null ? `${avgCombLh} L/h` : "—"}
+            </div>
+          </div>
+        </div>
+
+        <ResponsiveContainer width="100%" height={340}>
+          <ComposedChart data={semestreData} margin={{ top: 8, right: 48, bottom: 8, left: 12 }} barCategoryGap="28%">
+            <defs>
+              <linearGradient id="gradCombWave" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={C.gold} stopOpacity={0.45} />
+                <stop offset="80%" stopColor={C.gold} stopOpacity={0.08} />
+                <stop offset="100%" stopColor={C.gold} stopOpacity={0} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid strokeDasharray="4 4" stroke="#EBF0F5" vertical={false} />
+            <XAxis dataKey="label" tick={{ fontSize: 12.5, fill: C.slate, fontWeight: 600, fontFamily: "IBM Plex Sans, sans-serif" }} axisLine={false} tickLine={false} dy={8} />
+            <YAxis yAxisId="l" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: C.slate }} tickFormatter={(v) => v > 0 ? `${v}L` : ""} width={48} />
+            <YAxis yAxisId="r" orientation="right" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: C.steel }} tickFormatter={(v) => v > 0 ? `${v}` : ""} width={40} />
+            <Tooltip
+              contentStyle={{ background: "#fff", border: `1px solid ${C.line}`, borderRadius: 12, boxShadow: "0 8px 24px rgba(0,0,0,.1)", padding: "12px 16px" }}
+              labelStyle={{ fontSize: 13, fontWeight: 800, color: C.abyss, marginBottom: 6 }}
+              formatter={(v, name) => name === "combTotal"
+                ? [`${num(v, 0)} L`, "Combustible total"]
+                : v !== null ? [`${num(v, 1)} L/h`, "Eficiencia"] : []}
+              cursor={{ fill: "rgba(0,0,0,.03)" }}
+            />
+            {avgCombLh !== null && (
+              <ReferenceLine yAxisId="r" y={avgCombLh} stroke={C.steel} strokeDasharray="5 4" strokeWidth={1.5}
+                label={{ value: `Prom ${avgCombLh} L/h`, position: "right", fontSize: 10, fill: C.slate, fontWeight: 600 }} />
+            )}
+            <Area yAxisId="l" type="monotone" dataKey="combTotal"
+              stroke={C.gold} strokeWidth={2.5} fill="url(#gradCombWave)"
+              dot={false} activeDot={{ r: 6, fill: C.gold, stroke: "#fff", strokeWidth: 2 }} />
+            <Line yAxisId="r" type="monotone" dataKey="combLh" stroke={C.steel} strokeWidth={2.5}
+              dot={(props) => props.payload.combLh !== null
+                ? <circle cx={props.cx} cy={props.cy} r={5} fill="#fff" stroke={C.steel} strokeWidth={2.5} key={props.index} />
+                : <circle key={props.index} cx={props.cx} cy={props.cy} r={0} />}
+              connectNulls={false} />
+          </ComposedChart>
+        </ResponsiveContainer>
+
+        <div style={{ display: "flex", gap: 20, marginTop: 12, paddingLeft: 4 }}>
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 7, fontSize: 11.5, color: C.slate }}>
+            <div style={{ width: 28, height: 10, borderRadius: 2, background: `linear-gradient(180deg, rgba(224,165,38,.45), rgba(224,165,38,0))`, border: `2px solid ${C.gold}`, borderBottom: "none" }} />
+            Litros consumidos (eje izquierdo)
+          </div>
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 7, fontSize: 11.5, color: C.slate }}>
+            <div style={{ width: 20, height: 2.5, background: C.steel, borderRadius: 2 }} />
+            Eficiencia L/h (eje derecho)
+          </div>
+          {avgCombLh !== null && (
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 7, fontSize: 11.5, color: C.slate }}>
+              <div style={{ width: 20, height: 0, borderTop: `2px dashed ${C.steel}` }} />
+              Promedio semestral
+            </div>
+          )}
+        </div>
+      </Card>
 
       {filas.length === 0 ? (
         <Card><Empty>
