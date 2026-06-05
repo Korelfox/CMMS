@@ -22,18 +22,3 @@ export function buildEquipoTree(equipos) {
   return result;
 }
 
-/**
- * Renderiza las <option> de un select de equipos con jerarquía visual.
- * Uso: {equipoOptions(equiposDeNave)}
- */
-export function equipoOptions(equipos, placeholder = "— Ninguno —") {
-  const tree = buildEquipoTree(equipos);
-  return [
-    placeholder ? <option key="__none" value="">{placeholder}</option> : null,
-    ...tree.map((eq) => (
-      <option key={eq.id} value={eq.id}>
-        {"　".repeat(eq.depth)}{eq.depth > 0 ? "└─ " : ""}{eq.id_visible} · {eq.sistema}
-      </option>
-    )),
-  ].filter(Boolean);
-}

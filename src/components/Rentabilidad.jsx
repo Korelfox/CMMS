@@ -308,7 +308,7 @@ function TabMareas({ profile, embarcaciones, mareas, allOts, especies, capturas:
                         <span style={{ fontSize: 11, color: C.slate, marginLeft: 6 }}>({num(editLines.reduce((s, l) => s + (l.kg || 0), 0), 0)} kg)</span>
                       </td>
                       <td />
-                    </tfoot>
+                    </tr></tfoot>
                   </table>
                 </div>
 
