@@ -34,10 +34,12 @@ export function calcPL(marea, capturas = [], eco, otsNave = []) {
   const gastosPozo   = costoComb + costoViveres + costoHielo + costoCarnada;
 
   // ── Reparto ──
-  const liquido  = Math.max(0, valorBruto - gastosPozo);
-  const pct      = eco?.parte_tripulacion_pct ?? 50;
-  const parteTrip = liquido * (pct / 100);
+  const liquido        = Math.max(0, valorBruto - gastosPozo);
+  const pct            = eco?.parte_tripulacion_pct ?? 50;
+  const parteTrip      = liquido * (pct / 100);
   const ingresoArmador = liquido - parteTrip;
+  const numTrip        = eco?.num_tripulantes || 0;
+  const porTripulante  = numTrip > 0 ? parteTrip / numTrip : null;
 
   // ── Costos del armador ──
   const costoAceite = aceiteCons * pAceite;
@@ -57,7 +59,7 @@ export function calcPL(marea, capturas = [], eco, otsNave = []) {
   return {
     valorBruto, kgTotal, combCons, aceiteCons,
     costoComb, costoViveres, costoHielo, costoCarnada, gastosPozo,
-    liquido, pct, parteTrip, ingresoArmador,
+    liquido, pct, parteTrip, numTrip, porTripulante, ingresoArmador,
     costoAceite, costoOTs, costoOtros, costosArmador, margen,
     margenPct:          valorBruto > 0    ? (margen / valorBruto) * 100    : null,
     margenSobreIngreso: ingresoArmador > 0? (margen / ingresoArmador) * 100: null,
@@ -170,6 +172,7 @@ function TabMareas({ profile, embarcaciones, mareas, allOts, especies, capturas:
       costo_carnada:         eco.costo_carnada           ?? 0,
       costo_otros:           eco.costo_otros             ?? 0,
       parte_tripulacion_pct: eco.parte_tripulacion_pct   ?? conf?.parte_tripulacion_pct ?? 50,
+      num_tripulantes:       eco.num_tripulantes          ?? 0,
       notas: eco.notas ?? "",
     });
     setOpen(mareaId);
@@ -327,6 +330,11 @@ function TabMareas({ profile, embarcaciones, mareas, allOts, especies, capturas:
                         onChange={(e) => setEditEco((p) => ({ ...p, parte_tripulacion_pct: +e.target.value }))}
                         style={{ ...bluInput, borderColor: C.cyan }} />
                     </Field>
+                    <Field label="N° tripulantes (partes iguales)">
+                      <input type="number" min={0} value={editEco.num_tripulantes}
+                        onChange={(e) => setEditEco((p) => ({ ...p, num_tripulantes: +e.target.value }))}
+                        style={{ ...bluInput, borderColor: C.steel }} />
+                    </Field>
                     <Field label="Notas"><input value={editEco.notas} onChange={(e) => setEditEco((p) => ({ ...p, notas: e.target.value }))} style={inputStyle()} placeholder="Observaciones…" /></Field>
                   </div>
                 </div>
@@ -391,6 +399,31 @@ function PLPreview({ marea, editLines, editEco, otsNave }) {
             {pl.armadorPorKg !== null && <span style={{ fontSize: 12, color: C.slate }}>Armador/kg: <strong style={{ color: C.steel }}>{clp(pl.armadorPorKg)}</strong></span>}
             <span style={{ fontSize: 12, color: C.slate }}>Captura: <strong style={{ color: C.steel }}>{num(pl.kgTotal, 0)} kg</strong></span>
           </div>
+
+          {/* Desglose por tripulante */}
+          {pl.porTripulante !== null && (
+            <div style={{ marginTop: 14, padding: "12px 14px", background: "#EFF9EF", borderRadius: 8, border: `1px solid ${C.green}30` }}>
+              <div style={{ fontSize: 10.5, fontWeight: 700, color: C.slate, textTransform: "uppercase", letterSpacing: 1.2, marginBottom: 8 }}>
+                Desglose tripulación — {pl.numTrip} tripulantes (partes iguales)
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+                <div style={{ textAlign: "center" }}>
+                  <div style={{ fontSize: 10.5, color: C.slate }}>Fondo a repartir</div>
+                  <div style={{ fontFamily: "'Archivo',sans-serif", fontWeight: 800, fontSize: 17, color: C.steel }}>{clp(pl.parteTrip)}</div>
+                </div>
+                <div style={{ textAlign: "center", borderLeft: `1px solid ${C.line}`, borderRight: `1px solid ${C.line}` }}>
+                  <div style={{ fontSize: 10.5, color: C.slate }}>Por tripulante</div>
+                  <div style={{ fontFamily: "'Archivo',sans-serif", fontWeight: 800, fontSize: 17, color: C.green }}>{clp(pl.porTripulante)}</div>
+                </div>
+                <div style={{ textAlign: "center" }}>
+                  <div style={{ fontSize: 10.5, color: C.slate }}>Por día de marea</div>
+                  <div style={{ fontFamily: "'Archivo',sans-serif", fontWeight: 800, fontSize: 17, color: C.steel }}>
+                    {pl.dias ? clp(pl.porTripulante / pl.dias) : "—"}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
