@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useMemo } from "react";
-import { Fuel, Droplet, Waves, AlertCircle, TrendingUp, Gauge } from "lucide-react";
+import { Fuel, Droplet, Waves, AlertCircle, TrendingUp, Gauge, ExternalLink } from "lucide-react";
 import {
   ComposedChart, Area, Line, XAxis, YAxis, Tooltip, ResponsiveContainer,
   CartesianGrid, ReferenceLine, Legend,
@@ -42,7 +42,7 @@ function calcMarea(m, equiposNave) {
   return { dias, combCons, aceiteCons, aguaCons, horasNave, combLh, aceiteL100h, aceitePorMotor };
 }
 
-export default function Consumos() {
+export default function Consumos({ onNavigate }) {
   const [embarcaciones, setEmbarcaciones] = useState([]);
   const [equipos, setEquipos] = useState([]);
   const [mareas, setMareas] = useState([]);
@@ -270,6 +270,7 @@ export default function Consumos() {
                   <th style={{ ...thStyle, textAlign: "right" }}>L/h</th>
                   <th style={{ ...thStyle, textAlign: "right" }}>Aceite (L)</th>
                   <th style={{ ...thStyle, textAlign: "right" }}>L/100h</th>
+                  {onNavigate && <th style={thStyle}></th>}
                 </tr></thead>
                 <tbody>
                   {[...filas].reverse().map(({ m, calc }) => (
@@ -284,6 +285,15 @@ export default function Consumos() {
                       <td style={{ ...tdStyle, textAlign: "right", fontWeight: 600 }}>
                         <Pill tone={calc.aceiteL100h > 2 ? "red" : calc.aceiteL100h > 1 ? "yellow" : "green"}>{num(calc.aceiteL100h, 2)}</Pill>
                       </td>
+                      {onNavigate && (
+                        <td style={tdStyle}>
+                          <button onClick={() => onNavigate("rentabilidad", { mareaId: m.id })}
+                            title="Ver rentabilidad de esta marea"
+                            style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11.5, padding: "3px 8px", borderRadius: 5, border: `1px solid ${C.line}`, background: "none", color: C.slate, cursor: "pointer", whiteSpace: "nowrap" }}>
+                            <ExternalLink size={11} /> P&L
+                          </button>
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>

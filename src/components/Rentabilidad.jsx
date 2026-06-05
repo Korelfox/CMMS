@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useMemo } from "react";
-import { Fish, Plus, Trash2, Settings, BookOpen, ChevronDown, ChevronRight, Check, LayoutDashboard } from "lucide-react";
+import { Fish, Plus, Trash2, Settings, BookOpen, ChevronDown, ChevronRight, Check, LayoutDashboard, Download, ExternalLink, Fuel } from "lucide-react";
 import {
   ComposedChart, Bar, Line, PieChart, Pie, Cell,
   XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
@@ -47,13 +47,13 @@ export function calcPL(marea, capturas = [], eco, otsNave = []) {
   const porTripulante  = numTrip > 0 ? parteTrip / numTrip : null;
 
   // ── Costos del armador ──
-  const costoAceite = aceiteCons * pAceite;
-  const costoOTs    = otsNave
-    .filter((o) => o.embarcacion_id === marea.embarcacion_id
-      && o.fecha && marea.zarpe_at && marea.recalada_at
-      && new Date(o.fecha) >= new Date(marea.zarpe_at)
-      && new Date(o.fecha) <= new Date(marea.recalada_at))
-    .reduce((s, o) => s + (Number(o.costo_mo) || 0) + (Number(o.costo_mat) || 0), 0);
+  const costoAceite  = aceiteCons * pAceite;
+  const otsEnMarea   = otsNave.filter((o) =>
+    o.embarcacion_id === marea.embarcacion_id
+    && o.fecha && marea.zarpe_at && marea.recalada_at
+    && new Date(o.fecha) >= new Date(marea.zarpe_at)
+    && new Date(o.fecha) <= new Date(marea.recalada_at));
+  const costoOTs = otsEnMarea.reduce((s, o) => s + (Number(o.costo_mo) || 0) + (Number(o.costo_mat) || 0), 0);
   const costoOtros    = eco?.costo_otros || 0;
   const costosArmador = costoAceite + costoOTs + costoOtros;
   const margen        = ingresoArmador - costosArmador;
@@ -71,12 +71,12 @@ export function calcPL(marea, capturas = [], eco, otsNave = []) {
     armadorPorKg:       kgTotal > 0       ? ingresoArmador / kgTotal       : null,
     margenPorDia:       dias              ? margen / dias                  : null,
     precioProm:         kgTotal > 0       ? valorBruto / kgTotal           : null,
-    dias, tieneCaptura: lineas.length > 0, tieneEco: !!eco, lineas,
+    dias, tieneCaptura: lineas.length > 0, tieneEco: !!eco, lineas, otsEnMarea,
   };
 }
 
 // ── Componente principal ───────────────────────────────────────
-export default function Rentabilidad() {
+export default function Rentabilidad({ onNavigate, navParams }) {
   const { profile } = useAuth();
   const [embarcaciones, setEmbarcaciones] = useState([]);
   const [mareas,    setMareas]    = useState([]);
@@ -88,6 +88,7 @@ export default function Rentabilidad() {
   const [loading,   setLoading]   = useState(true);
   const [error,     setError]     = useState(null);
   const [tab,       setTab]       = useState("dashboard");
+  const [navMareaId, setNavMareaId] = useState(null);  // ID de marea a abrir automáticamente
   const [filtroEmb, setFiltroEmb] = useState("all");
 
   const cargar = useCallback(async () => {
@@ -112,6 +113,14 @@ export default function Rentabilidad() {
   }, [profile?.empresa_id]); // eslint-disable-line
   useEffect(() => { cargar(); }, [cargar]);
 
+  // Navegar desde otro módulo con marea específica (ej. desde Consumos)
+  useEffect(() => {
+    if (navParams?.mareaId) {
+      setTab("mareas");
+      setNavMareaId(navParams.mareaId);
+    }
+  }, [navParams]);
+
   const embName = (id) => embarcaciones.find((e) => e.id === id)?.nombre || "—";
 
   const mareasFiltradas = useMemo(() =>
@@ -123,7 +132,7 @@ export default function Rentabilidad() {
     <Card><InlineSpinner label="Cargando datos económicos…" /></Card></div>
   );
 
-  const shared = { profile, embarcaciones, ots, especies, setEspecies, capturas, setCapturas, economias, setEconomias, conf, setConf, embName, setError, recargar: cargar };
+  const shared = { profile, embarcaciones, ots, especies, setEspecies, capturas, setCapturas, economias, setEconomias, conf, setConf, embName, setError, recargar: cargar, onNavigate };
 
   return (
     <div>
@@ -149,7 +158,7 @@ export default function Rentabilidad() {
       </div>
 
       {tab === "dashboard" && <TabDashboard mareas={mareasFiltradas} capturas={capturas} economias={economias} ots={ots} embarcaciones={embarcaciones} embName={embName} />}
-      {tab === "mareas"   && <TabMareas   {...shared} mareas={mareasFiltradas} allOts={ots} />}
+      {tab === "mareas"   && <TabMareas   {...shared} mareas={mareasFiltradas} allOts={ots} navMareaId={navMareaId} onNavUsed={() => setNavMareaId(null)} />}
       {tab === "especies" && <TabEspecies {...shared} />}
       {tab === "config"   && <TabConfig   {...shared} />}
     </div>
@@ -170,13 +179,17 @@ const COLORES_COSTO = {
 };
 
 function TabDashboard({ mareas, capturas, economias, ots, embarcaciones, embName }) {
-  // P&L por cada marea con datos
-  const plList = useMemo(() =>
-    mareas
-      .filter((m) => m.estado === "cerrada")
+  const [periodo, setPeriodo] = useState("todo"); // "30" | "90" | "180" | "todo"
+
+  // P&L por cada marea con datos, filtrado por período
+  const plList = useMemo(() => {
+    const hoy   = new Date();
+    const corte = periodo !== "todo" ? new Date(hoy.getTime() - Number(periodo) * 86400000) : null;
+    return mareas
+      .filter((m) => m.estado === "cerrada" && (!corte || (m.zarpe_at && new Date(m.zarpe_at) >= corte)))
       .map((m) => ({ m, pl: calcPL(m, capturas, economias.find((e) => e.marea_id === m.id), ots) }))
-      .filter(({ pl }) => pl?.tieneCaptura),
-    [mareas, capturas, economias, ots]);
+      .filter(({ pl }) => pl?.tieneCaptura);
+  }, [mareas, capturas, economias, ots, periodo]);
 
   // KPIs globales
   const kpis = useMemo(() => {
@@ -275,8 +288,48 @@ function TabDashboard({ mareas, capturas, economias, ots, embarcaciones, embName
 
   const TOOLTIP_STYLE = { background: "#fff", border: `1px solid ${C.line}`, borderRadius: 10, boxShadow: "0 6px 20px rgba(0,0,0,.1)", padding: "10px 14px", fontSize: 12.5 };
 
+  // Exportar dashboard a CSV
+  function exportarCSV() {
+    const filas = [
+      ["Folio", "Nave", "Zarpe", "Recalada", "Días", "Kg", "Precio prom $/kg", "Ingreso bruto", "Gastos pozo", "Parte trip", "Costos armador", "Margen", "Margen %", "Break-even kg"],
+      ...plList.map(({ m, pl }) => {
+        const pct = pl.pct / 100;
+        const brutoNeed = pct < 1 ? pl.gastosPozo + pl.costosArmador / (1 - pct) : null;
+        const kgNeed = brutoNeed !== null && pl.precioProm ? Math.ceil(brutoNeed / pl.precioProm) : "";
+        return [
+          m.folio || "", embName(m.embarcacion_id),
+          m.zarpe_at ? new Date(m.zarpe_at).toLocaleDateString("es-CL") : "",
+          m.recalada_at ? new Date(m.recalada_at).toLocaleDateString("es-CL") : "",
+          pl.dias ? num(pl.dias, 1) : "",
+          num(pl.kgTotal, 0), pl.precioProm ? num(pl.precioProm, 0) : "",
+          num(pl.valorBruto, 0), num(pl.gastosPozo, 0), num(pl.parteTrip, 0),
+          num(pl.costosArmador, 0), num(pl.margen, 0),
+          pl.margenPct !== null ? num(pl.margenPct, 1) : "", kgNeed,
+        ];
+      }),
+    ];
+    const csv = filas.map((r) => r.map((c) => { const s = String(c ?? ""); return /[",;\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; }).join(";")).join("\n");
+    const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
+    const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "rentabilidad.csv"; a.click();
+  }
+
   return (
     <div>
+      {/* ── Controles: período + export ── */}
+      <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 16, flexWrap: "wrap" }}>
+        <span style={{ fontSize: 12.5, color: C.slate, fontWeight: 600 }}>Período:</span>
+        {[["30", "Último mes"], ["90", "3 meses"], ["180", "6 meses"], ["todo", "Todo"]].map(([v, lbl]) => (
+          <button key={v} onClick={() => setPeriodo(v)}
+            style={{ padding: "5px 12px", borderRadius: 7, fontSize: 12.5, fontWeight: 600, cursor: "pointer", border: `1px solid ${periodo === v ? C.cyan : C.line}`, background: periodo === v ? C.cyan : "#fff", color: periodo === v ? "#fff" : C.slate }}>
+            {lbl}
+          </button>
+        ))}
+        <div style={{ flex: 1 }} />
+        <button onClick={exportarCSV} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 14px", borderRadius: 7, border: `1px solid ${C.line}`, background: "#fff", color: C.slate, fontSize: 12.5, fontWeight: 600, cursor: "pointer" }}>
+          <Download size={14} /> Exportar CSV
+        </button>
+      </div>
+
       {/* ── KPIs ── */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 12, marginBottom: 20 }}>
         {kpiCard("Mareas analizadas",   kpis.mareas,                          C.steel)}
@@ -423,11 +476,22 @@ function TabDashboard({ mareas, capturas, economias, ots, embarcaciones, embName
 
 // TAB MAREAS — registro de captura y costos
 // ─────────────────────────────────────────────────────────────────
-function TabMareas({ profile, embarcaciones, mareas, allOts, especies, capturas: allCapturas, setCapturas, economias: allEconomias, setEconomias, conf, embName, setError }) {
+function TabMareas({ profile, embarcaciones, mareas, allOts, especies, capturas: allCapturas, setCapturas, economias: allEconomias, setEconomias, conf, embName, setError, onNavigate, navMareaId, onNavUsed }) {
   const [open,      setOpen]      = useState(null);
   const [editLines, setEditLines] = useState([]);
   const [editEco,   setEditEco]   = useState({});
   const [saving,    setSaving]    = useState(false);
+
+  // Auto-abrir marea cuando llegamos desde Consumos
+  useEffect(() => {
+    if (navMareaId && mareas.find((m) => m.id === navMareaId)) {
+      abrirMarea(navMareaId);
+      onNavUsed?.();
+      setTimeout(() => {
+        document.getElementById(`marea-card-${navMareaId}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 100);
+    }
+  }, [navMareaId, mareas]); // eslint-disable-line
 
   function abrirMarea(mareaId) {
     if (open === mareaId) { setOpen(null); return; }
@@ -496,7 +560,7 @@ function TabMareas({ profile, embarcaciones, mareas, allOts, especies, capturas:
         const isOpen = open === m.id;
         const emb    = embarcaciones.find((e) => e.id === m.embarcacion_id);
         return (
-          <Card key={m.id} style={{ marginBottom: 10, borderLeft: `4px solid ${pl?.tieneCaptura ? C.green : C.line}` }}>
+          <Card key={m.id} id={`marea-card-${m.id}`} style={{ marginBottom: 10, borderLeft: `4px solid ${pl?.tieneCaptura ? C.green : C.line}` }}>
             {/* ── Cabecera clickeable ── */}
             <div onClick={() => abrirMarea(m.id)} style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
               {isOpen ? <ChevronDown size={17} color={C.slate} /> : <ChevronRight size={17} color={C.slate} />}
@@ -509,6 +573,13 @@ function TabMareas({ profile, embarcaciones, mareas, allOts, especies, capturas:
                 {pl?.dias && <span style={{ marginLeft: 6 }}>({num(pl.dias, 1)} días)</span>}
               </span>
               <div style={{ flex: 1 }} />
+              {onNavigate && (
+                <button onClick={(e) => { e.stopPropagation(); onNavigate("consumos"); }}
+                  title="Ver consumos de la flota"
+                  style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11.5, padding: "3px 9px", borderRadius: 5, border: `1px solid ${C.line}`, background: "none", color: C.slate, cursor: "pointer" }}>
+                  <Fuel size={11} /> Consumos
+                </button>
+              )}
               {pl?.tieneCaptura ? (
                 <div style={{ display: "flex", gap: 20, alignItems: "center" }}>
                   <div style={{ textAlign: "right" }}>
@@ -630,6 +701,7 @@ function TabMareas({ profile, embarcaciones, mareas, allOts, especies, capturas:
 
 // ── Preview P&L en tiempo real ─────────────────────────────────
 function PLPreview({ marea, editLines, editEco, otsNave }) {
+  const [showOTs, setShowOTs] = useState(false);
   const lineas  = editLines.map((l) => ({ ...l, marea_id: marea.id }));
   const ecoFake = { ...editEco, marea_id: marea.id };
   const pl = calcPL(marea, lineas, ecoFake, otsNave);
@@ -661,6 +733,24 @@ function PLPreview({ marea, editLines, editEco, otsNave }) {
         <div>
           {row(`  − Aceite (${num(pl.aceiteCons, 1)} L)`, -pl.costoAceite)}
           {row("  − Mantención (OTs en la marea)", -pl.costoOTs)}
+          {pl.otsEnMarea?.length > 0 && (
+            <div style={{ marginLeft: 12, marginBottom: 4 }}>
+              <button onClick={() => setShowOTs((p) => !p)}
+                style={{ fontSize: 11, color: C.slate, background: "none", border: "none", cursor: "pointer", padding: "2px 0", textDecoration: "underline" }}>
+                {showOTs ? "▲ ocultar" : `▼ ver ${pl.otsEnMarea.length} OT${pl.otsEnMarea.length > 1 ? "s" : ""}`}
+              </button>
+              {showOTs && (
+                <div style={{ marginTop: 4, display: "flex", flexDirection: "column", gap: 3 }}>
+                  {pl.otsEnMarea.map((o) => (
+                    <div key={o.id} style={{ fontSize: 11.5, color: C.slate, display: "flex", justifyContent: "space-between", padding: "2px 6px", background: C.foam, borderRadius: 4 }}>
+                      <span><span style={{ fontFamily: "'IBM Plex Mono', monospace", color: C.steel }}>{o.folio}</span> · {o.descripcion?.slice(0, 50) || o.sistema}</span>
+                      <span style={{ fontFamily: "'IBM Plex Mono', monospace", color: C.red, fontWeight: 600 }}>{clp((Number(o.costo_mo) || 0) + (Number(o.costo_mat) || 0))}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
           {row("  − Otros costos armador", -pl.costoOtros)}
           <div style={{ height: 24 }} />
           {row("= Margen del armador", pl.margen, true, pl.margen >= 0 ? C.green : C.red)}
