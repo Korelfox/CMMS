@@ -3,7 +3,7 @@ import {
   Anchor, LayoutDashboard, Ship, Sailboat, CalendarClock, Calendar, Inbox, ClipboardList,
   Package, Warehouse, Gauge, Activity, AlertTriangle, ClipboardCheck, DollarSign,
   TrendingUp, FileText, History, Layers, Bell, LogOut, UserCircle, UserCog,
-  Wifi, WifiOff, RefreshCw, CheckCircle2, BarChart3, ShipWheel, Fuel, ShieldCheck,
+  Wifi, WifiOff, RefreshCw, CheckCircle2, BarChart3, ShipWheel, Fuel, ShieldCheck, Fish,
 } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { fetchAll } from "../lib/db";
@@ -34,6 +34,7 @@ const CGM           = lazy(() => import("./CGM"));
 const Weibull       = lazy(() => import("./Weibull"));
 const Reportes      = lazy(() => import("./Reportes"));
 const Bitacora      = lazy(() => import("./Bitacora"));
+const Rentabilidad  = lazy(() => import("./Rentabilidad"));
 const Usuarios      = lazy(() => import("./Usuarios"));
 
 // Estructura de navegación (los módulos se conectan a la base de datos uno a uno)
@@ -55,7 +56,8 @@ const NAV = [
   { id: "criticidad", label: "Criticidad", icon: Activity, group: "Análisis" },
   { id: "fallas", label: "Análisis de Fallas", icon: AlertTriangle, group: "Análisis" },
   { id: "pareto", label: "Pareto (80/20)", icon: BarChart3, group: "Análisis" },
-  { id: "consumos", label: "Consumos & Eficiencia", icon: Fuel, group: "Análisis" },
+  { id: "consumos",      label: "Consumos & Eficiencia",  icon: Fuel,  group: "Análisis" },
+  { id: "rentabilidad",  label: "Rentabilidad por Marea", icon: Fish,  group: "Comercial" },
   { id: "auditoria", label: "Auditoría MES", icon: ClipboardCheck, group: "Análisis" },
   { id: "costos", label: "Costo Global (CGM)", icon: DollarSign, group: "Optimización" },
   { id: "optim", label: "Optimización", icon: TrendingUp, group: "Optimización" },
@@ -88,7 +90,8 @@ const MODULOS = {
   costos: CGM,
   optim: Weibull,
   reportes: Reportes,
-  bitacora: Bitacora,
+  bitacora:      Bitacora,
+  rentabilidad:  Rentabilidad,
   usuarios: Usuarios,
 };
 
