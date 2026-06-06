@@ -299,7 +299,7 @@ export default function Equipos() {
 
       <Card style={{ padding: 0, overflow: "hidden" }}>
         <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 1060 }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 1340 }}>
             <thead><tr>
               <th style={thStyle}>ID</th>
               <th style={thStyle}>Nave</th>
@@ -328,14 +328,14 @@ export default function Equipos() {
                         <input value={e.id_visible} disabled={!puedeOperar}
                           onChange={(ev) => onChangeLocal(e.id, "id_visible", ev.target.value)}
                           onBlur={(ev) => commit(e.id, "id_visible", ev.target.value)}
-                          style={{ ...bluInput, width: 110 }} />
+                          style={{ ...bluInput, width: 150 }} />
                       </td>
 
                       {/* Nave */}
                       <td style={tdStyle}>
                         <select value={e.embarcacion_id} disabled={!puedeOperar}
                           onChange={(ev) => commit(e.id, "embarcacion_id", ev.target.value)}
-                          style={{ ...inputStyle(130), fontWeight: 600, color: embColor(e.embarcacion_id) }}>
+                          style={{ ...inputStyle(165), fontWeight: 600, color: embColor(e.embarcacion_id) }}>
                           {embarcaciones.map((v) => <option key={v.id} value={v.id}>{v.nombre}</option>)}
                         </select>
                       </td>
@@ -354,7 +354,7 @@ export default function Equipos() {
                           <input value={e.sistema} disabled={!puedeOperar}
                             onChange={(ev) => onChangeLocal(e.id, "sistema", ev.target.value)}
                             onBlur={(ev) => commit(e.id, "sistema", ev.target.value)}
-                            style={{ ...bluInput, width: Math.max(110, 165 - e.depth * 14), color: e.depth === 0 ? C.abyss : C.ink, fontWeight: e.depth === 0 ? 700 : 400 }} />
+                            style={{ ...bluInput, width: Math.max(160, 240 - e.depth * 14), color: e.depth === 0 ? C.abyss : C.ink, fontWeight: e.depth === 0 ? 700 : 400 }} />
                           {e.criticidad && <span style={{ marginLeft: 6, flexShrink: 0 }}><Pill tone={CRITICIDAD_TONE[e.criticidad]}>{e.criticidad}</Pill></span>}
                         </div>
                       </td>
@@ -363,15 +363,15 @@ export default function Equipos() {
                       <td style={tdStyle}>
                         <select value={e.parent_id || ""} disabled={!puedeOperar}
                           onChange={(ev) => commit(e.id, "parent_id", ev.target.value || null)}
-                          style={{ ...inputStyle(170), fontSize: 12, color: e.parent_id ? C.steel : C.line }}>
+                          style={{ ...inputStyle(210), fontSize: 12.5, color: e.parent_id ? C.steel : C.line }}>
                           <option value="">— Raíz —</option>
                           {padres.map((p) => <option key={p.id} value={p.id}>{p.id_visible} · {p.sistema}</option>)}
                         </select>
                       </td>
 
                       {/* Marca / Modelo */}
-                      <td style={tdStyle}><input value={e.marca || ""} disabled={!puedeOperar} onChange={(ev) => onChangeLocal(e.id, "marca", ev.target.value)} onBlur={(ev) => commit(e.id, "marca", ev.target.value)} style={inputStyle(85)} /></td>
-                      <td style={tdStyle}><input value={e.modelo || ""} disabled={!puedeOperar} onChange={(ev) => onChangeLocal(e.id, "modelo", ev.target.value)} onBlur={(ev) => commit(e.id, "modelo", ev.target.value)} style={inputStyle(85)} /></td>
+                      <td style={tdStyle}><input value={e.marca || ""} disabled={!puedeOperar} onChange={(ev) => onChangeLocal(e.id, "marca", ev.target.value)} onBlur={(ev) => commit(e.id, "marca", ev.target.value)} style={inputStyle(120)} /></td>
+                      <td style={tdStyle}><input value={e.modelo || ""} disabled={!puedeOperar} onChange={(ev) => onChangeLocal(e.id, "modelo", ev.target.value)} onBlur={(ev) => commit(e.id, "modelo", ev.target.value)} style={inputStyle(120)} /></td>
 
                       {/* Horas */}
                       <td style={{ ...tdStyle, textAlign: "right" }}>

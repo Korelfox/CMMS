@@ -41,7 +41,7 @@ export function PageHead({ title, sub, kicker, action }) {
 }
 
 export const inputStyle = (w) => ({
-  width: w || "100%", padding: "9px 11px", border: `1px solid ${C.line}`, borderRadius: 8,
+  width: w || "100%", padding: "10px 13px", border: `1px solid ${C.line}`, borderRadius: 8,
   fontSize: 14, color: C.ink, background: "#fff", outline: "none",
 });
 
@@ -80,11 +80,11 @@ export function InlineSpinner({ label = "Cargando…" }) {
 }
 
 // Estilos de tabla
-export const thStyle = { textAlign: "left", padding: "10px 12px", fontSize: 11, letterSpacing: 0.5, textTransform: "uppercase", color: C.slate, fontWeight: 600, borderBottom: `2px solid ${C.line}`, whiteSpace: "nowrap" };
-export const tdStyle = { padding: "10px 12px", fontSize: 13, borderBottom: `1px solid ${C.foam}`, color: C.ink };
+export const thStyle = { textAlign: "left", padding: "13px 18px", fontSize: 11.5, letterSpacing: 0.5, textTransform: "uppercase", color: C.slate, fontWeight: 600, borderBottom: `2px solid ${C.line}`, whiteSpace: "nowrap" };
+export const tdStyle = { padding: "13px 18px", fontSize: 13.5, borderBottom: `1px solid ${C.foam}`, color: C.ink };
 
 // Input "editable" (resaltado azul) para campos que escriben en la base
-export const bluInput = { ...inputStyle(), padding: "7px 9px", fontSize: 13, color: C.steel, fontWeight: 600, background: "#F2F8FD", borderColor: "#CFE3F2", fontFamily: "'IBM Plex Mono', monospace" };
+export const bluInput = { ...inputStyle(), padding: "9px 11px", fontSize: 13.5, color: C.steel, fontWeight: 600, background: "#F2F8FD", borderColor: "#CFE3F2", fontFamily: "'IBM Plex Mono', monospace" };
 
 export const exportBtn = { display: "inline-flex", alignItems: "center", gap: 6, padding: "9px 14px", borderRadius: 9, border: `1px solid ${C.line}`, background: "#fff", color: C.steel, fontSize: 12.5, fontWeight: 600, cursor: "pointer" };
 
