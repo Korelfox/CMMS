@@ -1,10 +1,16 @@
 import React, { useEffect, useState, useCallback } from "react";
-import { Ship, Plus, Trash2, Download, AlertCircle, GitBranch, Layers, Cpu, Wrench, Box, Hash, ChevronDown, ChevronRight, Check } from "lucide-react";
+import { Ship, Plus, Trash2, Download, AlertCircle, GitBranch, Layers, Cpu, Wrench, Box, Hash, ChevronDown, ChevronRight, Check, Package, X } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { fetchAll, insertRow, updateRow, deleteRow, logActivity } from "../lib/db";
 import { C, isAdmin, canOperate, ESTADOS_EQUIPO, estadoLabel, tint, shadow } from "../theme";
 import { buildEquipoTree } from "../lib/equipTree";
-import { PLANTILLA_PESQUERA, contarNodosPlantilla, contarRepuestosPlantilla, TIPO_NODO_META, CRITICIDAD_TONE } from "../lib/plantillaPesquera";
+import { PLANTILLA_PESQUERA, contarNodosPlantilla, contarRepuestosPlantilla, TIPO_NODO_META, CRITICIDAD_TONE, TIPO_REPUESTO_META } from "../lib/plantillaPesquera";
+
+const TIPOS_REPUESTO = [
+  { value: "oem",         label: "OEM" },
+  { value: "alternativo", label: "Alternativo" },
+  { value: "generico",    label: "Genérico" },
+];
 import {
   Card, PageHead, Pill, primaryBtn, ghostBtn, exportBtn, inputStyle, bluInput,
   thStyle, tdStyle, FilterBtn, Field, Empty, ErrorBanner, InlineSpinner, GuiaColapsable,
@@ -51,6 +57,9 @@ export default function Equipos() {
   const [initColapso, setInitColapso] = useState(false);
   const [original,    setOriginal]    = useState({}); // snapshot por id para guardar/descartar
   const [guardando,   setGuardando]   = useState(false);
+  const [items,       setItems]       = useState([]); // inventario_items (repuestos)
+  const [destinos,    setDestinos]    = useState([]); // inventario_item_destinos (item↔equipo)
+  const [repuestoPanel, setRepuestoPanel] = useState(null); // equipo id con panel de repuestos abierto
   const puedeOperar = canOperate(profile?.rol);
   const puedeBorrar = isAdmin(profile?.rol);
   const hasActions  = puedeOperar || puedeBorrar;
@@ -58,11 +67,13 @@ export default function Equipos() {
   const cargar = useCallback(async () => {
     setLoading(true); setError(null);
     try {
-      const [embs, eqs] = await Promise.all([
+      const [embs, eqs, its, dests] = await Promise.all([
         fetchAll("embarcaciones", { order: { col: "codigo", asc: true } }),
         fetchAll("equipos",       { order: { col: "id_visible", asc: true } }),
+        fetchAll("inventario_items", { order: { col: "codigo", asc: true } }),
+        fetchAll("inventario_item_destinos"),
       ]);
-      setEmbarcaciones(embs); setEquipos(eqs);
+      setEmbarcaciones(embs); setEquipos(eqs); setItems(its); setDestinos(dests);
       setOriginal(Object.fromEntries(eqs.map((e) => [e.id, { ...e }]))); // snapshot para guardar/descartar
       if (embs.length && !form.embarcacion_id) setForm((f) => ({ ...f, embarcacion_id: embs[0].id }));
     } catch (e) { setError("No se pudieron cargar los equipos. " + e.message); }
@@ -187,6 +198,50 @@ export default function Equipos() {
       setColapsados((prev) => { const n = new Set(prev); n.delete(parent.id); return n; }); // expandir el padre
       logActivity(profile, "Crear equipo", `${idVis} (sub de ${parent.id_visible})`);
     } catch (e) { setError("No se pudo agregar el subnodo: " + e.message); }
+  }
+
+  // ── Repuestos enlazados a un nodo (inventario_item_destinos) ──
+  function repuestosDe(equipoId) {
+    return destinos.filter((d) => d.equipo_id === equipoId)
+      .map((d) => ({ destino: d, item: items.find((i) => i.id === d.item_id) }))
+      .filter((r) => r.item);
+  }
+
+  async function enlazarRepuesto(equipoId, itemId) {
+    if (!itemId || destinos.some((d) => d.equipo_id === equipoId && d.item_id === itemId)) return;
+    try {
+      const nuevo = await insertRow("inventario_item_destinos", profile.empresa_id, { item_id: itemId, equipo_id: equipoId });
+      setDestinos((p) => [...p, nuevo]);
+    } catch (e) { setError("No se pudo enlazar el repuesto: " + e.message); }
+  }
+
+  async function desenlazarRepuesto(destinoId) {
+    const respaldo = destinos;
+    setDestinos((p) => p.filter((d) => d.id !== destinoId));
+    try { await deleteRow("inventario_item_destinos", destinoId); }
+    catch (e) { setDestinos(respaldo); setError("No se pudo quitar el repuesto: " + e.message); }
+  }
+
+  // Crea un SKU nuevo (o reutiliza si el código ya existe) y lo enlaza al nodo.
+  async function crearYEnlazarRepuesto(equipoId, datos) {
+    const codigo = String(datos.codigo || "").trim().toUpperCase();
+    if (!codigo || !datos.descripcion?.trim()) { setError("El repuesto necesita código y descripción."); return; }
+    const node = equipos.find((e) => e.id === equipoId);
+    try {
+      let item = items.find((i) => String(i.codigo).toUpperCase() === codigo);
+      if (!item) {
+        item = await insertRow("inventario_items", profile.empresa_id, {
+          codigo, descripcion: datos.descripcion.trim(),
+          categoria: node?.sistema || "", tipo_repuesto: datos.tipo || "oem",
+          grupo_intercambio: node?.id_visible || null,
+        });
+        setItems((p) => [...p, item]);
+      }
+      await enlazarRepuesto(equipoId, item.id);
+      logActivity(profile, "Crear+enlazar repuesto", `${codigo} → ${node?.id_visible || ""}`);
+    } catch (e) {
+      setError(e.message?.includes("duplicate") ? `Ya existe un repuesto con código ${codigo}.` : "No se pudo crear el repuesto: " + e.message);
+    }
   }
 
   // Precarga el árbol estándar de sistemas pesqueros para la nave filtrada.
@@ -515,7 +570,11 @@ export default function Equipos() {
                   const tieneHijos = conHijos.has(e.id);
                   const colapsado = colapsados.has(e.id);
                   const nDesc = descCount.get(e.id) || 0;
-                  return (
+                  // Los repuestos se enlazan a componentes/instrumentos (o nodos hoja).
+                  const esComponente = e.tipo_nodo === "componente" || e.tipo_nodo === "instrumento" || !tieneHijos;
+                  const nReps = destinos.filter((d) => d.equipo_id === e.id).length;
+                  const panelAbierto = repuestoPanel === e.id;
+                  return ([
                     <tr key={e.id} style={{ background: eqDirty(e) ? tint(C.gold, 14) : e.depth > 0 ? tint(C.steel, 5) : undefined }}>
 
                       {/* ID */}
@@ -640,6 +699,14 @@ export default function Equipos() {
                                 <Plus size={14} strokeWidth={2.5} />
                               </button>
                             )}
+                            {puedeOperar && esComponente && (
+                              <button onClick={() => setRepuestoPanel(panelAbierto ? null : e.id)}
+                                title={`Repuestos de "${e.sistema}"${nReps ? ` (${nReps})` : ""}`}
+                                style={{ background: panelAbierto ? C.steel : "none", border: `1px solid ${panelAbierto ? C.steel : C.line}`, borderRadius: 6, cursor: "pointer", color: panelAbierto ? "#fff" : C.steel, padding: "2px 5px", display: "flex", alignItems: "center", gap: 3, flexShrink: 0 }}>
+                                <Package size={14} />
+                                {nReps > 0 && <span style={{ fontSize: 10.5, fontWeight: 700 }}>{nReps}</span>}
+                              </button>
+                            )}
                             {puedeBorrar && (
                               <button onClick={() => eliminar(e.id)} title="Eliminar" style={{ background: "none", border: "none", cursor: "pointer", color: C.slate, display: "flex", alignItems: "center" }}>
                                 <Trash2 size={15} />
@@ -648,8 +715,25 @@ export default function Equipos() {
                           </div>
                         </td>
                       )}
-                    </tr>
-                  );
+                    </tr>,
+                    panelAbierto && (
+                      <tr key={e.id + "-rep"}>
+                        <td colSpan={hasActions ? 14 : 13} style={{ padding: 0, background: tint(C.steel, 6), borderBottom: `1px solid ${C.line}` }}>
+                          <RepuestoPanel
+                            node={e}
+                            repuestos={repuestosDe(e.id)}
+                            items={items}
+                            destinos={destinos}
+                            puedeBorrar={puedeBorrar}
+                            onEnlazar={(itemId) => enlazarRepuesto(e.id, itemId)}
+                            onDesenlazar={desenlazarRepuesto}
+                            onCrear={(datos) => crearYEnlazarRepuesto(e.id, datos)}
+                            onClose={() => setRepuestoPanel(null)}
+                          />
+                        </td>
+                      </tr>
+                    )
+                  ]);
                 })}
             </tbody>
           </table>
@@ -740,6 +824,93 @@ function EjemploArbol() {
           ))}
         </div>
       ))}
+    </div>
+  );
+}
+
+// ── Panel inline de repuestos de un componente (enlazar/crear SKU sin ir a Inventario) ──
+function RepuestoPanel({ node, repuestos, items, puedeBorrar, onEnlazar, onDesenlazar, onCrear, onClose }) {
+  const [sel, setSel]     = useState("");
+  const [nuevo, setNuevo] = useState({ codigo: "", descripcion: "", tipo: "oem" });
+  const [creando, setCreando] = useState(false);
+
+  const yaEnlazados = new Set(repuestos.map((r) => r.item.id));
+  const disponibles = items.filter((i) => !yaEnlazados.has(i.id));
+
+  async function crear() {
+    if (creando) return;
+    setCreando(true);
+    await onCrear(nuevo);
+    setNuevo({ codigo: "", descripcion: "", tipo: "oem" });
+    setCreando(false);
+  }
+
+  return (
+    <div style={{ padding: "14px 18px 16px", display: "flex", flexDirection: "column", gap: 12 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <Package size={16} color={C.steel} />
+          <span style={{ fontSize: 12.5, fontWeight: 700, color: C.abyss }}>
+            Repuestos de <span style={{ fontFamily: "'IBM Plex Mono', monospace", color: C.steel }}>{node.id_visible}</span> · {node.sistema}
+          </span>
+        </div>
+        <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: C.slate, padding: 4, display: "flex" }}><X size={16} /></button>
+      </div>
+
+      {/* Lista de repuestos enlazados */}
+      {repuestos.length === 0 ? (
+        <div style={{ fontSize: 12, color: C.slate, fontStyle: "italic" }}>Sin repuestos enlazados todavía.</div>
+      ) : (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 7 }}>
+          {repuestos.map(({ destino, item }) => {
+            const meta = TIPO_REPUESTO_META[item.tipo_repuesto] || TIPO_REPUESTO_META.oem;
+            return (
+              <div key={destino.id} style={{ display: "flex", alignItems: "center", gap: 7, background: C.surface, border: `1px solid ${C.line}`, borderRadius: 7, padding: "5px 9px" }}>
+                <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 11.5, fontWeight: 700, color: C.steel }}>{item.codigo}</span>
+                <span style={{ fontSize: 12, color: C.ink }}>{item.descripcion}</span>
+                <Pill tone={meta.tone}>{meta.label}</Pill>
+                <button onClick={() => onDesenlazar(destino.id)} title="Quitar del componente"
+                  style={{ background: "none", border: "none", cursor: "pointer", color: C.slate, padding: 0, display: "flex" }}>
+                  <X size={13} />
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Acciones: enlazar existente / crear nuevo */}
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 18, alignItems: "flex-end", borderTop: `1px solid ${C.line}`, paddingTop: 12 }}>
+        {/* Enlazar SKU existente */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          <label style={{ fontSize: 10.5, fontWeight: 700, color: C.slate, textTransform: "uppercase", letterSpacing: 0.5 }}>Enlazar repuesto existente</label>
+          <div style={{ display: "flex", gap: 6 }}>
+            <select value={sel} onChange={(e) => setSel(e.target.value)} style={{ ...inputStyle(260), fontSize: 12.5 }}>
+              <option value="">— Selecciona un SKU del inventario —</option>
+              {disponibles.map((i) => <option key={i.id} value={i.id}>{i.codigo} · {i.descripcion}</option>)}
+            </select>
+            <button onClick={() => { if (sel) { onEnlazar(sel); setSel(""); } }} disabled={!sel} style={{ ...ghostBtn, opacity: sel ? 1 : 0.5 }}>Enlazar</button>
+          </div>
+        </div>
+
+        {/* Crear nuevo SKU y enlazar */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          <label style={{ fontSize: 10.5, fontWeight: 700, color: C.slate, textTransform: "uppercase", letterSpacing: 0.5 }}>…o crear uno nuevo</label>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+            <input value={nuevo.codigo} onChange={(e) => setNuevo({ ...nuevo, codigo: e.target.value.toUpperCase() })} placeholder="Código (FLT-ACE-W940)" style={{ ...inputStyle(150), fontFamily: "'IBM Plex Mono', monospace" }} />
+            <input value={nuevo.descripcion} onChange={(e) => setNuevo({ ...nuevo, descripcion: e.target.value })} placeholder="Descripción" style={inputStyle(200)} />
+            <select value={nuevo.tipo} onChange={(e) => setNuevo({ ...nuevo, tipo: e.target.value })} style={inputStyle(120)}>
+              {TIPOS_REPUESTO.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+            </select>
+            <button onClick={crear} disabled={creando || !nuevo.codigo.trim() || !nuevo.descripcion.trim()} style={primaryBtn}>
+              <Plus size={14} /> {creando ? "Creando…" : "Crear y enlazar"}
+            </button>
+          </div>
+        </div>
+      </div>
+      <div style={{ fontSize: 11, color: C.slate }}>
+        Los repuestos se guardan en <strong>Inventario</strong> y quedan enlazados a este componente. {puedeBorrar ? "" : "El stock se gestiona en Almacén."}
+      </div>
     </div>
   );
 }
