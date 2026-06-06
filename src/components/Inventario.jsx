@@ -4,30 +4,29 @@ import { useAuth } from "../lib/auth";
 import { fetchAll, insertRow, updateRow, deleteRow, logActivity } from "../lib/db";
 import { C, clp, isAdmin, canOperate } from "../theme";
 import { buildEquipoTree } from "../lib/equipTree";
+import { PLANTILLA_PESQUERA } from "../lib/plantillaPesquera";
 import {
   Card, PageHead, Pill, FilterBtn, primaryBtn, ghostBtn, exportBtn, inputStyle, bluInput,
   thStyle, tdStyle, Field, Empty, ErrorBanner, InlineSpinner,
 } from "../ui";
 
-const CATEGORIAS = [
-  "Lubricantes",
+// Categorías por SISTEMA — derivadas de la plantilla de equipos ISO 14224,
+// así se mantienen sincronizadas con la jerarquía de la flota.
+const CATEGORIAS_SISTEMA = PLANTILLA_PESQUERA.map((s) => s.nom);
+// Categorías por TIPO DE MATERIAL — transversales a los sistemas.
+const CATEGORIAS_MATERIAL = [
+  "Lubricantes y Aceites",
   "Filtros",
-  "Repuestos Motor",
-  "Repuestos Hidráulico",
-  "Repuestos Propulsión",
-  "Eléctrico / Electrónico",
-  "Seguridad y EPP",
+  "Rodamientos",
+  "Correas y Fajas",
+  "Sellos y Juntas",
+  "Mangueras y Tuberías",
   "Consumibles",
   "Herramientas",
-  "Correas y Fajas",
-  "Rodamientos",
-  "Sellos y Juntas",
-  "Sistema de Enfriamiento",
-  "Mangueras y Tuberías",
-  "Combustible y Aditivos",
+  "Seguridad y EPP",
   "Pintura y Anticorrosivo",
-  "Estructural / Casco",
 ];
+const CATEGORIAS = [...CATEGORIAS_SISTEMA, ...CATEGORIAS_MATERIAL];
 
 export default function Inventario() {
   const { profile } = useAuth();
