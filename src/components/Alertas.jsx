@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useMemo } from "react";
+﻿import React, { useEffect, useState, useCallback, useMemo } from "react";
 import {
   Bell, AlertTriangle, Package, Wrench, Clock, Ship, ShoppingCart, ChevronRight, Check, Droplet, ShieldCheck,
 } from "lucide-react";
@@ -10,7 +10,7 @@ import { Card, PageHead, Pill, FilterBtn, Empty, ErrorBanner, InlineSpinner } fr
 const CATEGORIAS = [
   { id: "pm",       label: "Plan Preventivo", icon: Wrench },
   { id: "stock",    label: "Stock bajo",      icon: Package },
-  { id: "ot",       label: "OTs críticas",    icon: AlertTriangle },
+  { id: "ot",       label: "OTs crÃ­ticas",    icon: AlertTriangle },
   { id: "sla",      label: "SLA vencido",     icon: Clock },
   { id: "equipo",   label: "Equipos",         icon: Ship },
   { id: "consumo",  label: "Consumo aceite",  icon: Droplet },
@@ -18,7 +18,7 @@ const CATEGORIAS = [
   { id: "compra",   label: "Compras",         icon: ShoppingCart },
 ];
 
-// A qué módulo lleva cada categoría de alerta al hacer clic.
+// A quÃ© mÃ³dulo lleva cada categorÃ­a de alerta al hacer clic.
 const NAV_POR_CAT = {
   pm: "planpm",
   stock: "inventario",
@@ -30,7 +30,7 @@ const NAV_POR_CAT = {
   compra: "almacen",
 };
 
-// Días hábiles (lun-vie) entre dos fechas (no cuenta feriados).
+// DÃ­as hÃ¡biles (lun-vie) entre dos fechas (no cuenta feriados).
 function diasHabiles(desde, hasta) {
   let n = 0; const d = new Date(desde); d.setHours(0, 0, 0, 0); const fin = new Date(hasta); fin.setHours(0, 0, 0, 0);
   while (d < fin) { d.setDate(d.getDate() + 1); const w = d.getDay(); if (w !== 0 && w !== 6) n++; }
@@ -73,10 +73,10 @@ export default function Alertas({ onNavigate }) {
   }, []);
   useEffect(() => { cargar(); }, [cargar]);
 
-  function embName(id) { return embarcaciones.find((e) => e.id === id)?.nombre || "—"; }
-  function itemDesc(id) { return items.find((i) => i.id === id)?.descripcion || "—"; }
+  function embName(id) { return embarcaciones.find((e) => e.id === id)?.nombre || "â€”"; }
+  function itemDesc(id) { return items.find((i) => i.id === id)?.descripcion || "â€”"; }
 
-  // ───── Generación de alertas (computada) ──────────────────────────────
+  // â”€â”€â”€â”€â”€ GeneraciÃ³n de alertas (computada) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const alertas = useMemo(() => {
     const all = [];
 
@@ -87,8 +87,8 @@ export default function Alertas({ onNavigate }) {
         if (elapsed >= iv) {
           all.push({
             cat: "pm", sev: iv >= 250 ? "red" : iv >= 100 ? "amber" : "yellow",
-            titulo: `PM ${iv}h vencido · ${eq.sistema}`,
-            detalle: `${embName(eq.embarcacion_id)} · transcurridas ${num(elapsed, 0)}h desde último PM`,
+            titulo: `PM ${iv}h vencido Â· ${eq.sistema}`,
+            detalle: `${embName(eq.embarcacion_id)} Â· transcurridas ${num(elapsed, 0)}h desde Ãºltimo PM`,
             ts: eq.updated_at,
           });
           break; // solo la peor coincidencia
@@ -102,19 +102,19 @@ export default function Alertas({ onNavigate }) {
       if (it.stock_min > 0 && total <= it.stock_min) {
         all.push({
           cat: "stock", sev: total === 0 ? "red" : "amber",
-          titulo: `Stock bajo · ${it.descripcion}`,
-          detalle: `${total} ${it.unidad || "Un"} disponibles (mínimo ${it.stock_min}) · ${total === 0 ? "AGOTADO" : `repón ${(it.stock_max || it.stock_min) - total} ${it.unidad || "Un"}`}`,
+          titulo: `Stock bajo Â· ${it.descripcion}`,
+          detalle: `${total} ${it.unidad || "Un"} disponibles (mÃ­nimo ${it.stock_min}) Â· ${total === 0 ? "AGOTADO" : `repÃ³n ${(it.stock_max || it.stock_min) - total} ${it.unidad || "Un"}`}`,
           ts: it.updated_at,
         });
       }
     });
 
-    // 3) OTs críticas abiertas
+    // 3) OTs crÃ­ticas abiertas
     ots.filter((o) => o.estado !== "cerrada" && (o.prioridad === "critica" || o.prioridad === "alta")).forEach((o) => {
       all.push({
         cat: "ot", sev: o.prioridad === "critica" ? "red" : "amber",
-        titulo: `OT ${o.prioridad === "critica" ? "crítica" : "alta"} abierta · ${o.folio || ""}`,
-        detalle: `${embName(o.embarcacion_id)} · ${o.sistema} · ${o.descripcion?.slice(0, 80) || ""}`,
+        titulo: `OT ${o.prioridad === "critica" ? "crÃ­tica" : "alta"} abierta Â· ${o.folio || ""}`,
+        detalle: `${embName(o.embarcacion_id)} Â· ${o.sistema} Â· ${o.descripcion?.slice(0, 80) || ""}`,
         ts: o.fecha, ref: o.id,   // id de la OT para abrirla filtrada al hacer clic
       });
     });
@@ -126,45 +126,45 @@ export default function Alertas({ onNavigate }) {
       if (transcurridas >= obj) {
         all.push({
           cat: "sla", sev: "red",
-          titulo: `SLA vencido · ${s.folio || ""} · ${lk(PRIORIDADES, s.prioridad)}`,
-          detalle: `${embName(s.embarcacion_id)} · ${num(transcurridas, 1)}h de espera (objetivo ${obj}h) · ${s.descripcion?.slice(0, 60) || ""}`,
+          titulo: `SLA vencido Â· ${s.folio || ""} Â· ${lk(PRIORIDADES, s.prioridad)}`,
+          detalle: `${embName(s.embarcacion_id)} Â· ${num(transcurridas, 1)}h de espera (objetivo ${obj}h) Â· ${s.descripcion?.slice(0, 60) || ""}`,
           ts: s.created_at,
         });
       } else if (transcurridas >= obj * 0.75) {
         all.push({
           cat: "sla", sev: "amber",
-          titulo: `SLA por vencer · ${s.folio || ""}`,
-          detalle: `${embName(s.embarcacion_id)} · ${num(transcurridas, 1)}h de espera (objetivo ${obj}h)`,
+          titulo: `SLA por vencer Â· ${s.folio || ""}`,
+          detalle: `${embName(s.embarcacion_id)} Â· ${num(transcurridas, 1)}h de espera (objetivo ${obj}h)`,
           ts: s.created_at,
         });
       }
     });
 
-    // 5) Equipos fuera de servicio o en reparación
+    // 5) Equipos fuera de servicio o en reparaciÃ³n
     equipos.filter((eq) => eq.estado === "fuera_servicio" || eq.estado === "en_reparacion").forEach((eq) => {
       all.push({
         cat: "equipo", sev: eq.estado === "fuera_servicio" ? "red" : "amber",
-        titulo: `${eq.sistema} · ${eq.estado === "fuera_servicio" ? "Fuera de servicio" : "En reparación"}`,
-        detalle: `${embName(eq.embarcacion_id)} · ${eq.id_visible}`,
+        titulo: `${eq.sistema} Â· ${eq.estado === "fuera_servicio" ? "Fuera de servicio" : "En reparaciÃ³n"}`,
+        detalle: `${embName(eq.embarcacion_id)} Â· ${eq.id_visible}`,
         ts: eq.updated_at,
       });
     });
 
-    // 6) Compras enviadas hace más tiempo que lead_dias sin recibir
+    // 6) Compras enviadas hace mÃ¡s tiempo que lead_dias sin recibir
     compras.filter((c) => c.estado === "enviada").forEach((c) => {
       const dias = (Date.now() - new Date(c.fecha).getTime()) / 86400000;
       if (dias >= (c.lead_dias || 0)) {
         all.push({
           cat: "compra", sev: dias >= (c.lead_dias || 0) + 7 ? "red" : "amber",
-          titulo: `Compra atrasada · ${c.folio || ""}`,
-          detalle: `${c.proveedor} · ${num(dias, 0)} días desde envío (lead ${c.lead_dias}d)`,
+          titulo: `Compra atrasada Â· ${c.folio || ""}`,
+          detalle: `${c.proveedor} Â· ${num(dias, 0)} dÃ­as desde envÃ­o (lead ${c.lead_dias}d)`,
           ts: c.fecha,
         });
       }
     });
 
-    // 7) Consumo de aceite anómalo: nivel de aceite marcado "bajo" en prezarpes.
-    //    Recurrente (≥2) = crítico (posible fuga/desgaste); 1 vez = atención.
+    // 7) Consumo de aceite anÃ³malo: nivel de aceite marcado "bajo" en prezarpes.
+    //    Recurrente (â‰¥2) = crÃ­tico (posible fuga/desgaste); 1 vez = atenciÃ³n.
     const bajoPorEquipo = {};
     prezarpes.forEach((pz) => {
       Object.entries(pz.niveles || {}).forEach(([eqId, n]) => {
@@ -178,26 +178,26 @@ export default function Alertas({ onNavigate }) {
       const eq = equipos.find((e) => e.id === eqId);
       all.push({
         cat: "consumo", sev: info.n >= 2 ? "red" : "amber",
-        titulo: `Consumo de aceite · ${eq?.sistema || eq?.id_visible || "equipo"}`,
-        detalle: `${embName(eq?.embarcacion_id)} · nivel bajo en ${info.n} prezarpe${info.n !== 1 ? "s" : ""} · ${info.n >= 2 ? "posible fuga o desgaste, revisar" : "vigilar consumo"}`,
+        titulo: `Consumo de aceite Â· ${eq?.sistema || eq?.id_visible || "equipo"}`,
+        detalle: `${embName(eq?.embarcacion_id)} Â· nivel bajo en ${info.n} prezarpe${info.n !== 1 ? "s" : ""} Â· ${info.n >= 2 ? "posible fuga o desgaste, revisar" : "vigilar consumo"}`,
         ts: info.ts,
       });
     });
 
-    // 8) Documentos / certificados vencidos o por vencer (15 días hábiles)
+    // 8) Documentos / certificados vencidos o por vencer (15 dÃ­as hÃ¡biles)
     const hoyD = new Date(); hoyD.setHours(0, 0, 0, 0);
     documentos.forEach((d) => {
       if (!d.vencimiento) return;
       const venc = new Date(d.vencimiento + "T00:00:00");
       if (venc < hoyD) {
-        all.push({ cat: "documento", sev: "red", titulo: `Documento vencido · ${d.tipo}`, detalle: `${embName(d.embarcacion_id)} · venció el ${d.vencimiento}`, ts: d.vencimiento });
+        all.push({ cat: "documento", sev: "red", titulo: `Documento vencido Â· ${d.tipo}`, detalle: `${embName(d.embarcacion_id)} Â· venciÃ³ el ${d.vencimiento}`, ts: d.vencimiento });
       } else {
         const dh = diasHabiles(hoyD, venc);
-        if (dh <= 15) all.push({ cat: "documento", sev: "amber", titulo: `Documento por vencer · ${d.tipo}`, detalle: `${embName(d.embarcacion_id)} · vence el ${d.vencimiento} (${dh} días háb.)`, ts: d.vencimiento });
+        if (dh <= 15) all.push({ cat: "documento", sev: "amber", titulo: `Documento por vencer Â· ${d.tipo}`, detalle: `${embName(d.embarcacion_id)} Â· vence el ${d.vencimiento} (${dh} dÃ­as hÃ¡b.)`, ts: d.vencimiento });
       }
     });
 
-    // Orden: rojo primero, luego ámbar, dentro de cada uno por timestamp descendente
+    // Orden: rojo primero, luego Ã¡mbar, dentro de cada uno por timestamp descendente
     return all.sort((a, b) => {
       const sevOrder = { red: 0, amber: 1, yellow: 2 };
       if (sevOrder[a.sev] !== sevOrder[b.sev]) return sevOrder[a.sev] - sevOrder[b.sev];
@@ -210,12 +210,12 @@ export default function Alertas({ onNavigate }) {
   const rojas = alertas.filter((a) => a.sev === "red").length;
   const ambar = alertas.filter((a) => a.sev === "amber").length;
 
-  if (loading) return <div><PageHead kicker="Centro de Notificaciones" title="Alertas" /><Card><InlineSpinner label="Cargando alertas…" /></Card></div>;
+  if (loading) return <div><PageHead kicker="Centro de Notificaciones" title="Alertas" /><Card><InlineSpinner label="Cargando alertasâ€¦" /></Card></div>;
 
   return (
     <div>
       <PageHead kicker="Centro de Notificaciones" title="Alertas"
-        sub="Señales agregadas de toda la operación: PM vencidos, stock bajo, OTs críticas, SLA, equipos fuera de servicio y compras atrasadas. Si no hay nada acá, tu flota está bajo control." />
+        sub="SeÃ±ales agregadas de toda la operaciÃ³n: PM vencidos, stock bajo, OTs crÃ­ticas, SLA, equipos fuera de servicio y compras atrasadas. Si no hay nada acÃ¡, tu flota estÃ¡ bajo control." />
 
       <ErrorBanner onRetry={cargar}>{error}</ErrorBanner>
 
@@ -229,11 +229,11 @@ export default function Alertas({ onNavigate }) {
             {alertas.length === 0 ? "Todo en orden" : `${alertas.length} alerta${alertas.length !== 1 ? "s" : ""}`}
           </div>
           <div style={{ fontSize: 12, marginTop: 8, color: "rgba(255,255,255,.85)" }}>
-            {alertas.length === 0 ? "Sin acciones pendientes inmediatas" : `${rojas} crítica${rojas !== 1 ? "s" : ""} · ${ambar} por revisar`}
+            {alertas.length === 0 ? "Sin acciones pendientes inmediatas" : `${rojas} crÃ­tica${rojas !== 1 ? "s" : ""} Â· ${ambar} por revisar`}
           </div>
         </Card>
-        <KPI label="Críticas" value={rojas} tone={rojas ? C.red : C.green} sub="requieren acción inmediata" />
-        <KPI label="Por revisar" value={ambar} tone={ambar ? C.amber : C.green} sub="atención esta semana" />
+        <KPI label="CrÃ­ticas" value={rojas} tone={rojas ? C.red : C.green} sub="requieren acciÃ³n inmediata" />
+        <KPI label="Por revisar" value={ambar} tone={ambar ? C.amber : C.green} sub="atenciÃ³n esta semana" />
       </div>
 
       <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
@@ -249,7 +249,7 @@ export default function Alertas({ onNavigate }) {
         {listaFiltrada.length === 0 ? (
           <Card><Empty>
             <Check size={32} color={C.green} style={{ marginBottom: 10 }} /><br />
-            {filtro === "all" ? "Sin alertas activas. Todo bajo control." : "Sin alertas en esta categoría."}
+            {filtro === "all" ? "Sin alertas activas. Todo bajo control." : "Sin alertas en esta categorÃ­a."}
           </Empty></Card>
         ) : listaFiltrada.map((a, i) => {
           const cat = CATEGORIAS.find((c) => c.id === a.cat);
@@ -264,13 +264,13 @@ export default function Alertas({ onNavigate }) {
               title={clicable ? `Ir a ${cat?.label} para gestionarla` : undefined}
               style={{ padding: 0, overflow: "hidden", borderLeft: `4px solid ${borderC}`, background: bg, cursor: clicable ? "pointer" : "default" }}>
               <div style={{ padding: "12px 16px", display: "grid", gridTemplateColumns: "auto 1fr auto", gap: 12, alignItems: "center" }}>
-                <div style={{ width: 38, height: 38, borderRadius: 9, background: "#fff", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <div style={{ width: 38, height: 38, borderRadius: 9, background: C.surface, display: "flex", alignItems: "center", justifyContent: "center" }}>
                   <Icon size={18} color={borderC} />
                 </div>
                 <div>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 2 }}>
                     <span style={{ fontSize: 14, fontWeight: 700, color: C.abyss }}>{a.titulo}</span>
-                    <Pill tone={a.sev === "red" ? "red" : "yellow"}>{a.sev === "red" ? "Crítica" : "Atención"}</Pill>
+                    <Pill tone={a.sev === "red" ? "red" : "yellow"}>{a.sev === "red" ? "CrÃ­tica" : "AtenciÃ³n"}</Pill>
                   </div>
                   <div style={{ fontSize: 12.5, color: C.slate }}>{a.detalle}</div>
                 </div>

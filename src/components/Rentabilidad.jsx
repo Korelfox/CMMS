@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useMemo } from "react";
+﻿import React, { useEffect, useState, useCallback, useMemo } from "react";
 import { Fish, Plus, Trash2, Settings, BookOpen, ChevronDown, ChevronRight, Check, LayoutDashboard, Download, ExternalLink, Fuel } from "lucide-react";
 import {
   ComposedChart, Bar, Line, PieChart, Pie, Cell,
@@ -14,11 +14,11 @@ import {
   inputStyle, bluInput, thStyle, tdStyle, Field, Empty, ErrorBanner, InlineSpinner,
 } from "../ui";
 
-// ── Modelo a la parte — cálculo P&L ───────────────────────────
+// â”€â”€ Modelo a la parte â€” cÃ¡lculo P&L â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Gastos del pozo (se descuentan ANTES del reparto):
-//   combustible + víveres + hielo + carnada
-// Costos del armador (NO se comparten, van después del reparto):
-//   aceite + mantención (OTs) + otros
+//   combustible + vÃ­veres + hielo + carnada
+// Costos del armador (NO se comparten, van despuÃ©s del reparto):
+//   aceite + mantenciÃ³n (OTs) + otros
 export function calcPL(marea, capturas = [], eco, otsNave = []) {
   if (!marea) return null;
   const lineas = capturas.filter((c) => c.marea_id === marea.id);
@@ -31,14 +31,14 @@ export function calcPL(marea, capturas = [], eco, otsNave = []) {
   const pComb    = eco?.precio_combustible_l || 0;
   const pAceite  = eco?.precio_aceite_l      || 0;
 
-  // ── Gastos del pozo ──
+  // â”€â”€ Gastos del pozo â”€â”€
   const costoComb    = combCons * pComb;
   const costoViveres = eco?.costo_viveres || 0;
   const costoHielo   = eco?.costo_hielo   || 0;
   const costoCarnada = eco?.costo_carnada || 0;
   const gastosPozo   = costoComb + costoViveres + costoHielo + costoCarnada;
 
-  // ── Reparto ──
+  // â”€â”€ Reparto â”€â”€
   const liquido        = Math.max(0, valorBruto - gastosPozo);
   const pct            = eco?.parte_tripulacion_pct ?? 50;
   const parteTrip      = liquido * (pct / 100);
@@ -46,7 +46,7 @@ export function calcPL(marea, capturas = [], eco, otsNave = []) {
   const numTrip        = eco?.num_tripulantes || 0;
   const porTripulante  = numTrip > 0 ? parteTrip / numTrip : null;
 
-  // ── Costos del armador ──
+  // â”€â”€ Costos del armador â”€â”€
   const costoAceite  = aceiteCons * pAceite;
   const otsEnMarea   = otsNave.filter((o) =>
     o.embarcacion_id === marea.embarcacion_id
@@ -75,7 +75,7 @@ export function calcPL(marea, capturas = [], eco, otsNave = []) {
   };
 }
 
-// ── Componente principal ───────────────────────────────────────
+// â”€â”€ Componente principal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export default function Rentabilidad({ onNavigate, navParams }) {
   const { profile } = useAuth();
   const [embarcaciones, setEmbarcaciones] = useState([]);
@@ -88,7 +88,7 @@ export default function Rentabilidad({ onNavigate, navParams }) {
   const [loading,   setLoading]   = useState(true);
   const [error,     setError]     = useState(null);
   const [tab,       setTab]       = useState("dashboard");
-  const [navMareaId, setNavMareaId] = useState(null);  // ID de marea a abrir automáticamente
+  const [navMareaId, setNavMareaId] = useState(null);  // ID de marea a abrir automÃ¡ticamente
   const [filtroEmb, setFiltroEmb] = useState("all");
 
   const cargar = useCallback(async () => {
@@ -113,7 +113,7 @@ export default function Rentabilidad({ onNavigate, navParams }) {
   }, [profile?.empresa_id]); // eslint-disable-line
   useEffect(() => { cargar(); }, [cargar]);
 
-  // Navegar desde otro módulo con marea específica (ej. desde Consumos)
+  // Navegar desde otro mÃ³dulo con marea especÃ­fica (ej. desde Consumos)
   useEffect(() => {
     if (navParams?.mareaId) {
       setTab("mareas");
@@ -121,28 +121,28 @@ export default function Rentabilidad({ onNavigate, navParams }) {
     }
   }, [navParams]);
 
-  const embName = (id) => embarcaciones.find((e) => e.id === id)?.nombre || "—";
+  const embName = (id) => embarcaciones.find((e) => e.id === id)?.nombre || "â€”";
 
   const mareasFiltradas = useMemo(() =>
     mareas.filter((m) => m.estado === "cerrada" && (filtroEmb === "all" || m.embarcacion_id === filtroEmb)),
     [mareas, filtroEmb]);
 
   if (loading) return (
-    <div><PageHead kicker="Gestión Comercial" title="Rentabilidad por Marea" />
-    <Card><InlineSpinner label="Cargando datos económicos…" /></Card></div>
+    <div><PageHead kicker="GestiÃ³n Comercial" title="Rentabilidad por Marea" />
+    <Card><InlineSpinner label="Cargando datos econÃ³micosâ€¦" /></Card></div>
   );
 
   const shared = { profile, embarcaciones, ots, especies, setEspecies, capturas, setCapturas, economias, setEconomias, conf, setConf, embName, setError, recargar: cargar, onNavigate };
 
   return (
     <div>
-      <PageHead kicker="Gestión Comercial · Flota Pesquera" title="Rentabilidad por Marea"
-        sub="Modelo a la parte: ingreso bruto → gastos del pozo → líquido → parte tripulación → margen del armador." />
+      <PageHead kicker="GestiÃ³n Comercial Â· Flota Pesquera" title="Rentabilidad por Marea"
+        sub="Modelo a la parte: ingreso bruto â†’ gastos del pozo â†’ lÃ­quido â†’ parte tripulaciÃ³n â†’ margen del armador." />
       <ErrorBanner onRetry={cargar}>{error}</ErrorBanner>
 
-      {/* ── Tabs ── */}
+      {/* â”€â”€ Tabs â”€â”€ */}
       <div style={{ display: "flex", gap: 8, marginBottom: 18, flexWrap: "wrap", alignItems: "center" }}>
-        {[["dashboard", LayoutDashboard, "Dashboard"], ["mareas", Fish, "Registro por Marea"], ["especies", BookOpen, "Especies"], ["config", Settings, "Configuración"]].map(([id, Icon, lbl]) => (
+        {[["dashboard", LayoutDashboard, "Dashboard"], ["mareas", Fish, "Registro por Marea"], ["especies", BookOpen, "Especies"], ["config", Settings, "ConfiguraciÃ³n"]].map(([id, Icon, lbl]) => (
           <button key={id} onClick={() => setTab(id)} style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "9px 15px", borderRadius: 9, border: `1px solid ${tab === id ? C.cyan : C.line}`, background: tab === id ? C.cyan : "#fff", color: tab === id ? "#fff" : C.slate, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
             <Icon size={15} />{lbl}
           </button>
@@ -165,10 +165,10 @@ export default function Rentabilidad({ onNavigate, navParams }) {
   );
 }
 
-// ─────────────────────────────────────────────────────────────────
-// ─────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // TAB DASHBOARD
-// ─────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const COLORES_COSTO = {
   combustible: "#E0A526",
   vivHiCar:    "#60B8C8",
@@ -181,7 +181,7 @@ const COLORES_COSTO = {
 function TabDashboard({ mareas, capturas, economias, ots, embarcaciones, embName }) {
   const [periodo, setPeriodo] = useState("todo"); // "30" | "90" | "180" | "todo"
 
-  // P&L por cada marea con datos, filtrado por período
+  // P&L por cada marea con datos, filtrado por perÃ­odo
   const plList = useMemo(() => {
     const hoy   = new Date();
     const corte = periodo !== "todo" ? new Date(hoy.getTime() - Number(periodo) * 86400000) : null;
@@ -205,7 +205,7 @@ function TabDashboard({ mareas, capturas, economias, ots, embarcaciones, embName
     return { ...z, mareas: plList.length, margenPct: z.valorBruto > 0 ? (z.margen / z.valorBruto) * 100 : null };
   }, [plList]);
 
-  // Serie temporal para gráfico (últimas 15, de más antigua a más nueva)
+  // Serie temporal para grÃ¡fico (Ãºltimas 15, de mÃ¡s antigua a mÃ¡s nueva)
   const serie = useMemo(() =>
     [...plList].slice(-15).map(({ m, pl }) => ({
       name:          m.folio || new Date(m.zarpe_at).toLocaleDateString("es-CL", { day: "2-digit", month: "2-digit" }),
@@ -218,7 +218,7 @@ function TabDashboard({ mareas, capturas, economias, ots, embarcaciones, embName
     })),
     [plList, embName]);
 
-  // Composición de costos (agregado)
+  // ComposiciÃ³n de costos (agregado)
   const composicion = useMemo(() => {
     const z = { combustible: 0, vivHiCar: 0, parteTrip: 0, aceite: 0, mant: 0, otros: 0 };
     plList.forEach(({ pl }) => {
@@ -231,10 +231,10 @@ function TabDashboard({ mareas, capturas, economias, ots, embarcaciones, embName
     });
     return [
       { label: "Combustible",          value: z.combustible, color: COLORES_COSTO.combustible },
-      { label: "Víveres / Hielo / Carnada", value: z.vivHiCar, color: COLORES_COSTO.vivHiCar },
-      { label: "Parte tripulación",    value: z.parteTrip,   color: COLORES_COSTO.parteTrip  },
+      { label: "VÃ­veres / Hielo / Carnada", value: z.vivHiCar, color: COLORES_COSTO.vivHiCar },
+      { label: "Parte tripulaciÃ³n",    value: z.parteTrip,   color: COLORES_COSTO.parteTrip  },
       { label: "Aceite",               value: z.aceite,      color: COLORES_COSTO.aceite     },
-      { label: "Mantención (OTs)",     value: z.mant,        color: COLORES_COSTO.mant       },
+      { label: "MantenciÃ³n (OTs)",     value: z.mant,        color: COLORES_COSTO.mant       },
       { label: "Otros",                value: z.otros,       color: COLORES_COSTO.otros      },
     ].filter((d) => d.value > 0);
   }, [plList]);
@@ -264,7 +264,7 @@ function TabDashboard({ mareas, capturas, economias, ots, embarcaciones, embName
       const brutoNeed = pct < 1 ? pl.gastosPozo + pl.costosArmador / (1 - pct) : null;
       const kgNeed    = brutoNeed !== null ? brutoNeed / pl.precioProm : null;
       return {
-        folio:    m.folio || "—",
+        folio:    m.folio || "â€”",
         nave:     embName(m.embarcacion_id),
         kgReal:   pl.kgTotal,
         kgNeed:   kgNeed !== null ? Math.ceil(kgNeed) : null,
@@ -275,7 +275,7 @@ function TabDashboard({ mareas, capturas, economias, ots, embarcaciones, embName
     [plList, embName]);
 
   if (plList.length === 0) return (
-    <Card><Empty>Aún no hay mareas con captura registrada. Ve a <strong>Registro por Marea</strong> para ingresar la primera.</Empty></Card>
+    <Card><Empty>AÃºn no hay mareas con captura registrada. Ve a <strong>Registro por Marea</strong> para ingresar la primera.</Empty></Card>
   );
 
   const kpiCard = (label, value, tone, sub) => (
@@ -286,12 +286,12 @@ function TabDashboard({ mareas, capturas, economias, ots, embarcaciones, embName
     </Card>
   );
 
-  const TOOLTIP_STYLE = { background: "#fff", border: `1px solid ${C.line}`, borderRadius: 10, boxShadow: "0 6px 20px rgba(0,0,0,.1)", padding: "10px 14px", fontSize: 12.5 };
+  const TOOLTIP_STYLE = { background: C.surface, border: `1px solid ${C.line}`, borderRadius: 10, boxShadow: "0 6px 20px rgba(0,0,0,.1)", padding: "10px 14px", fontSize: 12.5 };
 
   // Exportar dashboard a CSV
   function exportarCSV() {
     const filas = [
-      ["Folio", "Nave", "Zarpe", "Recalada", "Días", "Kg", "Precio prom $/kg", "Ingreso bruto", "Gastos pozo", "Parte trip", "Costos armador", "Margen", "Margen %", "Break-even kg"],
+      ["Folio", "Nave", "Zarpe", "Recalada", "DÃ­as", "Kg", "Precio prom $/kg", "Ingreso bruto", "Gastos pozo", "Parte trip", "Costos armador", "Margen", "Margen %", "Break-even kg"],
       ...plList.map(({ m, pl }) => {
         const pct = pl.pct / 100;
         const brutoNeed = pct < 1 ? pl.gastosPozo + pl.costosArmador / (1 - pct) : null;
@@ -309,40 +309,40 @@ function TabDashboard({ mareas, capturas, economias, ots, embarcaciones, embName
       }),
     ];
     const csv = filas.map((r) => r.map((c) => { const s = String(c ?? ""); return /[",;\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; }).join(";")).join("\n");
-    const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
+    const blob = new Blob(["ï»¿" + csv], { type: "text/csv;charset=utf-8;" });
     const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "rentabilidad.csv"; a.click();
   }
 
   return (
     <div>
-      {/* ── Controles: período + export ── */}
+      {/* â”€â”€ Controles: perÃ­odo + export â”€â”€ */}
       <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 16, flexWrap: "wrap" }}>
-        <span style={{ fontSize: 12.5, color: C.slate, fontWeight: 600 }}>Período:</span>
-        {[["30", "Último mes"], ["90", "3 meses"], ["180", "6 meses"], ["todo", "Todo"]].map(([v, lbl]) => (
+        <span style={{ fontSize: 12.5, color: C.slate, fontWeight: 600 }}>PerÃ­odo:</span>
+        {[["30", "Ãšltimo mes"], ["90", "3 meses"], ["180", "6 meses"], ["todo", "Todo"]].map(([v, lbl]) => (
           <button key={v} onClick={() => setPeriodo(v)}
             style={{ padding: "5px 12px", borderRadius: 7, fontSize: 12.5, fontWeight: 600, cursor: "pointer", border: `1px solid ${periodo === v ? C.cyan : C.line}`, background: periodo === v ? C.cyan : "#fff", color: periodo === v ? "#fff" : C.slate }}>
             {lbl}
           </button>
         ))}
         <div style={{ flex: 1 }} />
-        <button onClick={exportarCSV} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 14px", borderRadius: 7, border: `1px solid ${C.line}`, background: "#fff", color: C.slate, fontSize: 12.5, fontWeight: 600, cursor: "pointer" }}>
+        <button onClick={exportarCSV} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 14px", borderRadius: 7, border: `1px solid ${C.line}`, background: C.surface, color: C.slate, fontSize: 12.5, fontWeight: 600, cursor: "pointer" }}>
           <Download size={14} /> Exportar CSV
         </button>
       </div>
 
-      {/* ── KPIs ── */}
+      {/* â”€â”€ KPIs â”€â”€ */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 12, marginBottom: 20 }}>
         {kpiCard("Mareas analizadas",   kpis.mareas,                          C.steel)}
         {kpiCard("Ingreso bruto total",  clp(kpis.valorBruto),                C.steel,  `${num(kpis.kgTotal, 0)} kg total`)}
-        {kpiCard("Margen del armador",   clp(kpis.margen),                    kpis.margen >= 0 ? C.green : C.red, kpis.margenPct !== null ? `${num(kpis.margenPct, 1)}% sobre bruto` : "—")}
-        {kpiCard("Parte tripulación",    clp(kpis.parteTrip),                 C.steel,  `${kpis.valorBruto > 0 ? num((kpis.parteTrip / kpis.valorBruto) * 100, 1) : "—"}% del bruto`)}
+        {kpiCard("Margen del armador",   clp(kpis.margen),                    kpis.margen >= 0 ? C.green : C.red, kpis.margenPct !== null ? `${num(kpis.margenPct, 1)}% sobre bruto` : "â€”")}
+        {kpiCard("Parte tripulaciÃ³n",    clp(kpis.parteTrip),                 C.steel,  `${kpis.valorBruto > 0 ? num((kpis.parteTrip / kpis.valorBruto) * 100, 1) : "â€”"}% del bruto`)}
         {kpiCard("Captura total",        `${num(kpis.kgTotal, 0)} kg`,        C.cyan,   kpis.kgTotal > 0 && kpis.valorBruto > 0 ? `${clp(kpis.valorBruto / kpis.kgTotal)}/kg promedio` : "")}
       </div>
 
-      {/* ── Gráfico por marea ── */}
+      {/* â”€â”€ GrÃ¡fico por marea â”€â”€ */}
       <Card style={{ marginBottom: 20, padding: "20px 24px 16px" }}>
         <div style={{ ...archivo, fontWeight: 800, fontSize: 16, color: C.abyss, marginBottom: 4 }}>Resultado por marea</div>
-        <div style={{ fontSize: 12, color: C.slate, marginBottom: 16 }}>Composición del ingreso bruto y margen del armador (%)</div>
+        <div style={{ fontSize: 12, color: C.slate, marginBottom: 16 }}>ComposiciÃ³n del ingreso bruto y margen del armador (%)</div>
         <ResponsiveContainer width="100%" height={300}>
           <ComposedChart data={serie} margin={{ top: 4, right: 50, bottom: 20, left: 12 }} barCategoryGap="20%">
             <CartesianGrid strokeDasharray="4 4" stroke="#EBF0F5" vertical={false} />
@@ -351,11 +351,11 @@ function TabDashboard({ mareas, capturas, economias, ots, embarcaciones, embName
             <YAxis yAxisId="r" orientation="right" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: C.slate }} tickFormatter={(v) => `${v}%`} width={38} />
             <Tooltip contentStyle={TOOLTIP_STYLE}
               formatter={(v, name) => {
-                const labels = { gastosPozo: "Gastos pozo", parteTrip: "Parte tripulación", costosArmador: "Costos armador", margen: "Margen armador", margenPct: "Margen %" };
+                const labels = { gastosPozo: "Gastos pozo", parteTrip: "Parte tripulaciÃ³n", costosArmador: "Costos armador", margen: "Margen armador", margenPct: "Margen %" };
                 return [name === "margenPct" ? `${num(v, 1)}%` : clp(v), labels[name] || name];
               }} />
             <Legend wrapperStyle={{ fontSize: 11.5, paddingTop: 10 }}
-              formatter={(v) => ({ gastosPozo: "Gastos pozo", parteTrip: "Parte tripulación", costosArmador: "Costos armador", margen: "Margen armador", margenPct: "Margen %" }[v] || v)} />
+              formatter={(v) => ({ gastosPozo: "Gastos pozo", parteTrip: "Parte tripulaciÃ³n", costosArmador: "Costos armador", margen: "Margen armador", margenPct: "Margen %" }[v] || v)} />
             <ReferenceLine yAxisId="r" y={0} stroke={C.slate} strokeDasharray="4 3" strokeWidth={1} />
             <Bar yAxisId="l" dataKey="gastosPozo"    stackId="a" fill={COLORES_COSTO.combustible} radius={[0,0,0,0]} />
             <Bar yAxisId="l" dataKey="parteTrip"     stackId="a" fill={COLORES_COSTO.parteTrip} />
@@ -369,12 +369,12 @@ function TabDashboard({ mareas, capturas, economias, ots, embarcaciones, embName
         </ResponsiveContainer>
       </Card>
 
-      {/* ── Fila: Composición de costos + Ranking ── */}
+      {/* â”€â”€ Fila: ComposiciÃ³n de costos + Ranking â”€â”€ */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 20 }}>
 
-        {/* Composición de costos */}
+        {/* ComposiciÃ³n de costos */}
         <Card style={{ padding: "20px 24px" }}>
-          <div style={{ ...archivo, fontWeight: 800, fontSize: 15, color: C.abyss, marginBottom: 14 }}>Composición de costos</div>
+          <div style={{ ...archivo, fontWeight: 800, fontSize: 15, color: C.abyss, marginBottom: 14 }}>ComposiciÃ³n de costos</div>
           {composicion.length === 0 ? <Empty>Sin datos</Empty> : (
             <>
               <div style={{ display: "flex", justifyContent: "center" }}>
@@ -392,7 +392,7 @@ function TabDashboard({ mareas, capturas, economias, ots, embarcaciones, embName
                     <div style={{ width: 12, height: 12, borderRadius: 3, background: d.color, flexShrink: 0 }} />
                     <span style={{ flex: 1, color: C.slate }}>{d.label}</span>
                     <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontWeight: 600, color: C.ink }}>{clp(d.value)}</span>
-                    <span style={{ fontSize: 11, color: C.slate, minWidth: 36, textAlign: "right" }}>{totalCostos > 0 ? `${num((d.value / totalCostos) * 100, 1)}%` : "—"}</span>
+                    <span style={{ fontSize: 11, color: C.slate, minWidth: 36, textAlign: "right" }}>{totalCostos > 0 ? `${num((d.value / totalCostos) * 100, 1)}%` : "â€”"}</span>
                   </div>
                 ))}
               </div>
@@ -413,7 +413,7 @@ function TabDashboard({ mareas, capturas, economias, ots, embarcaciones, embName
                       <span style={{ fontWeight: 700, fontSize: 13.5, color: C.abyss }}>{r.emb.nombre}</span>
                       <span style={{ fontSize: 11.5, color: C.slate }}>{r.n} marea{r.n !== 1 && "s"}</span>
                     </div>
-                    <Pill tone={r.margen >= 0 ? "green" : "red"}>{r.margenPct !== null ? `${num(r.margenPct, 1)}%` : "—"}</Pill>
+                    <Pill tone={r.margen >= 0 ? "green" : "red"}>{r.margenPct !== null ? `${num(r.margenPct, 1)}%` : "â€”"}</Pill>
                   </div>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 4, fontSize: 11.5 }}>
                     <div><span style={{ color: C.slate }}>Bruto: </span><strong style={{ fontFamily: "'IBM Plex Mono', monospace" }}>{clp(r.bruto)}</strong></div>
@@ -431,11 +431,11 @@ function TabDashboard({ mareas, capturas, economias, ots, embarcaciones, embName
         </Card>
       </div>
 
-      {/* ── Punto de equilibrio ── */}
+      {/* â”€â”€ Punto de equilibrio â”€â”€ */}
       <Card style={{ padding: 0, overflow: "hidden" }}>
         <div style={{ padding: "16px 20px 12px", borderBottom: `1px solid ${C.foam}` }}>
           <div style={{ ...archivo, fontWeight: 800, fontSize: 15, color: C.abyss }}>Punto de equilibrio por marea</div>
-          <div style={{ fontSize: 12, color: C.slate, marginTop: 3 }}>Kg mínimos para que el armador cubra todos sus costos (incluida parte tripulación)</div>
+          <div style={{ fontSize: 12, color: C.slate, marginTop: 3 }}>Kg mÃ­nimos para que el armador cubra todos sus costos (incluida parte tripulaciÃ³n)</div>
         </div>
         <div style={{ overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 700 }}>
@@ -454,15 +454,15 @@ function TabDashboard({ mareas, capturas, economias, ots, embarcaciones, embName
                   <td style={{ ...tdStyle, fontFamily: "'IBM Plex Mono', monospace", fontWeight: 600, color: C.steel }}>{b.folio}</td>
                   <td style={tdStyle}>{b.nave}</td>
                   <td style={{ ...tdStyle, textAlign: "right", fontFamily: "'IBM Plex Mono', monospace" }}>{num(b.kgReal, 0)}</td>
-                  <td style={{ ...tdStyle, textAlign: "right", fontFamily: "'IBM Plex Mono', monospace", color: C.slate }}>{b.kgNeed !== null ? num(b.kgNeed, 0) : "—"}</td>
+                  <td style={{ ...tdStyle, textAlign: "right", fontFamily: "'IBM Plex Mono', monospace", color: C.slate }}>{b.kgNeed !== null ? num(b.kgNeed, 0) : "â€”"}</td>
                   <td style={{ ...tdStyle, textAlign: "right", fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, color: b.delta >= 0 ? C.green : C.red }}>
-                    {b.delta !== null ? `${b.delta >= 0 ? "+" : ""}${num(b.delta, 0)}` : "—"}
+                    {b.delta !== null ? `${b.delta >= 0 ? "+" : ""}${num(b.delta, 0)}` : "â€”"}
                   </td>
                   <td style={{ ...tdStyle, textAlign: "right", fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, color: b.margen >= 0 ? C.green : C.red }}>
                     {clp(b.margen)}
                   </td>
                   <td style={{ ...tdStyle, textAlign: "center" }}>
-                    <Pill tone={b.margen >= 0 ? "green" : "red"}>{b.margen >= 0 ? "✓ Rentable" : "✕ Pérdida"}</Pill>
+                    <Pill tone={b.margen >= 0 ? "green" : "red"}>{b.margen >= 0 ? "âœ“ Rentable" : "âœ• PÃ©rdida"}</Pill>
                   </td>
                 </tr>
               ))}
@@ -474,8 +474,8 @@ function TabDashboard({ mareas, capturas, economias, ots, embarcaciones, embName
   );
 }
 
-// TAB MAREAS — registro de captura y costos
-// ─────────────────────────────────────────────────────────────────
+// TAB MAREAS â€” registro de captura y costos
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function TabMareas({ profile, embarcaciones, mareas, allOts, especies, capturas: allCapturas, setCapturas, economias: allEconomias, setEconomias, conf, embName, setError, onNavigate, navMareaId, onNavUsed }) {
   const [open,      setOpen]      = useState(null);
   const [editLines, setEditLines] = useState([]);
@@ -526,7 +526,7 @@ function TabMareas({ profile, embarcaciones, mareas, allOts, especies, capturas:
   async function guardar(mareaId) {
     setSaving(true);
     try {
-      // Reemplaza capturas: borra todas y re-inserta las válidas
+      // Reemplaza capturas: borra todas y re-inserta las vÃ¡lidas
       await supabase.from("marea_captura").delete()
         .eq("marea_id", mareaId).eq("empresa_id", profile.empresa_id);
       const nuevasCaps = [];
@@ -537,7 +537,7 @@ function TabMareas({ profile, embarcaciones, mareas, allOts, especies, capturas:
         });
         nuevasCaps.push(row);
       }
-      // Upsert economía
+      // Upsert economÃ­a
       const ecoRow = await upsertRow("marea_economia", profile.empresa_id,
         { marea_id: mareaId, ...editEco, updated_at: new Date().toISOString(), created_by: profile.id },
         "marea_id");
@@ -550,7 +550,7 @@ function TabMareas({ profile, embarcaciones, mareas, allOts, especies, capturas:
   }
 
   if (mareas.length === 0) return (
-    <Card><Empty>No hay mareas cerradas. Cierra una marea en <strong>Prezarpe → Recalada</strong> para registrar su rentabilidad.</Empty></Card>
+    <Card><Empty>No hay mareas cerradas. Cierra una marea en <strong>Prezarpe â†’ Recalada</strong> para registrar su rentabilidad.</Empty></Card>
   );
 
   return (
@@ -561,16 +561,16 @@ function TabMareas({ profile, embarcaciones, mareas, allOts, especies, capturas:
         const emb    = embarcaciones.find((e) => e.id === m.embarcacion_id);
         return (
           <Card key={m.id} id={`marea-card-${m.id}`} style={{ marginBottom: 10, borderLeft: `4px solid ${pl?.tieneCaptura ? C.green : C.line}` }}>
-            {/* ── Cabecera clickeable ── */}
+            {/* â”€â”€ Cabecera clickeable â”€â”€ */}
             <div onClick={() => abrirMarea(m.id)} style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
               {isOpen ? <ChevronDown size={17} color={C.slate} /> : <ChevronRight size={17} color={C.slate} />}
-              <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, color: C.steel, minWidth: 90 }}>{m.folio || "—"}</span>
+              <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, color: C.steel, minWidth: 90 }}>{m.folio || "â€”"}</span>
               <span style={{ fontWeight: 700, color: emb?.color || C.abyss }}>{embName(m.embarcacion_id)}</span>
               <span style={{ fontSize: 12, color: C.slate }}>
-                {m.zarpe_at   ? new Date(m.zarpe_at).toLocaleDateString("es-CL")   : "—"}
-                {" → "}
-                {m.recalada_at? new Date(m.recalada_at).toLocaleDateString("es-CL") : "—"}
-                {pl?.dias && <span style={{ marginLeft: 6 }}>({num(pl.dias, 1)} días)</span>}
+                {m.zarpe_at   ? new Date(m.zarpe_at).toLocaleDateString("es-CL")   : "â€”"}
+                {" â†’ "}
+                {m.recalada_at? new Date(m.recalada_at).toLocaleDateString("es-CL") : "â€”"}
+                {pl?.dias && <span style={{ marginLeft: 6 }}>({num(pl.dias, 1)} dÃ­as)</span>}
               </span>
               <div style={{ flex: 1 }} />
               {onNavigate && (
@@ -590,18 +590,18 @@ function TabMareas({ profile, embarcaciones, mareas, allOts, especies, capturas:
                     <div style={{ fontSize: 10, color: C.slate, textTransform: "uppercase", letterSpacing: 1 }}>Margen armador</div>
                     <div style={{ fontFamily: "'Archivo', sans-serif", fontWeight: 800, fontSize: 18, color: pl.margen >= 0 ? C.green : C.red }}>{clp(pl.margen)}</div>
                   </div>
-                  <Pill tone={pl.margen >= 0 ? "green" : "red"}>{pl.margenPct !== null ? `${num(pl.margenPct, 1)}%` : "—"}</Pill>
+                  <Pill tone={pl.margen >= 0 ? "green" : "red"}>{pl.margenPct !== null ? `${num(pl.margenPct, 1)}%` : "â€”"}</Pill>
                 </div>
               ) : <Pill tone="slate">Sin datos</Pill>}
             </div>
 
-            {/* ── Panel de edición ── */}
+            {/* â”€â”€ Panel de ediciÃ³n â”€â”€ */}
             {isOpen && (
               <div style={{ marginTop: 16, borderTop: `1px solid ${C.foam}`, paddingTop: 16 }}>
 
                 {/* Captura */}
                 <div style={{ marginBottom: 20 }}>
-                  <div style={{ fontWeight: 700, fontSize: 13, color: C.abyss, marginBottom: 10 }}>🐟 Captura</div>
+                  <div style={{ fontWeight: 700, fontSize: 13, color: C.abyss, marginBottom: 10 }}>ðŸŸ Captura</div>
                   <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 8 }}>
                     <thead><tr>
                       <th style={thStyle}>Especie</th>
@@ -612,14 +612,14 @@ function TabMareas({ profile, embarcaciones, mareas, allOts, especies, capturas:
                     </tr></thead>
                     <tbody>
                       {editLines.length === 0 && (
-                        <tr><td colSpan={5} style={{ textAlign: "center", padding: 14, color: C.slate, fontSize: 12.5 }}>Sin líneas — agrega una especie.</td></tr>
+                        <tr><td colSpan={5} style={{ textAlign: "center", padding: 14, color: C.slate, fontSize: 12.5 }}>Sin lÃ­neas â€” agrega una especie.</td></tr>
                       )}
                       {editLines.map((l) => (
                         <tr key={l._key}>
                           <td style={tdStyle}>
                             <div style={{ display: "flex", gap: 6 }}>
                               <select value={l.especie_id || ""} onChange={(e) => pickEsp(l._key, e.target.value)} style={{ ...inputStyle(140), fontSize: 12.5 }}>
-                                <option value="">— Ad hoc —</option>
+                                <option value="">â€” Ad hoc â€”</option>
                                 {especies.filter((e) => e.activa).map((esp) => <option key={esp.id} value={esp.id}>{esp.nombre}</option>)}
                               </select>
                               {!l.especie_id && (
@@ -658,25 +658,25 @@ function TabMareas({ profile, embarcaciones, mareas, allOts, especies, capturas:
 
                 {/* Costos */}
                 <div style={{ marginBottom: 20 }}>
-                  <div style={{ fontWeight: 700, fontSize: 13, color: C.abyss, marginBottom: 12 }}>⛽ Costos y reparto</div>
+                  <div style={{ fontWeight: 700, fontSize: 13, color: C.abyss, marginBottom: 12 }}>â›½ Costos y reparto</div>
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12 }}>
                     <Field label="Precio combustible ($/L)"><input type="number" value={editEco.precio_combustible_l} onChange={(e) => setEditEco((p) => ({ ...p, precio_combustible_l: +e.target.value }))} style={bluInput} /></Field>
                     <Field label="Precio aceite ($/L)"><input type="number" value={editEco.precio_aceite_l} onChange={(e) => setEditEco((p) => ({ ...p, precio_aceite_l: +e.target.value }))} style={bluInput} /></Field>
-                    <Field label="Víveres ($)"><input type="number" value={editEco.costo_viveres} onChange={(e) => setEditEco((p) => ({ ...p, costo_viveres: +e.target.value }))} style={bluInput} /></Field>
+                    <Field label="VÃ­veres ($)"><input type="number" value={editEco.costo_viveres} onChange={(e) => setEditEco((p) => ({ ...p, costo_viveres: +e.target.value }))} style={bluInput} /></Field>
                     <Field label="Hielo ($)"><input type="number" value={editEco.costo_hielo} onChange={(e) => setEditEco((p) => ({ ...p, costo_hielo: +e.target.value }))} style={bluInput} /></Field>
                     <Field label="Carnada ($)"><input type="number" value={editEco.costo_carnada} onChange={(e) => setEditEco((p) => ({ ...p, costo_carnada: +e.target.value }))} style={bluInput} /></Field>
                     <Field label="Otros costos armador ($)"><input type="number" value={editEco.costo_otros} onChange={(e) => setEditEco((p) => ({ ...p, costo_otros: +e.target.value }))} style={bluInput} /></Field>
-                    <Field label="Parte tripulación (%)">
+                    <Field label="Parte tripulaciÃ³n (%)">
                       <input type="number" min={0} max={100} value={editEco.parte_tripulacion_pct}
                         onChange={(e) => setEditEco((p) => ({ ...p, parte_tripulacion_pct: +e.target.value }))}
                         style={{ ...bluInput, borderColor: C.cyan }} />
                     </Field>
-                    <Field label="N° tripulantes (partes iguales)">
+                    <Field label="NÂ° tripulantes (partes iguales)">
                       <input type="number" min={0} value={editEco.num_tripulantes}
                         onChange={(e) => setEditEco((p) => ({ ...p, num_tripulantes: +e.target.value }))}
                         style={{ ...bluInput, borderColor: C.steel }} />
                     </Field>
-                    <Field label="Notas"><input value={editEco.notas} onChange={(e) => setEditEco((p) => ({ ...p, notas: e.target.value }))} style={inputStyle()} placeholder="Observaciones…" /></Field>
+                    <Field label="Notas"><input value={editEco.notas} onChange={(e) => setEditEco((p) => ({ ...p, notas: e.target.value }))} style={inputStyle()} placeholder="Observacionesâ€¦" /></Field>
                   </div>
                 </div>
 
@@ -686,7 +686,7 @@ function TabMareas({ profile, embarcaciones, mareas, allOts, especies, capturas:
 
                 <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
                   <button onClick={() => guardar(m.id)} disabled={saving} style={primaryBtn}>
-                    <Check size={15} /> {saving ? "Guardando…" : "Guardar rentabilidad"}
+                    <Check size={15} /> {saving ? "Guardandoâ€¦" : "Guardar rentabilidad"}
                   </button>
                   <button onClick={() => setOpen(null)} style={ghostBtn}>Cancelar</button>
                 </div>
@@ -699,7 +699,7 @@ function TabMareas({ profile, embarcaciones, mareas, allOts, especies, capturas:
   );
 }
 
-// ── Preview P&L en tiempo real ─────────────────────────────────
+// â”€â”€ Preview P&L en tiempo real â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function PLPreview({ marea, editLines, editEco, otsNave }) {
   const [showOTs, setShowOTs] = useState(false);
   const lineas  = editLines.map((l) => ({ ...l, marea_id: marea.id }));
@@ -721,29 +721,29 @@ function PLPreview({ marea, editLines, editEco, otsNave }) {
         {/* Lado izquierdo: del bruto al ingreso del armador */}
         <div>
           {row("Valor bruto captura", pl.valorBruto, true, C.abyss)}
-          {row(`  − Combustible (${num(pl.combCons, 0)} L)`, -pl.costoComb)}
-          {row("  − Víveres", -pl.costoViveres)}
-          {row("  − Hielo", -pl.costoHielo)}
-          {row("  − Carnada", -pl.costoCarnada)}
-          {row("= Líquido a repartir", pl.liquido, true, C.steel)}
-          {row(`  − Parte tripulación (${pl.pct}%)`, -pl.parteTrip)}
+          {row(`  âˆ’ Combustible (${num(pl.combCons, 0)} L)`, -pl.costoComb)}
+          {row("  âˆ’ VÃ­veres", -pl.costoViveres)}
+          {row("  âˆ’ Hielo", -pl.costoHielo)}
+          {row("  âˆ’ Carnada", -pl.costoCarnada)}
+          {row("= LÃ­quido a repartir", pl.liquido, true, C.steel)}
+          {row(`  âˆ’ Parte tripulaciÃ³n (${pl.pct}%)`, -pl.parteTrip)}
           {row("= Ingreso del armador", pl.ingresoArmador, true, C.cyan)}
         </div>
         {/* Lado derecho: costos del armador y margen */}
         <div>
-          {row(`  − Aceite (${num(pl.aceiteCons, 1)} L)`, -pl.costoAceite)}
-          {row("  − Mantención (OTs en la marea)", -pl.costoOTs)}
+          {row(`  âˆ’ Aceite (${num(pl.aceiteCons, 1)} L)`, -pl.costoAceite)}
+          {row("  âˆ’ MantenciÃ³n (OTs en la marea)", -pl.costoOTs)}
           {pl.otsEnMarea?.length > 0 && (
             <div style={{ marginLeft: 12, marginBottom: 4 }}>
               <button onClick={() => setShowOTs((p) => !p)}
                 style={{ fontSize: 11, color: C.slate, background: "none", border: "none", cursor: "pointer", padding: "2px 0", textDecoration: "underline" }}>
-                {showOTs ? "▲ ocultar" : `▼ ver ${pl.otsEnMarea.length} OT${pl.otsEnMarea.length > 1 ? "s" : ""}`}
+                {showOTs ? "â–² ocultar" : `â–¼ ver ${pl.otsEnMarea.length} OT${pl.otsEnMarea.length > 1 ? "s" : ""}`}
               </button>
               {showOTs && (
                 <div style={{ marginTop: 4, display: "flex", flexDirection: "column", gap: 3 }}>
                   {pl.otsEnMarea.map((o) => (
                     <div key={o.id} style={{ fontSize: 11.5, color: C.slate, display: "flex", justifyContent: "space-between", padding: "2px 6px", background: C.foam, borderRadius: 4 }}>
-                      <span><span style={{ fontFamily: "'IBM Plex Mono', monospace", color: C.steel }}>{o.folio}</span> · {o.descripcion?.slice(0, 50) || o.sistema}</span>
+                      <span><span style={{ fontFamily: "'IBM Plex Mono', monospace", color: C.steel }}>{o.folio}</span> Â· {o.descripcion?.slice(0, 50) || o.sistema}</span>
                       <span style={{ fontFamily: "'IBM Plex Mono', monospace", color: C.red, fontWeight: 600 }}>{clp((Number(o.costo_mo) || 0) + (Number(o.costo_mat) || 0))}</span>
                     </div>
                   ))}
@@ -751,11 +751,11 @@ function PLPreview({ marea, editLines, editEco, otsNave }) {
               )}
             </div>
           )}
-          {row("  − Otros costos armador", -pl.costoOtros)}
+          {row("  âˆ’ Otros costos armador", -pl.costoOtros)}
           <div style={{ height: 24 }} />
           {row("= Margen del armador", pl.margen, true, pl.margen >= 0 ? C.green : C.red)}
           <div style={{ display: "flex", gap: 16, marginTop: 10, flexWrap: "wrap" }}>
-            <span style={{ fontSize: 12, color: C.slate }}>Margen: <strong style={{ color: pl.margen >= 0 ? C.green : C.red }}>{pl.margenPct !== null ? `${num(pl.margenPct, 1)}%` : "—"}</strong></span>
+            <span style={{ fontSize: 12, color: C.slate }}>Margen: <strong style={{ color: pl.margen >= 0 ? C.green : C.red }}>{pl.margenPct !== null ? `${num(pl.margenPct, 1)}%` : "â€”"}</strong></span>
             {pl.armadorPorKg !== null && <span style={{ fontSize: 12, color: C.slate }}>Armador/kg: <strong style={{ color: C.steel }}>{clp(pl.armadorPorKg)}</strong></span>}
             <span style={{ fontSize: 12, color: C.slate }}>Captura: <strong style={{ color: C.steel }}>{num(pl.kgTotal, 0)} kg</strong></span>
           </div>
@@ -764,7 +764,7 @@ function PLPreview({ marea, editLines, editEco, otsNave }) {
           {pl.porTripulante !== null && (
             <div style={{ marginTop: 14, padding: "12px 14px", background: "#EFF9EF", borderRadius: 8, border: `1px solid ${C.green}30` }}>
               <div style={{ fontSize: 10.5, fontWeight: 700, color: C.slate, textTransform: "uppercase", letterSpacing: 1.2, marginBottom: 8 }}>
-                Desglose tripulación — {pl.numTrip} tripulantes (partes iguales)
+                Desglose tripulaciÃ³n â€” {pl.numTrip} tripulantes (partes iguales)
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
                 <div style={{ textAlign: "center" }}>
@@ -776,9 +776,9 @@ function PLPreview({ marea, editLines, editEco, otsNave }) {
                   <div style={{ fontFamily: "'Archivo',sans-serif", fontWeight: 800, fontSize: 17, color: C.green }}>{clp(pl.porTripulante)}</div>
                 </div>
                 <div style={{ textAlign: "center" }}>
-                  <div style={{ fontSize: 10.5, color: C.slate }}>Por día de marea</div>
+                  <div style={{ fontSize: 10.5, color: C.slate }}>Por dÃ­a de marea</div>
                   <div style={{ fontFamily: "'Archivo',sans-serif", fontWeight: 800, fontSize: 17, color: C.steel }}>
-                    {pl.dias ? clp(pl.porTripulante / pl.dias) : "—"}
+                    {pl.dias ? clp(pl.porTripulante / pl.dias) : "â€”"}
                   </div>
                 </div>
               </div>
@@ -790,14 +790,14 @@ function PLPreview({ marea, editLines, editEco, otsNave }) {
   );
 }
 
-// ─────────────────────────────────────────────────────────────────
-// TAB ESPECIES — catálogo
-// ─────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// TAB ESPECIES â€” catÃ¡logo
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const ESPECIES_CL = [
-  "Merluza común","Merluza del sur","Merluza de cola","Jibia","Reineta",
+  "Merluza comÃºn","Merluza del sur","Merluza de cola","Jibia","Reineta",
   "Congrio dorado","Congrio colorado","Congrio negro","Albacora / Pez espada",
-  "Atún","Jurel","Caballa","Sardina","Anchoveta","Salmón","Trucha",
-  "Langostino colorado","Langostino amarillo","Camarón nailon","Camarón de roca",
+  "AtÃºn","Jurel","Caballa","Sardina","Anchoveta","SalmÃ³n","Trucha",
+  "Langostino colorado","Langostino amarillo","CamarÃ³n nailon","CamarÃ³n de roca",
   "Pulpo","Jaiba","Centolla","Loco","Erizo","Macha","Chorito",
 ];
 
@@ -831,7 +831,7 @@ function TabEspecies({ profile, especies, setEspecies, setError }) {
 
   async function eliminarEsp(id) {
     const esp = especies.find((e) => e.id === id);
-    if (!window.confirm(`¿Eliminar "${esp?.nombre}"?`)) return;
+    if (!window.confirm(`Â¿Eliminar "${esp?.nombre}"?`)) return;
     const bk = especies;
     setEspecies((p) => p.filter((e) => e.id !== id));
     try { await deleteRow("especies", id); }
@@ -841,7 +841,7 @@ function TabEspecies({ profile, especies, setEspecies, setError }) {
   return (
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 14 }}>
-        <div style={{ fontSize: 13, color: C.slate }}>{especies.length} especie{especies.length !== 1 && "s"} — los precios se pre-llenan al registrar capturas.</div>
+        <div style={{ fontSize: 13, color: C.slate }}>{especies.length} especie{especies.length !== 1 && "s"} â€” los precios se pre-llenan al registrar capturas.</div>
         {puedeOperar && <button onClick={() => setShowForm(!showForm)} style={primaryBtn}><Plus size={15} /> Agregar especie</button>}
       </div>
 
@@ -851,7 +851,7 @@ function TabEspecies({ profile, especies, setEspecies, setError }) {
             <Field label="Nombre de la especie">
               <input value={form.nombre} list="esp-sugeridas"
                 onChange={(e) => setForm({ ...form, nombre: e.target.value })}
-                style={inputStyle()} placeholder="Merluza, Jibia, Reineta…" />
+                style={inputStyle()} placeholder="Merluza, Jibia, Reinetaâ€¦" />
               <datalist id="esp-sugeridas">{ESPECIES_CL.map((s) => <option key={s} value={s} />)}</datalist>
             </Field>
             <Field label="Precio $/kg referencial">
@@ -860,13 +860,13 @@ function TabEspecies({ profile, especies, setEspecies, setError }) {
                 style={bluInput} />
             </Field>
             <button onClick={crear} style={{ ...primaryBtn, marginTop: 22 }}>Guardar</button>
-            <button onClick={() => setShowForm(false)} style={{ ...ghostBtn, marginTop: 22 }}>✕</button>
+            <button onClick={() => setShowForm(false)} style={{ ...ghostBtn, marginTop: 22 }}>âœ•</button>
           </div>
         </Card>
       )}
 
       {especies.length === 0 ? (
-        <Card><Empty>Sin especies. Agrega las que pesca tu flota para pre-llenar precios automáticamente al registrar capturas.</Empty></Card>
+        <Card><Empty>Sin especies. Agrega las que pesca tu flota para pre-llenar precios automÃ¡ticamente al registrar capturas.</Empty></Card>
       ) : (
         <Card style={{ padding: 0, overflow: "hidden" }}>
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
@@ -913,9 +913,9 @@ function TabEspecies({ profile, especies, setEspecies, setError }) {
   );
 }
 
-// ─────────────────────────────────────────────────────────────────
-// TAB CONFIG — precios por defecto de la empresa
-// ─────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// TAB CONFIG â€” precios por defecto de la empresa
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function TabConfig({ profile, conf, setConf, setError }) {
   const [form, setForm] = useState(conf);
   const [saved, setSaved] = useState(false);
@@ -931,8 +931,8 @@ function TabConfig({ profile, conf, setConf, setError }) {
       if (error) throw error;
       setConf(form);
       setSaved(true); setTimeout(() => setSaved(false), 2500);
-      logActivity(profile, "Config rentabilidad", `Comb $${form.precio_combustible_l}/L · Parte ${form.parte_tripulacion_pct}%`);
-    } catch (e) { setError("No se pudo guardar la configuración: " + e.message); }
+      logActivity(profile, "Config rentabilidad", `Comb $${form.precio_combustible_l}/L Â· Parte ${form.parte_tripulacion_pct}%`);
+    } catch (e) { setError("No se pudo guardar la configuraciÃ³n: " + e.message); }
   }
 
   return (
@@ -952,17 +952,17 @@ function TabConfig({ profile, conf, setConf, setError }) {
             onChange={(e) => setForm((p) => ({ ...p, precio_aceite_l: +e.target.value }))}
             style={{ ...bluInput, width: "100%" }} />
         </Field>
-        <Field label="Parte de la tripulación (% del líquido)">
+        <Field label="Parte de la tripulaciÃ³n (% del lÃ­quido)">
           <input type="number" min={0} max={100} value={form.parte_tripulacion_pct || 50}
             onChange={(e) => setForm((p) => ({ ...p, parte_tripulacion_pct: +e.target.value }))}
             style={{ ...bluInput, width: "100%", borderColor: C.cyan }} />
         </Field>
       </div>
       <button onClick={guardar} style={{ ...primaryBtn, gap: 8 }}>
-        {saved ? <><Check size={15} /> Guardado</> : "Guardar configuración"}
+        {saved ? <><Check size={15} /> Guardado</> : "Guardar configuraciÃ³n"}
       </button>
       <div style={{ marginTop: 20, padding: "12px 14px", background: C.mist, borderRadius: 8, fontSize: 12.5, color: C.slate, lineHeight: 1.6 }}>
-        <strong style={{ color: C.ink }}>Modelo a la parte:</strong> el líquido a repartir es el bruto menos los gastos del pozo (combustible, víveres, hielo, carnada). La tripulación recibe su porcentaje del líquido. El armador paga por separado el aceite y el mantenimiento.
+        <strong style={{ color: C.ink }}>Modelo a la parte:</strong> el lÃ­quido a repartir es el bruto menos los gastos del pozo (combustible, vÃ­veres, hielo, carnada). La tripulaciÃ³n recibe su porcentaje del lÃ­quido. El armador paga por separado el aceite y el mantenimiento.
       </div>
     </Card>
   );

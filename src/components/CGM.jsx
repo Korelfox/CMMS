@@ -191,7 +191,7 @@ export default function CGM() {
                     <CellEdit label="Vida Ãºtil (aÃ±os)" value={c.vida} disabled={!puedeOperar} onChange={(v) => setCampo(eq.id, "vida", v)} />
                   </Section>
 
-                  <div style={{ marginTop: 14, padding: 12, background: "#fff", border: `1px solid ${C.line}`, borderRadius: 9 }}>
+                  <div style={{ marginTop: 14, padding: 12, background: C.surface, border: `1px solid ${C.line}`, borderRadius: 9 }}>
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 12 }}>
                       <ResVal label="Ci Â· Intervenciones" v={calc.Ci} color={C.steel} />
                       <ResVal label="Cf Â· Fallas" v={calc.Cf} color={C.red} />

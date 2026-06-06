@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from "react";
+﻿import React, { useEffect, useState, useCallback } from "react";
 import { Gauge, TrendingUp, Clock, Wrench, AlertCircle } from "lucide-react";
 import { BarChart, Bar, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import { useAuth } from "../lib/auth";
@@ -30,19 +30,19 @@ export default function KPIs() {
   }, []);
   useEffect(() => { cargar(); }, [cargar]);
 
-  function embName(id) { return embarcaciones.find((e) => e.id === id)?.nombre || "—"; }
+  function embName(id) { return embarcaciones.find((e) => e.id === id)?.nombre || "â€”"; }
 
-  // ───── Métricas globales (Pascual · Mora Gutiérrez) ────────────────────
+  // â”€â”€â”€â”€â”€ MÃ©tricas globales (Pascual Â· Mora GutiÃ©rrez) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const correctivas = ots.filter((o) => o.tipo === "correctivo");
   const proactivas = ots.filter((o) => ["preventivo", "predictivo", "modificativo"].includes(o.tipo));
   const cerradas = ots.filter((o) => o.estado === "cerrada");
   const abiertas = ots.filter((o) => o.estado !== "cerrada");
 
-  // MTBF = horas de operación entre fallas (promedio de hrs_oper_desde en correctivas)
+  // MTBF = horas de operaciÃ³n entre fallas (promedio de hrs_oper_desde en correctivas)
   const mtbf = correctivas.length
     ? correctivas.reduce((s, o) => s + (Number(o.hrs_oper_desde) || 0), 0) / correctivas.length
     : 0;
-  // MTTR = tiempo medio de reparación (promedio de mttr_horas en cerradas)
+  // MTTR = tiempo medio de reparaciÃ³n (promedio de mttr_horas en cerradas)
   const mttr = cerradas.length
     ? cerradas.reduce((s, o) => s + (Number(o.mttr_horas) || 0), 0) / cerradas.length
     : 0;
@@ -56,7 +56,7 @@ export default function KPIs() {
   const costoMO = ots.reduce((s, o) => s + (Number(o.costo_mo) || 0), 0);
   const costoMat = ots.reduce((s, o) => s + (Number(o.costo_mat) || 0), 0);
 
-  // Datos por embarcación
+  // Datos por embarcaciÃ³n
   const porEmbarcacion = embarcaciones.map((e) => {
     const eo = ots.filter((o) => o.embarcacion_id === e.id);
     const eoCorr = eo.filter((o) => o.tipo === "correctivo");
@@ -72,7 +72,7 @@ export default function KPIs() {
     };
   });
 
-  // Datos para gráficos
+  // Datos para grÃ¡ficos
   const dataTipo = TIPOS_OT.map((t) => ({
     name: t.label, cantidad: ots.filter((o) => o.tipo === t.value).length, color: TIPO_COLOR[t.value],
   }));
@@ -81,15 +81,15 @@ export default function KPIs() {
   const dispTone = disp >= 90 ? C.green : disp >= 75 ? C.amber : C.red;
   const proTone = propProactivo >= 60 ? C.green : propProactivo >= 40 ? C.amber : C.red;
 
-  if (loading) return <div><PageHead kicker="Confiabilidad" title="KPIs & Confiabilidad" /><Card><InlineSpinner label="Calculando KPIs…" /></Card></div>;
+  if (loading) return <div><PageHead kicker="Confiabilidad" title="KPIs & Confiabilidad" /><Card><InlineSpinner label="Calculando KPIsâ€¦" /></Card></div>;
 
   if (ots.length === 0) {
     return (
       <div>
-        <PageHead kicker="Confiabilidad · Pascual" title="KPIs & Confiabilidad" />
+        <PageHead kicker="Confiabilidad Â· Pascual" title="KPIs & Confiabilidad" />
         <Card><Empty>
           <AlertCircle size={32} color={C.amber} style={{ marginBottom: 10 }} /><br />
-          Aún no hay órdenes de trabajo registradas. Los KPIs se calculan a partir de OTs cerradas con sus tiempos y costos.
+          AÃºn no hay Ã³rdenes de trabajo registradas. Los KPIs se calculan a partir de OTs cerradas con sus tiempos y costos.
         </Empty></Card>
       </div>
     );
@@ -97,13 +97,13 @@ export default function KPIs() {
 
   return (
     <div>
-      <PageHead kicker="Confiabilidad · Pascual / Mora Gutiérrez" title="KPIs & Confiabilidad"
-        sub="MTBF, MTTR y Disponibilidad calculados desde las OTs. Los datos se llenan automáticamente a medida que registres y cierres trabajos." />
+      <PageHead kicker="Confiabilidad Â· Pascual / Mora GutiÃ©rrez" title="KPIs & Confiabilidad"
+        sub="MTBF, MTTR y Disponibilidad calculados desde las OTs. Los datos se llenan automÃ¡ticamente a medida que registres y cierres trabajos." />
 
       <ErrorBanner onRetry={cargar}>{error}</ErrorBanner>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14, marginBottom: 16 }}>
-        <BigKPI label="Disponibilidad" value={`${disp.toFixed(1)}%`} tone={dispTone} icon={Gauge} sub={disp >= 90 ? "excelente" : disp >= 75 ? "aceptable" : "crítica"} />
+        <BigKPI label="Disponibilidad" value={`${disp.toFixed(1)}%`} tone={dispTone} icon={Gauge} sub={disp >= 90 ? "excelente" : disp >= 75 ? "aceptable" : "crÃ­tica"} />
         <BigKPI label="MTBF" value={`${num(mtbf, 0)}h`} icon={Clock} sub={`${correctivas.length} correctivas`} />
         <BigKPI label="MTTR" value={`${num(mttr, 1)}h`} icon={Wrench} sub={`${cerradas.length} cerradas`} />
         <BigKPI label="Proactividad" value={`${propProactivo.toFixed(0)}%`} tone={proTone} icon={TrendingUp} sub={`${proactivas.length} de ${ots.length} OTs`} />
@@ -113,7 +113,7 @@ export default function KPIs() {
         <MiniKPI label="OTs Totales" value={ots.length} />
         <MiniKPI label="OTs Abiertas" value={abiertas.length} tone={abiertas.length ? C.amber : C.green} />
         <MiniKPI label="% Cumplimiento" value={`${cumplimiento.toFixed(0)}%`} />
-        <MiniKPI label="Costo Total" value={clp(costoMO + costoMat)} tone={C.gold} sub={`MO ${clp(costoMO)} · Mat ${clp(costoMat)}`} />
+        <MiniKPI label="Costo Total" value={clp(costoMO + costoMat)} tone={C.gold} sub={`MO ${clp(costoMO)} Â· Mat ${clp(costoMat)}`} />
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 18 }}>
@@ -133,7 +133,7 @@ export default function KPIs() {
         </Card>
 
         <Card>
-          <div style={{ ...archivo, fontWeight: 700, fontSize: 14, color: C.abyss, marginBottom: 10 }}>OTs por Embarcación</div>
+          <div style={{ ...archivo, fontWeight: 700, fontSize: 14, color: C.abyss, marginBottom: 10 }}>OTs por EmbarcaciÃ³n</div>
           {dataEmb.length === 0 ? <Empty>Sin embarcaciones.</Empty> :
             <ResponsiveContainer width="100%" height={240}>
               <BarChart data={dataEmb}>
@@ -149,13 +149,13 @@ export default function KPIs() {
         </Card>
       </div>
 
-      {/* Tabla por embarcación */}
+      {/* Tabla por embarcaciÃ³n */}
       <Card style={{ padding: 0, overflow: "hidden" }}>
-        <div style={{ padding: "14px 18px 8px", ...archivo, fontWeight: 700, fontSize: 14, color: C.abyss }}>Confiabilidad por Embarcación</div>
+        <div style={{ padding: "14px 18px 8px", ...archivo, fontWeight: 700, fontSize: 14, color: C.abyss }}>Confiabilidad por EmbarcaciÃ³n</div>
         <div style={{ overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 760 }}>
             <thead><tr>
-              <th style={thStyle}>Embarcación</th>
+              <th style={thStyle}>EmbarcaciÃ³n</th>
               <th style={{ ...thStyle, textAlign: "right" }}>OTs</th>
               <th style={{ ...thStyle, textAlign: "right" }}>Abiertas</th>
               <th style={{ ...thStyle, textAlign: "right" }}>MTBF (h)</th>
@@ -191,10 +191,10 @@ export default function KPIs() {
       <Card style={{ marginTop: 16, background: C.mist }}>
         <div style={{ fontSize: 12.5, color: C.slate, lineHeight: 1.7 }}>
           <strong style={{ color: C.ink }}>Definiciones:</strong>{" "}
-          <strong>MTBF</strong> (Mean Time Between Failures) = horas promedio de operación entre fallas correctivas.{" "}
+          <strong>MTBF</strong> (Mean Time Between Failures) = horas promedio de operaciÃ³n entre fallas correctivas.{" "}
           <strong>MTTR</strong> (Mean Time To Repair) = horas promedio para reparar una OT cerrada.{" "}
-          <strong>Disponibilidad</strong> = MTBF ÷ (MTBF + MTTR), objetivo ≥ 90%.{" "}
-          <strong>Proactividad</strong> = OTs preventivas + predictivas + modificativas sobre el total. Objetivo de clase mundial: ≥ 70%.
+          <strong>Disponibilidad</strong> = MTBF Ã· (MTBF + MTTR), objetivo â‰¥ 90%.{" "}
+          <strong>Proactividad</strong> = OTs preventivas + predictivas + modificativas sobre el total. Objetivo de clase mundial: â‰¥ 70%.
         </div>
       </Card>
     </div>

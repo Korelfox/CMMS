@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from "react";
+﻿import React, { useEffect, useState, useCallback } from "react";
 import { FileText, Printer, ClipboardList, Package, Calendar, Gauge, ClipboardCheck } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { fetchAll } from "../lib/db";
@@ -8,11 +8,11 @@ import {
 } from "../ui";
 
 const REPORTES = [
-  { id: "kpis",     titulo: "KPIs y Confiabilidad", icon: Gauge,         desc: "Disponibilidad, MTBF, MTTR, costos por embarcación." },
-  { id: "ots",      titulo: "Órdenes de Trabajo",   icon: ClipboardList, desc: "Listado completo con tipo, costos, MTTR y estado." },
-  { id: "inv",      titulo: "Inventario y Stock",   icon: Package,       desc: "Catálogo con clasificación ABC, stock total y valor." },
-  { id: "programa", titulo: "Programa Semanal",     icon: Calendar,      desc: "Tareas programadas por día con HH y cumplimiento." },
-  { id: "prezarpes", titulo: "Prezarpes",           icon: ClipboardCheck, desc: "Inspecciones de prezarpe por embarcación, con veredicto y abastecimiento." },
+  { id: "kpis",     titulo: "KPIs y Confiabilidad", icon: Gauge,         desc: "Disponibilidad, MTBF, MTTR, costos por embarcaciÃ³n." },
+  { id: "ots",      titulo: "Ã“rdenes de Trabajo",   icon: ClipboardList, desc: "Listado completo con tipo, costos, MTTR y estado." },
+  { id: "inv",      titulo: "Inventario y Stock",   icon: Package,       desc: "CatÃ¡logo con clasificaciÃ³n ABC, stock total y valor." },
+  { id: "programa", titulo: "Programa Semanal",     icon: Calendar,      desc: "Tareas programadas por dÃ­a con HH y cumplimiento." },
+  { id: "prezarpes", titulo: "Prezarpes",           icon: ClipboardCheck, desc: "Inspecciones de prezarpe por embarcaciÃ³n, con veredicto y abastecimiento." },
 ];
 
 function fechaLarga() {
@@ -68,7 +68,7 @@ export default function Reportes() {
     return (
       <div>
         <PageHead kicker="Informes Imprimibles" title="Reportes"
-          sub="Genera vistas listas para imprimir o exportar a PDF (con la opción 'Guardar como PDF' del navegador)." />
+          sub="Genera vistas listas para imprimir o exportar a PDF (con la opciÃ³n 'Guardar como PDF' del navegador)." />
         <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: 14 }}>
           {REPORTES.map((r) => {
             const Icon = r.icon;
@@ -94,13 +94,13 @@ export default function Reportes() {
     <div>
       <PageHead kicker="Reporte" title={REPORTES.find((r) => r.id === tipo)?.titulo}
         action={<div style={{ display: "flex", gap: 8 }} className="no-print">
-          <button onClick={() => setTipo(null)} style={ghostBtn}>← Reportes</button>
+          <button onClick={() => setTipo(null)} style={ghostBtn}>â† Reportes</button>
           <button onClick={() => window.print()} style={primaryBtn}><Printer size={15} /> Imprimir</button>
         </div>} />
 
       <ErrorBanner onRetry={() => cargar(tipo)}>{error}</ErrorBanner>
 
-      {loading ? <Card><InlineSpinner label="Generando…" /></Card> : (
+      {loading ? <Card><InlineSpinner label="Generandoâ€¦" /></Card> : (
         <div id="report-content">
           <ReportHeader empresa={empresa} profile={profile} titulo={REPORTES.find((r) => r.id === tipo)?.titulo} />
           {tipo === "kpis" && <ReporteKPIs {...data} />}
@@ -136,7 +136,7 @@ function ReportHeader({ empresa, profile, titulo }) {
         </div>
         <div style={{ textAlign: "right", fontSize: 11, color: C.slate, lineHeight: 1.7 }}>
           <div><strong>Fecha:</strong> {fechaLarga()}</div>
-          <div><strong>Generado por:</strong> {profile?.nombre || "—"}</div>
+          <div><strong>Generado por:</strong> {profile?.nombre || "â€”"}</div>
           <div><strong>Rol:</strong> {rolLabel(profile?.rol)}</div>
         </div>
       </div>
@@ -172,10 +172,10 @@ function ReporteKPIs({ embs = [], ots = [] }) {
         <Big label="Costo Total" value={clp(costoMO + costoMat)} />
       </div>
 
-      <div style={{ ...archivo, fontWeight: 700, fontSize: 15, color: C.abyss, marginBottom: 12 }}>Por Embarcación</div>
+      <div style={{ ...archivo, fontWeight: 700, fontSize: 15, color: C.abyss, marginBottom: 12 }}>Por EmbarcaciÃ³n</div>
       <table style={{ width: "100%", borderCollapse: "collapse" }}>
         <thead><tr>
-          <th style={thStyle}>Embarcación</th>
+          <th style={thStyle}>EmbarcaciÃ³n</th>
           <th style={{ ...thStyle, textAlign: "right" }}>OTs</th>
           <th style={{ ...thStyle, textAlign: "right" }}>Abiertas</th>
           <th style={{ ...thStyle, textAlign: "right" }}>MTBF (h)</th>
@@ -209,8 +209,8 @@ function ReporteKPIs({ embs = [], ots = [] }) {
             <td style={tdStyle}>TOTAL</td>
             <td style={{ ...tdStyle, textAlign: "right" }}>{ots.length}</td>
             <td style={{ ...tdStyle, textAlign: "right" }}>{ots.filter((o) => o.estado !== "cerrada").length}</td>
-            <td style={{ ...tdStyle, textAlign: "right" }}>—</td>
-            <td style={{ ...tdStyle, textAlign: "right" }}>—</td>
+            <td style={{ ...tdStyle, textAlign: "right" }}>â€”</td>
+            <td style={{ ...tdStyle, textAlign: "right" }}>â€”</td>
             <td style={{ ...tdStyle, textAlign: "right" }}>{clp(costoMO)}</td>
             <td style={{ ...tdStyle, textAlign: "right" }}>{clp(costoMat)}</td>
             <td style={{ ...tdStyle, textAlign: "right" }}>{clp(costoMO + costoMat)}</td>
@@ -222,17 +222,17 @@ function ReporteKPIs({ embs = [], ots = [] }) {
 }
 
 function ReporteOTs({ embs = [], ots = [] }) {
-  const eName = (id) => embs.find((e) => e.id === id)?.nombre || "—";
+  const eName = (id) => embs.find((e) => e.id === id)?.nombre || "â€”";
   const totMO = ots.reduce((s, o) => s + (Number(o.costo_mo) || 0), 0);
   const totMat = ots.reduce((s, o) => s + (Number(o.costo_mat) || 0), 0);
   return (
     <Card>
       <div style={{ ...archivo, fontWeight: 700, fontSize: 15, color: C.abyss, marginBottom: 12 }}>
-        {ots.length} órdenes de trabajo · MO {clp(totMO)} · Materiales {clp(totMat)} · Total {clp(totMO + totMat)}
+        {ots.length} Ã³rdenes de trabajo Â· MO {clp(totMO)} Â· Materiales {clp(totMat)} Â· Total {clp(totMO + totMat)}
       </div>
       <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
         <thead><tr>
-          <th style={thStyle}>Folio</th><th style={thStyle}>Fecha</th><th style={thStyle}>Embarcación</th>
+          <th style={thStyle}>Folio</th><th style={thStyle}>Fecha</th><th style={thStyle}>EmbarcaciÃ³n</th>
           <th style={thStyle}>Sistema</th><th style={thStyle}>Tipo</th><th style={thStyle}>Prioridad</th>
           <th style={{ ...thStyle, textAlign: "right" }}>Costo MO</th>
           <th style={{ ...thStyle, textAlign: "right" }}>Costo Mat.</th>
@@ -282,14 +282,14 @@ function ReporteInv({ its = [], stk = [] }) {
   return (
     <Card>
       <div style={{ ...archivo, fontWeight: 700, fontSize: 15, color: C.abyss, marginBottom: 12 }}>
-        Inventario · {its.length} ítems · Valor total {clp(totalVal)}
+        Inventario Â· {its.length} Ã­tems Â· Valor total {clp(totalVal)}
       </div>
       <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
         <thead><tr>
-          <th style={thStyle}>Código</th><th style={{ ...thStyle, textAlign: "center" }}>ABC</th>
-          <th style={thStyle}>Descripción</th><th style={thStyle}>Categoría</th>
+          <th style={thStyle}>CÃ³digo</th><th style={{ ...thStyle, textAlign: "center" }}>ABC</th>
+          <th style={thStyle}>DescripciÃ³n</th><th style={thStyle}>CategorÃ­a</th>
           <th style={{ ...thStyle, textAlign: "right" }}>Stock</th>
-          <th style={{ ...thStyle, textAlign: "right" }}>Mín</th>
+          <th style={{ ...thStyle, textAlign: "right" }}>MÃ­n</th>
           <th style={{ ...thStyle, textAlign: "right" }}>Precio</th>
           <th style={{ ...thStyle, textAlign: "right" }}>Valor</th>
         </tr></thead>
@@ -312,18 +312,18 @@ function ReporteInv({ its = [], stk = [] }) {
 }
 
 function ReportePrograma({ embs = [], prog = [] }) {
-  const eName = (id) => embs.find((e) => e.id === id)?.nombre || "—";
+  const eName = (id) => embs.find((e) => e.id === id)?.nombre || "â€”";
   const totalHH = prog.reduce((s, x) => s + (x.hh || 0), 0);
   const done = prog.filter((x) => x.done).length;
   const cump = prog.length ? (done / prog.length) * 100 : 0;
   return (
     <Card>
       <div style={{ ...archivo, fontWeight: 700, fontSize: 15, color: C.abyss, marginBottom: 12 }}>
-        Programa Semanal · {prog.length} tareas · {num(totalHH, 1)}h · {cump.toFixed(0)}% cumplimiento
+        Programa Semanal Â· {prog.length} tareas Â· {num(totalHH, 1)}h Â· {cump.toFixed(0)}% cumplimiento
       </div>
       <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
         <thead><tr>
-          <th style={thStyle}>Día</th><th style={thStyle}>Embarcación</th>
+          <th style={thStyle}>DÃ­a</th><th style={thStyle}>EmbarcaciÃ³n</th>
           <th style={thStyle}>Sistema</th><th style={thStyle}>Tipo</th>
           <th style={{ ...thStyle, textAlign: "right" }}>HH</th>
           <th style={thStyle}>Folio OT</th><th style={thStyle}>Estado</th>
@@ -337,8 +337,8 @@ function ReportePrograma({ embs = [], prog = [] }) {
                 <td style={tdStyle}>{p.sistema}</td>
                 <td style={tdStyle}>{p.tipo}</td>
                 <td style={{ ...tdStyle, textAlign: "right", fontWeight: 600 }}>{p.hh}h</td>
-                <td style={{ ...tdStyle, fontFamily: "'IBM Plex Mono', monospace" }}>{p.ot_folio || "—"}</td>
-                <td style={tdStyle}>{p.done ? "✓ Hecho" : "Pendiente"}</td>
+                <td style={{ ...tdStyle, fontFamily: "'IBM Plex Mono', monospace" }}>{p.ot_folio || "â€”"}</td>
+                <td style={tdStyle}>{p.done ? "âœ“ Hecho" : "Pendiente"}</td>
               </tr>))}
         </tbody>
       </table>
@@ -347,17 +347,17 @@ function ReportePrograma({ embs = [], prog = [] }) {
 }
 
 function ReportePrezarpes({ embs = [], pzs = [] }) {
-  const eName = (id) => embs.find((e) => e.id === id)?.nombre || "—";
+  const eName = (id) => embs.find((e) => e.id === id)?.nombre || "â€”";
   const aptos = pzs.filter((p) => p.apto).length;
   const noAptos = pzs.length - aptos;
   return (
     <Card>
       <div style={{ ...archivo, fontWeight: 700, fontSize: 15, color: C.abyss, marginBottom: 12 }}>
-        {pzs.length} prezarpes · {aptos} aptos · {noAptos} no aptos
+        {pzs.length} prezarpes Â· {aptos} aptos Â· {noAptos} no aptos
       </div>
       <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
         <thead><tr>
-          <th style={thStyle}>Fecha</th><th style={thStyle}>Embarcación</th><th style={thStyle}>Responsable</th>
+          <th style={thStyle}>Fecha</th><th style={thStyle}>EmbarcaciÃ³n</th><th style={thStyle}>Responsable</th>
           <th style={{ ...thStyle, textAlign: "right" }}>Combustible</th>
           <th style={{ ...thStyle, textAlign: "right" }}>Agua</th>
           <th style={{ ...thStyle, textAlign: "right" }}>Aceite</th>
@@ -369,7 +369,7 @@ function ReportePrezarpes({ embs = [], pzs = [] }) {
               <tr key={p.id}>
                 <td style={tdStyle}>{p.fecha}</td>
                 <td style={tdStyle}>{eName(p.embarcacion_id)}</td>
-                <td style={tdStyle}>{p.responsable || "—"}</td>
+                <td style={tdStyle}>{p.responsable || "â€”"}</td>
                 <td style={{ ...tdStyle, textAlign: "right" }}>{p.combustible_l || 0} L</td>
                 <td style={{ ...tdStyle, textAlign: "right" }}>{p.agua_l || 0} L</td>
                 <td style={{ ...tdStyle, textAlign: "right" }}>{p.aceite_l || 0} L</td>

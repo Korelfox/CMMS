@@ -236,7 +236,7 @@ export default function Weibull() {
                     </Group>
                   </div>
 
-                  <div style={{ padding: "12px 16px", background: "#fff", border: `1px solid ${C.line}`, borderRadius: 9 }}>
+                  <div style={{ padding: "12px 16px", background: C.surface, border: `1px solid ${C.line}`, borderRadius: 9 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
                       <span style={{ fontSize: 10.5, letterSpacing: 1, textTransform: "uppercase", color: C.slate, fontWeight: 700 }}>DecisiÃ³n recomendada:</span>
                       <Pill tone={dec.tone}>{dec.tipo}</Pill>

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from "react";
+﻿import React, { useEffect, useState, useCallback } from "react";
 import { Inbox, Plus, Trash2, ArrowRight, X, Clock } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { fetchAll, insertRow, updateRow, deleteRow, logActivity } from "../lib/db";
@@ -13,7 +13,7 @@ import {
 
 const HOY = () => new Date().toISOString().slice(0, 10);
 
-// SLA: calcula horas transcurridas desde la creación y compara contra el objetivo
+// SLA: calcula horas transcurridas desde la creaciÃ³n y compara contra el objetivo
 function slaInfo(sol) {
   if (sol.estado !== "pendiente") return null;
   const objetivo = SLA_HORAS[sol.prioridad] || 24;
@@ -55,15 +55,15 @@ export default function Solicitudes() {
   }, []);
   useEffect(() => { cargar(); }, [cargar]);
 
-  function embName(id) { return embarcaciones.find((e) => e.id === id)?.nombre || "—"; }
+  function embName(id) { return embarcaciones.find((e) => e.id === id)?.nombre || "â€”"; }
 
-  // Sistemas a mostrar en el desplegable: los de los equipos de la embarcación
-  // elegida (o de toda la flota si aún no se eligió embarcación), sin repetir.
+  // Sistemas a mostrar en el desplegable: los de los equipos de la embarcaciÃ³n
+  // elegida (o de toda la flota si aÃºn no se eligiÃ³ embarcaciÃ³n), sin repetir.
   const equiposDeNave = form.embarcacion_id ? equipos.filter((e) => e.embarcacion_id === form.embarcacion_id) : equipos;
   const sistemasDisponibles = [...new Set(equiposDeNave.map((e) => e.sistema).filter(Boolean))];
 
   async function crear() {
-    if (!form.solicitante.trim() || !form.descripcion.trim()) { setError("Indica solicitante y descripción."); return; }
+    if (!form.solicitante.trim() || !form.descripcion.trim()) { setError("Indica solicitante y descripciÃ³n."); return; }
     const folio = `SOL-${String(solicitudes.length + 1).padStart(3, "0")}`;
     try {
       const nueva = await insertRow("solicitudes", profile.empresa_id, {
@@ -72,14 +72,14 @@ export default function Solicitudes() {
         prioridad: form.prioridad, fecha: form.fecha, estado: "pendiente", created_by: profile.id,
       });
       setSolicitudes((p) => [nueva, ...p]);
-      logActivity(profile, "Crear solicitud", `${folio} · ${nueva.descripcion}`);
+      logActivity(profile, "Crear solicitud", `${folio} Â· ${nueva.descripcion}`);
       setForm(blank()); setShowForm(false);
     } catch (e) { setError("No se pudo crear: " + e.message); }
   }
 
-  // Convertir solicitud → OT (carga el conteo actual de OTs para folio)
+  // Convertir solicitud â†’ OT (carga el conteo actual de OTs para folio)
   async function convertir(sol) {
-    if (!window.confirm(`¿Convertir "${sol.folio || sol.descripcion}" en una nueva Orden de Trabajo?`)) return;
+    if (!window.confirm(`Â¿Convertir "${sol.folio || sol.descripcion}" en una nueva Orden de Trabajo?`)) return;
     try {
       const otsActuales = await fetchAll("ordenes_trabajo");
       const folioOT = `OT-${String(otsActuales.length + 1).padStart(3, "0")}`;
@@ -92,12 +92,12 @@ export default function Solicitudes() {
       });
       await updateRow("solicitudes", sol.id, { estado: "convertida", ot_id: nuevaOT.id });
       setSolicitudes((p) => p.map((s) => s.id === sol.id ? { ...s, estado: "convertida", ot_id: nuevaOT.id } : s));
-      logActivity(profile, "Solicitud → OT", `${sol.folio || ""} → ${folioOT}`);
+      logActivity(profile, "Solicitud â†’ OT", `${sol.folio || ""} â†’ ${folioOT}`);
     } catch (e) { setError("No se pudo convertir: " + e.message); }
   }
 
   async function rechazar(sol) {
-    if (!window.confirm(`¿Rechazar la solicitud "${sol.folio || sol.descripcion}"?`)) return;
+    if (!window.confirm(`Â¿Rechazar la solicitud "${sol.folio || sol.descripcion}"?`)) return;
     const previo = sol.estado;
     setSolicitudes((p) => p.map((s) => s.id === sol.id ? { ...s, estado: "rechazada" } : s));
     try { await updateRow("solicitudes", sol.id, { estado: "rechazada" });
@@ -107,7 +107,7 @@ export default function Solicitudes() {
 
   async function eliminar(id) {
     const s = solicitudes.find((x) => x.id === id);
-    if (!window.confirm(`¿Eliminar la solicitud ${s?.folio || ""}?`)) return;
+    if (!window.confirm(`Â¿Eliminar la solicitud ${s?.folio || ""}?`)) return;
     const respaldo = solicitudes;
     setSolicitudes((p) => p.filter((x) => x.id !== id));
     try { await deleteRow("solicitudes", id); logActivity(profile, "Eliminar solicitud", s?.folio || ""); }
@@ -121,20 +121,20 @@ export default function Solicitudes() {
 
   const lista = filtro === "all" ? solicitudes : solicitudes.filter((s) => s.estado === filtro);
 
-  if (loading) return <div><PageHead kicker="Portal de Requerimientos" title="Solicitudes" /><Card><InlineSpinner label="Cargando solicitudes…" /></Card></div>;
+  if (loading) return <div><PageHead kicker="Portal de Requerimientos" title="Solicitudes" /><Card><InlineSpinner label="Cargando solicitudesâ€¦" /></Card></div>;
 
   return (
     <div>
-      <PageHead kicker="Portal de Requerimientos · SLA" title="Solicitudes"
-        sub="Capitán y maquinista solicitan, Jefe de Mantención convierte en OT. SLA por prioridad: crítica 4h · alta 8h · media 24h · baja 72h."
+      <PageHead kicker="Portal de Requerimientos Â· SLA" title="Solicitudes"
+        sub="CapitÃ¡n y maquinista solicitan, Jefe de MantenciÃ³n convierte en OT. SLA por prioridad: crÃ­tica 4h Â· alta 8h Â· media 24h Â· baja 72h."
         action={puedeOperar && <button onClick={() => { setShowForm(!showForm); setError(null); }} style={primaryBtn}><Plus size={16} /> Nueva Solicitud</button>} />
 
       <ErrorBanner onRetry={cargar}>{error}</ErrorBanner>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14, marginBottom: 16 }}>
         <KPI label="Pendientes" value={pendientes.length} tone={pendientes.length ? C.amber : C.green} />
-        <KPI label="SLA Vencidas" value={vencidasSLA} tone={vencidasSLA ? C.red : C.green} sub="acción inmediata" />
-        <KPI label="Por Vencer" value={porVencer} tone={porVencer ? C.amber : C.green} sub="≥ 75% del SLA" />
+        <KPI label="SLA Vencidas" value={vencidasSLA} tone={vencidasSLA ? C.red : C.green} sub="acciÃ³n inmediata" />
+        <KPI label="Por Vencer" value={porVencer} tone={porVencer ? C.amber : C.green} sub="â‰¥ 75% del SLA" />
         <KPI label="Convertidas a OT" value={convertidas} tone={C.green} sub={`${solicitudes.length} totales`} />
       </div>
 
@@ -143,20 +143,20 @@ export default function Solicitudes() {
           <div style={{ fontWeight: 700, fontSize: 15, color: C.abyss, marginBottom: 14 }}>Nueva Solicitud</div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12 }}>
             <Field label="Solicitante"><input value={form.solicitante} onChange={(e) => setForm({ ...form, solicitante: e.target.value })} style={inputStyle()} /></Field>
-            <Field label="Embarcación">
+            <Field label="EmbarcaciÃ³n">
               <select value={form.embarcacion_id} onChange={(e) => setForm({ ...form, embarcacion_id: e.target.value, sistema: "" })} style={inputStyle()}>
-                <option value="">— Selecciona —</option>
+                <option value="">â€” Selecciona â€”</option>
                 {embarcaciones.map((v) => <option key={v.id} value={v.id}>{v.nombre}</option>)}
               </select>
             </Field>
             <Field label="Sistema">
               <select value={form.sistema} onChange={(e) => setForm({ ...form, sistema: e.target.value })} style={inputStyle()}>
-                <option value="">{sistemasDisponibles.length ? "— Selecciona —" : "— Sin sistemas registrados —"}</option>
+                <option value="">{sistemasDisponibles.length ? "â€” Selecciona â€”" : "â€” Sin sistemas registrados â€”"}</option>
                 {sistemasDisponibles.map((s) => <option key={s} value={s}>{s}</option>)}
               </select>
             </Field>
             <Field label="Prioridad"><select value={form.prioridad} onChange={(e) => setForm({ ...form, prioridad: e.target.value })} style={inputStyle()}>{PRIORIDADES.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}</select></Field>
-            <Field label="Descripción" span={3}><input value={form.descripcion} onChange={(e) => setForm({ ...form, descripcion: e.target.value })} style={inputStyle()} placeholder="Qué se necesita" /></Field>
+            <Field label="DescripciÃ³n" span={3}><input value={form.descripcion} onChange={(e) => setForm({ ...form, descripcion: e.target.value })} style={inputStyle()} placeholder="QuÃ© se necesita" /></Field>
             <Field label="Fecha"><input type="date" value={form.fecha} onChange={(e) => setForm({ ...form, fecha: e.target.value })} style={inputStyle()} /></Field>
           </div>
           <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
@@ -179,7 +179,7 @@ export default function Solicitudes() {
           <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 1000 }}>
             <thead><tr>
               <th style={thStyle}>Folio</th><th style={thStyle}>Fecha</th><th style={thStyle}>Solicitante</th>
-              <th style={thStyle}>Embarcación</th><th style={thStyle}>Descripción</th>
+              <th style={thStyle}>EmbarcaciÃ³n</th><th style={thStyle}>DescripciÃ³n</th>
               <th style={thStyle}>Prioridad</th><th style={thStyle}>SLA</th>
               <th style={thStyle}>Estado</th><th style={thStyle}>Acciones</th>
             </tr></thead>
@@ -189,7 +189,7 @@ export default function Solicitudes() {
                   const sla = slaInfo(s);
                   return (
                     <tr key={s.id}>
-                      <td style={{ ...tdStyle, fontFamily: "'IBM Plex Mono', monospace", fontWeight: 600, color: C.steel }}>{s.folio || "—"}</td>
+                      <td style={{ ...tdStyle, fontFamily: "'IBM Plex Mono', monospace", fontWeight: 600, color: C.steel }}>{s.folio || "â€”"}</td>
                       <td style={{ ...tdStyle, fontFamily: "'IBM Plex Mono', monospace", fontSize: 12 }}>{s.fecha}</td>
                       <td style={{ ...tdStyle, fontSize: 12.5 }}>{s.solicitante}</td>
                       <td style={tdStyle}>{embName(s.embarcacion_id)}</td>
@@ -205,7 +205,7 @@ export default function Solicitudes() {
                             <span style={{ fontSize: 11.5, fontFamily: "'IBM Plex Mono', monospace", fontWeight: 600 }}>{sla.transcurridas.toFixed(1)}/{sla.objetivo}h</span>
                             <Pill tone={sla.tone}>{sla.label}</Pill>
                           </div>
-                        ) : <span style={{ fontSize: 11, color: C.slate }}>—</span>}
+                        ) : <span style={{ fontSize: 11, color: C.slate }}>â€”</span>}
                       </td>
                       <td style={tdStyle}><Pill tone={tn(ESTADOS_SOLICITUD, s.estado)}>{lk(ESTADOS_SOLICITUD, s.estado)}</Pill></td>
                       <td style={tdStyle}>

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from "react";
+﻿import React, { useEffect, useState, useCallback } from "react";
 import { Ship, Plus, Trash2, Anchor } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { fetchAll, insertRow, updateRow, deleteRow, logActivity } from "../lib/db";
@@ -41,15 +41,15 @@ export default function Embarcaciones() {
         created_by: profile.id,
       });
       setRows((p) => [...p, nueva].sort((a, b) => a.codigo.localeCompare(b.codigo)));
-      logActivity(profile, "Crear embarcación", `${nueva.codigo} · ${nueva.nombre}`);
+      logActivity(profile, "Crear embarcaciÃ³n", `${nueva.codigo} Â· ${nueva.nombre}`);
       setForm({ codigo: "", nombre: "", color: COLORES[1] });
       setShowForm(false);
     } catch (e) {
-      setError(e.message.includes("duplicate") ? "Ya existe una embarcación con ese código." : "No se pudo crear: " + e.message);
+      setError(e.message.includes("duplicate") ? "Ya existe una embarcaciÃ³n con ese cÃ³digo." : "No se pudo crear: " + e.message);
     }
   }
 
-  // Persiste un cambio de campo (optimista, con reversión si falla)
+  // Persiste un cambio de campo (optimista, con reversiÃ³n si falla)
   async function commit(id, campo, valor) {
     const previo = rows.find((r) => r.id === id)?.[campo];
     setRows((p) => p.map((r) => (r.id === id ? { ...r, [campo]: valor } : r)));
@@ -63,12 +63,12 @@ export default function Embarcaciones() {
 
   async function eliminar(id) {
     const emb = rows.find((r) => r.id === id);
-    if (!window.confirm(`¿Eliminar "${emb?.nombre}"? Se borrarán también TODOS sus equipos y datos asociados. Esta acción no se puede deshacer.`)) return;
+    if (!window.confirm(`Â¿Eliminar "${emb?.nombre}"? Se borrarÃ¡n tambiÃ©n TODOS sus equipos y datos asociados. Esta acciÃ³n no se puede deshacer.`)) return;
     const respaldo = rows;
     setRows((p) => p.filter((r) => r.id !== id));
     try {
       await deleteRow("embarcaciones", id);
-      logActivity(profile, "Eliminar embarcación", `${emb?.codigo} · ${emb?.nombre}`);
+      logActivity(profile, "Eliminar embarcaciÃ³n", `${emb?.codigo} Â· ${emb?.nombre}`);
     } catch (e) {
       setRows(respaldo);
       setError("No se pudo eliminar: " + e.message);
@@ -77,17 +77,17 @@ export default function Embarcaciones() {
 
   return (
     <div>
-      <PageHead kicker="Flota · Gestión Dinámica" title="Embarcaciones"
-        sub="Administra las naves de tu flota. Cada embarcación que agregues queda disponible para Equipos, OTs, Inventario y todos los módulos."
-        action={puedeOperar && <button onClick={() => setShowForm(!showForm)} style={primaryBtn}><Plus size={16} /> Agregar Embarcación</button>} />
+      <PageHead kicker="Flota Â· GestiÃ³n DinÃ¡mica" title="Embarcaciones"
+        sub="Administra las naves de tu flota. Cada embarcaciÃ³n que agregues queda disponible para Equipos, OTs, Inventario y todos los mÃ³dulos."
+        action={puedeOperar && <button onClick={() => setShowForm(!showForm)} style={primaryBtn}><Plus size={16} /> Agregar EmbarcaciÃ³n</button>} />
 
       <ErrorBanner onRetry={cargar}>{error}</ErrorBanner>
 
       {showForm && (
         <Card style={{ marginBottom: 16, background: C.mist }}>
-          <div style={{ ...archivo, fontWeight: 700, fontSize: 15, color: C.abyss, marginBottom: 14 }}>Nueva Embarcación</div>
+          <div style={{ ...archivo, fontWeight: 700, fontSize: 15, color: C.abyss, marginBottom: 14 }}>Nueva EmbarcaciÃ³n</div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr 2fr", gap: 12, alignItems: "end" }}>
-            <Field label="Código"><input value={form.codigo} onChange={(e) => setForm({ ...form, codigo: e.target.value })} style={inputStyle()} placeholder="DM" maxLength={8} /></Field>
+            <Field label="CÃ³digo"><input value={form.codigo} onChange={(e) => setForm({ ...form, codigo: e.target.value })} style={inputStyle()} placeholder="DM" maxLength={8} /></Field>
             <Field label="Nombre"><input value={form.nombre} onChange={(e) => setForm({ ...form, nombre: e.target.value })} style={inputStyle()} placeholder="Don Miguel" /></Field>
             <Field label="Color">
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
@@ -104,11 +104,11 @@ export default function Embarcaciones() {
         </Card>
       )}
 
-      {loading ? <Card><InlineSpinner label="Cargando embarcaciones…" /></Card> :
+      {loading ? <Card><InlineSpinner label="Cargando embarcacionesâ€¦" /></Card> :
         rows.length === 0 ? (
           <Card><Empty>
             <Anchor size={32} color={C.line} style={{ marginBottom: 10 }} /><br />
-            Aún no hay embarcaciones. {puedeOperar ? "Agrega la primera para comenzar." : "Pide a un administrador que registre la flota."}
+            AÃºn no hay embarcaciones. {puedeOperar ? "Agrega la primera para comenzar." : "Pide a un administrador que registre la flota."}
           </Empty></Card>
         ) : (
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 14 }}>

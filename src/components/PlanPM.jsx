@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useMemo } from "react";
+﻿import React, { useEffect, useState, useCallback, useMemo } from "react";
 import { CalendarClock, Check, AlertCircle, Plus, Trash2, Download, History, ClipboardList, X } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { fetchAll, insertRow, updateRow, deleteRow, logActivity } from "../lib/db";
@@ -12,14 +12,14 @@ import {
 const HOY = () => new Date().toISOString().slice(0, 10);
 const INTERVALOS_COMUNES = [50, 100, 250, 500, 1000, 2000, 4000];
 
-// ── Semáforo por plan ──────────────────────────────────────────
+// â”€â”€ SemÃ¡foro por plan â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function statusPlan(elapsed, intervalo) {
   if (elapsed >= intervalo)          return ["red",    "Vencido"];
-  if (elapsed >= intervalo * 0.9)    return ["yellow", "Próximo"];
+  if (elapsed >= intervalo * 0.9)    return ["yellow", "PrÃ³ximo"];
   return                                    ["green",  "OK"];
 }
 
-// ── Barra de progreso por plan ─────────────────────────────────
+// â”€â”€ Barra de progreso por plan â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function PMBar({ elapsed, intervalo }) {
   const pct   = Math.min(100, intervalo > 0 ? (elapsed / intervalo) * 100 : 0);
   const [tone] = statusPlan(elapsed, intervalo);
@@ -65,7 +65,7 @@ export default function PlanPM({ onNavigate }) {
   }, []);
   useEffect(() => { cargar(); }, [cargar]);
 
-  const embName = (id) => embarcaciones.find((e) => e.id === id)?.nombre || "—";
+  const embName = (id) => embarcaciones.find((e) => e.id === id)?.nombre || "â€”";
   const lista   = buildEquipoTree(filtro === "all" ? equipos : equipos.filter((e) => e.embarcacion_id === filtro));
 
   // KPIs globales
@@ -83,11 +83,11 @@ export default function PlanPM({ onNavigate }) {
     return { total, vencidos, proximos, ok: total - vencidos - proximos };
   }, [planes, equipos]);
 
-  if (loading) return <div><PageHead kicker="Mantenimiento Preventivo" title="Plan Preventivo" /><Card><InlineSpinner label="Cargando plan preventivo…" /></Card></div>;
+  if (loading) return <div><PageHead kicker="Mantenimiento Preventivo" title="Plan Preventivo" /><Card><InlineSpinner label="Cargando plan preventivoâ€¦" /></Card></div>;
 
   return (
     <div>
-      <PageHead kicker="Mantenimiento Preventivo · ISO 14224" title="Plan Preventivo"
+      <PageHead kicker="Mantenimiento Preventivo Â· ISO 14224" title="Plan Preventivo"
         sub="Plan por equipo: cada tarea con su propio intervalo e historial. Al registrar PM se genera trazabilidad completa." />
       <ErrorBanner onRetry={cargar}>{error}</ErrorBanner>
 
@@ -111,9 +111,9 @@ export default function PlanPM({ onNavigate }) {
         <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12, marginBottom: 18 }}>
           {[
             ["Planes activos",  kpis.total,    C.steel],
-            ["Vencidos",        kpis.vencidos, C.red,   "requieren atención inmediata"],
-            ["Próximos",        kpis.proximos, C.amber, "≥ 90% del intervalo"],
-            ["Al día",          kpis.ok,       C.green],
+            ["Vencidos",        kpis.vencidos, C.red,   "requieren atenciÃ³n inmediata"],
+            ["PrÃ³ximos",        kpis.proximos, C.amber, "â‰¥ 90% del intervalo"],
+            ["Al dÃ­a",          kpis.ok,       C.green],
           ].map(([lbl, val, tone, sub]) => (
             <Card key={lbl} style={{ padding: 14 }}>
               <div style={{ fontSize: 10.5, letterSpacing: 1.5, textTransform: "uppercase", color: C.slate, fontWeight: 700 }}>{lbl}</div>
@@ -140,9 +140,9 @@ export default function PlanPM({ onNavigate }) {
   );
 }
 
-// ─────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // TAB PLAN
-// ─────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function TabPlan({ lista, equipos, setEquipos, planes, setPlanes, historial, setHistorial, embarcaciones, embName, profile, puedeOperar, puedeBorrar, setError, onNavigate }) {
   const [addingFor,   setAddingFor]   = useState(null); // equipo_id
   const [newPlan,     setNewPlan]     = useState({ descripcion: "", intervalo_horas: 250 });
@@ -168,7 +168,7 @@ function TabPlan({ lista, equipos, setEquipos, planes, setPlanes, historial, set
         horas_ult_pm:    0,
       });
       setPlanes((p) => [...p, nuevo]);
-      logActivity(profile, "Crear plan PM", `${eq?.sistema} · cada ${nuevo.intervalo_horas}h`);
+      logActivity(profile, "Crear plan PM", `${eq?.sistema} Â· cada ${nuevo.intervalo_horas}h`);
       setNewPlan({ descripcion: "", intervalo_horas: 250 });
       setAddingFor(null);
     } catch (e) { setError("No se pudo crear el plan: " + e.message); }
@@ -176,7 +176,7 @@ function TabPlan({ lista, equipos, setEquipos, planes, setPlanes, historial, set
 
   async function eliminarPlan(planId) {
     const plan = planes.find((p) => p.id === planId);
-    if (!window.confirm(`¿Eliminar el plan "${plan?.descripcion}"? Se borrará también su historial.`)) return;
+    if (!window.confirm(`Â¿Eliminar el plan "${plan?.descripcion}"? Se borrarÃ¡ tambiÃ©n su historial.`)) return;
     setPlanes((p) => p.filter((x) => x.id !== planId));
     try { await deleteRow("planes_pm", planId); }
     catch (e) { setPlanes((p) => [...p, plan]); setError("No se pudo eliminar: " + e.message); }
@@ -190,7 +190,7 @@ function TabPlan({ lista, equipos, setEquipos, planes, setPlanes, historial, set
     let otId = null;
 
     try {
-      // 1) Generar OT si se pidió
+      // 1) Generar OT si se pidiÃ³
       if (regForm.crearOT && eq) {
         const [tone] = statusPlan(elapsed, plan.intervalo_horas);
         const prio = tone === "red" ? "alta" : tone === "yellow" ? "media" : "baja";
@@ -198,7 +198,7 @@ function TabPlan({ lista, equipos, setEquipos, planes, setPlanes, historial, set
         const ot = await insertRow("ordenes_trabajo", profile.empresa_id, {
           folio, embarcacion_id: eq.embarcacion_id, equipo_id: eq.id,
           sistema: eq.sistema, tipo: "preventivo",
-          descripcion: `PM ${plan.intervalo_horas}h · ${plan.descripcion}`,
+          descripcion: `PM ${plan.intervalo_horas}h Â· ${plan.descripcion}`,
           prioridad: prio, fecha, estado: "abierta", created_by: profile.id,
         });
         otId = ot.id;
@@ -220,10 +220,10 @@ function TabPlan({ lista, equipos, setEquipos, planes, setPlanes, historial, set
         ot_id: otId, created_by: profile.id,
       });
       setHistorial((p) => [registro, ...p]);
-      logActivity(profile, "Registrar PM", `${eq?.sistema} · ${plan.descripcion} · ${num(horas)}h`);
+      logActivity(profile, "Registrar PM", `${eq?.sistema} Â· ${plan.descripcion} Â· ${num(horas)}h`);
       setRegistrando(null);
       setRegForm({ realizado_por: "", notas: "", crearOT: false });
-      // 5) Navegar a la OT si se creó
+      // 5) Navegar a la OT si se creÃ³
       if (otId && regForm.crearOT) onNavigate?.("ots", { otId });
     } catch (e) { setError("No se pudo registrar el PM: " + e.message); }
   }
@@ -239,13 +239,13 @@ function TabPlan({ lista, equipos, setEquipos, planes, setPlanes, historial, set
 
         return (
           <Card key={eq.id} style={{ marginBottom: 10, borderLeft: `4px solid ${vencidosEq > 0 ? C.red : C.line}`, paddingBottom: 8 }}>
-            {/* ── Cabecera del equipo ── */}
+            {/* â”€â”€ Cabecera del equipo â”€â”€ */}
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: planesEq.length > 0 ? 12 : 4, paddingLeft: eq.depth * 16 }}>
-              {eq.depth > 0 && <span style={{ color: C.slate, fontSize: 13 }}>└─</span>}
+              {eq.depth > 0 && <span style={{ color: C.slate, fontSize: 13 }}>â””â”€</span>}
               <div style={{ flex: 1 }}>
                 <span style={{ fontWeight: 700, fontSize: 14, color: C.abyss }}>{eq.sistema}</span>
                 <span style={{ fontSize: 11.5, color: C.slate, marginLeft: 8, fontFamily: "'IBM Plex Mono', monospace" }}>{eq.id_visible}</span>
-                <span style={{ fontSize: 11.5, color: C.slate, marginLeft: 6 }}>· {embName(eq.embarcacion_id)}</span>
+                <span style={{ fontSize: 11.5, color: C.slate, marginLeft: 6 }}>Â· {embName(eq.embarcacion_id)}</span>
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, color: C.slate }}>
                 {num(eq.horas_actual || 0, 0)}h actuales
@@ -259,10 +259,10 @@ function TabPlan({ lista, equipos, setEquipos, planes, setPlanes, historial, set
               )}
             </div>
 
-            {/* ── Planes del equipo ── */}
+            {/* â”€â”€ Planes del equipo â”€â”€ */}
             {planesEq.length === 0 && addingFor !== eq.id && (
               <div style={{ fontSize: 12.5, color: C.slate, paddingLeft: eq.depth * 16 + 8, fontStyle: "italic" }}>
-                Sin planes de PM — agrega el primero con el botón "+ Plan"
+                Sin planes de PM â€” agrega el primero con el botÃ³n "+ Plan"
               </div>
             )}
 
@@ -279,8 +279,8 @@ function TabPlan({ lista, equipos, setEquipos, planes, setPlanes, historial, set
                       <div style={{ fontSize: 13, fontWeight: 600, color: C.abyss }}>{plan.descripcion}</div>
                       <div style={{ fontSize: 11, color: C.slate, marginTop: 1 }}>
                         Cada <strong>{plan.intervalo_horas}h</strong>
-                        {plan.fecha_ult_pm && <span> · Último: {new Date(plan.fecha_ult_pm + "T00:00:00").toLocaleDateString("es-CL")}</span>}
-                        {!plan.fecha_ult_pm && <span style={{ color: C.amber }}> · Nunca realizado</span>}
+                        {plan.fecha_ult_pm && <span> Â· Ãšltimo: {new Date(plan.fecha_ult_pm + "T00:00:00").toLocaleDateString("es-CL")}</span>}
+                        {!plan.fecha_ult_pm && <span style={{ color: C.amber }}> Â· Nunca realizado</span>}
                       </div>
                     </div>
                     <div style={{ minWidth: 240 }}>
@@ -309,7 +309,7 @@ function TabPlan({ lista, equipos, setEquipos, planes, setPlanes, historial, set
                     )}
                   </div>
 
-                  {/* ── Formulario de registro ── */}
+                  {/* â”€â”€ Formulario de registro â”€â”€ */}
                   {isReg && (
                     <div style={{ margin: "6px 0 4px 12px", padding: "12px 14px", background: "#F0FDF4", border: `1px solid ${C.green}40`, borderRadius: 8 }}>
                       <div style={{ fontSize: 12, fontWeight: 700, color: C.abyss, marginBottom: 10 }}>
@@ -324,7 +324,7 @@ function TabPlan({ lista, equipos, setEquipos, planes, setPlanes, historial, set
                         <Field label="Notas (opcional)">
                           <input value={regForm.notas}
                             onChange={(e) => setRegForm((p) => ({ ...p, notas: e.target.value }))}
-                            placeholder="Qué se revisó, observaciones…"
+                            placeholder="QuÃ© se revisÃ³, observacionesâ€¦"
                             style={inputStyle()} />
                         </Field>
                         <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, cursor: "pointer", marginBottom: 2, whiteSpace: "nowrap" }}>
@@ -346,14 +346,14 @@ function TabPlan({ lista, equipos, setEquipos, planes, setPlanes, historial, set
               );
             })}
 
-            {/* ── Formulario nuevo plan ── */}
+            {/* â”€â”€ Formulario nuevo plan â”€â”€ */}
             {addingFor === eq.id && (
               <div style={{ marginLeft: eq.depth * 16 + 8, marginTop: 8, padding: "12px 14px", background: C.mist, borderRadius: 8, border: `1px solid ${C.line}` }}>
                 <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr auto auto", gap: 10, alignItems: "flex-end" }}>
                   <Field label="Tarea de mantenimiento">
                     <input value={newPlan.descripcion} list="intervalos-sugeridos"
                       onChange={(e) => setNewPlan((p) => ({ ...p, descripcion: e.target.value }))}
-                      placeholder="Cambio aceite + filtro, Revisión válvulas…"
+                      placeholder="Cambio aceite + filtro, RevisiÃ³n vÃ¡lvulasâ€¦"
                       style={inputStyle()} autoFocus />
                   </Field>
                   <Field label="Intervalo (horas)">
@@ -366,7 +366,7 @@ function TabPlan({ lista, equipos, setEquipos, planes, setPlanes, historial, set
                   <button onClick={() => setAddingFor(null)} style={{ ...ghostBtn, marginTop: 22 }}><X size={13} /></button>
                 </div>
                 <datalist id="intervalos-sugeridos">
-                  {["Cambio aceite + filtro", "Revisión válvulas", "Revisión general motor", "Limpieza radiador", "Revisión bomba hidráulica", "Cambio correas", "Revisión sistema eléctrico", "Inspección casco y ánodos", "Revisión bomba agua mar", "Revisión turbocompresor"].map((s) => <option key={s} value={s} />)}
+                  {["Cambio aceite + filtro", "RevisiÃ³n vÃ¡lvulas", "RevisiÃ³n general motor", "Limpieza radiador", "RevisiÃ³n bomba hidrÃ¡ulica", "Cambio correas", "RevisiÃ³n sistema elÃ©ctrico", "InspecciÃ³n casco y Ã¡nodos", "RevisiÃ³n bomba agua mar", "RevisiÃ³n turbocompresor"].map((s) => <option key={s} value={s} />)}
                 </datalist>
               </div>
             )}
@@ -377,20 +377,20 @@ function TabPlan({ lista, equipos, setEquipos, planes, setPlanes, historial, set
   );
 }
 
-// ─────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // TAB HISTORIAL
-// ─────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function TabHistorial({ historial, planes, equipos, embName }) {
-  function eqNombre(id) { const e = equipos.find((x) => x.id === id); return e ? `${e.sistema} (${e.id_visible})` : "—"; }
-  function planDesc(id) { const p = planes.find((x) => x.id === id); return p ? `${p.intervalo_horas}h · ${p.descripcion}` : "—"; }
+  function eqNombre(id) { const e = equipos.find((x) => x.id === id); return e ? `${e.sistema} (${e.id_visible})` : "â€”"; }
+  function planDesc(id) { const p = planes.find((x) => x.id === id); return p ? `${p.intervalo_horas}h Â· ${p.descripcion}` : "â€”"; }
 
   function exportar() {
     const filas = [
-      ["Fecha", "Equipo", "Plan PM", "Horas realización", "Realizado por", "Notas", "OT vinculada"],
-      ...historial.map((h) => [h.fecha_realizacion, eqNombre(h.equipo_id), planDesc(h.plan_pm_id), h.horas_realizacion, h.realizado_por || "", h.notas || "", h.ot_id ? "Sí" : "No"]),
+      ["Fecha", "Equipo", "Plan PM", "Horas realizaciÃ³n", "Realizado por", "Notas", "OT vinculada"],
+      ...historial.map((h) => [h.fecha_realizacion, eqNombre(h.equipo_id), planDesc(h.plan_pm_id), h.horas_realizacion, h.realizado_por || "", h.notas || "", h.ot_id ? "SÃ­" : "No"]),
     ];
     const csv = filas.map((r) => r.map((c) => { const s = String(c ?? ""); return /[",;\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; }).join(";")).join("\n");
-    const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
+    const blob = new Blob(["ï»¿" + csv], { type: "text/csv;charset=utf-8;" });
     const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "historial_pm.csv"; a.click();
   }
 
@@ -401,7 +401,7 @@ function TabHistorial({ historial, planes, equipos, embName }) {
         <button onClick={exportar} style={exportBtn}><Download size={14} /> Exportar CSV</button>
       </div>
       {historial.length === 0 ? (
-        <Card><Empty>Sin historial aún. Registra el primer PM desde la pestaña <strong>Plan de Mantenimiento</strong>.</Empty></Card>
+        <Card><Empty>Sin historial aÃºn. Registra el primer PM desde la pestaÃ±a <strong>Plan de Mantenimiento</strong>.</Empty></Card>
       ) : (
         <Card style={{ padding: 0, overflow: "hidden" }}>
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
@@ -421,10 +421,10 @@ function TabHistorial({ historial, planes, equipos, embName }) {
                   <td style={tdStyle}><div style={{ fontSize: 13, fontWeight: 600 }}>{eqNombre(h.equipo_id)}</div></td>
                   <td style={{ ...tdStyle, fontSize: 12.5, color: C.slate }}>{planDesc(h.plan_pm_id)}</td>
                   <td style={{ ...tdStyle, textAlign: "right", fontFamily: "'IBM Plex Mono', monospace", fontWeight: 600 }}>{num(h.horas_realizacion, 0)}h</td>
-                  <td style={{ ...tdStyle, fontSize: 12.5 }}>{h.realizado_por || "—"}</td>
-                  <td style={{ ...tdStyle, fontSize: 12, color: C.slate, maxWidth: 200 }}>{h.notas || "—"}</td>
+                  <td style={{ ...tdStyle, fontSize: 12.5 }}>{h.realizado_por || "â€”"}</td>
+                  <td style={{ ...tdStyle, fontSize: 12, color: C.slate, maxWidth: 200 }}>{h.notas || "â€”"}</td>
                   <td style={{ ...tdStyle, textAlign: "center" }}>
-                    {h.ot_id ? <Pill tone="green">Sí</Pill> : <span style={{ color: C.line }}>—</span>}
+                    {h.ot_id ? <Pill tone="green">SÃ­</Pill> : <span style={{ color: C.line }}>â€”</span>}
                   </td>
                 </tr>
               ))}

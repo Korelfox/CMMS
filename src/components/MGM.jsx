@@ -1,44 +1,44 @@
-import React, { useEffect, useState, useCallback } from "react";
+﻿import React, { useEffect, useState, useCallback } from "react";
 import { Layers, Check, CircleDashed } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { fetchAll, upsertRow, logActivity } from "../lib/db";
 import { C, archivo, canOperate } from "../theme";
 import { Card, PageHead, Pill, Empty, ErrorBanner, InlineSpinner } from "../ui";
 
-// 8 fases del Modelo de Gestión de Mantenimiento (Mora Gutiérrez)
+// 8 fases del Modelo de GestiÃ³n de Mantenimiento (Mora GutiÃ©rrez)
 const FASES = [
-  { n: 1, titulo: "Análisis de la situación actual",
-    desc: "Diagnóstico de equipos, organización, prácticas actuales y nivel de madurez.",
+  { n: 1, titulo: "AnÃ¡lisis de la situaciÃ³n actual",
+    desc: "DiagnÃ³stico de equipos, organizaciÃ³n, prÃ¡cticas actuales y nivel de madurez.",
     color: "#0B2A4A",
-    items: ["Inventario completo de equipos por sistema (ISO 14224)", "Tipo de mantenimiento actual: correctivo/preventivo/proactivo", "Encuesta de madurez (Auditoría MES, 25 preguntas)", "Identificación de brechas frente a clase mundial"] },
-  { n: 2, titulo: "Jerarquía y criticidad",
-    desc: "Clasificación de equipos por su importancia estratégica.",
+    items: ["Inventario completo de equipos por sistema (ISO 14224)", "Tipo de mantenimiento actual: correctivo/preventivo/proactivo", "Encuesta de madurez (AuditorÃ­a MES, 25 preguntas)", "IdentificaciÃ³n de brechas frente a clase mundial"] },
+  { n: 2, titulo: "JerarquÃ­a y criticidad",
+    desc: "ClasificaciÃ³n de equipos por su importancia estratÃ©gica.",
     color: "#1C5C9B",
-    items: ["Análisis de criticidad CTR (INGEMAN/Parra)", "Identificación de equipos clase A (alta criticidad)", "Priorización del esfuerzo y recursos", "Stock crítico de repuestos definido"] },
-  { n: 3, titulo: "Análisis de fallas (FMECA/RCM)",
-    desc: "Identificación de modos de falla, causas y efectos en los equipos críticos.",
+    items: ["AnÃ¡lisis de criticidad CTR (INGEMAN/Parra)", "IdentificaciÃ³n de equipos clase A (alta criticidad)", "PriorizaciÃ³n del esfuerzo y recursos", "Stock crÃ­tico de repuestos definido"] },
+  { n: 3, titulo: "AnÃ¡lisis de fallas (FMECA/RCM)",
+    desc: "IdentificaciÃ³n de modos de falla, causas y efectos en los equipos crÃ­ticos.",
     color: "#127C8A",
-    items: ["FMECA de equipos clase A y B", "RPN (Severidad × Ocurrencia × Detección)", "Plan de mitigación por riesgo", "Análisis de causa raíz en fallas mayores"] },
-  { n: 4, titulo: "Diseño táctico (Planes PM)",
-    desc: "Definición de planes preventivos con intervalos óptimos por equipo.",
+    items: ["FMECA de equipos clase A y B", "RPN (Severidad Ã— Ocurrencia Ã— DetecciÃ³n)", "Plan de mitigaciÃ³n por riesgo", "AnÃ¡lisis de causa raÃ­z en fallas mayores"] },
+  { n: 4, titulo: "DiseÃ±o tÃ¡ctico (Planes PM)",
+    desc: "DefiniciÃ³n de planes preventivos con intervalos Ã³ptimos por equipo.",
     color: "#1E9E6A",
-    items: ["Plan PM por equipo e intervalo (50/100/250/500h)", "Procedimientos documentados con checklists", "Optimización Weibull del Ts*", "Decisión Reparar / PM / Overhaul / Reemplazar"] },
-  { n: 5, titulo: "Diseño operativo (Programación)",
-    desc: "Calendarización semanal con balanceo de cargas y backlog controlado.",
+    items: ["Plan PM por equipo e intervalo (50/100/250/500h)", "Procedimientos documentados con checklists", "OptimizaciÃ³n Weibull del Ts*", "DecisiÃ³n Reparar / PM / Overhaul / Reemplazar"] },
+  { n: 5, titulo: "DiseÃ±o operativo (ProgramaciÃ³n)",
+    desc: "CalendarizaciÃ³n semanal con balanceo de cargas y backlog controlado.",
     color: "#6C4FA3",
-    items: ["Programación semanal balanceada por HH", "Cumplimiento ≥ 85% de tareas programadas", "Backlog controlado bajo 4 semanas", "OTs con ciclo completo (solicitada → cerrada)"] },
-  { n: 6, titulo: "Implementación del CMMS",
+    items: ["ProgramaciÃ³n semanal balanceada por HH", "Cumplimiento â‰¥ 85% de tareas programadas", "Backlog controlado bajo 4 semanas", "OTs con ciclo completo (solicitada â†’ cerrada)"] },
+  { n: 6, titulo: "ImplementaciÃ³n del CMMS",
     desc: "Sistema computarizado operando con datos confiables y trazables.",
     color: "#E0A526",
-    items: ["CMMS instalado y operativo (este sistema)", "Toda la flota cargada y actualizada", "Operadores y técnicos con accesos por rol", "Reportería e indicadores automáticos"] },
-  { n: 7, titulo: "Recursos humanos y capacitación",
+    items: ["CMMS instalado y operativo (este sistema)", "Toda la flota cargada y actualizada", "Operadores y tÃ©cnicos con accesos por rol", "ReporterÃ­a e indicadores automÃ¡ticos"] },
+  { n: 7, titulo: "Recursos humanos y capacitaciÃ³n",
     desc: "Personal calificado y certificado con desarrollo continuo.",
     color: "#D8443C",
-    items: ["Plan anual de capacitación por persona", "Certificaciones técnicas por rol", "Multifuncionalidad y plan de sucesión", "EPP y herramientas completas y vigentes"] },
-  { n: 8, titulo: "Auditoría y mejora continua",
-    desc: "Ciclo permanente de evaluación, RCA y mejora de procesos.",
+    items: ["Plan anual de capacitaciÃ³n por persona", "Certificaciones tÃ©cnicas por rol", "Multifuncionalidad y plan de sucesiÃ³n", "EPP y herramientas completas y vigentes"] },
+  { n: 8, titulo: "AuditorÃ­a y mejora continua",
+    desc: "Ciclo permanente de evaluaciÃ³n, RCA y mejora de procesos.",
     color: "#8A2A26",
-    items: ["Auditoría MES periódica con metas anuales", "Análisis de causa raíz (RCA) en fallas mayores", "Indicadores con metas y seguimiento mensual", "Acciones correctivas con responsable y plazo"] },
+    items: ["AuditorÃ­a MES periÃ³dica con metas anuales", "AnÃ¡lisis de causa raÃ­z (RCA) en fallas mayores", "Indicadores con metas y seguimiento mensual", "Acciones correctivas con responsable y plazo"] },
 ];
 
 export default function MGM() {
@@ -70,7 +70,7 @@ export default function MGM() {
     });
     try {
       await upsertRow("mgm_fases", profile.empresa_id, { fase, avance: valor }, "empresa_id,fase");
-      logActivity(profile, "MGM fase", `Fase ${fase} → ${Math.round(valor * 100)}%`);
+      logActivity(profile, "MGM fase", `Fase ${fase} â†’ ${Math.round(valor * 100)}%`);
     } catch (e) { setError("No se pudo guardar: " + e.message); cargar(); }
   }
 
@@ -79,12 +79,12 @@ export default function MGM() {
   const enProceso = FASES.filter((f) => { const a = getAvance(f.n); return a >= 0.2 && a < 0.8; }).length;
   const pendientes = FASES.filter((f) => getAvance(f.n) < 0.2).length;
 
-  if (loading) return <div><PageHead kicker="Modelo de Gestión" title="MGM · 8 Fases" /><Card><InlineSpinner label="Cargando MGM…" /></Card></div>;
+  if (loading) return <div><PageHead kicker="Modelo de GestiÃ³n" title="MGM Â· 8 Fases" /><Card><InlineSpinner label="Cargando MGMâ€¦" /></Card></div>;
 
   return (
     <div>
-      <PageHead kicker="Mora Gutiérrez · 8 Fases" title="Modelo de Gestión de Mantenimiento"
-        sub="El MGM define 8 pasos para construir una operación de mantenimiento de clase mundial. Marca el avance de cada fase para visualizar tu progreso." />
+      <PageHead kicker="Mora GutiÃ©rrez Â· 8 Fases" title="Modelo de GestiÃ³n de Mantenimiento"
+        sub="El MGM define 8 pasos para construir una operaciÃ³n de mantenimiento de clase mundial. Marca el avance de cada fase para visualizar tu progreso." />
 
       <ErrorBanner onRetry={cargar}>{error}</ErrorBanner>
 
@@ -98,10 +98,10 @@ export default function MGM() {
           <div style={{ height: 8, background: "rgba(255,255,255,.15)", borderRadius: 4, marginTop: 12, overflow: "hidden" }}>
             <div style={{ height: "100%", width: `${promGlobal * 100}%`, background: C.gold, transition: "width 0.3s" }} />
           </div>
-          <div style={{ fontSize: 12, marginTop: 8, color: "rgba(255,255,255,.85)" }}>{completadas} fases ≥ 80% · {enProceso} en proceso · {pendientes} por iniciar</div>
+          <div style={{ fontSize: 12, marginTop: 8, color: "rgba(255,255,255,.85)" }}>{completadas} fases â‰¥ 80% Â· {enProceso} en proceso Â· {pendientes} por iniciar</div>
         </Card>
-        <KPI label="Completadas" value={completadas} tone={C.green} sub="avance ≥ 80%" />
-        <KPI label="En Proceso" value={enProceso} tone={C.amber} sub="20% – 80%" />
+        <KPI label="Completadas" value={completadas} tone={C.green} sub="avance â‰¥ 80%" />
+        <KPI label="En Proceso" value={enProceso} tone={C.amber} sub="20% â€“ 80%" />
         <KPI label="Por Iniciar" value={pendientes} tone={pendientes ? C.slate : C.green} sub="< 20%" />
       </div>
 
@@ -146,9 +146,9 @@ export default function MGM() {
 
       <Card style={{ marginTop: 16, background: C.mist }}>
         <div style={{ fontSize: 12.5, color: C.slate, lineHeight: 1.7 }}>
-          <strong style={{ color: C.ink }}>Cómo usar el MGM:</strong> el modelo es secuencial pero permite paralelismo. Lo importante es no saltar fases:
-          la Fase 4 (planes PM) no rinde sin la 2 (criticidad) y la 3 (FMECA). Las fases 5 y 6 corren en paralelo cuando el CMMS ya está operativo.
-          Una operación madura debería superar 75% global. Si alguna fase queda detenida bajo 30%, conviene identificar el bloqueo antes de seguir avanzando en las demás.
+          <strong style={{ color: C.ink }}>CÃ³mo usar el MGM:</strong> el modelo es secuencial pero permite paralelismo. Lo importante es no saltar fases:
+          la Fase 4 (planes PM) no rinde sin la 2 (criticidad) y la 3 (FMECA). Las fases 5 y 6 corren en paralelo cuando el CMMS ya estÃ¡ operativo.
+          Una operaciÃ³n madura deberÃ­a superar 75% global. Si alguna fase queda detenida bajo 30%, conviene identificar el bloqueo antes de seguir avanzando en las demÃ¡s.
         </div>
       </Card>
     </div>

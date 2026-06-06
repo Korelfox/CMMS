@@ -3,7 +3,10 @@
 //  Paleta industrial-marítima + tokens de estilo reutilizables.
 // ============================================================
 
-export const C = {
+// ── Valores reales (modo claro) — fuente única de verdad ──────
+// Se inyectan como CSS variables en :root. El modo oscuro las
+// redefine en [data-theme="dark"] (ver THEME_VARS abajo).
+export const HEX_LIGHT = {
   abyss: "#06182E", deep: "#0B2A4A", ocean: "#103E6B", steel: "#1C5C9B",
   sky: "#3E8FD6", foam: "#E8F1F8", mist: "#F4F8FB", line: "#D6E2EC",
   ink: "#0A1A2A", slate: "#5A7184", gold: "#E0A526", amber: "#F4B740",
@@ -11,7 +14,44 @@ export const C = {
   yellow: "#E5A300", yellowBg: "#FCF3D6", purple: "#6C4FA3", purpleBg: "#EAE2F6",
   cyan: "#127C8A", cyanBg: "#D7EFF1", indigo: "#3A3F9E", indigoBg: "#E2E3F5",
   brown: "#8A5A2B", brownBg: "#F0E6DA",
+  // Superficies (nuevas) — reemplazan los "#fff" hardcodeados
+  surface: "#FFFFFF", surface2: "#F8FAFD", surfaceLine: "#D6E2EC",
 };
+
+// Overrides del modo oscuro: solo neutros/superficies cambian; los
+// acentos semánticos se mantienen para conservar el significado.
+export const HEX_DARK = {
+  abyss: "#E8F1F8", deep: "#CFE0EE", ocean: "#9FC2DD", steel: "#5AA0DC",
+  sky: "#6FB0E6", foam: "#16232F", mist: "#0C151D", line: "#243441",
+  ink: "#E6EEF5", slate: "#93A8B8",
+  surface: "#121E29", surface2: "#0F1922", surfaceLine: "#243441",
+  // backgrounds tenues de acento, más oscuros en dark
+  greenBg: "#10271E", redBg: "#2E1715", yellowBg: "#2A2310",
+  purpleBg: "#1E1A2C", cyanBg: "#0E2226", indigoBg: "#181A2C", brownBg: "#241A10",
+};
+
+// El objeto C que consumen los componentes: cada token es una CSS var.
+// style={{ color: C.ink }} → color: var(--c-ink) → el navegador resuelve.
+export const C = Object.keys(HEX_LIGHT).reduce((acc, k) => {
+  acc[k] = `var(--c-${k})`;
+  return acc;
+}, {});
+
+// Fondo tenue de un color con transparencia, válido en claro y oscuro.
+// Reemplaza el patrón `${C.x}18` (hex+alpha) que no funciona con var().
+export const tint = (color, pct = 10) => `color-mix(in srgb, ${color} ${pct}%, transparent)`;
+
+// Bloque CSS con las variables de ambos temas (se monta una vez).
+export const THEME_VARS = `
+  :root {
+    ${Object.entries(HEX_LIGHT).map(([k, v]) => `--c-${k}: ${v};`).join("\n    ")}
+    color-scheme: light;
+  }
+  [data-theme="dark"] {
+    ${Object.entries(HEX_DARK).map(([k, v]) => `--c-${k}: ${v};`).join("\n    ")}
+    color-scheme: dark;
+  }
+`;
 
 export const mono = { fontFamily: "'IBM Plex Mono', monospace" };
 export const archivo = { fontFamily: "'Archivo', sans-serif" };

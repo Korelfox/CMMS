@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, lazy, Suspense } from "react";
+﻿import React, { useState, useEffect, useCallback, lazy, Suspense } from "react";
 import {
   Anchor, LayoutDashboard, Ship, Sailboat, CalendarClock, Calendar, Inbox, ClipboardList,
   Package, Warehouse, Gauge, Activity, AlertTriangle, ClipboardCheck, DollarSign,
@@ -38,7 +38,7 @@ const Bitacora      = lazy(() => import("./Bitacora"));
 const Rentabilidad  = lazy(() => import("./Rentabilidad"));
 const Usuarios      = lazy(() => import("./Usuarios"));
 
-// Estructura de navegación (los módulos se conectan a la base de datos uno a uno)
+// Estructura de navegaciÃ³n (los mÃ³dulos se conectan a la base de datos uno a uno)
 const NAV = [
   { id: "dashboard", label: "Tablero", icon: LayoutDashboard, group: "Principal" },
   { id: "alertas", label: "Alertas", icon: Bell, group: "Principal" },
@@ -47,27 +47,27 @@ const NAV = [
   { id: "equipos", label: "Equipos", icon: Ship, group: "Flota" },
   { id: "prezarpe", label: "Prezarpe", icon: ShipWheel, group: "Flota" },
   { id: "cumplimiento", label: "Cumplimiento", icon: ShieldCheck, group: "Flota" },
-  { id: "planpm", label: "Plan Preventivo", icon: CalendarClock, group: "Operación" },
-  { id: "programa", label: "Programación", icon: Calendar, group: "Operación" },
-  { id: "solicitudes", label: "Solicitudes", icon: Inbox, group: "Operación" },
-  { id: "ots", label: "Órdenes de Trabajo", icon: ClipboardList, group: "Operación" },
-  { id: "inventario", label: "Inventario", icon: Package, group: "Operación" },
-  { id: "almacen", label: "Almacén & Compras", icon: Warehouse, group: "Operación" },
-  { id: "kpis", label: "KPIs & Confiabilidad", icon: Gauge, group: "Análisis" },
-  { id: "criticidad", label: "Criticidad", icon: Activity, group: "Análisis" },
-  { id: "fallas", label: "Análisis de Fallas", icon: AlertTriangle, group: "Análisis" },
-  { id: "pareto", label: "Pareto (80/20)", icon: BarChart3, group: "Análisis" },
-  { id: "consumos",      label: "Consumos & Eficiencia",  icon: Fuel,          group: "Análisis"  },
-  { id: "auditoria",     label: "Auditoría MES",          icon: ClipboardCheck, group: "Análisis"  },
+  { id: "planpm", label: "Plan Preventivo", icon: CalendarClock, group: "OperaciÃ³n" },
+  { id: "programa", label: "ProgramaciÃ³n", icon: Calendar, group: "OperaciÃ³n" },
+  { id: "solicitudes", label: "Solicitudes", icon: Inbox, group: "OperaciÃ³n" },
+  { id: "ots", label: "Ã“rdenes de Trabajo", icon: ClipboardList, group: "OperaciÃ³n" },
+  { id: "inventario", label: "Inventario", icon: Package, group: "OperaciÃ³n" },
+  { id: "almacen", label: "AlmacÃ©n & Compras", icon: Warehouse, group: "OperaciÃ³n" },
+  { id: "kpis", label: "KPIs & Confiabilidad", icon: Gauge, group: "AnÃ¡lisis" },
+  { id: "criticidad", label: "Criticidad", icon: Activity, group: "AnÃ¡lisis" },
+  { id: "fallas", label: "AnÃ¡lisis de Fallas", icon: AlertTriangle, group: "AnÃ¡lisis" },
+  { id: "pareto", label: "Pareto (80/20)", icon: BarChart3, group: "AnÃ¡lisis" },
+  { id: "consumos",      label: "Consumos & Eficiencia",  icon: Fuel,          group: "AnÃ¡lisis"  },
+  { id: "auditoria",     label: "AuditorÃ­a MES",          icon: ClipboardCheck, group: "AnÃ¡lisis"  },
   { id: "rentabilidad",  label: "Rentabilidad por Marea", icon: Fish,           group: "Comercial" },
-  { id: "costos", label: "Costo Global (CGM)", icon: DollarSign, group: "Optimización" },
-  { id: "optim", label: "Optimización", icon: TrendingUp, group: "Optimización" },
+  { id: "costos", label: "Costo Global (CGM)", icon: DollarSign, group: "OptimizaciÃ³n" },
+  { id: "optim", label: "OptimizaciÃ³n", icon: TrendingUp, group: "OptimizaciÃ³n" },
   { id: "reportes", label: "Reportes", icon: FileText, group: "Sistema" },
-  { id: "bitacora", label: "Bitácora", icon: History, group: "Sistema" },
+  { id: "bitacora", label: "BitÃ¡cora", icon: History, group: "Sistema" },
   { id: "usuarios", label: "Usuarios", icon: UserCog, group: "Sistema", adminOnly: true },
 ];
 
-// Módulos ya conectados a la base de datos (los 18)
+// MÃ³dulos ya conectados a la base de datos (los 18)
 const MODULOS = {
   dashboard: Tablero,
   alertas: Alertas,
@@ -101,15 +101,15 @@ export default function AppShell() {
   const online = useOnline();
   const [view, setView] = useState("dashboard");
   const [navParams, setNavParams] = useState(null);  // contexto al navegar (ej. OT a resaltar)
-  const [armador, setArmador] = useState(null);      // usuario Armador (admin_empresa) de la organización
+  const [armador, setArmador] = useState(null);      // usuario Armador (admin_empresa) de la organizaciÃ³n
   const [pendientes, setPendientes] = useState(0);
-  const [sidebarOpen, setSidebarOpen] = useState(false); // drawer móvil
+  const [sidebarOpen, setSidebarOpen] = useState(false); // drawer mÃ³vil
 
-  // Navega a un módulo, opcionalmente con parámetros (ej. { otId }).
+  // Navega a un mÃ³dulo, opcionalmente con parÃ¡metros (ej. { otId }).
   const navegar = useCallback((destino, params = null) => {
     setView(destino);
     setNavParams(params);
-    setSidebarOpen(false); // cierra el drawer al navegar (móvil)
+    setSidebarOpen(false); // cierra el drawer al navegar (mÃ³vil)
   }, []);
   const [sincronizando, setSincronizando] = useState(false);
   const [recienSync, setRecienSync] = useState(false);
@@ -138,13 +138,13 @@ export default function AppShell() {
     return () => window.removeEventListener("cmms-outbox", onChange);
   }, [refrescarPendientes]);
 
-  // Al recuperar señal, intenta subir lo pendiente automáticamente
+  // Al recuperar seÃ±al, intenta subir lo pendiente automÃ¡ticamente
   useEffect(() => {
     if (online) sincronizar();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [online]);
 
-  // Identifica al Armador de la organización: el usuario con rol admin_empresa;
+  // Identifica al Armador de la organizaciÃ³n: el usuario con rol admin_empresa;
   // si no hay, se usa el Super Admin como respaldo.
   useEffect(() => {
     if (!empresa?.id) return;
@@ -154,14 +154,14 @@ export default function AppShell() {
         const profs = await fetchAll("profiles");
         const arm = profs.find((p) => p.rol === "admin_empresa") || profs.find((p) => p.rol === "super_admin");
         if (vivo) setArmador(arm?.nombre || null);
-      } catch { /* sin datos: la barra usará el respaldo */ }
+      } catch { /* sin datos: la barra usarÃ¡ el respaldo */ }
     })();
     return () => { vivo = false; };
   }, [empresa?.id]);
 
   return (
     <div style={{ display: "flex", height: "100vh", color: C.ink, overflow: "hidden" }}>
-      {/* OVERLAY (solo móvil, al abrir el drawer) */}
+      {/* OVERLAY (solo mÃ³vil, al abrir el drawer) */}
       <div className={`cmms-overlay${sidebarOpen ? " cmms-overlay-open" : ""}`}
         onClick={() => setSidebarOpen(false)}
         style={{ position: "fixed", inset: 0, background: "rgba(8,20,32,.55)", zIndex: 40, display: "none" }} />
@@ -177,10 +177,10 @@ export default function AppShell() {
             <div style={{ minWidth: 0, flex: 1 }}>
               <div style={{ fontWeight: 700, fontSize: 14.5, lineHeight: 1.1 }}>CMMS Korelfox</div>
               <div style={{ fontSize: 10, opacity: 0.6, marginTop: 3, lineHeight: 1.3 }}>
-                Energía que impulsa tu rumbo
+                EnergÃ­a que impulsa tu rumbo
               </div>
             </div>
-            {/* Cerrar drawer — solo móvil */}
+            {/* Cerrar drawer â€” solo mÃ³vil */}
             <button className="cmms-sidebar-close" onClick={() => setSidebarOpen(false)}
               style={{ display: "none", background: "rgba(255,255,255,.08)", border: "none", borderRadius: 7, color: C.foam, cursor: "pointer", padding: 6, alignItems: "center", justifyContent: "center" }}>
               <X size={18} />
@@ -205,7 +205,7 @@ export default function AppShell() {
           ))}
         </nav>
 
-        {/* Usuario + cerrar sesión */}
+        {/* Usuario + cerrar sesiÃ³n */}
         <div style={{ padding: "12px 14px", borderTop: "1px solid rgba(255,255,255,.08)" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 10 }}>
             <div style={{ width: 32, height: 32, borderRadius: 8, background: roleColor, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
@@ -217,24 +217,24 @@ export default function AppShell() {
             </div>
           </div>
           <button onClick={signOut} style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 7, background: "rgba(255,255,255,.08)", border: "1px solid rgba(255,255,255,.12)", color: C.foam, borderRadius: 7, padding: "7px", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
-            <LogOut size={14} /> Cerrar sesión
+            <LogOut size={14} /> Cerrar sesiÃ³n
           </button>
         </div>
       </aside>
 
       {/* CONTENIDO */}
       <main style={{ flex: 1, overflowY: "auto", background: C.mist }}>
-        {/* Barra superior: Armador + estado de conexión */}
+        {/* Barra superior: Armador + estado de conexiÃ³n */}
         <div className="cmms-topbar" style={{ position: "sticky", top: 0, zIndex: 20, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, background: online ? "rgba(244,248,251,.92)" : C.yellowBg, borderBottom: `1px solid ${online ? C.line : C.amber}`, backdropFilter: "blur(6px)" }}>
           <span style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 12, color: C.slate, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
             <button className="cmms-hamburger" onClick={() => setSidebarOpen(true)}
-              aria-label="Abrir menú"
+              aria-label="Abrir menÃº"
               style={{ display: "none", background: "none", border: `1px solid ${C.line}`, borderRadius: 8, color: C.steel, cursor: "pointer", padding: 6, alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
               <Menu size={18} />
             </button>
             <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>
-              Armador: <strong style={{ color: C.steel }}>{armador || profile?.nombre || "—"}</strong>
-              {empresa?.puerto_base ? <span style={{ opacity: 0.7 }}> · {empresa.puerto_base}</span> : null}
+              Armador: <strong style={{ color: C.steel }}>{armador || profile?.nombre || "â€”"}</strong>
+              {empresa?.puerto_base ? <span style={{ opacity: 0.7 }}> Â· {empresa.puerto_base}</span> : null}
             </span>
           </span>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -247,17 +247,17 @@ export default function AppShell() {
               <button onClick={sincronizar} disabled={!online || sincronizando}
                 style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 600, color: "#7a5b00", background: C.amber, border: "none", borderRadius: 20, padding: "5px 12px", cursor: online && !sincronizando ? "pointer" : "default", opacity: online && !sincronizando ? 1 : 0.7 }}>
                 <RefreshCw size={13} className={sincronizando ? "spin" : ""} style={sincronizando ? { animation: "spin 1s linear infinite" } : undefined} />
-                {sincronizando ? "Sincronizando…" : `${pendientes} por subir`}
+                {sincronizando ? "Sincronizandoâ€¦" : `${pendientes} por subir`}
               </button>
             )}
             <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 600, color: online ? C.green : "#7a5b00" }}>
               {online ? <Wifi size={15} /> : <WifiOff size={15} />}
-              {online ? "En línea" : "Sin conexión"}
+              {online ? "En lÃ­nea" : "Sin conexiÃ³n"}
             </span>
           </div>
         </div>
         <div className="cmms-work-area" style={{ maxWidth: 1680, margin: "0 auto" }}>
-          <Suspense fallback={<InlineSpinner label="Cargando módulo…" />}>
+          <Suspense fallback={<InlineSpinner label="Cargando mÃ³duloâ€¦" />}>
           {(() => {
             const Modulo = MODULOS[view];
             if (Modulo) return <Modulo onNavigate={navegar} navParams={navParams} />;
@@ -266,16 +266,16 @@ export default function AppShell() {
                 <PageHead
                   kicker={NAV.find((n) => n.id === view)?.group}
                   title={NAV.find((n) => n.id === view)?.label}
-                  sub="Módulo en proceso de conexión a la base de datos."
+                  sub="MÃ³dulo en proceso de conexiÃ³n a la base de datos."
                 />
                 <Card>
                   <div style={{ padding: "40px 0", textAlign: "center", color: C.slate }}>
                     <div style={{ ...archivo, fontSize: 16, fontWeight: 700, color: C.abyss, marginBottom: 8 }}>
-                      Próximamente
+                      PrÃ³ximamente
                     </div>
                     <p style={{ fontSize: 13.5, maxWidth: 460, margin: "0 auto", lineHeight: 1.6 }}>
-                      Este módulo se conectará a la base de datos en una próxima entrega.
-                      Sesión activa como <strong>{profile?.nombre}</strong> ({rolLabel(profile?.rol)}) en <strong>{empresa?.nombre}</strong>.
+                      Este mÃ³dulo se conectarÃ¡ a la base de datos en una prÃ³xima entrega.
+                      SesiÃ³n activa como <strong>{profile?.nombre}</strong> ({rolLabel(profile?.rol)}) en <strong>{empresa?.nombre}</strong>.
                     </p>
                   </div>
                 </Card>
@@ -286,7 +286,7 @@ export default function AppShell() {
         </div>
       </main>
 
-      {/* Padding responsivo + sidebar colapsable en móvil */}
+      {/* Padding responsivo + sidebar colapsable en mÃ³vil */}
       <style>{`
         .cmms-topbar    { padding: 8px 34px; }
         .cmms-work-area { padding: 28px 30px 60px; }

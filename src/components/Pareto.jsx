@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useMemo } from "react";
+﻿import React, { useEffect, useState, useCallback, useMemo } from "react";
 import { BarChart3, AlertCircle } from "lucide-react";
 import {
   ComposedChart, Bar, Line, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer,
@@ -10,8 +10,8 @@ import { C, archivo, clp, num } from "../theme";
 import { buildEquipoTree } from "../lib/equipTree";
 import { Card, PageHead, Pill, FilterBtn, thStyle, tdStyle, Empty, ErrorBanner, InlineSpinner } from "../ui";
 
-// Análisis de Pareto (80/20): qué pocos sistemas/equipos concentran la mayor
-// parte de las fallas o del costo, para enfocar ahí el esfuerzo y el presupuesto.
+// AnÃ¡lisis de Pareto (80/20): quÃ© pocos sistemas/equipos concentran la mayor
+// parte de las fallas o del costo, para enfocar ahÃ­ el esfuerzo y el presupuesto.
 export default function Pareto() {
   const { profile } = useAuth(); // eslint-disable-line no-unused-vars
   const [embarcaciones, setEmbarcaciones] = useState([]);
@@ -32,7 +32,7 @@ export default function Pareto() {
         fetchAll("ordenes_trabajo"),
       ]);
       setEmbarcaciones(embs); setEquipos(eqs); setOts(o);
-    } catch (e) { setError("No se pudo cargar el análisis. " + e.message); }
+    } catch (e) { setError("No se pudo cargar el anÃ¡lisis. " + e.message); }
     finally { setLoading(false); }
   }, []);
   useEffect(() => { cargar(); }, [cargar]);
@@ -43,9 +43,9 @@ export default function Pareto() {
     if (!eq) return null;
     if (eq.parent_id) {
       const padre = equipos.find((e) => e.id === eq.parent_id);
-      return padre ? `${padre.sistema} › ${eq.sistema}` : `${eq.id_visible} · ${eq.sistema}`;
+      return padre ? `${padre.sistema} â€º ${eq.sistema}` : `${eq.id_visible} Â· ${eq.sistema}`;
     }
-    return `${eq.id_visible} · ${eq.sistema}`;
+    return `${eq.id_visible} Â· ${eq.sistema}`;
   }
 
   const { grupos, total, vitales, pctVitales } = useMemo(() => {
@@ -76,21 +76,21 @@ export default function Pareto() {
   }, [ots, equipos, filtro, metrica, dim]); // eslint-disable-line
 
   const fmt = (v) => (metrica === "costo" ? clp(v) : num(v, 0));
-  const chartData = grupos.slice(0, 12).map((g) => ({ ...g, nombreCorto: g.name.length > 16 ? g.name.slice(0, 15) + "…" : g.name }));
+  const chartData = grupos.slice(0, 12).map((g) => ({ ...g, nombreCorto: g.name.length > 16 ? g.name.slice(0, 15) + "â€¦" : g.name }));
 
-  if (loading) return <div><PageHead kicker="Análisis · 80/20" title="Pareto de Fallas y Costos" /><Card><InlineSpinner label="Analizando…" /></Card></div>;
+  if (loading) return <div><PageHead kicker="AnÃ¡lisis Â· 80/20" title="Pareto de Fallas y Costos" /><Card><InlineSpinner label="Analizandoâ€¦" /></Card></div>;
 
   return (
     <div>
-      <PageHead kicker="Análisis · Principio de Pareto (80/20)" title="Pareto de Fallas y Costos"
-        sub="Identifica los pocos sistemas o equipos que concentran la mayor parte del costo o las fallas, para enfocar ahí el presupuesto y el esfuerzo." />
+      <PageHead kicker="AnÃ¡lisis Â· Principio de Pareto (80/20)" title="Pareto de Fallas y Costos"
+        sub="Identifica los pocos sistemas o equipos que concentran la mayor parte del costo o las fallas, para enfocar ahÃ­ el presupuesto y el esfuerzo." />
 
       <ErrorBanner onRetry={cargar}>{error}</ErrorBanner>
 
-      {/* Controles: métrica y dimensión */}
+      {/* Controles: mÃ©trica y dimensiÃ³n */}
       <div style={{ display: "flex", gap: 18, flexWrap: "wrap", marginBottom: 14 }}>
         <div>
-          <div style={{ fontSize: 10.5, letterSpacing: 1, textTransform: "uppercase", color: C.slate, fontWeight: 700, marginBottom: 6 }}>Métrica</div>
+          <div style={{ fontSize: 10.5, letterSpacing: 1, textTransform: "uppercase", color: C.slate, fontWeight: 700, marginBottom: 6 }}>MÃ©trica</div>
           <div style={{ display: "flex", gap: 8 }}>
             <FilterBtn active={metrica === "costo"} onClick={() => setMetrica("costo")}>Costo ($)</FilterBtn>
             <FilterBtn active={metrica === "fallas"} onClick={() => setMetrica("fallas")}>Fallas (correctivas)</FilterBtn>
@@ -105,7 +105,7 @@ export default function Pareto() {
         </div>
       </div>
 
-      {/* Filtro por embarcación */}
+      {/* Filtro por embarcaciÃ³n */}
       <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
         <FilterBtn active={filtro === "all"} onClick={() => setFiltro("all")}>Toda la flota</FilterBtn>
         {embarcaciones.map((v) => (
@@ -116,21 +116,21 @@ export default function Pareto() {
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 14, marginBottom: 16 }}>
         <KPI label={metrica === "costo" ? "Costo total" : "Fallas totales"} value={fmt(total)} tone={C.gold} />
         <KPI label="Pocos vitales" value={vitales} tone={C.red} sub={`${dim === "equipo" ? "equipos" : "sistemas"} concentran el 80%`} />
-        <KPI label="Concentración" value={`${pctVitales.toFixed(0)}%`} tone={C.steel} sub={`en ${vitales} de ${grupos.length}`} />
+        <KPI label="ConcentraciÃ³n" value={`${pctVitales.toFixed(0)}%`} tone={C.steel} sub={`en ${vitales} de ${grupos.length}`} />
       </div>
 
       {grupos.length === 0 ? (
         <Card><Empty>
           <AlertCircle size={30} color={C.amber} style={{ marginBottom: 10 }} /><br />
           {metrica === "fallas"
-            ? "Aún no hay órdenes correctivas registradas para analizar."
-            : "Aún no hay costos registrados en las órdenes de trabajo. Ingresa los costos (MO y materiales) para ver el Pareto."}
+            ? "AÃºn no hay Ã³rdenes correctivas registradas para analizar."
+            : "AÃºn no hay costos registrados en las Ã³rdenes de trabajo. Ingresa los costos (MO y materiales) para ver el Pareto."}
         </Empty></Card>
       ) : (
         <>
           <Card style={{ marginBottom: 16 }}>
             <div style={{ ...archivo, fontWeight: 700, fontSize: 14, color: C.abyss, marginBottom: 10 }}>
-              Curva de Pareto · {metrica === "costo" ? "costo" : "fallas"} por {dim}
+              Curva de Pareto Â· {metrica === "costo" ? "costo" : "fallas"} por {dim}
             </div>
             <ResponsiveContainer width="100%" height={320}>
               <ComposedChart data={chartData} margin={{ top: 10, right: 16, bottom: 40, left: 0 }}>
@@ -177,9 +177,9 @@ export default function Pareto() {
 
           <Card style={{ marginTop: 16, background: C.mist }}>
             <div style={{ fontSize: 12.5, color: C.slate, lineHeight: 1.7 }}>
-              <strong style={{ color: C.ink }}>Cómo leerlo:</strong> el principio de Pareto dice que ~el 80% del problema viene de ~el 20% de las causas.
+              <strong style={{ color: C.ink }}>CÃ³mo leerlo:</strong> el principio de Pareto dice que ~el 80% del problema viene de ~el 20% de las causas.
               Las barras destacadas y la zona amarilla de la tabla son los <strong>pocos vitales</strong>: {dim === "equipo" ? "equipos" : "sistemas"} donde concentrar
-              el plan preventivo, el stock crítico y el presupuesto. La línea dorada muestra el % acumulado; donde cruza el 80% (línea roja) está el corte.
+              el plan preventivo, el stock crÃ­tico y el presupuesto. La lÃ­nea dorada muestra el % acumulado; donde cruza el 80% (lÃ­nea roja) estÃ¡ el corte.
             </div>
           </Card>
         </>

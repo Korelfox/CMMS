@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from "react";
+﻿import React, { useEffect, useState, useCallback } from "react";
 import { Calendar, Plus, Trash2, Check } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { fetchAll, insertRow, updateRow, deleteRow, logActivity } from "../lib/db";
@@ -8,7 +8,7 @@ import {
   Field, Empty, ErrorBanner, InlineSpinner,
 } from "../ui";
 
-const TIPOS = ["Proactiva", "Reactiva", "Inspección", "Predictiva"];
+const TIPOS = ["Proactiva", "Reactiva", "InspecciÃ³n", "Predictiva"];
 
 export default function Programacion() {
   const { profile } = useAuth();
@@ -33,24 +33,24 @@ export default function Programacion() {
         fetchAll("programacion", { order: { col: "created_at", asc: true } }),
       ]);
       setEmbarcaciones(embs); setItems(prog);
-    } catch (e) { setError("No se pudo cargar la programación. " + e.message); }
+    } catch (e) { setError("No se pudo cargar la programaciÃ³n. " + e.message); }
     finally { setLoading(false); }
   }, []);
   useEffect(() => { cargar(); }, [cargar]);
 
-  function embName(id) { return embarcaciones.find((e) => e.id === id)?.nombre || "—"; }
+  function embName(id) { return embarcaciones.find((e) => e.id === id)?.nombre || "â€”"; }
   function embColor(id) { return embarcaciones.find((e) => e.id === id)?.color || C.steel; }
 
   async function crear(dia) {
     const f = dia ? { ...form, dia } : form;
-    if (!f.embarcacion_id || !f.sistema.trim()) { setError("Indica embarcación y sistema."); return; }
+    if (!f.embarcacion_id || !f.sistema.trim()) { setError("Indica embarcaciÃ³n y sistema."); return; }
     try {
       const nuevo = await insertRow("programacion", profile.empresa_id, {
         embarcacion_id: f.embarcacion_id, ot_folio: f.ot_folio.trim(),
         sistema: f.sistema.trim(), tipo: f.tipo, hh: f.hh, dia: f.dia, done: false, created_by: profile.id,
       });
       setItems((p) => [...p, nuevo]);
-      logActivity(profile, "Programar tarea", `${f.dia} · ${nuevo.sistema} (${nuevo.hh}h)`);
+      logActivity(profile, "Programar tarea", `${f.dia} Â· ${nuevo.sistema} (${nuevo.hh}h)`);
       setForm(blank()); setShowForm(false);
     } catch (e) { setError("No se pudo programar: " + e.message); }
   }
@@ -59,31 +59,31 @@ export default function Programacion() {
     const previo = item.done;
     setItems((p) => p.map((x) => x.id === item.id ? { ...x, done: !previo } : x));
     try { await updateRow("programacion", item.id, { done: !previo });
-      logActivity(profile, !previo ? "Cerrar tarea" : "Reabrir tarea", `${item.dia} · ${item.sistema}`); }
+      logActivity(profile, !previo ? "Cerrar tarea" : "Reabrir tarea", `${item.dia} Â· ${item.sistema}`); }
     catch (e) { setItems((p) => p.map((x) => x.id === item.id ? { ...x, done: previo } : x)); setError("No se pudo actualizar: " + e.message); }
   }
 
   async function eliminar(id) {
-    if (!window.confirm("¿Eliminar esta tarea del programa?")) return;
+    if (!window.confirm("Â¿Eliminar esta tarea del programa?")) return;
     const respaldo = items;
     setItems((p) => p.filter((x) => x.id !== id));
     try { await deleteRow("programacion", id); }
     catch (e) { setItems(respaldo); setError("No se pudo eliminar: " + e.message); }
   }
 
-  // Cálculos agregados
+  // CÃ¡lculos agregados
   const totalHH = items.reduce((s, i) => s + (i.hh || 0), 0);
   const totalDone = items.filter((i) => i.done).length;
   const cumplimiento = items.length ? (totalDone / items.length) * 100 : 0;
   const hhPorDia = (d) => items.filter((i) => i.dia === d).reduce((s, i) => s + (i.hh || 0), 0);
   const itemsPorDia = (d) => items.filter((i) => i.dia === d);
 
-  if (loading) return <div><PageHead kicker="Plan Semanal" title="Programación Semanal" /><Card><InlineSpinner label="Cargando programa…" /></Card></div>;
+  if (loading) return <div><PageHead kicker="Plan Semanal" title="ProgramaciÃ³n Semanal" /><Card><InlineSpinner label="Cargando programaâ€¦" /></Card></div>;
 
   return (
     <div>
-      <PageHead kicker="Plan Semanal · Libbrecht / Pascual" title="Programación Semanal"
-        sub="Balance de carga semana a semana. Cada tarea con sus horas-hombre estimadas. Pulsa ✓ cuando esté cumplida."
+      <PageHead kicker="Plan Semanal Â· Libbrecht / Pascual" title="ProgramaciÃ³n Semanal"
+        sub="Balance de carga semana a semana. Cada tarea con sus horas-hombre estimadas. Pulsa âœ“ cuando estÃ© cumplida."
         action={puedeOperar && <button onClick={() => { setShowForm(!showForm); setError(null); }} style={primaryBtn}><Plus size={16} /> Nueva Tarea</button>} />
 
       <ErrorBanner onRetry={cargar}>{error}</ErrorBanner>
@@ -99,14 +99,14 @@ export default function Programacion() {
         <Card style={{ marginBottom: 16, background: C.mist }}>
           <div style={{ fontWeight: 700, fontSize: 15, color: C.abyss, marginBottom: 14 }}>Nueva Tarea Programada</div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(6,1fr)", gap: 12 }}>
-            <Field label="Día">
+            <Field label="DÃ­a">
               <select value={form.dia} onChange={(e) => setForm({ ...form, dia: e.target.value })} style={inputStyle()}>
                 {DIAS_SEMANA.map((d) => <option key={d} value={d}>{d}</option>)}
               </select>
             </Field>
-            <Field label="Embarcación">
+            <Field label="EmbarcaciÃ³n">
               <select value={form.embarcacion_id} onChange={(e) => setForm({ ...form, embarcacion_id: e.target.value })} style={inputStyle()}>
-                <option value="">— Selecciona —</option>
+                <option value="">â€” Selecciona â€”</option>
                 {embarcaciones.map((v) => <option key={v.id} value={v.id}>{v.nombre}</option>)}
               </select>
             </Field>
@@ -133,16 +133,16 @@ export default function Programacion() {
           const hhDia = hhPorDia(d);
           const doneDia = dayItems.filter((i) => i.done).length;
           return (
-            <div key={d} style={{ background: "#fff", border: `1px solid ${C.line}`, borderRadius: 10, overflow: "hidden", minHeight: 200, display: "flex", flexDirection: "column" }}>
+            <div key={d} style={{ background: C.surface, border: `1px solid ${C.line}`, borderRadius: 10, overflow: "hidden", minHeight: 200, display: "flex", flexDirection: "column" }}>
               <div style={{ padding: "10px 12px", background: C.mist, borderBottom: `1px solid ${C.line}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <div>
                   <div style={{ ...archivo, fontWeight: 700, color: C.abyss, fontSize: 14 }}>{d}</div>
-                  <div style={{ fontSize: 10.5, color: C.slate, fontFamily: "'IBM Plex Mono', monospace" }}>{num(hhDia, 1)}h · {doneDia}/{dayItems.length}</div>
+                  <div style={{ fontSize: 10.5, color: C.slate, fontFamily: "'IBM Plex Mono', monospace" }}>{num(hhDia, 1)}h Â· {doneDia}/{dayItems.length}</div>
                 </div>
                 {puedeOperar && (
                   <button onClick={() => { setForm({ ...blank(), dia: d }); setShowForm(true); }}
-                    title={`Añadir tarea en ${d}`}
-                    style={{ width: 24, height: 24, borderRadius: 6, border: `1px solid ${C.line}`, background: "#fff", color: C.slate, cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
+                    title={`AÃ±adir tarea en ${d}`}
+                    style={{ width: 24, height: 24, borderRadius: 6, border: `1px solid ${C.line}`, background: C.surface, color: C.slate, cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
                     <Plus size={13} />
                   </button>
                 )}
@@ -181,9 +181,9 @@ export default function Programacion() {
 
       <Card style={{ marginTop: 16, background: C.mist }}>
         <div style={{ fontSize: 12.5, color: C.slate, lineHeight: 1.7 }}>
-          <strong style={{ color: C.ink }}>Cómo usarlo:</strong> usa el botón <strong>+</strong> de cada día para agregar una tarea directamente a ese día.
-          Pulsa <strong>✓</strong> cuando esté ejecutada — el indicador de cumplimiento sube automáticamente.
-          Las HH por día te dicen si la carga está balanceada (objetivo: similar volumen lunes a viernes, menor el fin de semana).
+          <strong style={{ color: C.ink }}>CÃ³mo usarlo:</strong> usa el botÃ³n <strong>+</strong> de cada dÃ­a para agregar una tarea directamente a ese dÃ­a.
+          Pulsa <strong>âœ“</strong> cuando estÃ© ejecutada â€” el indicador de cumplimiento sube automÃ¡ticamente.
+          Las HH por dÃ­a te dicen si la carga estÃ¡ balanceada (objetivo: similar volumen lunes a viernes, menor el fin de semana).
         </div>
       </Card>
     </div>

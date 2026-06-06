@@ -1,5 +1,5 @@
 import React from "react";
-import { C, archivo, shadow } from "./theme";
+import { C, archivo, shadow, tint } from "./theme";
 
 // ============================================================
 //  Primitivas de interfaz reutilizables
@@ -7,7 +7,7 @@ import { C, archivo, shadow } from "./theme";
 
 export function Card({ children, style, ...rest }) {
   return (
-    <div {...rest} style={{ background: "#fff", border: `1px solid ${C.line}`, borderRadius: 14, padding: 20, boxShadow: shadow.sm, ...style }}>
+    <div {...rest} style={{ background: C.surface, border: `1px solid ${C.line}`, borderRadius: 14, padding: 20, boxShadow: shadow.sm, ...style }}>
       {children}
     </div>
   );
@@ -42,7 +42,7 @@ export function PageHead({ title, sub, kicker, action }) {
 
 export const inputStyle = (w) => ({
   width: w || "100%", padding: "10px 13px", border: `1px solid ${C.line}`, borderRadius: 8,
-  fontSize: 14, color: C.ink, background: "#fff", outline: "none",
+  fontSize: 14, color: C.ink, background: C.surface, outline: "none",
 });
 
 export const primaryBtn = {
@@ -52,7 +52,7 @@ export const primaryBtn = {
 };
 
 export const ghostBtn = {
-  padding: "9px 16px", borderRadius: 9, border: `1px solid ${C.line}`, background: "#fff",
+  padding: "9px 16px", borderRadius: 9, border: `1px solid ${C.line}`, background: C.surface,
   color: C.slate, fontSize: 13, fontWeight: 600, cursor: "pointer",
 };
 
@@ -84,13 +84,13 @@ export const thStyle = { textAlign: "left", padding: "13px 18px", fontSize: 11.5
 export const tdStyle = { padding: "13px 18px", fontSize: 13.5, borderBottom: `1px solid ${C.foam}`, color: C.ink };
 
 // Input "editable" (resaltado azul) para campos que escriben en la base
-export const bluInput = { ...inputStyle(), padding: "9px 11px", fontSize: 13.5, color: C.steel, fontWeight: 600, background: "#F2F8FD", borderColor: "#CFE3F2", fontFamily: "'IBM Plex Mono', monospace" };
+export const bluInput = { ...inputStyle(), padding: "9px 11px", fontSize: 13.5, color: C.steel, fontWeight: 600, background: tint(C.sky, 9), borderColor: tint(C.sky, 28), fontFamily: "'IBM Plex Mono', monospace" };
 
-export const exportBtn = { display: "inline-flex", alignItems: "center", gap: 6, padding: "9px 14px", borderRadius: 9, border: `1px solid ${C.line}`, background: "#fff", color: C.steel, fontSize: 12.5, fontWeight: 600, cursor: "pointer" };
+export const exportBtn = { display: "inline-flex", alignItems: "center", gap: 6, padding: "9px 14px", borderRadius: 9, border: `1px solid ${C.line}`, background: C.surface, color: C.steel, fontSize: 12.5, fontWeight: 600, cursor: "pointer" };
 
 export function FilterBtn({ active, onClick, children, color }) {
   return (
-    <button onClick={onClick} style={{ padding: "7px 14px", borderRadius: 8, border: `1px solid ${active ? (color || C.steel) : C.line}`, background: active ? (color || C.steel) : "#fff", color: active ? "#fff" : C.slate, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+    <button onClick={onClick} style={{ padding: "7px 14px", borderRadius: 8, border: `1px solid ${active ? (color || C.steel) : C.line}`, background: active ? (color || C.steel) : C.surface, color: active ? "#fff" : C.slate, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
       {children}
     </button>
   );
@@ -113,7 +113,7 @@ export function Empty({ children }) {
 // icon: componente lucide · tone: color del acento · trend: { dir:'up'|'down', value:'12%' }
 export function KPICard({ label, value, sub, icon: Icon, tone = C.steel, trend }) {
   return (
-    <div style={{ background: "#fff", border: `1px solid ${C.line}`, borderRadius: 14, padding: 16, boxShadow: shadow.sm, position: "relative", overflow: "hidden" }}>
+    <div style={{ background: C.surface, border: `1px solid ${C.line}`, borderRadius: 14, padding: 16, boxShadow: shadow.sm, position: "relative", overflow: "hidden" }}>
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
         <div style={{ minWidth: 0 }}>
           <div style={{ fontSize: 10.5, letterSpacing: 1.2, textTransform: "uppercase", color: C.slate, fontWeight: 700 }}>{label}</div>
@@ -121,7 +121,7 @@ export function KPICard({ label, value, sub, icon: Icon, tone = C.steel, trend }
           {sub && <div style={{ fontSize: 11.5, color: C.slate, marginTop: 5 }}>{sub}</div>}
         </div>
         {Icon && (
-          <div style={{ width: 38, height: 38, borderRadius: 10, background: `${tone}18`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+          <div style={{ width: 38, height: 38, borderRadius: 10, background: tint(tone, 10), display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
             <Icon size={19} color={tone} />
           </div>
         )}
@@ -181,7 +181,7 @@ export function DesignSystemStyles() {
       .cmms-clickable:hover {
         box-shadow: ${shadow.md};
         transform: translateY(-2px);
-        border-color: ${C.sky}66;
+        border-color: ${tint(C.sky, 45)};
       }
       .cmms-clickable:active { transform: translateY(0); }
 

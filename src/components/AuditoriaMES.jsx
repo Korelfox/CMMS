@@ -1,45 +1,45 @@
-import React, { useEffect, useState, useCallback } from "react";
+﻿import React, { useEffect, useState, useCallback } from "react";
 import { ClipboardCheck, Award } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { fetchAll, upsertRow, logActivity } from "../lib/db";
 import { C, archivo, isAdmin } from "../theme";
 import { Card, PageHead, Pill, Empty, ErrorBanner, InlineSpinner } from "../ui";
 
-// 25 preguntas en 5 pilares (metodología Mora Gutiérrez · Auditoría MES)
+// 25 preguntas en 5 pilares (metodologÃ­a Mora GutiÃ©rrez Â· AuditorÃ­a MES)
 const PILARES = [
-  { id: 1, nombre: "Política y Estrategia de Mantenimiento", color: "#1C5C9B", preguntas: [
-    "Existe una política de mantenimiento formal, alineada a los objetivos de la flota.",
-    "Los objetivos de disponibilidad y confiabilidad están definidos y medidos.",
-    "El presupuesto anual de mantenimiento está documentado y se controla.",
-    "Existe un plan estratégico de mantenimiento a 3–5 años.",
-    "La dirección revisa periódicamente los indicadores y toma decisiones con ellos.",
+  { id: 1, nombre: "PolÃ­tica y Estrategia de Mantenimiento", color: "#1C5C9B", preguntas: [
+    "Existe una polÃ­tica de mantenimiento formal, alineada a los objetivos de la flota.",
+    "Los objetivos de disponibilidad y confiabilidad estÃ¡n definidos y medidos.",
+    "El presupuesto anual de mantenimiento estÃ¡ documentado y se controla.",
+    "Existe un plan estratÃ©gico de mantenimiento a 3â€“5 aÃ±os.",
+    "La direcciÃ³n revisa periÃ³dicamente los indicadores y toma decisiones con ellos.",
   ]},
-  { id: 2, nombre: "Planificación y Programación", color: "#127C8A", preguntas: [
+  { id: 2, nombre: "PlanificaciÃ³n y ProgramaciÃ³n", color: "#127C8A", preguntas: [
     "Cada equipo tiene plan preventivo con intervalos definidos (horas, calendario).",
-    "Las OTs se planifican con anticipación, no se trabaja siempre reactivamente.",
+    "Las OTs se planifican con anticipaciÃ³n, no se trabaja siempre reactivamente.",
     "Existe un cronograma semanal/mensual de tareas balanceado por disponibilidad.",
-    "El backlog de trabajos pendientes está controlado bajo 4 semanas.",
+    "El backlog de trabajos pendientes estÃ¡ controlado bajo 4 semanas.",
     "La carga de trabajo del personal se mide y nivela.",
   ]},
-  { id: 3, nombre: "Ejecución y Recursos Humanos", color: "#1E9E6A", preguntas: [
-    "El personal de mantenimiento está calificado y certificado para su rol.",
-    "Existe un plan anual de capacitación con horas asignadas por persona.",
-    "Las OTs cerradas registran tiempo real, materiales y feedback técnico.",
+  { id: 3, nombre: "EjecuciÃ³n y Recursos Humanos", color: "#1E9E6A", preguntas: [
+    "El personal de mantenimiento estÃ¡ calificado y certificado para su rol.",
+    "Existe un plan anual de capacitaciÃ³n con horas asignadas por persona.",
+    "Las OTs cerradas registran tiempo real, materiales y feedback tÃ©cnico.",
     "Se dispone de herramientas y EPP adecuados para todas las tareas.",
     "El cumplimiento de las OTs programadas supera el 85%.",
   ]},
-  { id: 4, nombre: "Información y Tecnología (CMMS)", color: "#6C4FA3", preguntas: [
-    "Existe un CMMS en uso y toda la flota está cargada en él.",
-    "Los repuestos críticos están identificados y con stock mínimo definido.",
+  { id: 4, nombre: "InformaciÃ³n y TecnologÃ­a (CMMS)", color: "#6C4FA3", preguntas: [
+    "Existe un CMMS en uso y toda la flota estÃ¡ cargada en Ã©l.",
+    "Los repuestos crÃ­ticos estÃ¡n identificados y con stock mÃ­nimo definido.",
     "El historial de fallas se registra y se puede consultar por equipo.",
     "Los movimientos de inventario y compras quedan trazados.",
-    "Los KPIs (MTBF, MTTR, disponibilidad) se calculan automáticamente.",
+    "Los KPIs (MTBF, MTTR, disponibilidad) se calculan automÃ¡ticamente.",
   ]},
-  { id: 5, nombre: "Mejora Continua y Evaluación", color: "#E0A526", preguntas: [
-    "Se realizan análisis de causa raíz (RCA) en fallas mayores.",
-    "Existe un análisis FMECA o de criticidad documentado para los equipos clave.",
-    "Se identifican y eliminan progresivamente las fallas crónicas.",
-    "Existen auditorías internas o externas periódicas del mantenimiento.",
+  { id: 5, nombre: "Mejora Continua y EvaluaciÃ³n", color: "#E0A526", preguntas: [
+    "Se realizan anÃ¡lisis de causa raÃ­z (RCA) en fallas mayores.",
+    "Existe un anÃ¡lisis FMECA o de criticidad documentado para los equipos clave.",
+    "Se identifican y eliminan progresivamente las fallas crÃ³nicas.",
+    "Existen auditorÃ­as internas o externas periÃ³dicas del mantenimiento.",
     "Se establecen metas anuales de mejora con seguimiento mensual.",
   ]},
 ];
@@ -61,13 +61,13 @@ export default function AuditoriaMES() {
   const [respuestas, setRespuestas] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const puedeOperar = isAdmin(profile?.rol);  // auditoría de madurez: Jefe Mantención y superiores
+  const puedeOperar = isAdmin(profile?.rol);  // auditorÃ­a de madurez: Jefe MantenciÃ³n y superiores
 
   const cargar = useCallback(async () => {
     setLoading(true); setError(null);
     try {
       setRespuestas(await fetchAll("auditoria_mes"));
-    } catch (e) { setError("No se pudo cargar la auditoría. " + e.message); }
+    } catch (e) { setError("No se pudo cargar la auditorÃ­a. " + e.message); }
     finally { setLoading(false); }
   }, []);
   useEffect(() => { cargar(); }, [cargar]);
@@ -85,7 +85,7 @@ export default function AuditoriaMES() {
     });
     try {
       await upsertRow("auditoria_mes", profile.empresa_id, { pregunta: num, puntaje: v }, "empresa_id,pregunta");
-      logActivity(profile, "Auditoría MES", `P${num} = ${v}`);
+      logActivity(profile, "AuditorÃ­a MES", `P${num} = ${v}`);
     } catch (e) {
       setError("No se pudo guardar: " + e.message);
       cargar();
@@ -101,11 +101,11 @@ export default function AuditoriaMES() {
   const [madTone, madLabel] = MADUREZ(promGlobal);
   const pctGlobal = Math.round((promGlobal / 5) * 100);
 
-  if (loading) return <div><PageHead kicker="Auditoría · MES" title="Auditoría de Madurez" /><Card><InlineSpinner label="Cargando auditoría…" /></Card></div>;
+  if (loading) return <div><PageHead kicker="AuditorÃ­a Â· MES" title="AuditorÃ­a de Madurez" /><Card><InlineSpinner label="Cargando auditorÃ­aâ€¦" /></Card></div>;
 
   return (
     <div>
-      <PageHead kicker="Maintenance Excellence Survey · Mora Gutiérrez" title="Auditoría de Madurez"
+      <PageHead kicker="Maintenance Excellence Survey Â· Mora GutiÃ©rrez" title="AuditorÃ­a de Madurez"
         sub="25 preguntas en 5 pilares. Califica de 1 (no se cumple) a 5 (excelente). El sistema calcula tu nivel de madurez en mantenimiento." />
 
       <ErrorBanner onRetry={cargar}>{error}</ErrorBanner>
@@ -117,7 +117,7 @@ export default function AuditoriaMES() {
             <div style={{ fontSize: 11, letterSpacing: 1.5, textTransform: "uppercase", color: "rgba(255,255,255,.7)", fontWeight: 700 }}>Nivel de Madurez</div>
           </div>
           <div style={{ ...archivo, fontSize: 32, fontWeight: 800, color: C.gold, lineHeight: 1 }}>{madLabel}</div>
-          <div style={{ fontSize: 13, marginTop: 8, color: "rgba(255,255,255,.85)" }}>{promGlobal.toFixed(2)} / 5.00 &nbsp;·&nbsp; {pctGlobal}%</div>
+          <div style={{ fontSize: 13, marginTop: 8, color: "rgba(255,255,255,.85)" }}>{promGlobal.toFixed(2)} / 5.00 &nbsp;Â·&nbsp; {pctGlobal}%</div>
         </Card>
         {PILARES.slice(0, 3).map((p) => {
           const avg = promPilar(p.id);
@@ -186,17 +186,17 @@ export default function AuditoriaMES() {
       <Card style={{ background: C.mist }}>
         <div style={{ fontSize: 12.5, color: C.slate, lineHeight: 1.7 }}>
           <strong style={{ color: C.ink }}>Escala:</strong>{" "}
-          <strong>1</strong> = no se cumple ·{" "}
-          <strong>2</strong> = se cumple parcialmente ·{" "}
-          <strong>3</strong> = se cumple razonablemente ·{" "}
-          <strong>4</strong> = se cumple bien ·{" "}
+          <strong>1</strong> = no se cumple Â·{" "}
+          <strong>2</strong> = se cumple parcialmente Â·{" "}
+          <strong>3</strong> = se cumple razonablemente Â·{" "}
+          <strong>4</strong> = se cumple bien Â·{" "}
           <strong>5</strong> = se cumple a nivel de excelencia.
           <br /><strong style={{ color: C.ink }}>Niveles de madurez:</strong>{" "}
-          <Pill tone="red">Reactivo</Pill> &lt; 2.0 ·{" "}
-          <Pill tone="yellow">Planificado</Pill> 2.0–2.9 ·{" "}
-          <Pill tone="yellow">Gestionado</Pill> 3.0–3.4 ·{" "}
-          <Pill tone="green">Optimizado</Pill> 3.5–3.9 ·{" "}
-          <Pill tone="green">Clase Mundial</Pill> ≥ 4.0
+          <Pill tone="red">Reactivo</Pill> &lt; 2.0 Â·{" "}
+          <Pill tone="yellow">Planificado</Pill> 2.0â€“2.9 Â·{" "}
+          <Pill tone="yellow">Gestionado</Pill> 3.0â€“3.4 Â·{" "}
+          <Pill tone="green">Optimizado</Pill> 3.5â€“3.9 Â·{" "}
+          <Pill tone="green">Clase Mundial</Pill> â‰¥ 4.0
         </div>
       </Card>
     </div>

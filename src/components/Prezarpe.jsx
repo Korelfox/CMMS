@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+﻿import React, { useState, useEffect, useCallback } from "react";
 import {
   Ship, Anchor, Fuel, Droplet, Gauge, Check, X, AlertTriangle,
   ArrowLeft, Camera, ClipboardCheck, Waves, CloudOff, Clock, Trash2,
@@ -13,8 +13,8 @@ import { Card, PageHead, Pill, primaryBtn, ghostBtn, thStyle, tdStyle, InlineSpi
 import { FotoInput, FotoGaleria } from "./Fotos";
 
 const HOY = () => new Date().toISOString().slice(0, 10);
-// Ítems de seguridad estándar (lista fija para toda la flota)
-const SEGURIDAD_FIJA = ["Sistema de gobierno", "Bombas de achique", "Luces de navegación", "Equipo de seguridad"];
+// Ãtems de seguridad estÃ¡ndar (lista fija para toda la flota)
+const SEGURIDAD_FIJA = ["Sistema de gobierno", "Bombas de achique", "Luces de navegaciÃ³n", "Equipo de seguridad"];
 
 export default function Prezarpe() {
   const { profile } = useAuth();
@@ -32,9 +32,9 @@ export default function Prezarpe() {
   const [mareaRec,   setMareaRec]   = useState(null); // marea a cerrar en recalada
   const [mareaFalla, setMareaFalla] = useState(null); // marea retorno por falla
   const [prezarpeSel, setPrezarpeSel] = useState(null);  // informe abierto
-  const [confirmar, setConfirmar] = useState(null);      // modal de eliminación con motivo
+  const [confirmar, setConfirmar] = useState(null);      // modal de eliminaciÃ³n con motivo
   const puedeOperar = canOperate(profile?.rol);
-  const puedeBorrar = isAdmin(profile?.rol);   // eliminar prezarpe/marea: solo administración
+  const puedeBorrar = isAdmin(profile?.rol);   // eliminar prezarpe/marea: solo administraciÃ³n
 
   const cargar = useCallback(async () => {
     setLoading(true); setError(null);
@@ -51,7 +51,7 @@ export default function Prezarpe() {
     } catch (e) {
       const [embs, eqs, ms, pzs, docs] = await Promise.all([getCached("embarcaciones"), getCached("equipos"), getCached("mareas"), getCached("prezarpes"), getCached("documentos")]);
       setEmbarcaciones(embs); setEquipos(eqs); setMareas(ms); setPrezarpes(pzs); setDocumentos(docs); setUsandoCache(true);
-      if (!embs.length) setError("No se pudo cargar y no hay copia local. Conéctate al menos una vez.");
+      if (!embs.length) setError("No se pudo cargar y no hay copia local. ConÃ©ctate al menos una vez.");
     } finally { setLoading(false); }
   }, []);
   useEffect(() => { cargar(); }, [cargar]);
@@ -61,7 +61,7 @@ export default function Prezarpe() {
     return () => window.removeEventListener("cmms-synced", f);
   }, [cargar]);
 
-  const embName = (id) => embarcaciones.find((e) => e.id === id)?.nombre || "—";
+  const embName = (id) => embarcaciones.find((e) => e.id === id)?.nombre || "â€”";
   const eqNom = (id) => { const e = equipos.find((x) => x.id === id); return e?.sistema || e?.id_visible || "Equipo"; };
   const mareaAbierta = (embId) => mareas.find((m) => m.embarcacion_id === embId && m.estado === "navegando");
   // Documentos vencidos de una nave (aviso de cumplimiento al zarpar)
@@ -70,7 +70,7 @@ export default function Prezarpe() {
     return documentos.filter((d) => d.embarcacion_id === embId && d.vencimiento && new Date(d.vencimiento + "T00:00:00") < hoy);
   };
 
-  // Arma la descripción de no conformidades a partir del checklist.
+  // Arma la descripciÃ³n de no conformidades a partir del checklist.
   function observacionesDe(payload) {
     const obs = [];
     Object.entries(payload.visual || {}).forEach(([k, v]) => { if (v === "falla") obs.push(`${k}: falla`); });
@@ -82,7 +82,7 @@ export default function Prezarpe() {
   }
 
   function abrirRecalada(m) {
-    if (!online) { setError("Registrar la recalada requiere conexión."); return; }
+    if (!online) { setError("Registrar la recalada requiere conexiÃ³n."); return; }
     setMareaRec(m); setVista("recalada");
   }
 
@@ -100,7 +100,7 @@ export default function Prezarpe() {
   }
 
   async function guardarRetornoFalla(marea, datos) {
-    if (!online) { setError("Registrar retorno por falla requiere conexión."); return; }
+    if (!online) { setError("Registrar retorno por falla requiere conexiÃ³n."); return; }
     try {
       // 1) Cerrar la marea como retorno por falla
       await updateRow("mareas", marea.id, {
@@ -109,13 +109,13 @@ export default function Prezarpe() {
         falla_equipo_id: datos.equipo_id || null,
         falla_severidad: datos.severidad, falla_riesgo_trip: datos.riesgoTrip,
       });
-      // 2) OT urgente para el jefe de mantención
+      // 2) OT urgente para el jefe de mantenciÃ³n
       const detalle = [
-        `🚨 RETORNO POR FALLA · ${embName(marea.embarcacion_id)}`,
+        `ðŸš¨ RETORNO POR FALLA Â· ${embName(marea.embarcacion_id)}`,
         `Sistema/Equipo: ${datos.sistemaLabel}`,
         `Severidad: ${datos.severidad.toUpperCase()}`,
-        datos.riesgoTrip ? "⚠️ RIESGO PARA LA TRIPULACIÓN" : null,
-        `Descripción: ${datos.descripcion}`,
+        datos.riesgoTrip ? "âš ï¸ RIESGO PARA LA TRIPULACIÃ“N" : null,
+        `DescripciÃ³n: ${datos.descripcion}`,
       ].filter(Boolean).join("\n");
       await insertRow("ordenes_trabajo", profile.empresa_id, {
         folio: `OT-RF-${Date.now().toString().slice(-6)}`,
@@ -123,22 +123,22 @@ export default function Prezarpe() {
         sistema: datos.sistemaLabel, tipo: "correctivo", prioridad: "critica",
         descripcion: detalle, fecha: HOY(), estado: "solicitada", created_by: profile.id,
       });
-      // 3) Solicitud visible para el Jefe de Mantención
+      // 3) Solicitud visible para el Jefe de MantenciÃ³n
       await insertRow("solicitudes", profile.empresa_id, {
         folio: `SOL-RF-${Date.now().toString().slice(-6)}`,
         solicitante: profile.nombre || "", embarcacion_id: marea.embarcacion_id,
         sistema: datos.sistemaLabel,
-        descripcion: `RETORNO POR FALLA [${datos.severidad.toUpperCase()}] · ${embName(marea.embarcacion_id)} · ${datos.descripcion}`,
+        descripcion: `RETORNO POR FALLA [${datos.severidad.toUpperCase()}] Â· ${embName(marea.embarcacion_id)} Â· ${datos.descripcion}`,
         prioridad: "alta", fecha: HOY(), estado: "pendiente", created_by: profile.id,
       });
-      logActivity(profile, "Retorno por falla", `${embName(marea.embarcacion_id)} · ${datos.sistemaLabel} · ${datos.severidad}`);
+      logActivity(profile, "Retorno por falla", `${embName(marea.embarcacion_id)} Â· ${datos.sistemaLabel} Â· ${datos.severidad}`);
       setVista("flota"); setMareaFalla(null); setError(null);
       await cargar();
     } catch (e) { setError("No se pudo registrar el retorno por falla: " + e.message); }
   }
 
   // Guarda el prezarpe: abre la marea + registra el checklist. El trigger de
-  // la base aplica los horómetros a los equipos (también al sincronizar offline).
+  // la base aplica los horÃ³metros a los equipos (tambiÃ©n al sincronizar offline).
   async function guardarPrezarpe(payload, fotos = []) {
     const mareaId = nuevoId();
     const prezId = nuevoId();
@@ -147,7 +147,7 @@ export default function Prezarpe() {
       comb_ini: payload.combustible_l, agua_ini: payload.agua_l, aceite_ini: payload.aceite_l, horometros_ini: payload.horometros };
     const prez = { id: prezId, empresa_id: profile.empresa_id, embarcacion_id: nave.id, marea_id: mareaId, fecha: HOY(), responsable: profile.nombre || "", ...payload, created_by: profile.id };
 
-    // Si el prezarpe NO es apto, se genera una solicitud para el Jefe de Mantención.
+    // Si el prezarpe NO es apto, se genera una solicitud para el Jefe de MantenciÃ³n.
     let sol = null;
     if (!payload.apto) {
       const obs = observacionesDe(payload);
@@ -166,7 +166,7 @@ export default function Prezarpe() {
         const { empresa_id: _b, ...pRest } = prez; await insertRow("prezarpes", profile.empresa_id, pRest);
         if (sol) { const { empresa_id: _c, ...sRest } = sol; await insertRow("solicitudes", profile.empresa_id, sRest); }
         if (fotos.length) await subirFotos(fotos, { empresaId: profile.empresa_id, entidad: "prezarpe", entidadId: prezId, profileId: profile.id });
-        logActivity(profile, "Prezarpe", `${nave.nombre} · ${payload.apto ? "APTO" : "NO APTO" + (sol ? " · solicitud generada" : "")}`);
+        logActivity(profile, "Prezarpe", `${nave.nombre} Â· ${payload.apto ? "APTO" : "NO APTO" + (sol ? " Â· solicitud generada" : "")}`);
         await cargar();
       } else {
         await queueInsert("mareas", marea, `Zarpe ${nave.nombre}`);
@@ -178,7 +178,7 @@ export default function Prezarpe() {
     } catch (e) { setError("No se pudo guardar el prezarpe: " + e.message); }
   }
 
-  // Abre el modal de eliminación (pide motivo). Solo administración.
+  // Abre el modal de eliminaciÃ³n (pide motivo). Solo administraciÃ³n.
   function pedirEliminarPrezarpe(p) {
     setConfirmar({ prezId: p.id, mareaId: p.marea_id, nombre: embName(p.embarcacion_id), fecha: p.fecha });
   }
@@ -187,34 +187,34 @@ export default function Prezarpe() {
     setConfirmar({ prezId: prez?.id || null, mareaId: m.id, nombre: embName(m.embarcacion_id), fecha: prez?.fecha });
   }
 
-  // Ejecuta la eliminación con el motivo elegido: borra fotos + prezarpe +
-  // marea, y registra el motivo en la bitácora. Las horas ya aplicadas al
-  // equipo no se revierten (corregir en Equipos si fue error de horómetro).
+  // Ejecuta la eliminaciÃ³n con el motivo elegido: borra fotos + prezarpe +
+  // marea, y registra el motivo en la bitÃ¡cora. Las horas ya aplicadas al
+  // equipo no se revierten (corregir en Equipos si fue error de horÃ³metro).
   async function ejecutarEliminacion(motivo) {
     const t = confirmar; setConfirmar(null);
     if (!t) return;
-    if (!online) { setError("Eliminar requiere conexión."); return; }
+    if (!online) { setError("Eliminar requiere conexiÃ³n."); return; }
     try {
       if (t.prezId) {
         try { const fs = await listarFotos("prezarpe", t.prezId); for (const f of fs) await borrarFoto(f); } catch { /* sin fotos */ }
         await deleteRow("prezarpes", t.prezId);
       }
       if (t.mareaId) await deleteRow("mareas", t.mareaId);
-      logActivity(profile, "Eliminar zarpe", `${t.nombre}${t.fecha ? " · " + t.fecha : ""} · Motivo: ${motivo}`);
+      logActivity(profile, "Eliminar zarpe", `${t.nombre}${t.fecha ? " Â· " + t.fecha : ""} Â· Motivo: ${motivo}`);
       setVista("flota"); setPrezarpeSel(null); setError(null);
       await cargar();
     } catch (e) { setError("No se pudo eliminar: " + e.message); }
   }
 
-  if (loading) return <div><PageHead kicker="Flota · Operación" title="Prezarpe & Mareas" /><Card><InlineSpinner label="Cargando flota…" /></Card></div>;
+  if (loading) return <div><PageHead kicker="Flota Â· OperaciÃ³n" title="Prezarpe & Mareas" /><Card><InlineSpinner label="Cargando flotaâ€¦" /></Card></div>;
 
   return (
     <div>
-      <PageHead kicker="Flota · Operación" title="Prezarpe & Mareas"
-        sub="Antes de cada zarpe, inspecciona la embarcación y registra niveles, abastecimiento y horómetros. La lectura de horómetros actualiza el Plan Preventivo."
+      <PageHead kicker="Flota Â· OperaciÃ³n" title="Prezarpe & Mareas"
+        sub="Antes de cada zarpe, inspecciona la embarcaciÃ³n y registra niveles, abastecimiento y horÃ³metros. La lectura de horÃ³metros actualiza el Plan Preventivo."
         action={(vista === "flota" || vista === "historial") && (
           <div style={{ display: "flex", gap: 8 }} className="no-print">
-            <button onClick={() => setVista("flota")} style={vista === "flota" ? primaryBtn : ghostBtn}>Operación</button>
+            <button onClick={() => setVista("flota")} style={vista === "flota" ? primaryBtn : ghostBtn}>OperaciÃ³n</button>
             <button onClick={() => setVista("historial")} style={vista === "historial" ? primaryBtn : ghostBtn}>Historial</button>
           </div>
         )} />
@@ -224,7 +224,7 @@ export default function Prezarpe() {
       {(!online || usandoCache) && (
         <div style={{ display: "flex", alignItems: "center", gap: 10, background: C.yellowBg, border: `1px solid ${C.amber}`, color: "#7a5b00", padding: "10px 14px", borderRadius: 10, marginBottom: 14, fontSize: 13 }}>
           <CloudOff size={17} />
-          <span>{online ? "Mostrando la última copia guardada en este dispositivo." : "Sin conexión: puedes registrar el prezarpe igual; se sube solo al recuperar señal. La recalada requiere conexión."}</span>
+          <span>{online ? "Mostrando la Ãºltima copia guardada en este dispositivo." : "Sin conexiÃ³n: puedes registrar el prezarpe igual; se sube solo al recuperar seÃ±al. La recalada requiere conexiÃ³n."}</span>
         </div>
       )}
 
@@ -266,7 +266,7 @@ export default function Prezarpe() {
 // ---------- Pantalla 1: flota ----------
 function VistaFlota({ embarcaciones, mareaAbierta, docsVencidos, puedeOperar, puedeBorrar, onIniciar, onRecalada, onEliminarZarpe, onRetornoFalla }) {
   if (embarcaciones.length === 0) {
-    return <Card><Empty><Ship size={30} color={C.amber} style={{ marginBottom: 10 }} /><br />Registra al menos una embarcación para usar el prezarpe.</Empty></Card>;
+    return <Card><Empty><Ship size={30} color={C.amber} style={{ marginBottom: 10 }} /><br />Registra al menos una embarcaciÃ³n para usar el prezarpe.</Empty></Card>;
   }
   return (
     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 14 }}>
@@ -288,14 +288,14 @@ function VistaFlota({ embarcaciones, mareaAbierta, docsVencidos, puedeOperar, pu
             </div>
             {vencidos.length > 0 && (
               <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 18px", background: C.redBg, color: C.red, fontSize: 12, fontWeight: 600, borderBottom: `1px solid ${C.line}` }}>
-                <AlertTriangle size={15} /> {vencidos.length} documento{vencidos.length !== 1 ? "s" : ""} vencido{vencidos.length !== 1 ? "s" : ""} — revisar Cumplimiento antes de zarpar
+                <AlertTriangle size={15} /> {vencidos.length} documento{vencidos.length !== 1 ? "s" : ""} vencido{vencidos.length !== 1 ? "s" : ""} â€” revisar Cumplimiento antes de zarpar
               </div>
             )}
             <div style={{ padding: "14px 18px" }}>
               {navegando ? (
                 <div>
                   <div style={{ fontSize: 12.5, color: C.slate, marginBottom: 10 }}>
-                    Zarpó {new Date(marea.zarpe_at).toLocaleString("es-CL", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
+                    ZarpÃ³ {new Date(marea.zarpe_at).toLocaleString("es-CL", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
                     {marea._pending && <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 700, color: "#7a5b00", background: C.amber, padding: "1px 6px", borderRadius: 20 }}><Clock size={9} /> Pendiente</span>}
                   </div>
                   {puedeOperar && (
@@ -345,10 +345,10 @@ function VistaChecklist({ nave, equipos, online, onVolver, onGuardar }) {
     if (horomInvalido) return;
     const ok = apto
       ? window.confirm(`Declarar ${nave.nombre} APTA para zarpar?`)
-      : window.confirm(`Marcar ${nave.nombre} como NO APTA? Se registrará el prezarpe con las observaciones.`);
+      : window.confirm(`Marcar ${nave.nombre} como NO APTA? Se registrarÃ¡ el prezarpe con las observaciones.`);
     if (!ok) return;
     setGuardando(true);
-    // Solo horómetros con lectura ingresada
+    // Solo horÃ³metros con lectura ingresada
     const horometros = {};
     nivelEquipos.forEach((e) => { if (horom[e.id] !== undefined && horom[e.id] !== "") horometros[e.id] = Number(horom[e.id]); });
     await onGuardar({
@@ -364,13 +364,13 @@ function VistaChecklist({ nave, equipos, online, onVolver, onGuardar }) {
     <div>
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
         <button onClick={onVolver} style={{ ...ghostBtn, padding: "7px 12px" }}><ArrowLeft size={15} /> Flota</button>
-        <div style={{ ...archivo, fontSize: 18, fontWeight: 800, color: C.abyss }}>Prezarpe · {nave?.nombre}</div>
+        <div style={{ ...archivo, fontSize: 18, fontWeight: 800, color: C.abyss }}>Prezarpe Â· {nave?.nombre}</div>
       </div>
 
-      <Bloque titulo="A · Inspección visual" icon={Ship} extra={<span style={{ fontSize: 11.5, color: C.slate }}>{hechosVisual}/{visualItems.length}</span>}>
+      <Bloque titulo="A Â· InspecciÃ³n visual" icon={Ship} extra={<span style={{ fontSize: 11.5, color: C.slate }}>{hechosVisual}/{visualItems.length}</span>}>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px,1fr))", gap: 10 }}>
           {visualItems.map(({ item, origen }) => (
-            <div key={item} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "10px 12px", border: `1px solid ${C.line}`, borderRadius: 10, background: "#fff" }}>
+            <div key={item} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "10px 12px", border: `1px solid ${C.line}`, borderRadius: 10, background: C.surface }}>
               <span style={{ fontSize: 13, fontWeight: 600, color: C.ink, display: "inline-flex", alignItems: "center", gap: 6 }}>
                 {item}
                 {origen === "equipo" && <span style={{ fontSize: 9, fontWeight: 700, color: C.steel, background: "#E4EFF8", padding: "1px 6px", borderRadius: 20 }}>EQUIPO</span>}
@@ -385,13 +385,13 @@ function VistaChecklist({ nave, equipos, online, onVolver, onGuardar }) {
       </Bloque>
 
       {nivelEquipos.length > 0 && (
-        <Bloque titulo="B · Niveles de operación" icon={Droplet}>
+        <Bloque titulo="B Â· Niveles de operaciÃ³n" icon={Droplet}>
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             {nivelEquipos.map((eq) => (
-              <div key={eq.id} style={{ padding: "12px 14px", border: `1px solid ${C.line}`, borderRadius: 10, background: "#fff", marginLeft: (eq.depth || 0) * 16 }}>
+              <div key={eq.id} style={{ padding: "12px 14px", border: `1px solid ${C.line}`, borderRadius: 10, background: C.surface, marginLeft: (eq.depth || 0) * 16 }}>
                 <div style={{ fontSize: 13, fontWeight: 700, color: C.abyss, marginBottom: 8 }}>
-                  {(eq.depth || 0) > 0 && <span style={{ color: C.slate, fontSize: 12, marginRight: 5 }}>└─</span>}
-                  {eq.sistema || eq.id_visible} <span style={{ fontSize: 10.5, fontWeight: 600, color: C.slate }}>· {eq.nivel_tipo === "aceite_agua" ? "aceite + agua chaqueta" : "solo aceite"}</span>
+                  {(eq.depth || 0) > 0 && <span style={{ color: C.slate, fontSize: 12, marginRight: 5 }}>â””â”€</span>}
+                  {eq.sistema || eq.id_visible} <span style={{ fontSize: 10.5, fontWeight: 600, color: C.slate }}>Â· {eq.nivel_tipo === "aceite_agua" ? "aceite + agua chaqueta" : "solo aceite"}</span>
                 </div>
                 <div style={{ display: "flex", gap: 18, flexWrap: "wrap" }}>
                   <NivelItem label="Aceite" estado={niveles[eq.id]?.aceite} onSet={(v) => setNiv(eq.id, "aceite", v)} />
@@ -403,7 +403,7 @@ function VistaChecklist({ nave, equipos, online, onVolver, onGuardar }) {
         </Bloque>
       )}
 
-      <Bloque titulo="C · Abastecimiento a bordo" icon={Fuel}>
+      <Bloque titulo="C Â· Abastecimiento a bordo" icon={Fuel}>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px,1fr))", gap: 12 }}>
           <Stepper label="Combustible" unidad="L" icon={Fuel} value={litros.combustible} onChange={(v) => setLitros((p) => ({ ...p, combustible: v }))} step={50} />
           <Stepper label="Agua dulce" unidad="L" icon={Waves} value={litros.agua} onChange={(v) => setLitros((p) => ({ ...p, agua: v }))} step={20} />
@@ -412,20 +412,20 @@ function VistaChecklist({ nave, equipos, online, onVolver, onGuardar }) {
       </Bloque>
 
       {nivelEquipos.length > 0 && (
-        <Bloque titulo="D · Lectura de horómetros" icon={Gauge}>
+        <Bloque titulo="D Â· Lectura de horÃ³metros" icon={Gauge}>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px,1fr))", gap: 12 }}>
             {nivelEquipos.map((eq) => {
               const val = horom[eq.id];
               const ant = eq.horas_actual || 0;
               const invalida = val !== undefined && val !== "" && Number(val) < ant;
               return (
-                <div key={eq.id} style={{ padding: "12px 14px", border: `1px solid ${invalida ? C.red : C.line}`, borderRadius: 10, background: "#fff" }}>
+                <div key={eq.id} style={{ padding: "12px 14px", border: `1px solid ${invalida ? C.red : C.line}`, borderRadius: 10, background: C.surface }}>
                   <div style={{ fontSize: 12.5, fontWeight: 700, color: C.abyss }}>{eq.sistema || eq.id_visible}</div>
                   <div style={{ fontSize: 11, color: C.slate, marginBottom: 6, fontFamily: "'IBM Plex Mono', monospace" }}>Anterior: {ant} h</div>
-                  <input type="number" placeholder={`≥ ${ant}`} value={val ?? ""}
+                  <input type="number" placeholder={`â‰¥ ${ant}`} value={val ?? ""}
                     onChange={(e) => setHorom((p) => ({ ...p, [eq.id]: e.target.value }))}
                     style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: `1px solid ${invalida ? C.red : "#CFE3F2"}`, fontFamily: "'IBM Plex Mono', monospace", fontSize: 14, fontWeight: 600, color: C.steel, background: "#F2F8FD" }} />
-                  {invalida && <div style={{ fontSize: 10.5, color: C.red, fontWeight: 600, marginTop: 4 }}>Debe ser ≥ {ant} h</div>}
+                  {invalida && <div style={{ fontSize: 10.5, color: C.red, fontWeight: 600, marginTop: 4 }}>Debe ser â‰¥ {ant} h</div>}
                 </div>
               );
             })}
@@ -435,21 +435,21 @@ function VistaChecklist({ nave, equipos, online, onVolver, onGuardar }) {
 
       <Bloque titulo="Evidencia (opcional)" icon={Camera}>
         <FotoInput files={fotos} onChange={setFotos} max={5} disabled={!online} />
-        {!online && <div style={{ fontSize: 11, color: "#7a5b00", marginTop: 6 }}>Sin conexión: el prezarpe se guarda igual; las fotos se podrán agregar con señal.</div>}
+        {!online && <div style={{ fontSize: 11, color: "#7a5b00", marginTop: 6 }}>Sin conexiÃ³n: el prezarpe se guarda igual; las fotos se podrÃ¡n agregar con seÃ±al.</div>}
       </Bloque>
 
       <Card style={{ marginTop: 16, borderTop: `4px solid ${sugerencia === "apto" ? C.green : C.amber}` }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
           {sugerencia === "apto" ? <Check size={20} color={C.green} /> : <AlertTriangle size={20} color={C.amber} />}
           <span style={{ fontSize: 13.5, color: C.slate }}>
-            {sugerencia === "apto" ? "Sin observaciones detectadas. Puedes declarar la embarcación apta." : "Hay ítems en falla o niveles bajos. Revisa antes de declarar el veredicto."}
+            {sugerencia === "apto" ? "Sin observaciones detectadas. Puedes declarar la embarcaciÃ³n apta." : "Hay Ã­tems en falla o niveles bajos. Revisa antes de declarar el veredicto."}
           </span>
         </div>
-        {horomInvalido && <div style={{ fontSize: 12.5, color: C.red, fontWeight: 600, marginBottom: 10 }}>Corrige las lecturas de horómetro (deben ser ≥ a la anterior) para poder guardar.</div>}
+        {horomInvalido && <div style={{ fontSize: 12.5, color: C.red, fontWeight: 600, marginBottom: 10 }}>Corrige las lecturas de horÃ³metro (deben ser â‰¥ a la anterior) para poder guardar.</div>}
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
           <button onClick={() => guardar(true)} disabled={guardando || horomInvalido}
             style={{ flex: 1, minWidth: 160, justifyContent: "center", display: "inline-flex", alignItems: "center", gap: 8, padding: "14px", borderRadius: 10, border: "none", cursor: guardando || horomInvalido ? "default" : "pointer", fontSize: 15, fontWeight: 800, fontFamily: "inherit", background: C.green, color: "#fff", opacity: horomInvalido ? 0.5 : 1 }}>
-            <Check size={18} /> {guardando ? "Guardando…" : "APTO PARA ZARPAR"}
+            <Check size={18} /> {guardando ? "Guardandoâ€¦" : "APTO PARA ZARPAR"}
           </button>
           <button onClick={() => guardar(false)} disabled={guardando || horomInvalido}
             style={{ flex: 1, minWidth: 160, justifyContent: "center", display: "inline-flex", alignItems: "center", gap: 8, padding: "14px", borderRadius: 10, border: `1.5px solid ${C.red}`, cursor: guardando || horomInvalido ? "default" : "pointer", fontSize: 15, fontWeight: 800, fontFamily: "inherit", background: C.redBg, color: C.red, opacity: horomInvalido ? 0.5 : 1 }}>
@@ -475,7 +475,7 @@ function VistaRecalada({ marea, nave, equipos, onVolver, onGuardar }) {
 
   async function guardar() {
     if (horomInvalido) return;
-    if (!window.confirm(`¿Registrar recalada de ${nave?.nombre} y cerrar la marea?`)) return;
+    if (!window.confirm(`Â¿Registrar recalada de ${nave?.nombre} y cerrar la marea?`)) return;
     setGuardando(true);
     const horometros_fin = {};
     equipos.forEach((e) => { if (horom[e.id] !== undefined && horom[e.id] !== "") horometros_fin[e.id] = Number(horom[e.id]); });
@@ -487,11 +487,11 @@ function VistaRecalada({ marea, nave, equipos, onVolver, onGuardar }) {
     <div>
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
         <button onClick={onVolver} style={{ ...ghostBtn, padding: "7px 12px" }}><ArrowLeft size={15} /> Flota</button>
-        <div style={{ ...archivo, fontSize: 18, fontWeight: 800, color: C.abyss }}>Recalada · {nave?.nombre}</div>
+        <div style={{ ...archivo, fontSize: 18, fontWeight: 800, color: C.abyss }}>Recalada Â· {nave?.nombre}</div>
       </div>
 
       <div style={{ display: "flex", alignItems: "center", gap: 10, background: "#EAF4FF", border: `1px solid ${C.cyan}`, color: C.steel, padding: "10px 14px", borderRadius: 10, marginBottom: 14, fontSize: 12.5 }}>
-        <Anchor size={16} /> <span>Ingresa lo que <strong>quedó</strong> a bordo y la lectura final de horómetros. El sistema calculará el consumo de la marea.</span>
+        <Anchor size={16} /> <span>Ingresa lo que <strong>quedÃ³</strong> a bordo y la lectura final de horÃ³metros. El sistema calcularÃ¡ el consumo de la marea.</span>
       </div>
 
       <Bloque titulo="Stock final a bordo" icon={Fuel}>
@@ -503,20 +503,20 @@ function VistaRecalada({ marea, nave, equipos, onVolver, onGuardar }) {
       </Bloque>
 
       {equipos.length > 0 && (
-        <Bloque titulo="Horómetros finales" icon={Gauge}>
+        <Bloque titulo="HorÃ³metros finales" icon={Gauge}>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px,1fr))", gap: 12 }}>
             {equipos.map((eq) => {
               const ant = Number(iniH[eq.id] ?? eq.horas_actual ?? 0);
               const val = horom[eq.id];
               const invalida = val !== undefined && val !== "" && Number(val) < ant;
               return (
-                <div key={eq.id} style={{ padding: "12px 14px", border: `1px solid ${invalida ? C.red : C.line}`, borderRadius: 10, background: "#fff" }}>
+                <div key={eq.id} style={{ padding: "12px 14px", border: `1px solid ${invalida ? C.red : C.line}`, borderRadius: 10, background: C.surface }}>
                   <div style={{ fontSize: 12.5, fontWeight: 700, color: C.abyss }}>{eq.sistema || eq.id_visible}</div>
                   <div style={{ fontSize: 11, color: C.slate, marginBottom: 6, fontFamily: "'IBM Plex Mono', monospace" }}>Al zarpar: {ant} h</div>
-                  <input type="number" placeholder={`≥ ${ant}`} value={val ?? ""}
+                  <input type="number" placeholder={`â‰¥ ${ant}`} value={val ?? ""}
                     onChange={(e) => setHorom((p) => ({ ...p, [eq.id]: e.target.value }))}
                     style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: `1px solid ${invalida ? C.red : "#CFE3F2"}`, fontFamily: "'IBM Plex Mono', monospace", fontSize: 14, fontWeight: 600, color: C.steel, background: "#F2F8FD" }} />
-                  {invalida && <div style={{ fontSize: 10.5, color: C.red, fontWeight: 600, marginTop: 4 }}>Debe ser ≥ {ant} h</div>}
+                  {invalida && <div style={{ fontSize: 10.5, color: C.red, fontWeight: 600, marginTop: 4 }}>Debe ser â‰¥ {ant} h</div>}
                 </div>
               );
             })}
@@ -526,7 +526,7 @@ function VistaRecalada({ marea, nave, equipos, onVolver, onGuardar }) {
 
       <button onClick={guardar} disabled={guardando || horomInvalido}
         style={{ ...primaryBtn, width: "100%", justifyContent: "center", padding: "14px", fontSize: 15, opacity: horomInvalido ? 0.5 : 1, cursor: guardando || horomInvalido ? "default" : "pointer" }}>
-        <Anchor size={18} /> {guardando ? "Guardando…" : "Registrar recalada y cerrar marea"}
+        <Anchor size={18} /> {guardando ? "Guardandoâ€¦" : "Registrar recalada y cerrar marea"}
       </button>
     </div>
   );
@@ -553,14 +553,14 @@ function VistaRetornoFalla({ marea, nave, equipos, onVolver, onGuardar }) {
   if (!nave) return (
     <div>
       <button onClick={onVolver} style={{ ...ghostBtn, padding: "7px 12px", marginBottom: 14 }}><ArrowLeft size={15} /> Volver</button>
-      <Card><Empty><AlertTriangle size={28} color={C.amber} /><br />No se encontró la embarcación de esta marea.</Empty></Card>
+      <Card><Empty><AlertTriangle size={28} color={C.amber} /><br />No se encontrÃ³ la embarcaciÃ³n de esta marea.</Empty></Card>
     </div>
   );
 
   function sistemaLabel() {
     if (!form.equipo_id) return "Sin especificar";
     const eq = equipos.find((e) => e.id === form.equipo_id);
-    if (!eq) return "—";
+    if (!eq) return "â€”";
     const padre = eq.parent_id ? equipos.find((p) => p.id === eq.parent_id) : null;
     return padre ? `${padre.sistema} > ${eq.sistema}` : eq.sistema;
   }
@@ -589,7 +589,7 @@ function VistaRetornoFalla({ marea, nave, equipos, onVolver, onGuardar }) {
             <div style={{ fontSize: 10.5, letterSpacing: 2, textTransform: "uppercase", color: C.red, fontWeight: 700 }}>Retorno por falla</div>
             <div style={{ ...archivo, fontSize: 22, fontWeight: 800, color: C.abyss, marginTop: 2 }}>{nave.nombre}</div>
             <div style={{ fontSize: 12.5, color: C.slate, marginTop: 2 }}>
-              Marea {marea.folio || "—"} · Zarpó {new Date(marea.zarpe_at).toLocaleString("es-CL", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
+              Marea {marea.folio || "â€”"} Â· ZarpÃ³ {new Date(marea.zarpe_at).toLocaleString("es-CL", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
             </div>
           </div>
         </div>
@@ -604,10 +604,10 @@ function VistaRetornoFalla({ marea, nave, equipos, onVolver, onGuardar }) {
           <Field label="Sistema o equipo afectado">
             <select value={form.equipo_id} onChange={(e) => setForm((p) => ({ ...p, equipo_id: e.target.value }))}
               style={{ ...inputStyle(), borderColor: C.red }}>
-              <option value="">— Seleccionar sistema —</option>
+              <option value="">â€” Seleccionar sistema â€”</option>
               {equipos.map((eq) => (
                 <option key={eq.id} value={eq.id}>
-                  {"　".repeat(eq.depth || 0)}{(eq.depth || 0) > 0 ? "└─ " : ""}{eq.id_visible} · {eq.sistema}
+                  {"ã€€".repeat(eq.depth || 0)}{(eq.depth || 0) > 0 ? "â””â”€ " : ""}{eq.id_visible} Â· {eq.sistema}
                 </option>
               ))}
             </select>
@@ -619,7 +619,7 @@ function VistaRetornoFalla({ marea, nave, equipos, onVolver, onGuardar }) {
               {[
                 { v: "media",   lbl: "Media",   desc: "Puede operar limitado",      color: C.amber },
                 { v: "alta",    lbl: "Alta",     desc: "No puede pescar",            color: "#E05050" },
-                { v: "critica", lbl: "Crítica",  desc: "Riesgo para nave/seguridad", color: "#B91C1C" },
+                { v: "critica", lbl: "CrÃ­tica",  desc: "Riesgo para nave/seguridad", color: "#B91C1C" },
               ].map((s) => (
                 <button key={s.v} onClick={() => setForm((p) => ({ ...p, severidad: s.v }))}
                   title={s.desc}
@@ -636,39 +636,39 @@ function VistaRetornoFalla({ marea, nave, equipos, onVolver, onGuardar }) {
           </Field>
         </div>
 
-        {/* Descripción */}
-        <Field label="Descripción de la falla (qué se detectó, qué falló, síntomas)">
+        {/* DescripciÃ³n */}
+        <Field label="DescripciÃ³n de la falla (quÃ© se detectÃ³, quÃ© fallÃ³, sÃ­ntomas)">
           <textarea value={form.descripcion}
             onChange={(e) => setForm((p) => ({ ...p, descripcion: e.target.value }))}
-            placeholder="Ej: Motor principal perdió potencia a las 350 RPM, humo negro excesivo, temperatura sobre 100°C. Se decidió retornar a puerto."
+            placeholder="Ej: Motor principal perdiÃ³ potencia a las 350 RPM, humo negro excesivo, temperatura sobre 100Â°C. Se decidiÃ³ retornar a puerto."
             style={{ ...inputStyle(), width: "100%", minHeight: 100, resize: "vertical", fontFamily: "inherit", lineHeight: 1.6 }} />
         </Field>
 
-        {/* Riesgo tripulación */}
+        {/* Riesgo tripulaciÃ³n */}
         <label style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 16, padding: "12px 14px", borderRadius: 8, border: `1px solid ${form.riesgoTrip ? C.red : C.line}`, background: form.riesgoTrip ? "#FEF2F2" : "#fff", cursor: "pointer" }}>
           <input type="checkbox" checked={form.riesgoTrip}
             onChange={(e) => setForm((p) => ({ ...p, riesgoTrip: e.target.checked }))}
             style={{ width: 18, height: 18, accentColor: C.red }} />
           <div>
-            <div style={{ fontWeight: 700, fontSize: 13.5, color: form.riesgoTrip ? C.red : C.ink }}>Hubo riesgo para la tripulación</div>
+            <div style={{ fontWeight: 700, fontSize: 13.5, color: form.riesgoTrip ? C.red : C.ink }}>Hubo riesgo para la tripulaciÃ³n</div>
             <div style={{ fontSize: 12, color: C.slate }}>Marcar si la falla puso en peligro la seguridad de las personas a bordo</div>
           </div>
         </label>
       </Card>
 
-      {/* Preview de lo que se generará */}
+      {/* Preview de lo que se generarÃ¡ */}
       <Card style={{ marginBottom: 16, background: "#FFFBEB", borderLeft: `4px solid ${C.amber}` }}>
         <div style={{ fontSize: 10.5, letterSpacing: 1.5, textTransform: "uppercase", color: C.slate, fontWeight: 700, marginBottom: 10 }}>
-          Al confirmar se generará automáticamente:
+          Al confirmar se generarÃ¡ automÃ¡ticamente:
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13 }}>
             <Pill tone="red">OT Urgente</Pill>
-            <span style={{ color: C.ink }}>Orden de trabajo correctiva prioridad <strong>CRÍTICA</strong></span>
+            <span style={{ color: C.ink }}>Orden de trabajo correctiva prioridad <strong>CRÃTICA</strong></span>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13 }}>
             <Pill tone="yellow">Solicitud</Pill>
-            <span style={{ color: C.ink }}>Notificación al Jefe de Mantención con detalle de la falla</span>
+            <span style={{ color: C.ink }}>NotificaciÃ³n al Jefe de MantenciÃ³n con detalle de la falla</span>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13 }}>
             <Pill tone="slate">Cierre de marea</Pill>
@@ -676,7 +676,7 @@ function VistaRetornoFalla({ marea, nave, equipos, onVolver, onGuardar }) {
           </div>
         </div>
         {form.equipo_id && (
-          <div style={{ marginTop: 12, padding: "8px 12px", background: "#fff", borderRadius: 6, fontSize: 12.5, color: C.steel }}>
+          <div style={{ marginTop: 12, padding: "8px 12px", background: C.surface, borderRadius: 6, fontSize: 12.5, color: C.steel }}>
             Sistema afectado: <strong>{sistemaLabel()}</strong>
           </div>
         )}
@@ -686,7 +686,7 @@ function VistaRetornoFalla({ marea, nave, equipos, onVolver, onGuardar }) {
       <div style={{ display: "flex", gap: 10 }}>
         <button onClick={enviar} disabled={!form.descripcion.trim() || enviando}
           style={{ ...primaryBtn, background: C.red, borderColor: C.red, padding: "14px 28px", fontSize: 15 }}>
-          <AlertTriangle size={18} /> {enviando ? "Enviando…" : "Confirmar retorno por falla"}
+          <AlertTriangle size={18} /> {enviando ? "Enviandoâ€¦" : "Confirmar retorno por falla"}
         </button>
         <button onClick={onVolver} style={{ ...ghostBtn, padding: "14px 20px" }}>Cancelar</button>
       </div>
@@ -697,14 +697,14 @@ function VistaRetornoFalla({ marea, nave, equipos, onVolver, onGuardar }) {
 // ---------- Pantalla 4: historial de prezarpes ----------
 function VistaHistorial({ prezarpes, embName, mareas, puedeBorrar, onAbrir, onEliminar }) {
   if (prezarpes.length === 0) {
-    return <Card><Empty><ClipboardCheck size={30} color={C.amber} style={{ marginBottom: 10 }} /><br />Aún no hay prezarpes registrados. Inicia uno desde Operación.</Empty></Card>;
+    return <Card><Empty><ClipboardCheck size={30} color={C.amber} style={{ marginBottom: 10 }} /><br />AÃºn no hay prezarpes registrados. Inicia uno desde OperaciÃ³n.</Empty></Card>;
   }
   return (
     <Card style={{ padding: 0, overflow: "hidden" }}>
       <div style={{ overflowX: "auto" }}>
         <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 720 }}>
           <thead><tr>
-            <th style={thStyle}>Fecha</th><th style={thStyle}>Embarcación</th>
+            <th style={thStyle}>Fecha</th><th style={thStyle}>EmbarcaciÃ³n</th>
             <th style={thStyle}>Responsable</th><th style={thStyle}>Marea</th>
             <th style={thStyle}>Veredicto</th><th style={thStyle}></th>{puedeBorrar && <th style={thStyle}></th>}
           </tr></thead>
@@ -715,13 +715,13 @@ function VistaHistorial({ prezarpes, embName, mareas, puedeBorrar, onAbrir, onEl
                 <tr key={p.id} style={{ cursor: "pointer" }} onClick={() => onAbrir(p)}>
                   <td style={{ ...tdStyle, fontFamily: "'IBM Plex Mono', monospace", fontSize: 12 }}>{p.fecha}</td>
                   <td style={tdStyle}>{embName(p.embarcacion_id)}</td>
-                  <td style={{ ...tdStyle, fontSize: 12.5 }}>{p.responsable || "—"}</td>
-                  <td style={{ ...tdStyle, fontFamily: "'IBM Plex Mono', monospace", fontSize: 12 }}>{m?.folio || "—"}</td>
+                  <td style={{ ...tdStyle, fontSize: 12.5 }}>{p.responsable || "â€”"}</td>
+                  <td style={{ ...tdStyle, fontFamily: "'IBM Plex Mono', monospace", fontSize: 12 }}>{m?.folio || "â€”"}</td>
                   <td style={tdStyle}>
                     <Pill tone={p.apto ? "green" : "red"}>{p.apto ? "Apto" : "No apto"}</Pill>
                     {m?.retorno_falla && <Pill tone="red" style={{ marginLeft: 6 }}>Retorno falla</Pill>}
                   </td>
-                  <td style={{ ...tdStyle, textAlign: "right", color: C.steel, fontSize: 12, fontWeight: 600 }}>Ver informe ›</td>
+                  <td style={{ ...tdStyle, textAlign: "right", color: C.steel, fontSize: 12, fontWeight: 600 }}>Ver informe â€º</td>
                   {puedeBorrar && <td style={tdStyle}><button onClick={(e) => { e.stopPropagation(); onEliminar(p); }} title="Eliminar prezarpe" style={{ background: "none", border: "none", cursor: "pointer", color: C.slate }}><Trash2 size={15} /></button></td>}
                 </tr>
               );
@@ -758,13 +758,13 @@ function VistaInforme({ prezarpe: p, equipos, embName, online, puedeBorrar, onVo
             </div>
             <div style={{ textAlign: "right", fontSize: 11.5, color: C.slate, lineHeight: 1.7 }}>
               <div><strong>Fecha:</strong> {p.fecha}</div>
-              <div><strong>Responsable:</strong> {p.responsable || "—"}</div>
+              <div><strong>Responsable:</strong> {p.responsable || "â€”"}</div>
               <div style={{ marginTop: 4 }}><Pill tone={p.apto ? "green" : "red"}>{p.apto ? "APTO PARA ZARPAR" : "NO APTO"}</Pill></div>
             </div>
           </div>
         </Card>
 
-        <Bloque titulo="A · Inspección visual" icon={Ship}>
+        <Bloque titulo="A Â· InspecciÃ³n visual" icon={Ship}>
           {visual.length === 0 ? <span style={{ fontSize: 12.5, color: C.slate }}>Sin registros.</span> : (
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px,1fr))", gap: 8 }}>
               {visual.map(([item, v]) => (
@@ -778,7 +778,7 @@ function VistaInforme({ prezarpe: p, equipos, embName, online, puedeBorrar, onVo
         </Bloque>
 
         {niveles.length > 0 && (
-          <Bloque titulo="B · Niveles de operación" icon={Droplet}>
+          <Bloque titulo="B Â· Niveles de operaciÃ³n" icon={Droplet}>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px,1fr))", gap: 8 }}>
               {niveles.map(([id, n]) => (
                 <div key={id} style={{ padding: "8px 12px", border: `1px solid ${C.line}`, borderRadius: 8 }}>
@@ -793,7 +793,7 @@ function VistaInforme({ prezarpe: p, equipos, embName, online, puedeBorrar, onVo
           </Bloque>
         )}
 
-        <Bloque titulo="C · Abastecimiento a bordo" icon={Fuel}>
+        <Bloque titulo="C Â· Abastecimiento a bordo" icon={Fuel}>
           <div style={{ display: "flex", gap: 24, flexWrap: "wrap", fontSize: 13 }}>
             <div><span style={{ color: C.slate }}>Combustible:</span> <strong>{p.combustible_l || 0} L</strong></div>
             <div><span style={{ color: C.slate }}>Agua dulce:</span> <strong>{p.agua_l || 0} L</strong></div>
@@ -802,7 +802,7 @@ function VistaInforme({ prezarpe: p, equipos, embName, online, puedeBorrar, onVo
         </Bloque>
 
         {horometros.length > 0 && (
-          <Bloque titulo="D · Horómetros" icon={Gauge}>
+          <Bloque titulo="D Â· HorÃ³metros" icon={Gauge}>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px,1fr))", gap: 8 }}>
               {horometros.map(([id, v]) => (
                 <div key={id} style={{ padding: "8px 12px", border: `1px solid ${C.line}`, borderRadius: 8 }}>
@@ -832,13 +832,13 @@ function VistaInforme({ prezarpe: p, equipos, embName, online, puedeBorrar, onVo
   );
 }
 
-// ---------- Modal de eliminación con motivo ----------
+// ---------- Modal de eliminaciÃ³n con motivo ----------
 const MOTIVOS_ELIM = [
   "Creado por error",
   "Datos incorrectos",
   "Zarpe duplicado",
   "Registro de prueba",
-  "Se canceló la salida",
+  "Se cancelÃ³ la salida",
   "Otro",
 ];
 
@@ -851,22 +851,22 @@ function ModalEliminar({ target, onCancel, onConfirm }) {
     <div onClick={onCancel}
       style={{ position: "fixed", inset: 0, background: "rgba(6,24,46,.55)", backdropFilter: "blur(3px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100, padding: 20 }}>
       <div onClick={(e) => e.stopPropagation()}
-        style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: 440, boxShadow: "0 20px 60px rgba(0,0,0,.3)", overflow: "hidden" }}>
+        style={{ background: C.surface, borderRadius: 16, width: "100%", maxWidth: 440, boxShadow: "0 20px 60px rgba(0,0,0,.3)", overflow: "hidden" }}>
         <div style={{ padding: "22px 24px 0" }}>
           <div style={{ width: 48, height: 48, borderRadius: 12, background: C.redBg, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 14 }}>
             <Trash2 size={24} color={C.red} />
           </div>
           <div style={{ ...archivo, fontSize: 20, fontWeight: 800, color: C.abyss }}>Eliminar zarpe</div>
           <div style={{ fontSize: 13, color: C.slate, marginTop: 6, lineHeight: 1.5 }}>
-            <strong style={{ color: C.ink }}>{target.nombre}</strong>{target.fecha ? ` · ${target.fecha}` : ""}. Se borrará el prezarpe, su marea y fotos. Esta acción no se puede deshacer.
+            <strong style={{ color: C.ink }}>{target.nombre}</strong>{target.fecha ? ` Â· ${target.fecha}` : ""}. Se borrarÃ¡ el prezarpe, su marea y fotos. Esta acciÃ³n no se puede deshacer.
           </div>
         </div>
 
         <div style={{ padding: "16px 24px 0" }}>
-          <label style={{ fontSize: 11, letterSpacing: 1, textTransform: "uppercase", color: C.slate, fontWeight: 700 }}>Motivo de la eliminación</label>
+          <label style={{ fontSize: 11, letterSpacing: 1, textTransform: "uppercase", color: C.slate, fontWeight: 700 }}>Motivo de la eliminaciÃ³n</label>
           <select value={motivo} onChange={(e) => setMotivo(e.target.value)}
-            style={{ width: "100%", marginTop: 7, padding: "11px 12px", borderRadius: 10, border: `1px solid ${C.line}`, fontSize: 14, fontFamily: "inherit", color: motivo ? C.ink : C.slate, background: "#fff", cursor: "pointer" }}>
-            <option value="">— Selecciona un motivo —</option>
+            style={{ width: "100%", marginTop: 7, padding: "11px 12px", borderRadius: 10, border: `1px solid ${C.line}`, fontSize: 14, fontFamily: "inherit", color: motivo ? C.ink : C.slate, background: C.surface, cursor: "pointer" }}>
+            <option value="">â€” Selecciona un motivo â€”</option>
             {MOTIVOS_ELIM.map((m) => <option key={m} value={m}>{m}</option>)}
           </select>
           {motivo === "Otro" && (
@@ -925,13 +925,13 @@ function NivelItem({ label, estado, onSet }) {
 
 function Stepper({ label, unidad, icon: Icon, value, onChange, step = 1 }) {
   return (
-    <div style={{ padding: "12px 14px", border: `1px solid ${C.line}`, borderRadius: 10, background: "#fff" }}>
+    <div style={{ padding: "12px 14px", border: `1px solid ${C.line}`, borderRadius: 10, background: C.surface }}>
       <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 8 }}>
         <Icon size={15} color={C.steel} />
         <span style={{ fontSize: 12.5, fontWeight: 600, color: C.ink }}>{label}</span>
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        <button onClick={() => onChange(Math.max(0, value - step))} style={stepBtn}>−</button>
+        <button onClick={() => onChange(Math.max(0, value - step))} style={stepBtn}>âˆ’</button>
         <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 4, background: "#F2F8FD", border: "1px solid #CFE3F2", borderRadius: 8, padding: "4px 8px" }}>
           <input type="number" value={value} onChange={(e) => onChange(Math.max(0, Number(e.target.value) || 0))}
             style={{ width: "100%", border: "none", background: "transparent", textAlign: "center", fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, fontSize: 16, color: C.steel, outline: "none" }} />
