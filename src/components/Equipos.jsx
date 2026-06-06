@@ -53,6 +53,7 @@ export default function Equipos() {
   const [guardando,   setGuardando]   = useState(false);
   const puedeOperar = canOperate(profile?.rol);
   const puedeBorrar = isAdmin(profile?.rol);
+  const hasActions  = puedeOperar || puedeBorrar;
 
   const cargar = useCallback(async () => {
     setLoading(true); setError(null);
@@ -157,6 +158,35 @@ export default function Equipos() {
       setForm(blankForm(form.embarcacion_id));
       setShowForm(false);
     } catch (e) { setError("No se pudo crear el equipo: " + e.message); }
+  }
+
+  // Tipo de nodo sugerido para el hijo según el tipo del padre.
+  const TIPO_HIJO = { sistema: "subsistema", subsistema: "componente", componente: "componente", instrumento: "componente", equipo: "componente" };
+
+  // Agrega un hijo directamente desde el árbol (ej. un filtro extra bajo "Combustible").
+  // Crea el nodo al instante (con id y padre) y queda editable inline; expande el padre.
+  async function agregarHijo(parent) {
+    const childTipo = TIPO_HIJO[parent.tipo_nodo] || "componente";
+    // Código auto: ruta del padre (sin la secuencia final) + correlativo único.
+    const base   = String(parent.id_visible || "EQ").replace(/-\d+$/, "");
+    const usados = new Set(equipos.map((e) => e.id_visible));
+    let i = 1, idVis;
+    do { idVis = `${base}-${String(i).padStart(2, "0")}`; i++; } while (usados.has(idVis));
+    try {
+      const nuevo = await insertRow("equipos", profile.empresa_id, {
+        embarcacion_id: parent.embarcacion_id,
+        id_visible:     idVis,
+        sistema:        childTipo === "subsistema" ? "Nuevo subsistema" : "Nuevo componente",
+        parent_id:      parent.id,
+        tipo_nodo:      childTipo,
+        criticidad:     parent.criticidad || null,
+        created_by:     profile.id,
+      });
+      setEquipos((p) => [...p, nuevo]);
+      setOriginal((o) => ({ ...o, [nuevo.id]: { ...nuevo } }));
+      setColapsados((prev) => { const n = new Set(prev); n.delete(parent.id); return n; }); // expandir el padre
+      logActivity(profile, "Crear equipo", `${idVis} (sub de ${parent.id_visible})`);
+    } catch (e) { setError("No se pudo agregar el subnodo: " + e.message); }
   }
 
   // Precarga el árbol estándar de sistemas pesqueros para la nave filtrada.
@@ -475,11 +505,11 @@ export default function Equipos() {
               <th style={{ ...thStyle, textAlign: "center" }}>Prezarpe</th>
               <th style={thStyle}>Niveles</th>
               <th style={{ ...thStyle, textAlign: "center" }}>Aceite</th>
-              {puedeBorrar && <th style={thStyle}></th>}
+              {hasActions && <th style={{ ...thStyle, textAlign: "center" }}>Acción</th>}
             </tr></thead>
             <tbody>
               {lista.length === 0
-                ? <tr><td colSpan={puedeBorrar ? 14 : 13}><Empty>{equipos.length === 0 ? <NotaJerarquia /> : "Sin equipos para este filtro."}</Empty></td></tr>
+                ? <tr><td colSpan={hasActions ? 14 : 13}><Empty>{equipos.length === 0 ? <NotaJerarquia /> : "Sin equipos para este filtro."}</Empty></td></tr>
                 : listaVisible.map((e) => {
                   const padres = padresDisponibles(e.id, e.embarcacion_id);
                   const tieneHijos = conHijos.has(e.id);
@@ -601,11 +631,21 @@ export default function Equipos() {
                           style={{ width: 16, height: 16, cursor: puedeOperar ? "pointer" : "default", accentColor: C.steel }} />
                       </td>
 
-                      {puedeBorrar && (
+                      {hasActions && (
                         <td style={tdStyle}>
-                          <button onClick={() => eliminar(e.id)} style={{ background: "none", border: "none", cursor: "pointer", color: C.slate }}>
-                            <Trash2 size={15} />
-                          </button>
+                          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+                            {puedeOperar && (
+                              <button onClick={() => agregarHijo(e)} title={`Agregar ${(TIPO_HIJO[e.tipo_nodo] || "componente")} dentro de "${e.sistema}"`}
+                                style={{ background: "none", border: `1px solid ${C.cyan}`, borderRadius: 6, cursor: "pointer", color: C.cyan, padding: "2px 5px", display: "flex", alignItems: "center", flexShrink: 0 }}>
+                                <Plus size={14} strokeWidth={2.5} />
+                              </button>
+                            )}
+                            {puedeBorrar && (
+                              <button onClick={() => eliminar(e.id)} title="Eliminar" style={{ background: "none", border: "none", cursor: "pointer", color: C.slate, display: "flex", alignItems: "center" }}>
+                                <Trash2 size={15} />
+                              </button>
+                            )}
+                          </div>
                         </td>
                       )}
                     </tr>
