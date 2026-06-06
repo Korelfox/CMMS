@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useMemo } from "react";
-import { CalendarClock, Check, AlertCircle, Plus, Trash2, Download, History, ClipboardList, X } from "lucide-react";
+import { CalendarClock, Check, AlertCircle, Plus, Trash2, Download, History, ClipboardList, X, ChevronDown, ChevronRight } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { fetchAll, insertRow, updateRow, deleteRow, logActivity } from "../lib/db";
 import { buildEquipoTree } from "../lib/equipTree";
@@ -148,6 +148,24 @@ function TabPlan({ lista, equipos, setEquipos, planes, setPlanes, historial, set
   const [newPlan,     setNewPlan]     = useState({ descripcion: "", intervalo_horas: 250 });
   const [registrando, setRegistrando] = useState(null); // plan_pm_id
   const [regForm,     setRegForm]     = useState({ realizado_por: "", notas: "", crearOT: false });
+  const [colapsados,  setColapsados]  = useState(() => new Set()); // rootId de sistemas colapsados
+
+  // Sistemas raíz que tienen subsistemas (para mostrar chevron)
+  const conHijos = new Set();
+  lista.forEach((eq) => { if (eq.depth > 0 && eq.rootId) conHijos.add(eq.rootId); });
+  // Oculta los descendientes de un sistema colapsado (la raíz siempre se ve)
+  const listaVisible = lista.filter((eq) => eq.depth === 0 || !colapsados.has(eq.rootId));
+
+  function toggleColapso(rootId) {
+    setColapsados((prev) => {
+      const n = new Set(prev);
+      n.has(rootId) ? n.delete(rootId) : n.add(rootId);
+      return n;
+    });
+  }
+  function colapsarTodo(colapsar) {
+    setColapsados(colapsar ? new Set([...conHijos]) : new Set());
+  }
 
   if (lista.length === 0) return (
     <Card><Empty>
@@ -230,22 +248,38 @@ function TabPlan({ lista, equipos, setEquipos, planes, setPlanes, historial, set
 
   return (
     <div>
-      {lista.map((eq) => {
+      {conHijos.size > 0 && (
+        <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+          <button onClick={() => colapsarTodo(true)} style={{ ...ghostBtn, fontSize: 12, padding: "5px 12px" }}><ChevronRight size={13} /> Colapsar todo</button>
+          <button onClick={() => colapsarTodo(false)} style={{ ...ghostBtn, fontSize: 12, padding: "5px 12px" }}><ChevronDown size={13} /> Expandir todo</button>
+        </div>
+      )}
+      {listaVisible.map((eq) => {
         const planesEq = planes.filter((p) => p.equipo_id === eq.id && p.activo);
         const vencidosEq = planesEq.filter((p) => {
           const elapsed = (eq.horas_actual || 0) - (p.horas_ult_pm || 0);
           return statusPlan(elapsed, p.intervalo_horas)[0] === "red";
         }).length;
+        const esRaizConHijos = eq.depth === 0 && conHijos.has(eq.id);
+        const colapsado = colapsados.has(eq.id);
+        const nSub = esRaizConHijos ? lista.filter((x) => x.rootId === eq.id && x.depth > 0).length : 0;
 
         return (
           <Card key={eq.id} style={{ marginBottom: 10, borderLeft: `4px solid ${vencidosEq > 0 ? C.red : C.line}`, paddingBottom: 8 }}>
             {/* ── Cabecera del equipo ── */}
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: planesEq.length > 0 ? 12 : 4, paddingLeft: eq.depth * 16 }}>
-              {eq.depth > 0 && <span style={{ color: C.slate, fontSize: 13 }}>└─</span>}
+              {esRaizConHijos ? (
+                <button onClick={() => toggleColapso(eq.id)} title={colapsado ? "Expandir subsistemas" : "Colapsar"}
+                  style={{ background: "none", border: "none", cursor: "pointer", color: C.steel, padding: 0, display: "flex", alignItems: "center" }}>
+                  {colapsado ? <ChevronRight size={17} /> : <ChevronDown size={17} />}
+                </button>
+              ) : eq.depth > 0 ? <span style={{ color: C.slate, fontSize: 13 }}>└─</span> : <span style={{ width: 17 }} />}
               <div style={{ flex: 1 }}>
                 <span style={{ fontWeight: 700, fontSize: 14, color: C.abyss }}>{eq.sistema}</span>
+                {eq.criticidad && <span style={{ marginLeft: 7 }}><Pill tone={{ A: "red", B: "yellow", C: "green" }[eq.criticidad]}>{eq.criticidad}</Pill></span>}
                 <span style={{ fontSize: 11.5, color: C.slate, marginLeft: 8, fontFamily: "'IBM Plex Mono', monospace" }}>{eq.id_visible}</span>
                 <span style={{ fontSize: 11.5, color: C.slate, marginLeft: 6 }}>· {embName(eq.embarcacion_id)}</span>
+                {colapsado && nSub > 0 && <span style={{ fontSize: 11.5, color: C.steel, marginLeft: 8, fontWeight: 600 }}>▸ {nSub} subsistema{nSub > 1 ? "s" : ""}</span>}
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, color: C.slate }}>
                 {num(eq.horas_actual || 0, 0)}h actuales
