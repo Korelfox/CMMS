@@ -1,5 +1,39 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { C, archivo, shadow, tint } from "./theme";
+
+// ============================================================
+//  Focus-following scroll — al enfocar un campo cerca del borde,
+//  desliza la vista para mantenerlo visible (formularios largos
+//  y tablas anchas con edición inline). Global, sin tocar módulos.
+// ============================================================
+export function FocusScroll() {
+  useEffect(() => {
+    let raf = 0;
+    function onFocusIn(e) {
+      const el = e.target;
+      if (!el || typeof el.matches !== "function") return;
+      if (!el.matches('input, select, textarea, [contenteditable="true"]')) return;
+      cancelAnimationFrame(raf);
+      // Espera un frame a que el layout (y el teclado en móvil) se asienten.
+      raf = requestAnimationFrame(() => {
+        const r  = el.getBoundingClientRect();
+        const vh = window.innerHeight || document.documentElement.clientHeight;
+        const vw = window.innerWidth  || document.documentElement.clientWidth;
+        const margenV = 110;  // anticipa antes de tocar el borde vertical
+        const margenH = 16;
+        const fueraV = r.top < margenV || r.bottom > vh - margenV;
+        const fueraH = r.left < margenH || r.right > vw - margenH;
+        if (fueraV || fueraH) {
+          try { el.scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" }); }
+          catch { el.scrollIntoView(); }
+        }
+      });
+    }
+    document.addEventListener("focusin", onFocusIn);
+    return () => { document.removeEventListener("focusin", onFocusIn); cancelAnimationFrame(raf); };
+  }, []);
+  return null;
+}
 
 // ── Guía colapsable: nota de ayuda para mantener estructura/estándares ──
 // Uso: <GuiaColapsable titulo="..." icon={Tag}> contenido </GuiaColapsable>
