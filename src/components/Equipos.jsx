@@ -110,29 +110,22 @@ export default function Equipos() {
     const emb = embarcaciones.find((e) => e.id === filtro);
     if (!emb) { setError("Selecciona primero una embarcación en los filtros."); return; }
     const total = contarNodosPlantilla();
-    if (!window.confirm(`¿Precargar la plantilla pesquera estándar en "${emb.nombre}"?\n\nSe crearán ${total} nodos (14 sistemas + subsistemas + sensores). Puedes borrar después los que no apliquen a esta nave.`)) return;
+    if (!window.confirm(`¿Precargar la plantilla pesquera estándar en "${emb.nombre}"?\n\nSe crearán ${total} nodos (sistemas → subsistemas → componentes → sensores). Puedes borrar después los que no apliquen a esta nave.`)) return;
 
     setPrecargando(true); setError(null);
     const creados = [];
+    // Inserta un nodo y, recursivamente, todos sus descendientes (cualquier profundidad)
+    async function insertarNodo(nodo, parentId) {
+      const row = await insertRow("equipos", profile.empresa_id, {
+        embarcacion_id: emb.id, id_visible: `${emb.codigo}-${nodo.cod}`,
+        sistema: nodo.nom, tipo_nodo: nodo.tipo, criticidad: nodo.crit,
+        parent_id: parentId, created_by: profile.id,
+      });
+      creados.push(row);
+      for (const hijo of nodo.hijos || []) await insertarNodo(hijo, row.id);
+    }
     try {
-      for (const sis of PLANTILLA_PESQUERA) {
-        // Sistema raíz
-        const padre = await insertRow("equipos", profile.empresa_id, {
-          embarcacion_id: emb.id, id_visible: `${emb.codigo}-${sis.cod}`,
-          sistema: sis.nom, tipo_nodo: sis.tipo, criticidad: sis.crit,
-          parent_id: null, created_by: profile.id,
-        });
-        creados.push(padre);
-        // Subsistemas / instrumentos hijos
-        for (const hijo of sis.hijos || []) {
-          const child = await insertRow("equipos", profile.empresa_id, {
-            embarcacion_id: emb.id, id_visible: `${emb.codigo}-${hijo.cod}`,
-            sistema: hijo.nom, tipo_nodo: hijo.tipo, criticidad: hijo.crit,
-            parent_id: padre.id, created_by: profile.id,
-          });
-          creados.push(child);
-        }
-      }
+      for (const sis of PLANTILLA_PESQUERA) await insertarNodo(sis, null);
       setEquipos((p) => [...p, ...creados]);
       logActivity(profile, "Precargar plantilla pesquera", `${emb.nombre} · ${creados.length} nodos`);
     } catch (e) {

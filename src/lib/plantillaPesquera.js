@@ -1,8 +1,9 @@
 // ============================================================
 //  Plantilla de jerarquía estándar para nave pesquera
 //  Basada en ISO 14224 adaptada a flota pesquera artesanal.
-//  Niveles cargados: 3 (Sistema) y 4 (Subsistema), más sensores
-//  de instrumentación (nivel 7) en subsistemas clave.
+//  Profundidad variable: el Motor Principal se desglosa en
+//  subsistemas (lubricación, enfriamiento, inyección) y componentes;
+//  `hijos` puede anidarse a cualquier nivel.
 //
 //  Estructura de cada nodo:
 //    cod    → código estructurado (id_visible)
@@ -16,38 +17,51 @@ export const PLANTILLA_PESQUERA = [
   {
     cod: "PROP", nom: "Propulsión Principal", crit: "A", tipo: "sistema",
     hijos: [
-      { cod: "PROP-MTR", nom: "Motor Principal",     crit: "A", tipo: "subsistema" },
-      { cod: "PROP-RED", nom: "Reductora",           crit: "A", tipo: "subsistema" },
-      { cod: "PROP-EJE", nom: "Eje y Bocina",        crit: "A", tipo: "subsistema" },
-      { cod: "PROP-HEL", nom: "Hélice",              crit: "A", tipo: "subsistema" },
-      { cod: "PROP-TIM", nom: "Timón y Gobierno",    crit: "A", tipo: "subsistema" },
+      {
+        cod: "PROP-MTR", nom: "Motor Principal", crit: "A", tipo: "subsistema",
+        hijos: [
+          { cod: "MTR-CIL", nom: "Cilindros y Pistones", crit: "A", tipo: "componente" },
+          { cod: "MTR-VLV", nom: "Válvulas",             crit: "A", tipo: "componente" },
+          { cod: "MTR-TUR", nom: "Turbo / Turbina",      crit: "A", tipo: "componente" },
+          {
+            cod: "MTR-LUB", nom: "Lubricación", crit: "A", tipo: "componente",
+            hijos: [
+              { cod: "MTR-LUB-BMP", nom: "Bomba de Aceite",       crit: "A", tipo: "componente" },
+              { cod: "MTR-LUB-FLT", nom: "Filtro de Aceite",      crit: "A", tipo: "componente" },
+              { cod: "MTR-LUB-TNK", nom: "Tanque de Aceite",      crit: "A", tipo: "componente" },
+              { cod: "MTR-LUB-SEN", nom: "Sensor Presión Aceite", crit: "A", tipo: "instrumento" },
+            ],
+          },
+          {
+            cod: "MTR-COOL", nom: "Enfriamiento", crit: "A", tipo: "componente",
+            hijos: [
+              { cod: "MTR-COOL-RAD", nom: "Radiador / Intercambiador", crit: "A", tipo: "componente" },
+              { cod: "MTR-COOL-BAM", nom: "Bomba Agua de Mar",        crit: "A", tipo: "componente" },
+              { cod: "MTR-COOL-BAD", nom: "Bomba Agua Dulce",         crit: "A", tipo: "componente" },
+              { cod: "MTR-COOL-SEN", nom: "Sensor Temperatura",       crit: "A", tipo: "instrumento" },
+            ],
+          },
+          {
+            cod: "MTR-FUEL", nom: "Inyección de Combustible", crit: "A", tipo: "componente",
+            hijos: [
+              { cod: "MTR-FUEL-FLT", nom: "Filtro Fino Combustible", crit: "A", tipo: "componente" },
+              { cod: "MTR-FUEL-INY", nom: "Inyectores",             crit: "A", tipo: "componente" },
+              { cod: "MTR-FUEL-BMP", nom: "Bomba de Inyección",     crit: "A", tipo: "componente" },
+            ],
+          },
+        ],
+      },
+      { cod: "PROP-RED", nom: "Reductora",        crit: "A", tipo: "subsistema" },
+      { cod: "PROP-EJE", nom: "Eje y Bocina",     crit: "A", tipo: "subsistema" },
+      { cod: "PROP-HEL", nom: "Hélice",           crit: "A", tipo: "subsistema" },
+      { cod: "PROP-TIM", nom: "Timón y Gobierno", crit: "A", tipo: "subsistema" },
     ],
   },
   {
-    cod: "LUB", nom: "Lubricación Motor", crit: "B", tipo: "sistema",
+    cod: "FUEL", nom: "Combustible de Nave", crit: "A", tipo: "sistema",
     hijos: [
-      { cod: "LUB-BMP", nom: "Bomba de Aceite",  crit: "B", tipo: "subsistema" },
-      { cod: "LUB-TNK", nom: "Tanque de Aceite", crit: "B", tipo: "subsistema" },
-      { cod: "LUB-FLT", nom: "Filtros de Aceite", crit: "B", tipo: "subsistema" },
-      { cod: "LUB-SEN-P", nom: "Sensor Presión Aceite", crit: "B", tipo: "instrumento" },
-    ],
-  },
-  {
-    cod: "COOL", nom: "Enfriamiento Motor", crit: "B", tipo: "sistema",
-    hijos: [
-      { cod: "COOL-BAM", nom: "Bomba Agua de Mar",     crit: "B", tipo: "subsistema" },
-      { cod: "COOL-BAD", nom: "Bomba Agua Dulce",      crit: "B", tipo: "subsistema" },
-      { cod: "COOL-INT", nom: "Intercambiador de Calor", crit: "B", tipo: "subsistema" },
-      { cod: "COOL-SEN-T", nom: "Sensor Temperatura Motor", crit: "B", tipo: "instrumento" },
-    ],
-  },
-  {
-    cod: "FUEL", nom: "Sistema Combustible", crit: "A", tipo: "sistema",
-    hijos: [
-      { cod: "FUEL-TNK", nom: "Tanques Combustible",   crit: "A", tipo: "subsistema" },
-      { cod: "FUEL-BMP", nom: "Bombas Combustible",    crit: "A", tipo: "subsistema" },
-      { cod: "FUEL-FLT", nom: "Filtros Combustible",   crit: "A", tipo: "subsistema" },
-      { cod: "FUEL-INY", nom: "Inyectores",            crit: "A", tipo: "subsistema" },
+      { cod: "FUEL-TNK", nom: "Tanques de Combustible",     crit: "A", tipo: "subsistema" },
+      { cod: "FUEL-BMP", nom: "Bomba de Trasiego",          crit: "A", tipo: "subsistema" },
       { cod: "FUEL-SEP", nom: "Separador Agua-Combustible", crit: "A", tipo: "subsistema" },
     ],
   },
@@ -148,9 +162,10 @@ export const PLANTILLA_PESQUERA = [
   },
 ];
 
-// Cuenta total de nodos de la plantilla
+// Cuenta total de nodos de la plantilla (recursivo, soporta cualquier profundidad)
 export function contarNodosPlantilla() {
-  return PLANTILLA_PESQUERA.reduce((s, sis) => s + 1 + (sis.hijos?.length || 0), 0);
+  const contar = (nodos) => (nodos || []).reduce((s, n) => s + 1 + contar(n.hijos), 0);
+  return contar(PLANTILLA_PESQUERA);
 }
 
 // Metadatos de tipos de nodo (para íconos/colores en la UI)
