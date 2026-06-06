@@ -139,10 +139,10 @@ export default function Equipos() {
     if (!emb) { setError("Selecciona primero una embarcación en los filtros."); return; }
     const totalNodos = contarNodosPlantilla();
     const totalReps  = contarRepuestosPlantilla();
-    if (!window.confirm(`¿Precargar la plantilla de excelencia (ISO 14224) en "${emb.nombre}"?\n\nSe crearán ${totalNodos} nodos de equipos (sistemas → subsistemas → componentes → sensores) y se cargarán hasta ${totalReps} repuestos (SKU OEM/Alternativo/Genérico) en el Inventario, enlazados a su componente. Puedes borrar después lo que no aplique a esta nave.`)) return;
+    if (!window.confirm(`¿Precargar la plantilla de excelencia (ISO 14224) en "${emb.nombre}"?\n\nSe crearán hasta ${totalNodos} nodos de equipos (sistemas → subsistemas → componentes → sensores) y hasta ${totalReps} repuestos (SKU OEM/Alternativo/Genérico) en el Inventario, enlazados a su componente.\n\nLos nodos que ya existan en esta nave NO se duplican: puedes ejecutarla otra vez para completar lo que falte. Puedes borrar después lo que no aplique.`)) return;
 
     setPrecargando(true); setError(null);
-    const creados = [];        // equipos
+    const creados = [];        // equipos nuevos creados en esta corrida
     const itemsCreados = [];   // inventario_items nuevos
 
     // Mapa codigo→id de repuestos existentes para no duplicar SKU (un SKU se
@@ -152,6 +152,13 @@ export default function Equipos() {
       const existentes = await fetchAll("inventario_items");
       itemMap = new Map(existentes.map((i) => [String(i.codigo).toUpperCase(), i.id]));
     } catch { /* sin catálogo previo: se crean todos */ }
+
+    // Mapa id_visible→id de equipos YA existentes en esta nave, para integrar la
+    // plantilla sin duplicar (idempotente): si un nodo ya existe se reutiliza y
+    // solo se crean los descendientes que falten.
+    const existentesNave = new Map(
+      equipos.filter((e) => e.embarcacion_id === emb.id).map((e) => [e.id_visible, e.id])
+    );
 
     // Crea (o reutiliza) los repuestos del componente y los enlaza como destino.
     async function crearRepuestos(nodo, equipoId, rootNom) {
@@ -176,15 +183,21 @@ export default function Equipos() {
     // Inserta un nodo y, recursivamente, todos sus descendientes (cualquier profundidad).
     // rootNom = nombre del sistema raíz (se usa como categoría del repuesto).
     async function insertarNodo(nodo, parentId, rootNom) {
-      const row = await insertRow("equipos", profile.empresa_id, {
-        embarcacion_id: emb.id, id_visible: `${emb.codigo}-${nodo.cod}-001`,
-        sistema: nodo.nom, tipo_nodo: nodo.tipo, criticidad: nodo.crit,
-        mtbf_objetivo: nodo.mtbf ?? null,
-        parent_id: parentId, created_by: profile.id,
-      });
-      creados.push(row);
-      if (nodo.rep?.length) await crearRepuestos(nodo, row.id, rootNom);
-      for (const hijo of nodo.hijos || []) await insertarNodo(hijo, row.id, rootNom);
+      const idVis = `${emb.codigo}-${nodo.cod}-001`;
+      let nodeId = existentesNave.get(idVis);
+      if (!nodeId) {
+        const row = await insertRow("equipos", profile.empresa_id, {
+          embarcacion_id: emb.id, id_visible: idVis,
+          sistema: nodo.nom, tipo_nodo: nodo.tipo, criticidad: nodo.crit,
+          mtbf_objetivo: nodo.mtbf ?? null,
+          parent_id: parentId, created_by: profile.id,
+        });
+        nodeId = row.id;
+        creados.push(row);
+        existentesNave.set(idVis, nodeId);
+        if (nodo.rep?.length) await crearRepuestos(nodo, nodeId, rootNom);
+      }
+      for (const hijo of nodo.hijos || []) await insertarNodo(hijo, nodeId, rootNom);
     }
     const sincOriginal = () => setOriginal((o) => { const n = { ...o }; creados.forEach((c) => { n[c.id] = { ...c }; }); return n; });
     try {
