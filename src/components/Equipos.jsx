@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from "react";
-import { Ship, Plus, Trash2, Download, AlertCircle, GitBranch, Layers, Cpu, Wrench, Box, Hash } from "lucide-react";
+import { Ship, Plus, Trash2, Download, AlertCircle, GitBranch, Layers, Cpu, Wrench, Box, Hash, ChevronDown, ChevronRight } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { fetchAll, insertRow, updateRow, deleteRow, logActivity } from "../lib/db";
 import { C, isAdmin, canOperate, ESTADOS_EQUIPO, estadoLabel, tint } from "../theme";
@@ -47,6 +47,8 @@ export default function Equipos() {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm]         = useState(blankForm());
   const [precargando, setPrecargando] = useState(false);
+  const [colapsados,  setColapsados]  = useState(() => new Set());
+  const [initColapso, setInitColapso] = useState(false);
   const puedeOperar = canOperate(profile?.rol);
   const puedeBorrar = isAdmin(profile?.rol);
 
@@ -71,6 +73,28 @@ export default function Equipos() {
   // Lista en orden de árbol según filtro de nave
   const baseList = filtro === "all" ? equipos : equipos.filter((e) => e.embarcacion_id === filtro);
   const lista    = buildEquipoTree(baseList);
+
+  // ── Colapso por sistema raíz ──
+  const conHijos = new Set();
+  lista.forEach((e) => { if (e.depth > 0 && e.rootId) conHijos.add(e.rootId); });
+  const listaVisible = lista.filter((e) => e.depth === 0 || !colapsados.has(e.rootId));
+
+  // Contraer todos los sistemas por defecto (una sola vez, al cargar)
+  useEffect(() => {
+    if (!initColapso && conHijos.size > 0) {
+      setColapsados(new Set([...conHijos]));
+      setInitColapso(true);
+    }
+  }, [lista]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  function toggleColapso(rootId) {
+    setColapsados((prev) => {
+      const n = new Set(prev);
+      n.has(rootId) ? n.delete(rootId) : n.add(rootId);
+      return n;
+    });
+  }
+  const colapsarTodo = (v) => setColapsados(v ? new Set([...conHijos]) : new Set());
 
   // Padres disponibles para un equipo (misma nave, no él mismo ni sus hijos)
   function padresDisponibles(eqId, embId) {
@@ -206,6 +230,13 @@ export default function Equipos() {
             {v.nombre} ({equipos.filter((e) => e.embarcacion_id === v.id).length})
           </FilterBtn>
         ))}
+        {conHijos.size > 0 && (
+          <>
+            <div style={{ width: 1, alignSelf: "stretch", background: C.line, margin: "0 2px" }} />
+            <button onClick={() => colapsarTodo(true)} style={{ ...ghostBtn, fontSize: 12, padding: "6px 12px" }}><ChevronRight size={13} /> Colapsar todo</button>
+            <button onClick={() => colapsarTodo(false)} style={{ ...ghostBtn, fontSize: 12, padding: "6px 12px" }}><ChevronDown size={13} /> Expandir todo</button>
+          </>
+        )}
       </div>
 
       {/* Precarga de plantilla pesquera (solo con una nave seleccionada) */}
@@ -325,8 +356,11 @@ export default function Equipos() {
             <tbody>
               {lista.length === 0
                 ? <tr><td colSpan={puedeBorrar ? 13 : 12}><Empty>{equipos.length === 0 ? <NotaJerarquia /> : "Sin equipos para este filtro."}</Empty></td></tr>
-                : lista.map((e) => {
+                : listaVisible.map((e) => {
                   const padres = padresDisponibles(e.id, e.embarcacion_id);
+                  const esRaizConHijos = e.depth === 0 && conHijos.has(e.id);
+                  const colapsado = colapsados.has(e.id);
+                  const nSub = esRaizConHijos ? lista.filter((x) => x.rootId === e.id && x.depth > 0).length : 0;
                   return (
                     <tr key={e.id} style={{ background: e.depth > 0 ? tint(C.steel, 5) : undefined }}>
 
@@ -347,12 +381,17 @@ export default function Equipos() {
                         </select>
                       </td>
 
-                      {/* Sistema — con indentación de árbol + tipo + criticidad */}
+                      {/* Sistema — colapsable + indentación de árbol + tipo + criticidad */}
                       <td style={tdStyle}>
                         <div style={{ display: "flex", alignItems: "center" }}>
-                          {e.depth > 0 && (
+                          {esRaizConHijos ? (
+                            <button onClick={() => toggleColapso(e.id)} title={colapsado ? "Expandir" : "Colapsar"}
+                              style={{ background: "none", border: "none", cursor: "pointer", color: C.steel, padding: 0, marginRight: 4, display: "flex", alignItems: "center", flexShrink: 0 }}>
+                              {colapsado ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
+                            </button>
+                          ) : e.depth > 0 ? (
                             <span style={{ marginLeft: (e.depth - 1) * 14, marginRight: 5, color: C.slate, fontSize: 13, flexShrink: 0 }}>└─</span>
-                          )}
+                          ) : <span style={{ width: 20, flexShrink: 0 }} />}
                           {(() => {
                             const Ico = ICONO_TIPO[e.tipo_nodo] || ICONO_TIPO.equipo;
                             const meta = TIPO_NODO_META[e.tipo_nodo] || TIPO_NODO_META.equipo;
@@ -361,8 +400,9 @@ export default function Equipos() {
                           <input value={e.sistema} disabled={!puedeOperar}
                             onChange={(ev) => onChangeLocal(e.id, "sistema", ev.target.value)}
                             onBlur={(ev) => commit(e.id, "sistema", ev.target.value)}
-                            style={{ ...bluInput, width: Math.max(160, 240 - e.depth * 14), color: e.depth === 0 ? C.abyss : C.ink, fontWeight: e.depth === 0 ? 700 : 400 }} />
+                            style={{ ...bluInput, width: Math.max(150, 230 - e.depth * 14), color: e.depth === 0 ? C.abyss : C.ink, fontWeight: e.depth === 0 ? 700 : 400 }} />
                           {e.criticidad && <span style={{ marginLeft: 6, flexShrink: 0 }}><Pill tone={CRITICIDAD_TONE[e.criticidad]}>{e.criticidad}</Pill></span>}
+                          {colapsado && nSub > 0 && <span style={{ marginLeft: 8, fontSize: 11.5, color: C.steel, fontWeight: 600, flexShrink: 0 }}>▸ {nSub}</span>}
                         </div>
                       </td>
 
