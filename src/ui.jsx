@@ -1,5 +1,5 @@
 import React from "react";
-import { C, archivo } from "./theme";
+import { C, archivo, shadow } from "./theme";
 
 // ============================================================
 //  Primitivas de interfaz reutilizables
@@ -7,7 +7,7 @@ import { C, archivo } from "./theme";
 
 export function Card({ children, style, ...rest }) {
   return (
-    <div {...rest} style={{ background: "#fff", border: `1px solid ${C.line}`, borderRadius: 14, padding: 20, boxShadow: "0 1px 3px rgba(10,26,42,.04)", ...style }}>
+    <div {...rest} style={{ background: "#fff", border: `1px solid ${C.line}`, borderRadius: 14, padding: 20, boxShadow: shadow.sm, ...style }}>
       {children}
     </div>
   );
@@ -116,5 +116,59 @@ export function ErrorBanner({ children, onRetry }) {
       <span>{children}</span>
       {onRetry && <button onClick={onRetry} style={{ background: C.red, color: "#fff", border: "none", borderRadius: 7, padding: "5px 12px", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>Reintentar</button>}
     </div>
+  );
+}
+
+// ============================================================
+//  Estilos globales del design system (Tier 1 fundacional)
+//  Se monta una sola vez en App. Usa propiedades que NO se
+//  definen inline (box-shadow, transform, filter, outline) para
+//  no chocar con los estilos en línea de los componentes.
+// ============================================================
+export function DesignSystemStyles() {
+  return (
+    <style>{`
+      * { -webkit-tap-highlight-color: transparent; }
+
+      /* Transiciones suaves globales en elementos interactivos */
+      button, input, select, textarea, a, [role="button"] {
+        transition: box-shadow .15s ease, transform .12s ease,
+                    filter .15s ease, border-color .15s ease,
+                    background-color .15s ease, opacity .15s ease;
+      }
+
+      /* Botones: realce y "lift" al pasar el mouse, hundido al click */
+      button:not(:disabled):not([data-nofx]):hover { filter: brightness(1.05); }
+      button:not(:disabled):not([data-nofx]):active { transform: translateY(1px); filter: brightness(.97); }
+      button:disabled { opacity: .55; cursor: not-allowed; }
+
+      /* Focus ring accesible y consistente en campos */
+      input:focus-visible, select:focus-visible, textarea:focus-visible {
+        border-color: ${C.sky} !important;
+        box-shadow: 0 0 0 3px rgba(62,143,214,.20);
+      }
+
+      /* Filas de tabla: hover sutil para seguir la lectura */
+      tbody tr { transition: background-color .12s ease; }
+      tbody tr:hover td { background-color: ${C.mist}; }
+
+      /* Scrollbars discretas y modernas */
+      ::-webkit-scrollbar { width: 11px; height: 11px; }
+      ::-webkit-scrollbar-track { background: transparent; }
+      ::-webkit-scrollbar-thumb {
+        background: #C2D3E0; border-radius: 8px;
+        border: 3px solid transparent; background-clip: padding-box;
+      }
+      ::-webkit-scrollbar-thumb:hover { background: #A4BBCD; }
+
+      /* Selección de texto con el azul de marca */
+      ::selection { background: rgba(62,143,214,.22); }
+
+      /* Aparición suave de las vistas de módulo */
+      @keyframes cmms-fade-in {
+        from { opacity: 0; transform: translateY(4px); }
+        to   { opacity: 1; transform: translateY(0); }
+      }
+    `}</style>
   );
 }

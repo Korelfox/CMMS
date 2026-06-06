@@ -16,6 +16,18 @@ export const C = {
 export const mono = { fontFamily: "'IBM Plex Mono', monospace" };
 export const archivo = { fontFamily: "'Archivo', sans-serif" };
 
+// Escala de elevación (sombras en capas) — da profundidad y jerarquía.
+// sm: cards en reposo · md: cards interactivas/hover · lg: dropdowns · xl: modales
+export const shadow = {
+  sm: "0 1px 2px rgba(10,26,42,.06), 0 1px 3px rgba(10,26,42,.05)",
+  md: "0 2px 4px rgba(10,26,42,.06), 0 4px 12px rgba(10,26,42,.08)",
+  lg: "0 8px 24px rgba(10,26,42,.12)",
+  xl: "0 16px 48px rgba(10,26,42,.18)",
+};
+
+// Radios consistentes
+export const radius = { sm: 6, md: 8, lg: 12, xl: 16, pill: 999 };
+
 // Roles y jerarquía (refleja el enum app.rol_usuario del esquema SQL)
 export const ROLES = {
   super_admin: { label: "Super Admin", nivel: 4, color: C.abyss },
