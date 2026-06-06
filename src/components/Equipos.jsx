@@ -77,12 +77,38 @@ export default function Equipos() {
   const baseList = filtro === "all" ? equipos : equipos.filter((e) => e.embarcacion_id === filtro);
   const lista    = buildEquipoTree(baseList);
 
-  // ── Colapso por sistema raíz ──
+  // ── Colapso por nodo (a cualquier nivel) ──
+  // conHijos: ids de nodos que tienen al menos un hijo (sistemas, subsistemas, …).
   const conHijos = new Set();
-  lista.forEach((e) => { if (e.depth > 0 && e.rootId) conHijos.add(e.rootId); });
-  const listaVisible = lista.filter((e) => e.depth === 0 || !colapsados.has(e.rootId));
+  lista.forEach((e) => { if (e.parent_id) conHijos.add(e.parent_id); });
 
-  // Contraer todos los sistemas por defecto (una sola vez, al cargar)
+  // descCount: total de descendientes por nodo (para el badge "▸ N" al colapsar).
+  const descCount = new Map();
+  {
+    const pila = [];
+    for (const e of lista) {
+      while (pila.length && pila[pila.length - 1].depth >= e.depth) pila.pop();
+      pila.forEach((a) => descCount.set(a.id, (descCount.get(a.id) || 0) + 1));
+      pila.push(e);
+    }
+  }
+
+  // Visibilidad: un nodo se oculta si CUALQUIER ancestro está colapsado.
+  // Recorre en pre-orden (padre antes que hijos) llevando la profundidad del
+  // ancestro colapsado activo; mientras esté activo, se saltan los más profundos.
+  const listaVisible = [];
+  {
+    let colapsadoEnDepth = null;
+    for (const e of lista) {
+      if (colapsadoEnDepth !== null && e.depth > colapsadoEnDepth) continue; // oculto
+      colapsadoEnDepth = null; // salimos del subárbol colapsado
+      listaVisible.push(e);
+      if (colapsados.has(e.id)) colapsadoEnDepth = e.depth; // colapsa sus descendientes
+    }
+  }
+
+  // Contraer TODOS los nodos con hijos por defecto (una sola vez, al cargar):
+  // se ve solo el nivel raíz y se va abriendo hacia los componentes.
   useEffect(() => {
     if (!initColapso && conHijos.size > 0) {
       setColapsados(new Set([...conHijos]));
@@ -90,10 +116,10 @@ export default function Equipos() {
     }
   }, [lista]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  function toggleColapso(rootId) {
+  function toggleColapso(nodeId) {
     setColapsados((prev) => {
       const n = new Set(prev);
-      n.has(rootId) ? n.delete(rootId) : n.add(rootId);
+      n.has(nodeId) ? n.delete(nodeId) : n.add(nodeId);
       return n;
     });
   }
@@ -456,9 +482,9 @@ export default function Equipos() {
                 ? <tr><td colSpan={puedeBorrar ? 14 : 13}><Empty>{equipos.length === 0 ? <NotaJerarquia /> : "Sin equipos para este filtro."}</Empty></td></tr>
                 : listaVisible.map((e) => {
                   const padres = padresDisponibles(e.id, e.embarcacion_id);
-                  const esRaizConHijos = e.depth === 0 && conHijos.has(e.id);
+                  const tieneHijos = conHijos.has(e.id);
                   const colapsado = colapsados.has(e.id);
-                  const nSub = esRaizConHijos ? lista.filter((x) => x.rootId === e.id && x.depth > 0).length : 0;
+                  const nDesc = descCount.get(e.id) || 0;
                   return (
                     <tr key={e.id} style={{ background: eqDirty(e) ? tint(C.gold, 14) : e.depth > 0 ? tint(C.steel, 5) : undefined }}>
 
@@ -482,13 +508,13 @@ export default function Equipos() {
                       {/* Sistema — colapsable + indentación de árbol + tipo + criticidad */}
                       <td style={tdStyle}>
                         <div style={{ display: "flex", alignItems: "center" }}>
-                          {esRaizConHijos ? (
+                          {tieneHijos ? (
                             <button onClick={() => toggleColapso(e.id)} title={colapsado ? "Expandir" : "Colapsar"}
-                              style={{ background: "none", border: "none", cursor: "pointer", color: C.steel, padding: 0, marginRight: 4, display: "flex", alignItems: "center", flexShrink: 0 }}>
+                              style={{ background: "none", border: "none", cursor: "pointer", color: C.steel, padding: 0, marginLeft: e.depth * 14, marginRight: 4, display: "flex", alignItems: "center", flexShrink: 0 }}>
                               {colapsado ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
                             </button>
                           ) : e.depth > 0 ? (
-                            <span style={{ marginLeft: (e.depth - 1) * 14, marginRight: 5, color: C.slate, fontSize: 13, flexShrink: 0 }}>└─</span>
+                            <span style={{ marginLeft: e.depth * 14, marginRight: 5, color: C.slate, fontSize: 13, flexShrink: 0 }}>└─</span>
                           ) : <span style={{ width: 20, flexShrink: 0 }} />}
                           {(() => {
                             const Ico = ICONO_TIPO[e.tipo_nodo] || ICONO_TIPO.equipo;
@@ -500,7 +526,7 @@ export default function Equipos() {
                             onBlur={(ev) => commit(e.id, "sistema", ev.target.value)}
                             style={{ ...bluInput, width: Math.max(150, 230 - e.depth * 14), color: e.depth === 0 ? C.abyss : C.ink, fontWeight: e.depth === 0 ? 700 : 400 }} />
                           {e.criticidad && <span style={{ marginLeft: 6, flexShrink: 0 }}><Pill tone={CRITICIDAD_TONE[e.criticidad]}>{e.criticidad}</Pill></span>}
-                          {colapsado && nSub > 0 && <span style={{ marginLeft: 8, fontSize: 11.5, color: C.steel, fontWeight: 600, flexShrink: 0 }}>▸ {nSub}</span>}
+                          {colapsado && nDesc > 0 && <span style={{ marginLeft: 8, fontSize: 11.5, color: C.steel, fontWeight: 600, flexShrink: 0 }} title={`${nDesc} elemento(s) ocultos`}>▸ {nDesc}</span>}
                         </div>
                       </td>
 
