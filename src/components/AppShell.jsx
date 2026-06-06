@@ -4,12 +4,12 @@ import {
   Package, Warehouse, Gauge, Activity, AlertTriangle, ClipboardCheck, DollarSign,
   TrendingUp, FileText, History, Layers, Bell, LogOut, UserCircle, UserCog,
   Wifi, WifiOff, RefreshCw, CheckCircle2, BarChart3, ShipWheel, Fuel, ShieldCheck, Fish,
-  Menu, X, Sun, Moon,
+  Menu, X, Sun, Moon, Building2,
 } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { fetchAll } from "../lib/db";
 import { useOnline, outboxCount, flushOutbox } from "../lib/offline";
-import { C, archivo, rolLabel, ROLES, isAdmin, tint } from "../theme";
+import { C, archivo, rolLabel, ROLES, isAdmin, isSuperAdmin, tint } from "../theme";
 import { Card, InlineSpinner, PageHead } from "../ui";
 
 const Tablero       = lazy(() => import("./Tablero"));
@@ -36,6 +36,7 @@ const Weibull       = lazy(() => import("./Weibull"));
 const Reportes      = lazy(() => import("./Reportes"));
 const Bitacora      = lazy(() => import("./Bitacora"));
 const Rentabilidad  = lazy(() => import("./Rentabilidad"));
+const Empresas      = lazy(() => import("./Empresas"));
 const Usuarios      = lazy(() => import("./Usuarios"));
 
 // Estructura de navegación (los módulos se conectan a la base de datos uno a uno)
@@ -65,6 +66,7 @@ const NAV = [
   { id: "reportes", label: "Reportes", icon: FileText, group: "Sistema" },
   { id: "bitacora", label: "Bitácora", icon: History, group: "Sistema" },
   { id: "usuarios", label: "Usuarios", icon: UserCog, group: "Sistema", adminOnly: true },
+  { id: "empresas", label: "Empresas & Flotas", icon: Building2, group: "Sistema", superAdminOnly: true },
 ];
 
 // Módulos ya conectados a la base de datos (los 18)
@@ -94,6 +96,7 @@ const MODULOS = {
   bitacora:      Bitacora,
   rentabilidad:  Rentabilidad,
   usuarios: Usuarios,
+  empresas: Empresas,
 };
 
 export default function AppShell() {
@@ -126,7 +129,9 @@ export default function AppShell() {
   const [sincronizando, setSincronizando] = useState(false);
   const [recienSync, setRecienSync] = useState(false);
   // Oculta las entradas solo-admin a quien no lo es
-  const visibleNav = NAV.filter((n) => !n.adminOnly || isAdmin(profile?.rol));
+  const visibleNav = NAV.filter((n) =>
+    (!n.adminOnly || isAdmin(profile?.rol)) &&
+    (!n.superAdminOnly || isSuperAdmin(profile?.rol)));
   const groups = [...new Set(visibleNav.map((n) => n.group))];
   const roleColor = ROLES[profile?.rol]?.color || C.steel;
 

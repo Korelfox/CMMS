@@ -98,6 +98,9 @@ export function canOperate(rol) {
 export function isAdmin(rol) {
   return ["super_admin", "admin_empresa", "jefe_mantencion"].includes(rol);
 }
+export function isSuperAdmin(rol) {
+  return rol === "super_admin";
+}
 
 // Estados de equipo: valor en BD ↔ etiqueta visible ↔ color
 export const ESTADOS_EQUIPO = [
