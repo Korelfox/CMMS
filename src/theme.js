@@ -16,6 +16,8 @@ export const HEX_LIGHT = {
   brown: "#8A5A2B", brownBg: "#F0E6DA",
   // Superficies (nuevas) — reemplazan los "#fff" hardcodeados
   surface: "#FFFFFF", surface2: "#F8FAFD", surfaceLine: "#D6E2EC",
+  // Navegación: fondo del sidebar — oscuro en AMBOS temas (no invierte)
+  navBg1: "#06182E", navBg2: "#0B2A4A", navFg: "#E8F1F8",
 };
 
 // Overrides del modo oscuro: solo neutros/superficies cambian; los
@@ -28,6 +30,10 @@ export const HEX_DARK = {
   // backgrounds tenues de acento, más oscuros en dark
   greenBg: "#10271E", redBg: "#2E1715", yellowBg: "#2A2310",
   purpleBg: "#1E1A2C", cyanBg: "#0E2226", indigoBg: "#181A2C", brownBg: "#241A10",
+  // navegación: un punto más oscura en modo noche
+  navBg1: "#040E1C", navBg2: "#06182E", navFg: "#DCEAF6",
+  // acentos un toque más luminosos para contraste sobre fondo oscuro
+  gold: "#E8B23E", amber: "#F6C24E", green: "#2BB47C", red: "#E85C54",
 };
 
 // El objeto C que consumen los componentes: cada token es una CSS var.

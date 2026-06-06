@@ -4,12 +4,12 @@ import {
   Package, Warehouse, Gauge, Activity, AlertTriangle, ClipboardCheck, DollarSign,
   TrendingUp, FileText, History, Layers, Bell, LogOut, UserCircle, UserCog,
   Wifi, WifiOff, RefreshCw, CheckCircle2, BarChart3, ShipWheel, Fuel, ShieldCheck, Fish,
-  Menu, X,
+  Menu, X, Sun, Moon,
 } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { fetchAll } from "../lib/db";
 import { useOnline, outboxCount, flushOutbox } from "../lib/offline";
-import { C, archivo, rolLabel, ROLES, isAdmin } from "../theme";
+import { C, archivo, rolLabel, ROLES, isAdmin, tint } from "../theme";
 import { Card, InlineSpinner, PageHead } from "../ui";
 
 const Tablero       = lazy(() => import("./Tablero"));
@@ -104,6 +104,18 @@ export default function AppShell() {
   const [armador, setArmador] = useState(null);      // usuario Armador (admin_empresa) de la organización
   const [pendientes, setPendientes] = useState(0);
   const [sidebarOpen, setSidebarOpen] = useState(false); // drawer móvil
+  const [dark, setDark] = useState(() => {
+    try { return document.documentElement.dataset.theme === "dark"; } catch { return false; }
+  });
+
+  function toggleTema() {
+    setDark((d) => {
+      const next = !d;
+      document.documentElement.dataset.theme = next ? "dark" : "light";
+      try { localStorage.setItem("cmms-theme", next ? "dark" : "light"); } catch { /* sin storage */ }
+      return next;
+    });
+  }
 
   // Navega a un módulo, opcionalmente con parámetros (ej. { otId }).
   const navegar = useCallback((destino, params = null) => {
@@ -168,11 +180,11 @@ export default function AppShell() {
 
       {/* SIDEBAR */}
       <aside className={`cmms-sidebar${sidebarOpen ? " cmms-sidebar-open" : ""}`}
-        style={{ width: 250, background: `linear-gradient(180deg, ${C.abyss}, ${C.deep})`, color: C.foam, display: "flex", flexDirection: "column", flexShrink: 0 }}>
+        style={{ width: 250, background: `linear-gradient(180deg, ${C.navBg1}, ${C.navBg2})`, color: C.navFg, display: "flex", flexDirection: "column", flexShrink: 0 }}>
         <div style={{ padding: "20px 18px 16px", borderBottom: "1px solid rgba(255,255,255,.08)" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <div style={{ width: 36, height: 36, borderRadius: 9, background: C.gold, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-              <Anchor size={21} color={C.abyss} strokeWidth={2.4} />
+              <Anchor size={21} color={C.navBg1} strokeWidth={2.4} />
             </div>
             <div style={{ minWidth: 0, flex: 1 }}>
               <div style={{ fontWeight: 700, fontSize: 14.5, lineHeight: 1.1 }}>CMMS Korelfox</div>
@@ -182,7 +194,7 @@ export default function AppShell() {
             </div>
             {/* Cerrar drawer — solo móvil */}
             <button className="cmms-sidebar-close" onClick={() => setSidebarOpen(false)}
-              style={{ display: "none", background: "rgba(255,255,255,.08)", border: "none", borderRadius: 7, color: C.foam, cursor: "pointer", padding: 6, alignItems: "center", justifyContent: "center" }}>
+              style={{ display: "none", background: "rgba(255,255,255,.08)", border: "none", borderRadius: 7, color: C.navFg, cursor: "pointer", padding: 6, alignItems: "center", justifyContent: "center" }}>
               <X size={18} />
             </button>
           </div>
@@ -196,7 +208,7 @@ export default function AppShell() {
                 const active = view === n.id; const Icon = n.icon;
                 return (
                   <button key={n.id} onClick={() => navegar(n.id)}
-                    style={{ width: "100%", display: "flex", alignItems: "center", gap: 11, padding: "8px 12px", marginBottom: 2, borderRadius: 8, border: "none", cursor: "pointer", textAlign: "left", background: active ? C.gold : "transparent", color: active ? C.abyss : C.foam, fontWeight: active ? 600 : 500, fontSize: 12.5, fontFamily: "inherit" }}>
+                    style={{ width: "100%", display: "flex", alignItems: "center", gap: 11, padding: "8px 12px", marginBottom: 2, borderRadius: 8, border: "none", cursor: "pointer", textAlign: "left", background: active ? C.gold : "transparent", color: active ? C.navBg1 : C.navFg, fontWeight: active ? 600 : 500, fontSize: 12.5, fontFamily: "inherit" }}>
                     <Icon size={16} strokeWidth={active ? 2.4 : 2} /><span>{n.label}</span>
                   </button>
                 );
@@ -216,16 +228,22 @@ export default function AppShell() {
               <div style={{ fontSize: 10, opacity: 0.55 }}>{rolLabel(profile?.rol)}</div>
             </div>
           </div>
-          <button onClick={signOut} style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 7, background: "rgba(255,255,255,.08)", border: "1px solid rgba(255,255,255,.12)", color: C.foam, borderRadius: 7, padding: "7px", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
-            <LogOut size={14} /> Cerrar sesión
-          </button>
+          <div style={{ display: "flex", gap: 7 }}>
+            <button onClick={signOut} style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 7, background: "rgba(255,255,255,.08)", border: "1px solid rgba(255,255,255,.12)", color: C.navFg, borderRadius: 7, padding: "7px", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
+              <LogOut size={14} /> Cerrar sesión
+            </button>
+            <button onClick={toggleTema} title={dark ? "Modo día" : "Modo noche"} aria-label="Cambiar tema"
+              style={{ display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(255,255,255,.08)", border: "1px solid rgba(255,255,255,.12)", color: dark ? C.gold : C.navFg, borderRadius: 7, padding: "7px 10px", cursor: "pointer" }}>
+              {dark ? <Sun size={15} /> : <Moon size={15} />}
+            </button>
+          </div>
         </div>
       </aside>
 
       {/* CONTENIDO */}
       <main style={{ flex: 1, overflowY: "auto", background: C.mist }}>
         {/* Barra superior: Armador + estado de conexión */}
-        <div className="cmms-topbar" style={{ position: "sticky", top: 0, zIndex: 20, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, background: online ? "rgba(244,248,251,.92)" : C.yellowBg, borderBottom: `1px solid ${online ? C.line : C.amber}`, backdropFilter: "blur(6px)" }}>
+        <div className="cmms-topbar" style={{ position: "sticky", top: 0, zIndex: 20, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, background: online ? tint(C.surface, 92) : C.yellowBg, borderBottom: `1px solid ${online ? C.line : C.amber}`, backdropFilter: "blur(6px)" }}>
           <span style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 12, color: C.slate, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
             <button className="cmms-hamburger" onClick={() => setSidebarOpen(true)}
               aria-label="Abrir menú"
