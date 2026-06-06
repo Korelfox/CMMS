@@ -4,7 +4,7 @@ import { useAuth } from "../lib/auth";
 import { fetchAll, insertRow, updateRow, deleteRow, logActivity } from "../lib/db";
 import { C, isAdmin, canOperate, ESTADOS_EQUIPO, estadoLabel, tint, shadow } from "../theme";
 import { buildEquipoTree } from "../lib/equipTree";
-import { PLANTILLA_PESQUERA, contarNodosPlantilla, TIPO_NODO_META, CRITICIDAD_TONE } from "../lib/plantillaPesquera";
+import { PLANTILLA_PESQUERA, contarNodosPlantilla, contarRepuestosPlantilla, TIPO_NODO_META, CRITICIDAD_TONE } from "../lib/plantillaPesquera";
 import {
   Card, PageHead, Pill, primaryBtn, ghostBtn, exportBtn, inputStyle, bluInput,
   thStyle, tdStyle, FilterBtn, Field, Empty, ErrorBanner, InlineSpinner, GuiaColapsable,
@@ -137,26 +137,60 @@ export default function Equipos() {
   async function precargarPlantilla() {
     const emb = embarcaciones.find((e) => e.id === filtro);
     if (!emb) { setError("Selecciona primero una embarcación en los filtros."); return; }
-    const total = contarNodosPlantilla();
-    if (!window.confirm(`¿Precargar la plantilla pesquera estándar en "${emb.nombre}"?\n\nSe crearán ${total} nodos (sistemas → subsistemas → componentes → sensores). Puedes borrar después los que no apliquen a esta nave.`)) return;
+    const totalNodos = contarNodosPlantilla();
+    const totalReps  = contarRepuestosPlantilla();
+    if (!window.confirm(`¿Precargar la plantilla de excelencia (ISO 14224) en "${emb.nombre}"?\n\nSe crearán ${totalNodos} nodos de equipos (sistemas → subsistemas → componentes → sensores) y se cargarán hasta ${totalReps} repuestos (SKU OEM/Alternativo/Genérico) en el Inventario, enlazados a su componente. Puedes borrar después lo que no aplique a esta nave.`)) return;
 
     setPrecargando(true); setError(null);
-    const creados = [];
-    // Inserta un nodo y, recursivamente, todos sus descendientes (cualquier profundidad)
-    async function insertarNodo(nodo, parentId) {
+    const creados = [];        // equipos
+    const itemsCreados = [];   // inventario_items nuevos
+
+    // Mapa codigo→id de repuestos existentes para no duplicar SKU (un SKU se
+    // reutiliza en varios componentes: se crea una vez y se enlaza a cada uno).
+    let itemMap = new Map();
+    try {
+      const existentes = await fetchAll("inventario_items");
+      itemMap = new Map(existentes.map((i) => [String(i.codigo).toUpperCase(), i.id]));
+    } catch { /* sin catálogo previo: se crean todos */ }
+
+    // Crea (o reutiliza) los repuestos del componente y los enlaza como destino.
+    async function crearRepuestos(nodo, equipoId, rootNom) {
+      for (const [sku, desc, tipoRep] of nodo.rep || []) {
+        const code = String(sku).toUpperCase();
+        let itemId = itemMap.get(code);
+        if (!itemId) {
+          try {
+            const it = await insertRow("inventario_items", profile.empresa_id, {
+              codigo: code, descripcion: desc, categoria: rootNom,
+              tipo_repuesto: tipoRep, grupo_intercambio: nodo.cod,
+            });
+            itemId = it.id; itemMap.set(code, itemId); itemsCreados.push(it);
+          } catch { continue; } // SKU duplicado u otra carrera: salta el enlace
+        }
+        try {
+          await insertRow("inventario_item_destinos", profile.empresa_id, { item_id: itemId, equipo_id: equipoId });
+        } catch { /* destino duplicado: ignorar */ }
+      }
+    }
+
+    // Inserta un nodo y, recursivamente, todos sus descendientes (cualquier profundidad).
+    // rootNom = nombre del sistema raíz (se usa como categoría del repuesto).
+    async function insertarNodo(nodo, parentId, rootNom) {
       const row = await insertRow("equipos", profile.empresa_id, {
-        embarcacion_id: emb.id, id_visible: `${emb.codigo}-${nodo.cod}`,
+        embarcacion_id: emb.id, id_visible: `${emb.codigo}-${nodo.cod}-001`,
         sistema: nodo.nom, tipo_nodo: nodo.tipo, criticidad: nodo.crit,
+        mtbf_objetivo: nodo.mtbf ?? null,
         parent_id: parentId, created_by: profile.id,
       });
       creados.push(row);
-      for (const hijo of nodo.hijos || []) await insertarNodo(hijo, row.id);
+      if (nodo.rep?.length) await crearRepuestos(nodo, row.id, rootNom);
+      for (const hijo of nodo.hijos || []) await insertarNodo(hijo, row.id, rootNom);
     }
     const sincOriginal = () => setOriginal((o) => { const n = { ...o }; creados.forEach((c) => { n[c.id] = { ...c }; }); return n; });
     try {
-      for (const sis of PLANTILLA_PESQUERA) await insertarNodo(sis, null);
+      for (const sis of PLANTILLA_PESQUERA) await insertarNodo(sis, null, sis.nom);
       setEquipos((p) => [...p, ...creados]); sincOriginal();
-      logActivity(profile, "Precargar plantilla pesquera", `${emb.nombre} · ${creados.length} nodos`);
+      logActivity(profile, "Precargar plantilla pesquera", `${emb.nombre} · ${creados.length} nodos · ${itemsCreados.length} repuestos`);
     } catch (e) {
       setError("Se interrumpió la precarga: " + e.message + ". Recarga la página para ver lo que sí se creó.");
       setEquipos((p) => [...p, ...creados]); sincOriginal();
@@ -167,7 +201,7 @@ export default function Equipos() {
   // Edición LOCAL — no persiste hasta pulsar "Guardar cambios"
   const commit = onChangeLocal;
 
-  const CAMPOS_EDIT = ["id_visible", "sistema", "marca", "modelo", "horas_actual", "horas_ult_pm", "estado", "embarcacion_id", "parent_id", "tipo_nodo", "criticidad", "prezarpe", "nivel_tipo", "consume_aceite"];
+  const CAMPOS_EDIT = ["id_visible", "sistema", "marca", "modelo", "horas_actual", "horas_ult_pm", "mtbf_objetivo", "estado", "embarcacion_id", "parent_id", "tipo_nodo", "criticidad", "prezarpe", "nivel_tipo", "consume_aceite"];
   const eqDirty = (e) => { const o = original[e.id]; return o && CAMPOS_EDIT.some((c) => (e[c] ?? null) !== (o[c] ?? null)); };
   const dirtyIds = equipos.filter(eqDirty).map((e) => e.id);
 
@@ -378,7 +412,7 @@ export default function Equipos() {
 
       <Card style={{ padding: 0, overflow: "hidden" }}>
         <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 1340 }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 1440 }}>
             <thead><tr>
               <th style={thStyle}>ID</th>
               <th style={thStyle}>Nave</th>
@@ -388,6 +422,7 @@ export default function Equipos() {
               <th style={thStyle}>Modelo</th>
               <th style={{ ...thStyle, textAlign: "right" }}>Horas</th>
               <th style={{ ...thStyle, textAlign: "right" }}>Hrs PM</th>
+              <th style={{ ...thStyle, textAlign: "right" }} title="MTBF objetivo (horas)">MTBF</th>
               <th style={thStyle}>Estado</th>
               <th style={{ ...thStyle, textAlign: "center" }}>Prezarpe</th>
               <th style={thStyle}>Niveles</th>
@@ -396,7 +431,7 @@ export default function Equipos() {
             </tr></thead>
             <tbody>
               {lista.length === 0
-                ? <tr><td colSpan={puedeBorrar ? 13 : 12}><Empty>{equipos.length === 0 ? <NotaJerarquia /> : "Sin equipos para este filtro."}</Empty></td></tr>
+                ? <tr><td colSpan={puedeBorrar ? 14 : 13}><Empty>{equipos.length === 0 ? <NotaJerarquia /> : "Sin equipos para este filtro."}</Empty></td></tr>
                 : listaVisible.map((e) => {
                   const padres = padresDisponibles(e.id, e.embarcacion_id);
                   const esRaizConHijos = e.depth === 0 && conHijos.has(e.id);
@@ -472,6 +507,15 @@ export default function Equipos() {
                         <input type="number" value={e.horas_ult_pm} disabled={!puedeOperar}
                           onChange={(ev) => onChangeLocal(e.id, "horas_ult_pm", +ev.target.value)}
                           onBlur={(ev) => commit(e.id, "horas_ult_pm", +ev.target.value)}
+                          style={{ ...bluInput, width: 80, textAlign: "right" }} />
+                      </td>
+
+                      {/* MTBF objetivo (horas) */}
+                      <td style={{ ...tdStyle, textAlign: "right" }}>
+                        <input type="number" value={e.mtbf_objetivo ?? ""} disabled={!puedeOperar}
+                          placeholder="—"
+                          onChange={(ev) => onChangeLocal(e.id, "mtbf_objetivo", ev.target.value === "" ? null : +ev.target.value)}
+                          onBlur={(ev) => commit(e.id, "mtbf_objetivo", ev.target.value === "" ? null : +ev.target.value)}
                           style={{ ...bluInput, width: 80, textAlign: "right" }} />
                       </td>
 

@@ -281,6 +281,29 @@ function TabStock({ profile, items, setItems, bodegas, stockMap, stock, setStock
   }
   function cancelarStock() { setStockEdit({ item_id: null, bodega_id: null, valor: "" }); }
 
+  // ── Mínimo crítico por bodega (stock.stock_min) ──────────────
+  const minMap = useMemo(() => {
+    const m = new Map();
+    stock.forEach((s) => { if (s.stock_min != null) m.set(skey(s.item_id, s.bodega_id), Number(s.stock_min) || 0); });
+    return m;
+  }, [stock]);
+
+  async function setMinBodega(item_id, bodega_id, v) {
+    const previo = minMap.get(skey(item_id, bodega_id)) || 0;
+    if (v === previo) return;
+    setStock((p) => {
+      const idx = p.findIndex((s) => s.item_id === item_id && s.bodega_id === bodega_id);
+      if (idx >= 0) { const c = [...p]; c[idx] = { ...c[idx], stock_min: v }; return c; }
+      return [...p, { item_id, bodega_id, cantidad: 0, stock_min: v, empresa_id: profile.empresa_id, id: "tmp-" + Date.now() }];
+    });
+    try {
+      await upsertRow("stock", profile.empresa_id, { item_id, bodega_id, stock_min: v }, "item_id,bodega_id");
+    } catch (e) {
+      setStock((p) => p.map((s) => s.item_id === item_id && s.bodega_id === bodega_id ? { ...s, stock_min: previo } : s));
+      setError("No se pudo guardar el mínimo: " + e.message);
+    }
+  }
+
   // ── Descripción ──────────────────────────────────────────────
   function iniciarEditDesc(id, valorActual) { setDescEdit({ id, valor: valorActual }); }
   function cancelarDesc() { setDescEdit({ id: null, valor: "" }); }
@@ -368,6 +391,13 @@ function TabStock({ profile, items, setItems, bodegas, stockMap, stock, setStock
         </span>
       </div>
 
+      {puedeOperar && (
+        <div style={{ fontSize: 11.5, color: C.slate, marginBottom: 8 }}>
+          En cada bodega: <strong style={{ color: C.ink }}>número grande</strong> = stock actual ·
+          {" "}<span style={{ border: `1px solid ${C.line}`, borderRadius: 4, padding: "0 4px" }}>número pequeño</span> = mínimo crítico de esa bodega (ej. 2-3 a bordo, 1-2 en tierra). La celda se marca en rojo si el stock cae bajo ese mínimo.
+        </div>
+      )}
+
       <Card style={{ padding: 0, overflow: "hidden" }}>
         <div style={{ overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 860 }}>
@@ -419,8 +449,10 @@ function TabStock({ profile, items, setItems, bodegas, stockMap, stock, setStock
                     {bodegas.map((b) => {
                       const editando = stockEdit.item_id === i.id && stockEdit.bodega_id === b.id;
                       const cantidad = stockMap.get(skey(i.id, b.id)) || 0;
+                      const minBod   = minMap.get(skey(i.id, b.id)) || 0;
+                      const bajoMin  = minBod > 0 && cantidad < minBod;
                       return (
-                        <td key={b.id} style={{ ...tdStyle, textAlign: "center" }}>
+                        <td key={b.id} style={{ ...tdStyle, textAlign: "center", background: bajoMin ? tint(C.red, 8) : undefined }}>
                           {puedeOperar && editando ? (
                             <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 3 }}>
                               <input type="number" value={stockEdit.valor} autoFocus
@@ -431,9 +463,18 @@ function TabStock({ profile, items, setItems, bodegas, stockMap, stock, setStock
                               <button onClick={cancelarStock} title="Cancelar" style={btnCancel}><X size={12} /></button>
                             </div>
                           ) : (
-                            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
-                              <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontWeight: 600 }}>{cantidad}</span>
-                              {puedeOperar && <button onClick={() => iniciarEditStock(i.id, b.id)} title="Editar stock" style={btnEdit}><Pencil size={11} /></button>}
+                            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
+                              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
+                                <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, color: bajoMin ? C.red : C.ink }}>{cantidad}</span>
+                                {puedeOperar && <button onClick={() => iniciarEditStock(i.id, b.id)} title="Editar stock" style={btnEdit}><Pencil size={11} /></button>}
+                              </div>
+                              {puedeOperar && (
+                                <input type="number" min={0} defaultValue={minBod}
+                                  title={`Stock mínimo crítico en ${b.nombre} (${b.tipo === "a_bordo" ? "a bordo" : "tierra"})`}
+                                  onBlur={(e) => setMinBodega(i.id, b.id, Math.max(0, +e.target.value || 0))}
+                                  onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
+                                  style={{ width: 44, textAlign: "center", fontSize: 10, color: C.slate, border: `1px solid ${C.line}`, borderRadius: 4, padding: "0 2px", background: "#fff" }} />
+                              )}
                             </div>
                           )}
                         </td>

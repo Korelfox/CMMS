@@ -4,7 +4,13 @@ import { useAuth } from "../lib/auth";
 import { fetchAll, insertRow, updateRow, deleteRow, logActivity } from "../lib/db";
 import { C, clp, isAdmin, canOperate, tint } from "../theme";
 import { buildEquipoTree } from "../lib/equipTree";
-import { PLANTILLA_PESQUERA } from "../lib/plantillaPesquera";
+import { PLANTILLA_PESQUERA, TIPO_REPUESTO_META } from "../lib/plantillaPesquera";
+
+const TIPOS_REPUESTO = [
+  { value: "oem",         label: "OEM" },
+  { value: "alternativo", label: "Alternativo" },
+  { value: "generico",    label: "Genérico" },
+];
 import {
   Card, PageHead, Pill, FilterBtn, primaryBtn, ghostBtn, exportBtn, inputStyle, bluInput,
   thStyle, tdStyle, Field, Empty, ErrorBanner, InlineSpinner, GuiaColapsable,
@@ -60,7 +66,7 @@ export default function Inventario() {
   const puedeBorrar = isAdmin(profile?.rol);
 
   function blank() {
-    return { codigo: "", descripcion: "", categoria: "", unidad: "Un", stock_min: 0, stock_max: 0, precio: 0, proveedor: "", lead_dias: 7, equipoIds: [] };
+    return { codigo: "", descripcion: "", categoria: "", unidad: "Un", stock_min: 0, stock_max: 0, precio: 0, proveedor: "", lead_dias: 7, tipo_repuesto: "oem", grupo_intercambio: "", equipoIds: [] };
   }
 
   const cargar = useCallback(async () => {
@@ -121,6 +127,8 @@ export default function Inventario() {
         categoria: form.categoria.trim(), unidad: form.unidad, precio: form.precio,
         stock_min: form.stock_min, stock_max: form.stock_max,
         proveedor: form.proveedor.trim(), lead_dias: form.lead_dias,
+        tipo_repuesto: form.tipo_repuesto || "oem",
+        grupo_intercambio: form.grupo_intercambio.trim() || null,
       });
       setItems((p) => [...p, nuevo]);
       if (form.equipoIds.length > 0) {
@@ -173,7 +181,7 @@ export default function Inventario() {
 
   function exportar() {
     const filas = [
-      ["Código", "ABC", "Descripción", "Categoría", "Unidad", "Stock Total", "Mín", "Máx", "Precio", "Valor", "Proveedor", "Lead días", "Destino (naves/equipos)"],
+      ["Código", "ABC", "Descripción", "Categoría", "Tipo", "Grupo intercambio", "Unidad", "Stock Total", "Mín", "Máx", "Precio", "Valor", "Proveedor", "Lead días", "Destino (naves/equipos)"],
       ...conABC.map((i) => {
         const dests = destinosDeItem(i.id);
         const destinoStr = dests.map((d) => {
@@ -181,7 +189,8 @@ export default function Inventario() {
           const emb = embarcaciones.find((e) => e.id === eq?.embarcacion_id);
           return `${emb?.nombre || "?"} / ${eq?.id_visible || "?"}`;
         }).join(" | ");
-        return [i.codigo, i.abc, i.descripcion, i.categoria, i.unidad, i.total, i.stock_min, i.stock_max, i.precio, i.valor, i.proveedor, i.lead_dias, destinoStr];
+        const trLabel = (TIPO_REPUESTO_META[i.tipo_repuesto] || TIPO_REPUESTO_META.oem).label;
+        return [i.codigo, i.abc, i.descripcion, i.categoria, trLabel, i.grupo_intercambio || "", i.unidad, i.total, i.stock_min, i.stock_max, i.precio, i.valor, i.proveedor, i.lead_dias, destinoStr];
       }),
     ];
     const csv = filas.map((r) => r.map((c) => { const s = String(c ?? ""); return /[",\n;]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; }).join(";")).join("\n");
@@ -239,6 +248,14 @@ export default function Inventario() {
             <Field label="Precio"><input type="number" value={form.precio} onChange={(e) => setForm({ ...form, precio: +e.target.value })} style={bluInput} /></Field>
             <Field label="Proveedor"><input value={form.proveedor} onChange={(e) => setForm({ ...form, proveedor: e.target.value })} style={inputStyle()} /></Field>
             <Field label="Lead días"><input type="number" value={form.lead_dias} onChange={(e) => setForm({ ...form, lead_dias: +e.target.value })} style={bluInput} /></Field>
+            <Field label="Tipo (intercambiabilidad)">
+              <select value={form.tipo_repuesto} onChange={(e) => setForm({ ...form, tipo_repuesto: e.target.value })} style={inputStyle()}>
+                {TIPOS_REPUESTO.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+              </select>
+            </Field>
+            <Field label="Grupo de intercambio">
+              <input value={form.grupo_intercambio} onChange={(e) => setForm({ ...form, grupo_intercambio: e.target.value })} style={inputStyle()} placeholder="ej. PROP-MTR-COOL-RAD" />
+            </Field>
           </div>
 
           {equipos.length > 0 && (
@@ -373,12 +390,13 @@ export default function Inventario() {
       ) : (
         <Card style={{ padding: 0, overflow: "hidden" }}>
           <div style={{ overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 1100 }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 1200 }}>
               <thead><tr>
                 <th style={thStyle}>Código</th>
                 <th style={{ ...thStyle, textAlign: "center" }}>ABC</th>
                 <th style={thStyle}>Descripción</th>
                 <th style={thStyle}>Categoría</th>
+                <th style={{ ...thStyle, textAlign: "center" }} title="Intercambiabilidad: OEM / Alternativo / Genérico">Tipo</th>
                 <th style={{ ...thStyle, textAlign: "right" }}>Stock</th>
                 <th style={{ ...thStyle, textAlign: "right" }}>Mín</th>
                 <th style={{ ...thStyle, textAlign: "right" }}>Máx</th>
@@ -443,6 +461,31 @@ export default function Inventario() {
                           onBlur={(e) => commit(i.id, "categoria", e.target.value)}
                           style={inputStyle(120)} />
                       </td>
+
+                      {/* Tipo de repuesto (intercambiabilidad) + grupo */}
+                      <td style={{ ...tdStyle, textAlign: "center" }}>
+                        {(() => {
+                          const tr = i.tipo_repuesto || "oem";
+                          const meta = TIPO_REPUESTO_META[tr] || TIPO_REPUESTO_META.oem;
+                          const equiv = i.grupo_intercambio ? items.filter((x) => x.grupo_intercambio === i.grupo_intercambio) : [];
+                          return (
+                            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
+                              {puedeOperar ? (
+                                <select value={tr} onChange={(e) => commit(i.id, "tipo_repuesto", e.target.value)} style={inputStyle(105)}>
+                                  {TIPOS_REPUESTO.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+                                </select>
+                              ) : <Pill tone={meta.tone}>{meta.label}</Pill>}
+                              {equiv.length > 1 && (
+                                <span title={`Intercambiable con ${equiv.length - 1} repuesto(s) del grupo ${i.grupo_intercambio}:\n` + equiv.map((x) => `· ${x.codigo} (${(TIPO_REPUESTO_META[x.tipo_repuesto] || TIPO_REPUESTO_META.oem).label})`).join("\n")}
+                                  style={{ fontSize: 10, color: C.cyan, fontWeight: 700, cursor: "help", whiteSpace: "nowrap" }}>
+                                  ⇄ {equiv.length}
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })()}
+                      </td>
+
                       <td style={{ ...tdStyle, textAlign: "right", fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700 }}>{i.total}</td>
                       <td style={{ ...tdStyle, textAlign: "right" }}>
                         <input type="number" value={i.stock_min} disabled={!puedeOperar}
