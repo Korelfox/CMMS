@@ -1,8 +1,8 @@
 import React, { useEffect, useState, useCallback } from "react";
-import { Ship, Plus, Trash2, Download, AlertCircle, GitBranch, Layers, Cpu, Wrench, Box, Hash, ChevronDown, ChevronRight } from "lucide-react";
+import { Ship, Plus, Trash2, Download, AlertCircle, GitBranch, Layers, Cpu, Wrench, Box, Hash, ChevronDown, ChevronRight, Check } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { fetchAll, insertRow, updateRow, deleteRow, logActivity } from "../lib/db";
-import { C, isAdmin, canOperate, ESTADOS_EQUIPO, estadoLabel, tint } from "../theme";
+import { C, isAdmin, canOperate, ESTADOS_EQUIPO, estadoLabel, tint, shadow } from "../theme";
 import { buildEquipoTree } from "../lib/equipTree";
 import { PLANTILLA_PESQUERA, contarNodosPlantilla, TIPO_NODO_META, CRITICIDAD_TONE } from "../lib/plantillaPesquera";
 import {
@@ -49,6 +49,8 @@ export default function Equipos() {
   const [precargando, setPrecargando] = useState(false);
   const [colapsados,  setColapsados]  = useState(() => new Set());
   const [initColapso, setInitColapso] = useState(false);
+  const [original,    setOriginal]    = useState({}); // snapshot por id para guardar/descartar
+  const [guardando,   setGuardando]   = useState(false);
   const puedeOperar = canOperate(profile?.rol);
   const puedeBorrar = isAdmin(profile?.rol);
 
@@ -60,6 +62,7 @@ export default function Equipos() {
         fetchAll("equipos",       { order: { col: "id_visible", asc: true } }),
       ]);
       setEmbarcaciones(embs); setEquipos(eqs);
+      setOriginal(Object.fromEntries(eqs.map((e) => [e.id, { ...e }]))); // snapshot para guardar/descartar
       if (embs.length && !form.embarcacion_id) setForm((f) => ({ ...f, embarcacion_id: embs[0].id }));
     } catch (e) { setError("No se pudieron cargar los equipos. " + e.message); }
     finally { setLoading(false); }
@@ -123,6 +126,7 @@ export default function Equipos() {
         created_by:     profile.id,
       });
       setEquipos((p) => [...p, nuevo]);
+      setOriginal((o) => ({ ...o, [nuevo.id]: { ...nuevo } }));
       logActivity(profile, "Crear equipo", `${idVis} · ${nuevo.sistema}${form.parent_id ? ` (sub de ${eqName(form.parent_id)})` : ""} (${emb?.nombre})`);
       setForm(blankForm(form.embarcacion_id));
       setShowForm(false);
@@ -148,23 +152,46 @@ export default function Equipos() {
       creados.push(row);
       for (const hijo of nodo.hijos || []) await insertarNodo(hijo, row.id);
     }
+    const sincOriginal = () => setOriginal((o) => { const n = { ...o }; creados.forEach((c) => { n[c.id] = { ...c }; }); return n; });
     try {
       for (const sis of PLANTILLA_PESQUERA) await insertarNodo(sis, null);
-      setEquipos((p) => [...p, ...creados]);
+      setEquipos((p) => [...p, ...creados]); sincOriginal();
       logActivity(profile, "Precargar plantilla pesquera", `${emb.nombre} · ${creados.length} nodos`);
     } catch (e) {
       setError("Se interrumpió la precarga: " + e.message + ". Recarga la página para ver lo que sí se creó.");
-      setEquipos((p) => [...p, ...creados]);
+      setEquipos((p) => [...p, ...creados]); sincOriginal();
     } finally { setPrecargando(false); }
   }
 
   function onChangeLocal(id, campo, valor) { setEquipos((p) => p.map((e) => e.id === id ? { ...e, [campo]: valor } : e)); }
-  async function commit(id, campo, valor) {
-    const previo = equipos.find((e) => e.id === id)?.[campo];
-    if (previo === valor) return;
-    onChangeLocal(id, campo, valor);
-    try { await updateRow("equipos", id, { [campo]: valor }); }
-    catch (e) { onChangeLocal(id, campo, previo); setError("No se pudo guardar el cambio: " + e.message); }
+  // Edición LOCAL — no persiste hasta pulsar "Guardar cambios"
+  const commit = onChangeLocal;
+
+  const CAMPOS_EDIT = ["id_visible", "sistema", "marca", "modelo", "horas_actual", "horas_ult_pm", "estado", "embarcacion_id", "parent_id", "tipo_nodo", "criticidad", "prezarpe", "nivel_tipo", "consume_aceite"];
+  const eqDirty = (e) => { const o = original[e.id]; return o && CAMPOS_EDIT.some((c) => (e[c] ?? null) !== (o[c] ?? null)); };
+  const dirtyIds = equipos.filter(eqDirty).map((e) => e.id);
+
+  async function guardarCambios() {
+    setGuardando(true); setError(null);
+    try {
+      for (const id of dirtyIds) {
+        const e = equipos.find((x) => x.id === id);
+        const o = original[id] || {};
+        const cambios = {};
+        CAMPOS_EDIT.forEach((c) => { if ((e[c] ?? null) !== (o[c] ?? null)) cambios[c] = e[c]; });
+        if (Object.keys(cambios).length) await updateRow("equipos", id, cambios);
+      }
+      setOriginal((prev) => {
+        const n = { ...prev };
+        dirtyIds.forEach((id) => { const e = equipos.find((x) => x.id === id); if (e) n[id] = { ...e }; });
+        return n;
+      });
+      logActivity(profile, "Editar equipos", `${dirtyIds.length} equipo(s) actualizado(s)`);
+    } catch (e) { setError("No se pudieron guardar los cambios: " + e.message); }
+    finally { setGuardando(false); }
+  }
+  function descartarCambios() {
+    setEquipos((p) => p.map((e) => original[e.id] ? { ...e, ...original[e.id] } : e));
   }
 
   async function eliminar(id) {
@@ -222,6 +249,20 @@ export default function Equipos() {
         </div>} />
 
       <ErrorBanner onRetry={cargar}>{error}</ErrorBanner>
+
+      {/* Barra de guardado explícito (aparece al haber cambios sin guardar) */}
+      {dirtyIds.length > 0 && (
+        <div style={{ position: "sticky", top: 8, zIndex: 15, display: "flex", alignItems: "center", gap: 12, background: tint(C.gold, 16), border: `1px solid ${C.gold}`, borderRadius: 10, padding: "10px 16px", marginBottom: 14, boxShadow: shadow.md }}>
+          <span style={{ fontSize: 13, fontWeight: 700, color: C.abyss }}>
+            {dirtyIds.length} equipo{dirtyIds.length > 1 ? "s" : ""} con cambios sin guardar
+          </span>
+          <div style={{ flex: 1 }} />
+          <button onClick={guardarCambios} disabled={guardando} style={primaryBtn}>
+            <Check size={15} /> {guardando ? "Guardando…" : "Guardar cambios"}
+          </button>
+          <button onClick={descartarCambios} disabled={guardando} style={ghostBtn}>Descartar</button>
+        </div>
+      )}
 
       <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
         <FilterBtn active={filtro === "all"} onClick={() => setFiltro("all")}>Todas ({equipos.length})</FilterBtn>
@@ -362,7 +403,7 @@ export default function Equipos() {
                   const colapsado = colapsados.has(e.id);
                   const nSub = esRaizConHijos ? lista.filter((x) => x.rootId === e.id && x.depth > 0).length : 0;
                   return (
-                    <tr key={e.id} style={{ background: e.depth > 0 ? tint(C.steel, 5) : undefined }}>
+                    <tr key={e.id} style={{ background: eqDirty(e) ? tint(C.gold, 14) : e.depth > 0 ? tint(C.steel, 5) : undefined }}>
 
                       {/* ID */}
                       <td style={tdStyle}>
