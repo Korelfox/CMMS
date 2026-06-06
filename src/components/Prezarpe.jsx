@@ -9,7 +9,7 @@ import { useOnline, cacheTable, getCached, queueInsert, nuevoId } from "../lib/o
 import { subirFotos, listarFotos, borrarFoto } from "../lib/fotos";
 import { C, archivo, canOperate, isAdmin } from "../theme";
 import { buildEquipoTree } from "../lib/equipTree";
-import { Card, PageHead, Pill, primaryBtn, ghostBtn, thStyle, tdStyle, InlineSpinner, ErrorBanner, Empty } from "../ui";
+import { Card, PageHead, Pill, primaryBtn, ghostBtn, thStyle, tdStyle, InlineSpinner, ErrorBanner, Empty, Field, inputStyle } from "../ui";
 import { FotoInput, FotoGaleria } from "./Fotos";
 
 const HOY = () => new Date().toISOString().slice(0, 10);
