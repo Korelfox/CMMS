@@ -2,7 +2,6 @@ import React, { useState, useEffect, useCallback } from "react";
 import {
   Ship, Anchor, Fuel, Droplet, Gauge, Check, X, AlertTriangle,
   ArrowLeft, Camera, ClipboardCheck, Waves, CloudOff, Clock, Trash2,
-  AlertOctagon, ChevronDown,
 } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { fetchAll, insertRow, updateRow, deleteRow, logActivity } from "../lib/db";
@@ -302,7 +301,7 @@ function VistaFlota({ embarcaciones, mareaAbierta, docsVencidos, puedeOperar, pu
                   {puedeOperar && (
                     <div style={{ display: "flex", gap: 8 }}>
                       <button onClick={() => onRecalada(marea)} style={{ ...ghostBtn, flex: 1, justifyContent: "center", padding: "11px", color: C.steel, borderColor: C.steel }}><Anchor size={16} /> Recalada</button>
-                      <button onClick={() => onRetornoFalla(marea)} style={{ ...ghostBtn, flex: 1, justifyContent: "center", padding: "11px", color: "#fff", background: C.red, borderColor: C.red }}><AlertOctagon size={16} /> Retorno por falla</button>
+                      <button onClick={() => onRetornoFalla(marea)} style={{ ...ghostBtn, flex: 1, justifyContent: "center", padding: "11px", color: "#fff", background: C.red, borderColor: C.red }}><AlertTriangle size={16} /> Retorno por falla</button>
                     </div>
                   )}
                   {puedeBorrar && <button onClick={() => onEliminarZarpe(marea)} style={{ ...ghostBtn, width: "100%", justifyContent: "center", padding: "9px", marginTop: 8, color: C.red, borderColor: C.red, fontSize: 12.5 }}><Trash2 size={14} /> Eliminar zarpe (creado por error)</button>}
@@ -550,7 +549,13 @@ function VistaRetornoFalla({ marea, nave, equipos, onVolver, onGuardar }) {
   });
   const [enviando, setEnviando] = useState(false);
 
-  if (!nave || !marea) return null;
+  if (!marea) return null;
+  if (!nave) return (
+    <div>
+      <button onClick={onVolver} style={{ ...ghostBtn, padding: "7px 12px", marginBottom: 14 }}><ArrowLeft size={15} /> Volver</button>
+      <Card><Empty><AlertTriangle size={28} color={C.amber} /><br />No se encontró la embarcación de esta marea.</Empty></Card>
+    </div>
+  );
 
   function sistemaLabel() {
     if (!form.equipo_id) return "Sin especificar";
@@ -578,7 +583,7 @@ function VistaRetornoFalla({ marea, nave, equipos, onVolver, onGuardar }) {
       <Card style={{ borderTop: `5px solid ${C.red}`, marginBottom: 16, background: "#FEF2F2" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
           <div style={{ width: 54, height: 54, borderRadius: 14, background: C.red, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-            <AlertOctagon size={28} color="#fff" />
+            <AlertTriangle size={28} color="#fff" />
           </div>
           <div>
             <div style={{ fontSize: 10.5, letterSpacing: 2, textTransform: "uppercase", color: C.red, fontWeight: 700 }}>Retorno por falla</div>
@@ -681,7 +686,7 @@ function VistaRetornoFalla({ marea, nave, equipos, onVolver, onGuardar }) {
       <div style={{ display: "flex", gap: 10 }}>
         <button onClick={enviar} disabled={!form.descripcion.trim() || enviando}
           style={{ ...primaryBtn, background: C.red, borderColor: C.red, padding: "14px 28px", fontSize: 15 }}>
-          <AlertOctagon size={18} /> {enviando ? "Enviando…" : "Confirmar retorno por falla"}
+          <AlertTriangle size={18} /> {enviando ? "Enviando…" : "Confirmar retorno por falla"}
         </button>
         <button onClick={onVolver} style={{ ...ghostBtn, padding: "14px 20px" }}>Cancelar</button>
       </div>
