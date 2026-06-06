@@ -235,7 +235,7 @@ export default function AppShell() {
             </span>
           </div>
         </div>
-        <div style={{ maxWidth: 1180, margin: "0 auto", padding: "28px 34px 60px" }}>
+        <div style={{ maxWidth: 1680, margin: "0 auto", padding: "28px 30px 60px" }}>
           <Suspense fallback={<InlineSpinner label="Cargando módulo…" />}>
           {(() => {
             const Modulo = MODULOS[view];
