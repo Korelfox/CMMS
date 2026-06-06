@@ -4,7 +4,7 @@ import { useAuth } from "../lib/auth";
 import { fetchAll, upsertRow, logActivity } from "../lib/db";
 import { buildEquipoTree } from "../lib/equipTree";
 import { C, archivo, isAdmin } from "../theme";
-import { Card, PageHead, Pill, exportBtn, thStyle, tdStyle, Empty, ErrorBanner, InlineSpinner, FilterBtn } from "../ui";
+import { Card, PageHead, Pill, exportBtn, thStyle, tdStyle, Empty, ErrorBanner, InlineSpinner, FilterBtn, GuiaColapsable } from "../ui";
 
 // Dimensiones del modelo INGEMAN / Parra & Crespo
 const DIMS = [
@@ -123,6 +123,32 @@ export default function Criticidad() {
           </FilterBtn>
         ))}
       </div>
+
+      <GuiaColapsable titulo="Cómo puntuar las 5 dimensiones (1–5) de forma consistente" icon={Activity}>
+        <div style={{ marginBottom: 8 }}>
+          Usa la misma vara en toda la flota. Escala <strong>1 = muy bajo</strong> … <strong>5 = muy alto</strong>:
+        </div>
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <tbody>
+            {[
+              ["Frecuencia", "Cada cuánto falla. 1 = casi nunca · 3 = una vez por temporada · 5 = falla seguido"],
+              ["Producción", "Impacto en la captura. 1 = sigue pescando · 3 = opera limitado · 5 = detiene la pesca"],
+              ["Seguridad", "Riesgo a la tripulación. 1 = nulo · 3 = riesgo moderado · 5 = pone en peligro vidas"],
+              ["Ambiente", "Impacto ambiental. 1 = ninguno · 3 = derrame menor contenible · 5 = contaminación grave"],
+              ["Costo", "Costo de la falla. 1 = repuesto menor · 3 = intervención media · 5 = reparación mayor / varada"],
+            ].map(([dim, d]) => (
+              <tr key={dim}>
+                <td style={{ padding: "4px 8px", fontWeight: 700, color: C.abyss, whiteSpace: "nowrap", verticalAlign: "top", borderBottom: `1px solid ${C.foam}` }}>{dim}</td>
+                <td style={{ padding: "4px 8px", color: C.slate, borderBottom: `1px solid ${C.foam}` }}>{d}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <div style={{ marginTop: 8, color: C.slate }}>
+          <strong style={{ color: C.abyss }}>CT = Frecuencia × (Producción + Seguridad + Ambiente + Costo).</strong>
+          {" "}CT ≥ 50 = crítico (rojo) · 20–49 = medio · &lt; 20 = bajo. Define dónde concentrar recursos.
+        </div>
+      </GuiaColapsable>
 
       <Card style={{ padding: 0, overflow: "hidden" }}>
         <div style={{ overflowX: "auto" }}>

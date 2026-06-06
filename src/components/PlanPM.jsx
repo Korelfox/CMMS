@@ -6,7 +6,7 @@ import { buildEquipoTree } from "../lib/equipTree";
 import { C, archivo, num, canOperate, isAdmin, tint } from "../theme";
 import {
   Card, PageHead, Pill, FilterBtn, primaryBtn, ghostBtn, exportBtn,
-  inputStyle, bluInput, thStyle, tdStyle, Field, Empty, ErrorBanner, InlineSpinner,
+  inputStyle, bluInput, thStyle, tdStyle, Field, Empty, ErrorBanner, InlineSpinner, GuiaColapsable,
 } from "../ui";
 
 const HOY = () => new Date().toISOString().slice(0, 10);
@@ -368,6 +368,28 @@ function TabPlan({ lista, equipos, setEquipos, planes, setPlanes, historial, set
                 <datalist id="intervalos-sugeridos">
                   {["Cambio aceite + filtro", "Revisión válvulas", "Revisión general motor", "Limpieza radiador", "Revisión bomba hidráulica", "Cambio correas", "Revisión sistema eléctrico", "Inspección casco y ánodos", "Revisión bomba agua mar", "Revisión turbocompresor"].map((s) => <option key={s} value={s} />)}
                 </datalist>
+                <GuiaColapsable titulo="¿Cómo elegir el intervalo?" icon={CalendarClock}>
+                  <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 8 }}>
+                    <tbody>
+                      {[
+                        ["250 h", "Sistemas críticos de uso intenso: hidráulico de pesca, generador, inyección"],
+                        ["500 h", "Motor principal: cambio de aceite y filtros, revisión general"],
+                        ["1000 h", "Análisis de aceite, limpieza de radiador/intercambiador, válvulas"],
+                        ["2000 h", "Revisión mayor: turbo, bombas, mangueras de alta presión"],
+                      ].map(([h, d]) => (
+                        <tr key={h}>
+                          <td style={{ padding: "4px 8px", fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, color: C.steel, whiteSpace: "nowrap", verticalAlign: "top", borderBottom: `1px solid ${C.foam}` }}>{h}</td>
+                          <td style={{ padding: "4px 8px", color: C.slate, borderBottom: `1px solid ${C.foam}` }}>{d}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  <div style={{ color: C.slate }}>
+                    <strong style={{ color: C.abyss }}>Regla práctica:</strong> a mayor criticidad y uso, menor intervalo.
+                    Para PM por <strong>tiempo</strong> (ánodos, inspección de casco, certificados) que no dependen de horas,
+                    usa un intervalo alto y registra el PM por fecha — o gestiónalo desde <strong>Cumplimiento</strong>.
+                  </div>
+                </GuiaColapsable>
               </div>
             )}
           </Card>

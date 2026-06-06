@@ -11,7 +11,7 @@ import { supabase } from "../lib/supabase";
 import { C, archivo, clp, num, isAdmin, canOperate, tint } from "../theme";
 import {
   Card, PageHead, Pill, FilterBtn, primaryBtn, ghostBtn,
-  inputStyle, bluInput, thStyle, tdStyle, Field, Empty, ErrorBanner, InlineSpinner,
+  inputStyle, bluInput, thStyle, tdStyle, Field, Empty, ErrorBanner, InlineSpinner, GuiaColapsable,
 } from "../ui";
 
 // ── Modelo a la parte — cálculo P&L ───────────────────────────
@@ -555,6 +555,21 @@ function TabMareas({ profile, embarcaciones, mareas, allOts, especies, capturas:
 
   return (
     <div>
+      <GuiaColapsable titulo="Cómo funciona el reparto «a la parte»" icon={Fish}>
+        <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 12, background: tint(C.steel, 8), borderRadius: 8, padding: "12px 14px", marginBottom: 10, lineHeight: 1.8 }}>
+          Valor bruto captura  (Σ kg × precio)<br />
+          <strong>−</strong> Gastos del pozo  (combustible + víveres + hielo + carnada)<br />
+          <strong>=</strong> Líquido a repartir<br />
+          <strong>×</strong> % tripulación  →  <span style={{ color: C.green }}>parte de la tripulación</span><br />
+          <strong>−</strong> Costos del armador  (aceite + mantención OT + otros)<br />
+          <strong>=</strong> <span style={{ color: C.gold, fontWeight: 700 }}>Margen del armador</span>
+        </div>
+        <ul style={{ margin: 0, paddingLeft: 18, color: C.slate }}>
+          <li>El <strong>combustible, víveres, hielo y carnada</strong> se descuentan <em>antes</em> del reparto (pozo común).</li>
+          <li>El <strong>aceite y la mantención</strong> los asume el armador, <em>después</em> del reparto.</li>
+          <li>El % de tripulación y N° de tripulantes se definen por marea (default en <strong>Configuración</strong>).</li>
+        </ul>
+      </GuiaColapsable>
       {mareas.map((m) => {
         const pl    = calcPL(m, allCapturas, allEconomias.find((e) => e.marea_id === m.id), allOts);
         const isOpen = open === m.id;

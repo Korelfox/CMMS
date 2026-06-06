@@ -9,7 +9,7 @@ import { supabase } from "../lib/supabase";
 import { C, archivo, clp, num, isAdmin, canOperate, tint } from "../theme";
 import {
   Card, PageHead, Pill, primaryBtn, ghostBtn, exportBtn, inputStyle, bluInput,
-  thStyle, tdStyle, Field, Empty, ErrorBanner, InlineSpinner,
+  thStyle, tdStyle, Field, Empty, ErrorBanner, InlineSpinner, GuiaColapsable,
 } from "../ui";
 
 const HOY = () => new Date().toISOString().slice(0, 10);
@@ -190,6 +190,19 @@ function TabBodegas({ profile, empresa, embarcaciones, bodegas, setBodegas, reca
               </Field>
             )}
           </div>
+          <GuiaColapsable titulo="Guía del código de bodega" icon={Warehouse}>
+            <div style={{ marginBottom: 8 }}>
+              Convención: <code style={{ fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, color: C.steel }}>BOD-TIERRA</code> para la bodega central en tierra,
+              {" "}<code style={{ fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, color: C.steel }}>BOD-&lt;NAVE&gt;</code> para el pañol a bordo de cada embarcación.
+            </div>
+            <ul style={{ margin: 0, paddingLeft: 18, color: C.slate }}>
+              <li><strong style={{ color: C.abyss }}>Tierra:</strong> <code style={{ fontFamily: "'IBM Plex Mono', monospace", color: C.steel }}>BOD-TIERRA</code> (o BOD-PMONTT por puerto)</li>
+              <li><strong style={{ color: C.abyss }}>A bordo:</strong> <code style={{ fontFamily: "'IBM Plex Mono', monospace", color: C.steel }}>BOD-AUR</code> (pañol de la nave Aurora)</li>
+              <li>El botón <strong>"Crear por defecto"</strong> ya genera la bodega de tierra + un pañol por cada nave con esta convención.</li>
+              <li>Cada nave debe tener stock crítico a bordo para cubrir 2 fallas de componentes A.</li>
+            </ul>
+          </GuiaColapsable>
+
           <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
             <button onClick={crear} style={primaryBtn}>Guardar</button>
             <button onClick={() => setShowForm(false)} style={ghostBtn}>Cancelar</button>
