@@ -4,6 +4,7 @@ import {
   Package, Warehouse, Gauge, Activity, AlertTriangle, ClipboardCheck, DollarSign,
   TrendingUp, FileText, History, Layers, Bell, LogOut, UserCircle, UserCog,
   Wifi, WifiOff, RefreshCw, CheckCircle2, BarChart3, ShipWheel, Fuel, ShieldCheck, Fish,
+  Menu, X,
 } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { fetchAll } from "../lib/db";
@@ -102,11 +103,13 @@ export default function AppShell() {
   const [navParams, setNavParams] = useState(null);  // contexto al navegar (ej. OT a resaltar)
   const [armador, setArmador] = useState(null);      // usuario Armador (admin_empresa) de la organización
   const [pendientes, setPendientes] = useState(0);
+  const [sidebarOpen, setSidebarOpen] = useState(false); // drawer móvil
 
   // Navega a un módulo, opcionalmente con parámetros (ej. { otId }).
   const navegar = useCallback((destino, params = null) => {
     setView(destino);
     setNavParams(params);
+    setSidebarOpen(false); // cierra el drawer al navegar (móvil)
   }, []);
   const [sincronizando, setSincronizando] = useState(false);
   const [recienSync, setRecienSync] = useState(false);
@@ -158,19 +161,30 @@ export default function AppShell() {
 
   return (
     <div style={{ display: "flex", height: "100vh", color: C.ink, overflow: "hidden" }}>
+      {/* OVERLAY (solo móvil, al abrir el drawer) */}
+      <div className={`cmms-overlay${sidebarOpen ? " cmms-overlay-open" : ""}`}
+        onClick={() => setSidebarOpen(false)}
+        style={{ position: "fixed", inset: 0, background: "rgba(8,20,32,.55)", zIndex: 40, display: "none" }} />
+
       {/* SIDEBAR */}
-      <aside style={{ width: 250, background: `linear-gradient(180deg, ${C.abyss}, ${C.deep})`, color: C.foam, display: "flex", flexDirection: "column", flexShrink: 0 }}>
+      <aside className={`cmms-sidebar${sidebarOpen ? " cmms-sidebar-open" : ""}`}
+        style={{ width: 250, background: `linear-gradient(180deg, ${C.abyss}, ${C.deep})`, color: C.foam, display: "flex", flexDirection: "column", flexShrink: 0 }}>
         <div style={{ padding: "20px 18px 16px", borderBottom: "1px solid rgba(255,255,255,.08)" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{ width: 36, height: 36, borderRadius: 9, background: C.gold, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <div style={{ width: 36, height: 36, borderRadius: 9, background: C.gold, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
               <Anchor size={21} color={C.abyss} strokeWidth={2.4} />
             </div>
-            <div style={{ minWidth: 0 }}>
+            <div style={{ minWidth: 0, flex: 1 }}>
               <div style={{ fontWeight: 700, fontSize: 14.5, lineHeight: 1.1 }}>CMMS Korelfox</div>
               <div style={{ fontSize: 10, opacity: 0.6, marginTop: 3, lineHeight: 1.3 }}>
                 Energía que impulsa tu rumbo
               </div>
             </div>
+            {/* Cerrar drawer — solo móvil */}
+            <button className="cmms-sidebar-close" onClick={() => setSidebarOpen(false)}
+              style={{ display: "none", background: "rgba(255,255,255,.08)", border: "none", borderRadius: 7, color: C.foam, cursor: "pointer", padding: 6, alignItems: "center", justifyContent: "center" }}>
+              <X size={18} />
+            </button>
           </div>
         </div>
 
@@ -212,9 +226,16 @@ export default function AppShell() {
       <main style={{ flex: 1, overflowY: "auto", background: C.mist }}>
         {/* Barra superior: Armador + estado de conexión */}
         <div className="cmms-topbar" style={{ position: "sticky", top: 0, zIndex: 20, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, background: online ? "rgba(244,248,251,.92)" : C.yellowBg, borderBottom: `1px solid ${online ? C.line : C.amber}`, backdropFilter: "blur(6px)" }}>
-          <span style={{ fontSize: 12, color: C.slate, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-            Armador: <strong style={{ color: C.steel }}>{armador || profile?.nombre || "—"}</strong>
-            {empresa?.puerto_base ? <span style={{ opacity: 0.7 }}> · {empresa.puerto_base}</span> : null}
+          <span style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 12, color: C.slate, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+            <button className="cmms-hamburger" onClick={() => setSidebarOpen(true)}
+              aria-label="Abrir menú"
+              style={{ display: "none", background: "none", border: `1px solid ${C.line}`, borderRadius: 8, color: C.steel, cursor: "pointer", padding: 6, alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+              <Menu size={18} />
+            </button>
+            <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>
+              Armador: <strong style={{ color: C.steel }}>{armador || profile?.nombre || "—"}</strong>
+              {empresa?.puerto_base ? <span style={{ opacity: 0.7 }}> · {empresa.puerto_base}</span> : null}
+            </span>
           </span>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             {recienSync && (
@@ -265,13 +286,25 @@ export default function AppShell() {
         </div>
       </main>
 
-      {/* Padding responsivo: amplio en escritorio, mínimo en celular */}
+      {/* Padding responsivo + sidebar colapsable en móvil */}
       <style>{`
         .cmms-topbar    { padding: 8px 34px; }
         .cmms-work-area { padding: 28px 30px 60px; }
         @media (max-width: 760px) {
           .cmms-topbar    { padding: 8px 14px; }
           .cmms-work-area { padding: 18px 12px 48px; }
+
+          /* Sidebar se convierte en drawer */
+          .cmms-sidebar {
+            position: fixed; top: 0; left: 0; height: 100vh; z-index: 50;
+            transform: translateX(-100%);
+            transition: transform .25s ease;
+            box-shadow: 2px 0 24px rgba(0,0,0,.35);
+          }
+          .cmms-sidebar.cmms-sidebar-open { transform: translateX(0); }
+          .cmms-sidebar-close { display: inline-flex !important; }
+          .cmms-hamburger     { display: inline-flex !important; }
+          .cmms-overlay.cmms-overlay-open { display: block !important; }
         }
         @media (max-width: 440px) {
           .cmms-topbar    { padding: 7px 9px; }
