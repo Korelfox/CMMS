@@ -279,7 +279,7 @@ export default function AppShell() {
             </span>
           </div>
         </div>
-        <div className="cmms-work-area" style={{ maxWidth: 1680, margin: "0 auto" }}>
+        <div className="cmms-work-area" style={{ maxWidth: "100%", margin: "0 auto" }}>
           <Suspense fallback={<InlineSpinner label="Cargando módulo…" />}>
           {(() => {
             const Modulo = MODULOS[view];
