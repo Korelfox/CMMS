@@ -1,25 +1,44 @@
 /**
- * Construye un árbol plano de equipos ordenado por jerarquía padre→hijo,
- * y dentro de cada nivel por CRITICIDAD (A → B → C → sin clasificar) y luego
- * por código. Cada elemento incluye:
+ * Construye un árbol plano de equipos ordenado por jerarquía padre→hijo.
+ * Las RAÍCES (sistemas) se ordenan por un orden canónico de sistema
+ * (Propulsión, Generación, Combustible, Hidráulico, Pesca, …); los
+ * SUBSISTEMAS dentro de cada sistema, por criticidad (A→B→C) y código.
+ * Cada elemento incluye:
  *   - `depth`  (0 = raíz) para indentación visual
  *   - `rootId` (id del sistema raíz ancestro) para colapsar por sistema
- * Exportada para que cualquier módulo la use con orden consistente.
  */
+
+// Orden canónico de sistemas (por su código en id_visible: NAVE-PROP → PROP).
+export const ORDEN_SISTEMA = [
+  "PROP", "GEN", "FUEL", "HYD", "FISH",   // los 5 que pidió el usuario, en ese orden
+  "RSW", "NAV", "SAF",                       // calidad de pesca · seguridad/normativa
+  "LUB", "COOL", "ELEC",                     // auxiliares de motor / eléctrico
+  "WAT", "AIR", "STR",                       // agua/lastre · aire · estructura
+];
 const CRIT_RANK = { A: 0, B: 1, C: 2 };
 
+function rankSistema(eq) {
+  const segs = (eq.id_visible || "").toUpperCase().split("-");
+  for (const s of segs) {
+    const i = ORDEN_SISTEMA.indexOf(s);
+    if (i >= 0) return i;
+  }
+  return 999; // sistemas no catalogados al final
+}
+const rankCrit = (e) => CRIT_RANK[e.criticidad] ?? 3;
+const porCodigo = (a, b) => (a.id_visible || a.sistema || "").localeCompare(b.id_visible || b.sistema || "", "es");
+
+// Raíces: por orden de sistema → criticidad → código
+function ordenarRaices(arr) {
+  return [...arr].sort((a, b) => rankSistema(a) - rankSistema(b) || rankCrit(a) - rankCrit(b) || porCodigo(a, b));
+}
+// Subsistemas: por criticidad → código
 function ordenarNivel(arr) {
-  return [...arr].sort((a, b) => {
-    const ra = CRIT_RANK[a.criticidad] ?? 3;
-    const rb = CRIT_RANK[b.criticidad] ?? 3;
-    if (ra !== rb) return ra - rb;
-    return (a.id_visible || a.sistema || "").localeCompare(b.id_visible || b.sistema || "", "es");
-  });
+  return [...arr].sort((a, b) => rankCrit(a) - rankCrit(b) || porCodigo(a, b));
 }
 
 export function buildEquipoTree(equipos) {
   const inSet = new Set(equipos.map((e) => e.id));
-  // Raíces: sin parent o con parent fuera del conjunto
   const roots = equipos.filter((e) => !e.parent_id || !inSet.has(e.parent_id));
   const visited = new Set();
   const result  = [];
@@ -31,10 +50,9 @@ export function buildEquipoTree(equipos) {
     ordenarNivel(equipos.filter((c) => c.parent_id === node.id))
       .forEach((c) => traverse(c, depth + 1, rootId));
   }
-  // Raíces ordenadas por criticidad → lo más crítico primero
-  ordenarNivel(roots).forEach((r) => traverse(r, 0, r.id));
+  ordenarRaices(roots).forEach((r) => traverse(r, 0, r.id));
   // Huérfanos (parent borrado): al final como raíz
-  ordenarNivel(equipos.filter((e) => !visited.has(e.id)))
+  ordenarRaices(equipos.filter((e) => !visited.has(e.id)))
     .forEach((e) => result.push({ ...e, depth: 0, rootId: e.id }));
   return result;
 }

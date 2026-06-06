@@ -149,10 +149,19 @@ function TabPlan({ lista, equipos, setEquipos, planes, setPlanes, historial, set
   const [registrando, setRegistrando] = useState(null); // plan_pm_id
   const [regForm,     setRegForm]     = useState({ realizado_por: "", notas: "", crearOT: false });
   const [colapsados,  setColapsados]  = useState(() => new Set()); // rootId de sistemas colapsados
+  const [initColapso, setInitColapso] = useState(false);
 
   // Sistemas raíz que tienen subsistemas (para mostrar chevron)
   const conHijos = new Set();
   lista.forEach((eq) => { if (eq.depth > 0 && eq.rootId) conHijos.add(eq.rootId); });
+
+  // Al cargar, contraer todos los sistemas por defecto (una sola vez)
+  useEffect(() => {
+    if (!initColapso && conHijos.size > 0) {
+      setColapsados(new Set([...conHijos]));
+      setInitColapso(true);
+    }
+  }, [lista]); // eslint-disable-line react-hooks/exhaustive-deps
   // Oculta los descendientes de un sistema colapsado (la raíz siempre se ve)
   const listaVisible = lista.filter((eq) => eq.depth === 0 || !colapsados.has(eq.rootId));
 
