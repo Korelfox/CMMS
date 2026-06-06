@@ -79,7 +79,7 @@ export default function Login() {
           )}
           {modo === "signup" && (
             <Field icon={KeyRound} label="Código de empresa (opcional)">
-              <input value={codigoEmpresa} onChange={(e) => setCodigoEmpresa(e.target.value.toUpperCase())} maxLength={12} style={{ ...inputStyle(), paddingLeft: 38, fontFamily: "'IBM Plex Mono', monospace", letterSpacing: 1 }} placeholder="Ej: A1B2C3" />
+              <input value={codigoEmpresa} onChange={(e) => setCodigoEmpresa(e.target.value.toUpperCase())} maxLength={12} style={{ ...inputStyle(), paddingLeft: 38, fontFamily: "'IBM Plex Mono', monospace", letterSpacing: 1 }} placeholder="Ej: PESQ-A1B2" />
             </Field>
           )}
           <Field icon={Mail} label="Correo">
