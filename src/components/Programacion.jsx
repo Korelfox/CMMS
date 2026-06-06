@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback } from "react";
 import { Calendar, Plus, Trash2, Check } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { fetchAll, insertRow, updateRow, deleteRow, logActivity } from "../lib/db";
-import { C, archivo, num, canOperate, isAdmin, DIAS_SEMANA } from "../theme";
+import { C, archivo, num, canOperate, isAdmin, DIAS_SEMANA, tint } from "../theme";
 import {
   Card, PageHead, Pill, primaryBtn, ghostBtn, inputStyle, bluInput,
   Field, Empty, ErrorBanner, InlineSpinner,
@@ -151,7 +151,7 @@ export default function Programacion() {
                 {dayItems.length === 0 ? (
                   <div style={{ fontSize: 11, color: C.line, textAlign: "center", padding: "20px 0" }}>Sin tareas</div>
                 ) : dayItems.map((i) => (
-                  <div key={i.id} style={{ background: i.done ? "#F0F8F1" : C.foam, borderLeft: `3px solid ${embColor(i.embarcacion_id)}`, borderRadius: 6, padding: "7px 9px", fontSize: 11.5, opacity: i.done ? 0.65 : 1 }}>
+                  <div key={i.id} style={{ background: i.done ? tint(C.green, 8) : C.foam, borderLeft: `3px solid ${embColor(i.embarcacion_id)}`, borderRadius: 6, padding: "7px 9px", fontSize: 11.5, opacity: i.done ? 0.65 : 1 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 6 }}>
                       <div style={{ flex: 1 }}>
                         <div style={{ fontWeight: 600, color: C.ink, textDecoration: i.done ? "line-through" : "none" }}>{i.sistema}</div>

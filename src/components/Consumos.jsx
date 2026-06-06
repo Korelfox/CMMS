@@ -6,7 +6,7 @@ import {
 } from "recharts";
 import { useAuth } from "../lib/auth"; // eslint-disable-line no-unused-vars
 import { fetchAll } from "../lib/db";
-import { C, archivo, num } from "../theme";
+import { C, archivo, num, tint } from "../theme";
 import { Card, PageHead, Pill, FilterBtn, thStyle, tdStyle, Empty, ErrorBanner, InlineSpinner } from "../ui";
 
 // Consumo neto por marea (sin reabastecimiento intermedio): lo cargado al
@@ -191,7 +191,7 @@ export default function Consumos({ onNavigate }) {
                 <stop offset="100%" stopColor={C.gold} stopOpacity={0} />
               </linearGradient>
             </defs>
-            <CartesianGrid strokeDasharray="4 4" stroke="#EBF0F5" vertical={false} />
+            <CartesianGrid strokeDasharray="4 4" stroke={tint(C.slate, 12)} vertical={false} />
             <XAxis dataKey="label" tick={{ fontSize: 12.5, fill: C.slate, fontWeight: 600, fontFamily: "IBM Plex Sans, sans-serif" }} axisLine={false} tickLine={false} dy={8} />
             <YAxis yAxisId="l" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: C.slate }} tickFormatter={(v) => v > 0 ? `${v}L` : ""} width={48} />
             <YAxis yAxisId="r" orientation="right" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: C.steel }} tickFormatter={(v) => v > 0 ? `${v}` : ""} width={40} />

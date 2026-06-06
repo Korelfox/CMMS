@@ -8,7 +8,7 @@ import {
 import { useAuth } from "../lib/auth";
 import { fetchAll, insertRow, updateRow, deleteRow, upsertRow, logActivity } from "../lib/db";
 import { supabase } from "../lib/supabase";
-import { C, archivo, clp, num, isAdmin, canOperate } from "../theme";
+import { C, archivo, clp, num, isAdmin, canOperate, tint } from "../theme";
 import {
   Card, PageHead, Pill, FilterBtn, primaryBtn, ghostBtn,
   inputStyle, bluInput, thStyle, tdStyle, Field, Empty, ErrorBanner, InlineSpinner,
@@ -345,7 +345,7 @@ function TabDashboard({ mareas, capturas, economias, ots, embarcaciones, embName
         <div style={{ fontSize: 12, color: C.slate, marginBottom: 16 }}>Composición del ingreso bruto y margen del armador (%)</div>
         <ResponsiveContainer width="100%" height={300}>
           <ComposedChart data={serie} margin={{ top: 4, right: 50, bottom: 20, left: 12 }} barCategoryGap="20%">
-            <CartesianGrid strokeDasharray="4 4" stroke="#EBF0F5" vertical={false} />
+            <CartesianGrid strokeDasharray="4 4" stroke={tint(C.slate, 12)} vertical={false} />
             <XAxis dataKey="name" tick={{ fontSize: 11, fill: C.slate }} angle={-25} textAnchor="end" height={44} />
             <YAxis yAxisId="l" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: C.slate }} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} width={48} />
             <YAxis yAxisId="r" orientation="right" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: C.slate }} tickFormatter={(v) => `${v}%`} width={38} />
@@ -406,7 +406,7 @@ function TabDashboard({ mareas, capturas, economias, ots, embarcaciones, embName
           {ranking.length === 0 ? <Empty>Sin datos</Empty> : (
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               {ranking.map((r, idx) => (
-                <div key={r.emb.id} style={{ padding: "10px 14px", borderRadius: 9, border: `1px solid ${C.line}`, background: idx === 0 ? "#FFFBF0" : "#fff" }}>
+                <div key={r.emb.id} style={{ padding: "10px 14px", borderRadius: 9, border: `1px solid ${C.line}`, background: idx === 0 ? tint(C.gold, 7) : "#fff" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                       <div style={{ width: 10, height: 10, borderRadius: "50%", background: r.emb.color || C.steel }} />
@@ -421,7 +421,7 @@ function TabDashboard({ mareas, capturas, economias, ots, embarcaciones, embName
                     <div><span style={{ color: C.slate }}>Captura: </span><strong style={{ fontFamily: "'IBM Plex Mono', monospace" }}>{num(r.kg, 0)} kg</strong></div>
                   </div>
                   {/* Barra de margen */}
-                  <div style={{ marginTop: 8, height: 5, background: "#EDF0F5", borderRadius: 3, overflow: "hidden" }}>
+                  <div style={{ marginTop: 8, height: 5, background: tint(C.slate, 14), borderRadius: 3, overflow: "hidden" }}>
                     <div style={{ height: "100%", width: `${Math.min(100, Math.max(0, r.margenPct || 0))}%`, background: r.margen >= 0 ? C.green : C.red, borderRadius: 3 }} />
                   </div>
                 </div>
@@ -715,7 +715,7 @@ function PLPreview({ marea, editLines, editEco, otsNave }) {
   );
 
   return (
-    <div style={{ background: "#F0F8FF", border: `1px solid ${C.line}`, borderRadius: 10, padding: "16px 20px", marginTop: 4 }}>
+    <div style={{ background: tint(C.sky, 8), border: `1px solid ${C.line}`, borderRadius: 10, padding: "16px 20px", marginTop: 4 }}>
       <div style={{ fontSize: 10.5, fontWeight: 700, color: C.slate, textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 12 }}>Vista previa P&L</div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 28 }}>
         {/* Lado izquierdo: del bruto al ingreso del armador */}
@@ -762,7 +762,7 @@ function PLPreview({ marea, editLines, editEco, otsNave }) {
 
           {/* Desglose por tripulante */}
           {pl.porTripulante !== null && (
-            <div style={{ marginTop: 14, padding: "12px 14px", background: "#EFF9EF", borderRadius: 8, border: `1px solid ${C.green}30` }}>
+            <div style={{ marginTop: 14, padding: "12px 14px", background: tint(C.green, 8), borderRadius: 8, border: `1px solid ${C.green}30` }}>
               <div style={{ fontSize: 10.5, fontWeight: 700, color: C.slate, textTransform: "uppercase", letterSpacing: 1.2, marginBottom: 8 }}>
                 Desglose tripulación — {pl.numTrip} tripulantes (partes iguales)
               </div>
@@ -846,7 +846,7 @@ function TabEspecies({ profile, especies, setEspecies, setError }) {
       </div>
 
       {showForm && (
-        <Card style={{ marginBottom: 14, background: "#F8FAFF" }}>
+        <Card style={{ marginBottom: 14, background: tint(C.steel, 6) }}>
           <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr auto auto", gap: 12, alignItems: "flex-end" }}>
             <Field label="Nombre de la especie">
               <input value={form.nombre} list="esp-sugeridas"

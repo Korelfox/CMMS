@@ -7,7 +7,7 @@ import { useAuth } from "../lib/auth";
 import { fetchAll, insertRow, updateRow, deleteRow, logActivity } from "../lib/db";
 import { useOnline, cacheTable, getCached, queueInsert, nuevoId } from "../lib/offline";
 import { subirFotos, listarFotos, borrarFoto } from "../lib/fotos";
-import { C, archivo, canOperate, isAdmin } from "../theme";
+import { C, archivo, canOperate, isAdmin, tint } from "../theme";
 import { buildEquipoTree } from "../lib/equipTree";
 import { Card, PageHead, Pill, primaryBtn, ghostBtn, thStyle, tdStyle, InlineSpinner, ErrorBanner, Empty, Field, inputStyle } from "../ui";
 import { FotoInput, FotoGaleria } from "./Fotos";
@@ -276,7 +276,7 @@ function VistaFlota({ embarcaciones, mareaAbierta, docsVencidos, puedeOperar, pu
         const vencidos = docsVencidos ? docsVencidos(n.id) : [];
         return (
           <Card key={n.id} style={{ padding: 0, overflow: "hidden" }}>
-            <div style={{ padding: "16px 18px", background: navegando ? "#EAF4FF" : C.mist, display: "flex", alignItems: "center", gap: 12, borderBottom: `1px solid ${C.line}` }}>
+            <div style={{ padding: "16px 18px", background: navegando ? tint(C.cyan, 10) : C.mist, display: "flex", alignItems: "center", gap: 12, borderBottom: `1px solid ${C.line}` }}>
               <div style={{ width: 46, height: 46, borderRadius: 11, background: navegando ? C.cyan : C.steel, display: "flex", alignItems: "center", justifyContent: "center" }}>
                 {navegando ? <Ship size={24} color="#fff" /> : <Anchor size={24} color="#fff" />}
               </div>
@@ -373,7 +373,7 @@ function VistaChecklist({ nave, equipos, online, onVolver, onGuardar }) {
             <div key={item} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "10px 12px", border: `1px solid ${C.line}`, borderRadius: 10, background: C.surface }}>
               <span style={{ fontSize: 13, fontWeight: 600, color: C.ink, display: "inline-flex", alignItems: "center", gap: 6 }}>
                 {item}
-                {origen === "equipo" && <span style={{ fontSize: 9, fontWeight: 700, color: C.steel, background: "#E4EFF8", padding: "1px 6px", borderRadius: 20 }}>EQUIPO</span>}
+                {origen === "equipo" && <span style={{ fontSize: 9, fontWeight: 700, color: C.steel, background: tint(C.steel, 14), padding: "1px 6px", borderRadius: 20 }}>EQUIPO</span>}
               </span>
               <div style={{ display: "flex", gap: 6 }}>
                 <Semaforo activo={visual[item] === "ok"} tone="green" onClick={() => setVis(item, "ok")}><Check size={16} /></Semaforo>
@@ -424,7 +424,7 @@ function VistaChecklist({ nave, equipos, online, onVolver, onGuardar }) {
                   <div style={{ fontSize: 11, color: C.slate, marginBottom: 6, fontFamily: "'IBM Plex Mono', monospace" }}>Anterior: {ant} h</div>
                   <input type="number" placeholder={`≥ ${ant}`} value={val ?? ""}
                     onChange={(e) => setHorom((p) => ({ ...p, [eq.id]: e.target.value }))}
-                    style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: `1px solid ${invalida ? C.red : "#CFE3F2"}`, fontFamily: "'IBM Plex Mono', monospace", fontSize: 14, fontWeight: 600, color: C.steel, background: "#F2F8FD" }} />
+                    style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: `1px solid ${invalida ? C.red : tint(C.sky, 28)}`, fontFamily: "'IBM Plex Mono', monospace", fontSize: 14, fontWeight: 600, color: C.steel, background: tint(C.sky, 9) }} />
                   {invalida && <div style={{ fontSize: 10.5, color: C.red, fontWeight: 600, marginTop: 4 }}>Debe ser ≥ {ant} h</div>}
                 </div>
               );
@@ -490,7 +490,7 @@ function VistaRecalada({ marea, nave, equipos, onVolver, onGuardar }) {
         <div style={{ ...archivo, fontSize: 18, fontWeight: 800, color: C.abyss }}>Recalada · {nave?.nombre}</div>
       </div>
 
-      <div style={{ display: "flex", alignItems: "center", gap: 10, background: "#EAF4FF", border: `1px solid ${C.cyan}`, color: C.steel, padding: "10px 14px", borderRadius: 10, marginBottom: 14, fontSize: 12.5 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, background: tint(C.cyan, 10), border: `1px solid ${C.cyan}`, color: C.steel, padding: "10px 14px", borderRadius: 10, marginBottom: 14, fontSize: 12.5 }}>
         <Anchor size={16} /> <span>Ingresa lo que <strong>quedó</strong> a bordo y la lectura final de horómetros. El sistema calculará el consumo de la marea.</span>
       </div>
 
@@ -515,7 +515,7 @@ function VistaRecalada({ marea, nave, equipos, onVolver, onGuardar }) {
                   <div style={{ fontSize: 11, color: C.slate, marginBottom: 6, fontFamily: "'IBM Plex Mono', monospace" }}>Al zarpar: {ant} h</div>
                   <input type="number" placeholder={`≥ ${ant}`} value={val ?? ""}
                     onChange={(e) => setHorom((p) => ({ ...p, [eq.id]: e.target.value }))}
-                    style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: `1px solid ${invalida ? C.red : "#CFE3F2"}`, fontFamily: "'IBM Plex Mono', monospace", fontSize: 14, fontWeight: 600, color: C.steel, background: "#F2F8FD" }} />
+                    style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: `1px solid ${invalida ? C.red : tint(C.sky, 28)}`, fontFamily: "'IBM Plex Mono', monospace", fontSize: 14, fontWeight: 600, color: C.steel, background: tint(C.sky, 9) }} />
                   {invalida && <div style={{ fontSize: 10.5, color: C.red, fontWeight: 600, marginTop: 4 }}>Debe ser ≥ {ant} h</div>}
                 </div>
               );
@@ -580,7 +580,7 @@ function VistaRetornoFalla({ marea, nave, equipos, onVolver, onGuardar }) {
       </div>
 
       {/* Cabecera de alerta */}
-      <Card style={{ borderTop: `5px solid ${C.red}`, marginBottom: 16, background: "#FEF2F2" }}>
+      <Card style={{ borderTop: `5px solid ${C.red}`, marginBottom: 16, background: tint(C.red, 8) }}>
         <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
           <div style={{ width: 54, height: 54, borderRadius: 14, background: C.red, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
             <AlertTriangle size={28} color="#fff" />
@@ -645,7 +645,7 @@ function VistaRetornoFalla({ marea, nave, equipos, onVolver, onGuardar }) {
         </Field>
 
         {/* Riesgo tripulación */}
-        <label style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 16, padding: "12px 14px", borderRadius: 8, border: `1px solid ${form.riesgoTrip ? C.red : C.line}`, background: form.riesgoTrip ? "#FEF2F2" : "#fff", cursor: "pointer" }}>
+        <label style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 16, padding: "12px 14px", borderRadius: 8, border: `1px solid ${form.riesgoTrip ? C.red : C.line}`, background: form.riesgoTrip ? tint(C.red, 8) : "#fff", cursor: "pointer" }}>
           <input type="checkbox" checked={form.riesgoTrip}
             onChange={(e) => setForm((p) => ({ ...p, riesgoTrip: e.target.checked }))}
             style={{ width: 18, height: 18, accentColor: C.red }} />
@@ -657,7 +657,7 @@ function VistaRetornoFalla({ marea, nave, equipos, onVolver, onGuardar }) {
       </Card>
 
       {/* Preview de lo que se generará */}
-      <Card style={{ marginBottom: 16, background: "#FFFBEB", borderLeft: `4px solid ${C.amber}` }}>
+      <Card style={{ marginBottom: 16, background: tint(C.amber, 10), borderLeft: `4px solid ${C.amber}` }}>
         <div style={{ fontSize: 10.5, letterSpacing: 1.5, textTransform: "uppercase", color: C.slate, fontWeight: 700, marginBottom: 10 }}>
           Al confirmar se generará automáticamente:
         </div>
@@ -878,7 +878,7 @@ function ModalEliminar({ target, onCancel, onConfirm }) {
         <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", padding: "20px 24px 22px" }}>
           <button onClick={onCancel} style={{ ...ghostBtn, padding: "10px 18px" }}>Cancelar</button>
           <button onClick={() => onConfirm(final)} disabled={!final}
-            style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "10px 18px", borderRadius: 9, border: "none", background: final ? C.red : "#E4B4B0", color: "#fff", fontSize: 13.5, fontWeight: 700, cursor: final ? "pointer" : "default", fontFamily: "inherit" }}>
+            style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "10px 18px", borderRadius: 9, border: "none", background: final ? C.red : tint(C.red, 45), color: "#fff", fontSize: 13.5, fontWeight: 700, cursor: final ? "pointer" : "default", fontFamily: "inherit" }}>
             <Trash2 size={15} /> Eliminar
           </button>
         </div>
@@ -932,7 +932,7 @@ function Stepper({ label, unidad, icon: Icon, value, onChange, step = 1 }) {
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
         <button onClick={() => onChange(Math.max(0, value - step))} style={stepBtn}>−</button>
-        <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 4, background: "#F2F8FD", border: "1px solid #CFE3F2", borderRadius: 8, padding: "4px 8px" }}>
+        <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 4, background: tint(C.sky, 9), border: "1px solid #CFE3F2", borderRadius: 8, padding: "4px 8px" }}>
           <input type="number" value={value} onChange={(e) => onChange(Math.max(0, Number(e.target.value) || 0))}
             style={{ width: "100%", border: "none", background: "transparent", textAlign: "center", fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, fontSize: 16, color: C.steel, outline: "none" }} />
           <span style={{ fontSize: 11, color: C.slate }}>{unidad}</span>

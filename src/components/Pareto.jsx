@@ -6,7 +6,7 @@ import {
 } from "recharts";
 import { useAuth } from "../lib/auth";
 import { fetchAll } from "../lib/db";
-import { C, archivo, clp, num } from "../theme";
+import { C, archivo, clp, num, tint } from "../theme";
 import { buildEquipoTree } from "../lib/equipTree";
 import { Card, PageHead, Pill, FilterBtn, thStyle, tdStyle, Empty, ErrorBanner, InlineSpinner } from "../ui";
 
@@ -162,7 +162,7 @@ export default function Pareto() {
                 </tr></thead>
                 <tbody>
                   {grupos.map((g, i) => (
-                    <tr key={g.name} style={g.vital ? { background: "#FBF3DD" } : undefined}>
+                    <tr key={g.name} style={g.vital ? { background: tint(C.gold, 16) } : undefined}>
                       <td style={{ ...tdStyle, fontFamily: "'IBM Plex Mono', monospace", color: C.slate }}>{i + 1}</td>
                       <td style={{ ...tdStyle, fontWeight: 600 }}>{g.name}</td>
                       <td style={{ ...tdStyle, textAlign: "right", fontWeight: 600 }}>{fmt(g.value)}</td>

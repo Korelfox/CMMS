@@ -3,7 +3,7 @@ import { CalendarClock, Check, AlertCircle, Plus, Trash2, Download, History, Cli
 import { useAuth } from "../lib/auth";
 import { fetchAll, insertRow, updateRow, deleteRow, logActivity } from "../lib/db";
 import { buildEquipoTree } from "../lib/equipTree";
-import { C, archivo, num, canOperate, isAdmin } from "../theme";
+import { C, archivo, num, canOperate, isAdmin, tint } from "../theme";
 import {
   Card, PageHead, Pill, FilterBtn, primaryBtn, ghostBtn, exportBtn,
   inputStyle, bluInput, thStyle, tdStyle, Field, Empty, ErrorBanner, InlineSpinner,
@@ -26,7 +26,7 @@ function PMBar({ elapsed, intervalo }) {
   const color  = tone === "red" ? C.red : tone === "yellow" ? C.amber : C.green;
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 220 }}>
-      <div style={{ flex: 1, height: 7, background: "#EDF0F5", borderRadius: 4, position: "relative" }}>
+      <div style={{ flex: 1, height: 7, background: tint(C.slate, 14), borderRadius: 4, position: "relative" }}>
         <div style={{ height: "100%", width: `${pct}%`, background: color, borderRadius: 4, transition: "width .3s" }} />
         <div title="90% del intervalo" style={{ position: "absolute", top: -2, left: "90%", width: 2, height: 11, background: C.slate, opacity: 0.35, borderRadius: 1 }} />
       </div>
@@ -273,7 +273,7 @@ function TabPlan({ lista, equipos, setEquipos, planes, setPlanes, historial, set
 
               return (
                 <div key={plan.id} style={{ marginLeft: eq.depth * 16 + 8, marginBottom: 6 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", borderRadius: 8, background: tone === "red" ? "#FEF2F2" : tone === "yellow" ? "#FFFBEB" : "#F8FAFF", border: `1px solid ${tone === "red" ? C.red + "30" : tone === "yellow" ? C.amber + "30" : C.line}` }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", borderRadius: 8, background: tone === "red" ? tint(C.red, 8) : tone === "yellow" ? tint(C.amber, 10) : tint(C.steel, 6), border: `1px solid ${tone === "red" ? C.red + "30" : tone === "yellow" ? C.amber + "30" : C.line}` }}>
                     <Pill tone={tone}>{label}</Pill>
                     <div style={{ flex: 1 }}>
                       <div style={{ fontSize: 13, fontWeight: 600, color: C.abyss }}>{plan.descripcion}</div>
@@ -311,7 +311,7 @@ function TabPlan({ lista, equipos, setEquipos, planes, setPlanes, historial, set
 
                   {/* ── Formulario de registro ── */}
                   {isReg && (
-                    <div style={{ margin: "6px 0 4px 12px", padding: "12px 14px", background: "#F0FDF4", border: `1px solid ${C.green}40`, borderRadius: 8 }}>
+                    <div style={{ margin: "6px 0 4px 12px", padding: "12px 14px", background: tint(C.green, 9), border: `1px solid ${C.green}40`, borderRadius: 8 }}>
                       <div style={{ fontSize: 12, fontWeight: 700, color: C.abyss, marginBottom: 10 }}>
                         Registrar PM: <em style={{ fontWeight: 400 }}>{plan.descripcion}</em> a las {num(eq.horas_actual || 0, 0)}h
                       </div>

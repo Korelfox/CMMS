@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback } from "react";
 import { Ship, Plus, Trash2, Download, AlertCircle, GitBranch, Layers, Cpu, Wrench, Box, Hash } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { fetchAll, insertRow, updateRow, deleteRow, logActivity } from "../lib/db";
-import { C, isAdmin, canOperate, ESTADOS_EQUIPO, estadoLabel } from "../theme";
+import { C, isAdmin, canOperate, ESTADOS_EQUIPO, estadoLabel, tint } from "../theme";
 import { buildEquipoTree } from "../lib/equipTree";
 import { PLANTILLA_PESQUERA, contarNodosPlantilla, TIPO_NODO_META, CRITICIDAD_TONE } from "../lib/plantillaPesquera";
 import {
@@ -335,7 +335,7 @@ export default function Equipos() {
                 : lista.map((e) => {
                   const padres = padresDisponibles(e.id, e.embarcacion_id);
                   return (
-                    <tr key={e.id} style={{ background: e.depth > 0 ? "#FAFBFF" : undefined }}>
+                    <tr key={e.id} style={{ background: e.depth > 0 ? tint(C.steel, 5) : undefined }}>
 
                       {/* ID */}
                       <td style={tdStyle}>

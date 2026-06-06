@@ -5,7 +5,7 @@ import { fetchAll, insertRow, updateRow, deleteRow, logActivity } from "../lib/d
 import { useOnline, cacheTable, getCached, queueInsert, nuevoId } from "../lib/offline";
 import { buildEquipoTree } from "../lib/equipTree";
 import { subirFotos } from "../lib/fotos";
-import { C, clp, num, isAdmin, canOperate, TIPOS_OT, PRIORIDADES, ESTADOS_OT, lk, tn } from "../theme";
+import { C, clp, num, isAdmin, canOperate, TIPOS_OT, PRIORIDADES, ESTADOS_OT, lk, tn, tint } from "../theme";
 import {
   Card, PageHead, Pill, primaryBtn, ghostBtn, exportBtn, inputStyle, bluInput,
   thStyle, tdStyle, FilterBtn, Field, Empty, ErrorBanner, InlineSpinner,
@@ -283,7 +283,7 @@ export default function OrdenesTrabajo({ navParams }) {
       </div>
 
       {modoCostos && (
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, background: C.goldBg || "#FBF3DD", border: `1px solid ${C.gold}`, borderRadius: 10, padding: "10px 14px", marginBottom: 14, fontSize: 13 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, background: C.goldBg || tint(C.gold, 16), border: `1px solid ${C.gold}`, borderRadius: 10, padding: "10px 14px", marginBottom: 14, fontSize: 13 }}>
           <span style={{ display: "inline-flex", alignItems: "center", gap: 8, color: "#7a5b00" }}>
             <DollarSign size={16} /> Modo edición de costos: ingresa mano de obra (MO) y materiales (Mat) de cada orden. Se guarda al salir del campo.
           </span>
@@ -368,7 +368,7 @@ export default function OrdenesTrabajo({ navParams }) {
 function EstadoSelect({ estado, onChange }) {
   const map = {
     green: [C.green, C.greenBg], yellow: [C.yellow, C.yellowBg], slate: [C.slate, C.foam],
-    steel: [C.steel, "#E4EFF8"], purple: [C.purple, C.purpleBg], red: [C.red, C.redBg],
+    steel: [C.steel, tint(C.steel, 14)], purple: [C.purple, C.purpleBg], red: [C.red, C.redBg],
   };
   const [fg, bg] = map[tn(ESTADOS_OT, estado)] || map.slate;
   return (

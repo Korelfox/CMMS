@@ -6,7 +6,7 @@ import {
 import { useAuth } from "../lib/auth";
 import { fetchAll, insertRow, updateRow, deleteRow, upsertRow, logActivity } from "../lib/db";
 import { supabase } from "../lib/supabase";
-import { C, archivo, clp, num, isAdmin, canOperate } from "../theme";
+import { C, archivo, clp, num, isAdmin, canOperate, tint } from "../theme";
 import {
   Card, PageHead, Pill, primaryBtn, ghostBtn, exportBtn, inputStyle, bluInput,
   thStyle, tdStyle, Field, Empty, ErrorBanner, InlineSpinner,
@@ -829,7 +829,7 @@ function TabCompras({ profile, items, bodegas, compras, comprasItems, stockMap, 
         const oc  = compras.find((o) => o.id === recepPanel);
         const its = ocItemsList(oc);
         return (
-          <Card style={{ marginBottom: 16, borderLeft: `4px solid ${C.cyan}`, background: "#F0FAFF" }}>
+          <Card style={{ marginBottom: 16, borderLeft: `4px solid ${C.cyan}`, background: tint(C.cyan, 8) }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 14 }}>
               <div>
                 <div style={{ fontSize: 10, letterSpacing: 2, textTransform: "uppercase", color: C.slate, fontWeight: 700 }}>Recepción de mercadería</div>
@@ -987,7 +987,7 @@ function NivelBar({ total, min, max }) {
   const color  = total <= min ? C.red : total <= min * 1.5 ? C.amber : C.green;
   return (
     <div style={{ minWidth: 110 }}>
-      <div style={{ height: 8, background: "#EDF0F5", borderRadius: 4, position: "relative" }}>
+      <div style={{ height: 8, background: tint(C.slate, 14), borderRadius: 4, position: "relative" }}>
         <div style={{ position: "absolute", inset: "0 auto 0 0", width: `${pct}%`, background: color, borderRadius: 4, transition: "width .3s ease" }} />
         {min > 0 && (
           <div title={`Mínimo: ${min}`}
