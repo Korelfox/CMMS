@@ -1,14 +1,28 @@
 import React, { useEffect, useState, useCallback } from "react";
-import { Package, Plus, Trash2, Download, Anchor, X, Pencil, Check } from "lucide-react";
+import { Package, Plus, Trash2, Download, Anchor, X, Pencil, Check, Tag } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { fetchAll, insertRow, updateRow, deleteRow, logActivity } from "../lib/db";
-import { C, clp, isAdmin, canOperate } from "../theme";
+import { C, clp, isAdmin, canOperate, tint } from "../theme";
 import { buildEquipoTree } from "../lib/equipTree";
 import { PLANTILLA_PESQUERA } from "../lib/plantillaPesquera";
 import {
   Card, PageHead, Pill, FilterBtn, primaryBtn, ghostBtn, exportBtn, inputStyle, bluInput,
-  thStyle, tdStyle, Field, Empty, ErrorBanner, InlineSpinner,
+  thStyle, tdStyle, Field, Empty, ErrorBanner, InlineSpinner, GuiaColapsable,
 } from "../ui";
+
+// Prefijos de tipo de repuesto para el código (SKU). Formato: TIPO-SUBTIPO-ESPEC
+const PREFIJOS_SKU = [
+  ["FLT", "Filtros", "ACE aceite · COM combustible · HID hidráulico · AIR aire · SEP separador"],
+  ["BRG", "Rodamientos", "medida o código (6312-ZZ)"],
+  ["SEL", "Sellos y juntas", "medida (45x60)"],
+  ["COR", "Correas y fajas", "código fabricante"],
+  ["MAN", "Mangueras", "diámetro/presión (25-350BAR)"],
+  ["LUB", "Lubricantes y aceites", "grado (15W40)"],
+  ["VAL", "Válvulas", "tipo/medida"],
+  ["BMP", "Bombas", "modelo"],
+  ["ELE", "Eléctrico", "voltaje/tipo"],
+  ["CON", "Consumibles", "—"],
+];
 
 // Categorías por SISTEMA — derivadas de la plantilla de equipos ISO 14224,
 // así se mantienen sincronizadas con la jerarquía de la flota.
@@ -260,6 +274,35 @@ export default function Inventario() {
               </div>
             </div>
           )}
+
+          <GuiaColapsable titulo="Guía de nomenclatura del código (SKU)" icon={Tag}>
+            <div style={{ marginBottom: 10 }}>
+              Formato recomendado: <code style={{ fontFamily: "'IBM Plex Mono', monospace", background: tint(C.steel, 10), padding: "1px 6px", borderRadius: 4, fontWeight: 700, color: C.steel }}>TIPO-SUBTIPO-ESPEC</code>
+              {" — "}corto, buscable y ordenable. La <strong>ESPEC</strong> es el modelo del fabricante (lo que se compra).
+            </div>
+            <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 10 }}>
+              <thead><tr>
+                <th style={{ textAlign: "left", padding: "4px 8px", fontSize: 10.5, textTransform: "uppercase", letterSpacing: 0.5, color: C.slate, borderBottom: `1px solid ${C.line}` }}>Prefijo</th>
+                <th style={{ textAlign: "left", padding: "4px 8px", fontSize: 10.5, textTransform: "uppercase", letterSpacing: 0.5, color: C.slate, borderBottom: `1px solid ${C.line}` }}>Tipo</th>
+                <th style={{ textAlign: "left", padding: "4px 8px", fontSize: 10.5, textTransform: "uppercase", letterSpacing: 0.5, color: C.slate, borderBottom: `1px solid ${C.line}` }}>Subtipo / Espec</th>
+              </tr></thead>
+              <tbody>
+                {PREFIJOS_SKU.map(([p, t, s]) => (
+                  <tr key={p}>
+                    <td style={{ padding: "4px 8px", fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, color: C.cyan, borderBottom: `1px solid ${C.foam}` }}>{p}</td>
+                    <td style={{ padding: "4px 8px", fontWeight: 600, borderBottom: `1px solid ${C.foam}` }}>{t}</td>
+                    <td style={{ padding: "4px 8px", color: C.slate, fontSize: 12, borderBottom: `1px solid ${C.foam}` }}>{s}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <div style={{ padding: "8px 12px", background: tint(C.steel, 10), borderRadius: 7 }}>
+              <strong>Ejemplo:</strong> filtro de aceite Mann W940/25 del motor →
+              {" "}código <code style={{ fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, color: C.steel }}>FLT-ACE-W940</code>,
+              {" "}categoría <strong>Filtros</strong> o <strong>Lubricación Motor</strong>, destino <strong>Motor Principal</strong>.
+              {" "}Stock mínimo ≥ 2 (cubrir 2 fallas).
+            </div>
+          </GuiaColapsable>
 
           <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
             <button onClick={crear} style={primaryBtn}>Guardar Ítem</button>

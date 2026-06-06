@@ -1,5 +1,22 @@
-import React from "react";
+import React, { useState } from "react";
 import { C, archivo, shadow, tint } from "./theme";
+
+// ── Guía colapsable: nota de ayuda para mantener estructura/estándares ──
+// Uso: <GuiaColapsable titulo="..." icon={Tag}> contenido </GuiaColapsable>
+export function GuiaColapsable({ titulo, icon: Icon, children, defaultOpen = false, tone = C.cyan }) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div style={{ border: `1px solid ${tint(tone, 35)}`, borderRadius: 10, background: tint(tone, 7), marginTop: 12, overflow: "hidden" }}>
+      <button onClick={() => setOpen((o) => !o)} data-nofx
+        style={{ width: "100%", display: "flex", alignItems: "center", gap: 9, padding: "10px 14px", background: "none", border: "none", cursor: "pointer", textAlign: "left", color: tone, fontSize: 12.5, fontWeight: 700, fontFamily: "inherit" }}>
+        {Icon && <Icon size={15} />}
+        <span style={{ flex: 1 }}>{titulo}</span>
+        <span style={{ fontSize: 11, opacity: 0.7 }}>{open ? "▲ ocultar" : "▼ ver guía"}</span>
+      </button>
+      {open && <div style={{ padding: "0 14px 14px", fontSize: 12.5, color: C.ink, lineHeight: 1.6 }}>{children}</div>}
+    </div>
+  );
+}
 
 // ============================================================
 //  Primitivas de interfaz reutilizables

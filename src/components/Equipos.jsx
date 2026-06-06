@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from "react";
-import { Ship, Plus, Trash2, Download, AlertCircle, GitBranch, Layers, Cpu, Wrench, Box } from "lucide-react";
+import { Ship, Plus, Trash2, Download, AlertCircle, GitBranch, Layers, Cpu, Wrench, Box, Hash } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { fetchAll, insertRow, updateRow, deleteRow, logActivity } from "../lib/db";
 import { C, isAdmin, canOperate, ESTADOS_EQUIPO, estadoLabel } from "../theme";
@@ -7,7 +7,7 @@ import { buildEquipoTree } from "../lib/equipTree";
 import { PLANTILLA_PESQUERA, contarNodosPlantilla, TIPO_NODO_META, CRITICIDAD_TONE } from "../lib/plantillaPesquera";
 import {
   Card, PageHead, Pill, primaryBtn, ghostBtn, exportBtn, inputStyle, bluInput,
-  thStyle, tdStyle, FilterBtn, Field, Empty, ErrorBanner, InlineSpinner,
+  thStyle, tdStyle, FilterBtn, Field, Empty, ErrorBanner, InlineSpinner, GuiaColapsable,
 } from "../ui";
 
 const TIPO_NODOS = [
@@ -289,6 +289,20 @@ export default function Equipos() {
 
           {/* ── Nota de ejemplo de jerarquía ── */}
           <NotaJerarquia compacta />
+
+          {/* ── Guía de nomenclatura del código de equipo ── */}
+          <GuiaColapsable titulo="Guía del código de equipo (ID visible)" icon={Hash} tone={C.steel}>
+            <div style={{ marginBottom: 8 }}>
+              Formato: <code style={{ fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, color: C.steel }}>NAVE-SISTEMA[-SUBSISTEMA]</code>
+              {" — "}el mismo que genera la plantilla pesquera, para que toda la flota sea consistente.
+            </div>
+            <ul style={{ margin: 0, paddingLeft: 18, color: C.slate }}>
+              <li><strong style={{ color: C.abyss }}>Sistema raíz:</strong> <code style={{ fontFamily: "'IBM Plex Mono', monospace", color: C.steel }}>AUR-PROP</code> (Propulsión de la nave Aurora)</li>
+              <li><strong style={{ color: C.abyss }}>Subsistema:</strong> <code style={{ fontFamily: "'IBM Plex Mono', monospace", color: C.steel }}>AUR-PROP-MTR</code> (Motor, hijo de Propulsión)</li>
+              <li>Códigos de sistema sugeridos: PROP, HYD, RSW, GEN, ELEC, FUEL, NAV, SAF, FISH…</li>
+              <li>Si lo dejas vacío, se genera uno automático a partir del nombre.</li>
+            </ul>
+          </GuiaColapsable>
 
           <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
             <button onClick={agregar} style={primaryBtn}>Guardar</button>
