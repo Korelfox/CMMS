@@ -109,6 +109,34 @@ export function Empty({ children }) {
   return <div style={{ padding: "30px 0", textAlign: "center", color: C.slate, fontSize: 13 }}>{children}</div>;
 }
 
+// ── KPI Card premium: ícono en fondo tenue + valor + tendencia opcional ──
+// icon: componente lucide · tone: color del acento · trend: { dir:'up'|'down', value:'12%' }
+export function KPICard({ label, value, sub, icon: Icon, tone = C.steel, trend }) {
+  return (
+    <div style={{ background: "#fff", border: `1px solid ${C.line}`, borderRadius: 14, padding: 16, boxShadow: shadow.sm, position: "relative", overflow: "hidden" }}>
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontSize: 10.5, letterSpacing: 1.2, textTransform: "uppercase", color: C.slate, fontWeight: 700 }}>{label}</div>
+          <div style={{ ...archivo, fontSize: 25, fontWeight: 800, color: tone, lineHeight: 1.1, marginTop: 8, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{value}</div>
+          {sub && <div style={{ fontSize: 11.5, color: C.slate, marginTop: 5 }}>{sub}</div>}
+        </div>
+        {Icon && (
+          <div style={{ width: 38, height: 38, borderRadius: 10, background: `${tone}18`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+            <Icon size={19} color={tone} />
+          </div>
+        )}
+      </div>
+      {trend && (
+        <div style={{ display: "inline-flex", alignItems: "center", gap: 4, marginTop: 10, fontSize: 11.5, fontWeight: 700, color: trend.dir === "up" ? C.green : trend.dir === "down" ? C.red : C.slate }}>
+          <span>{trend.dir === "up" ? "▲" : trend.dir === "down" ? "▼" : "■"}</span>
+          <span>{trend.value}</span>
+          {trend.label && <span style={{ color: C.slate, fontWeight: 500 }}>{trend.label}</span>}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function ErrorBanner({ children, onRetry }) {
   if (!children) return null;
   return (
@@ -147,6 +175,15 @@ export function DesignSystemStyles() {
         border-color: ${C.sky} !important;
         box-shadow: 0 0 0 3px rgba(62,143,214,.20);
       }
+
+      /* Tarjetas clickeables: se elevan al pasar el mouse */
+      .cmms-clickable { transition: box-shadow .18s ease, transform .14s ease, border-color .18s ease; }
+      .cmms-clickable:hover {
+        box-shadow: ${shadow.md};
+        transform: translateY(-2px);
+        border-color: ${C.sky}66;
+      }
+      .cmms-clickable:active { transform: translateY(0); }
 
       /* Filas de tabla: hover sutil para seguir la lectura */
       tbody tr { transition: background-color .12s ease; }

@@ -278,14 +278,22 @@ export default function Tablero({ onNavigate }) {
 }
 
 function Stat({ icon: Icon, label, value, tone, sub, onClick }) {
+  const acc = tone || C.steel;
   return (
-    <Card style={{ padding: 16, cursor: onClick ? "pointer" : "default" }} onClick={onClick}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
-        <div style={{ fontSize: 11, letterSpacing: 1, textTransform: "uppercase", color: C.slate, fontWeight: 600 }}>{label}</div>
-        {Icon && <Icon size={17} color={tone || C.steel} />}
+    <Card className={onClick ? "cmms-clickable" : undefined}
+      style={{ padding: 16, cursor: onClick ? "pointer" : "default" }} onClick={onClick}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontSize: 10.5, letterSpacing: 1.2, textTransform: "uppercase", color: C.slate, fontWeight: 700 }}>{label}</div>
+          <div style={{ ...archivo, fontSize: 24, fontWeight: 800, color: acc, lineHeight: 1.1, marginTop: 8 }}>{value}</div>
+          {sub && <div style={{ fontSize: 11.5, color: C.slate, marginTop: 6 }}>{sub}</div>}
+        </div>
+        {Icon && (
+          <div style={{ width: 38, height: 38, borderRadius: 10, background: `${acc}18`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+            <Icon size={19} color={acc} />
+          </div>
+        )}
       </div>
-      <div style={{ ...archivo, fontSize: 22, fontWeight: 800, color: tone || C.steel, lineHeight: 1.1 }}>{value}</div>
-      {sub && <div style={{ fontSize: 11.5, color: C.slate, marginTop: 6 }}>{sub}</div>}
     </Card>
   );
 }
