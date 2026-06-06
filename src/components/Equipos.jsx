@@ -1,13 +1,29 @@
 import React, { useEffect, useState, useCallback } from "react";
-import { Ship, Plus, Trash2, Download, AlertCircle, GitBranch } from "lucide-react";
+import { Ship, Plus, Trash2, Download, AlertCircle, GitBranch, Layers, Cpu, Wrench, Box } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { fetchAll, insertRow, updateRow, deleteRow, logActivity } from "../lib/db";
 import { C, isAdmin, canOperate, ESTADOS_EQUIPO, estadoLabel } from "../theme";
 import { buildEquipoTree } from "../lib/equipTree";
+import { PLANTILLA_PESQUERA, contarNodosPlantilla, TIPO_NODO_META, CRITICIDAD_TONE } from "../lib/plantillaPesquera";
 import {
-  Card, PageHead, primaryBtn, ghostBtn, exportBtn, inputStyle, bluInput,
+  Card, PageHead, Pill, primaryBtn, ghostBtn, exportBtn, inputStyle, bluInput,
   thStyle, tdStyle, FilterBtn, Field, Empty, ErrorBanner, InlineSpinner,
 } from "../ui";
+
+const TIPO_NODOS = [
+  { value: "equipo",      label: "Equipo (genérico)" },
+  { value: "sistema",     label: "Sistema (nivel 3)" },
+  { value: "subsistema",  label: "Subsistema (nivel 4)" },
+  { value: "componente",  label: "Componente (nivel 5)" },
+  { value: "instrumento", label: "Instrumento / Sensor (nivel 7)" },
+];
+const CRITICIDADES = [
+  { value: "",  label: "— Sin clasificar" },
+  { value: "A", label: "A · Crítico" },
+  { value: "B", label: "B · Importante" },
+  { value: "C", label: "C · Menor" },
+];
+const ICONO_TIPO = { sistema: Layers, subsistema: GitBranch, componente: Wrench, instrumento: Cpu, equipo: Box };
 
 // Tipo de niveles que se revisan en el prezarpe para este equipo
 const NIVEL_TIPOS = [
@@ -18,7 +34,7 @@ const NIVEL_TIPOS = [
 
 
 function blankForm(embId = "") {
-  return { embarcacion_id: embId, id_visible: "", sistema: "", subsistema: "", marca: "", modelo: "", parent_id: "" };
+  return { embarcacion_id: embId, id_visible: "", sistema: "", subsistema: "", marca: "", modelo: "", parent_id: "", tipo_nodo: "equipo", criticidad: "" };
 }
 
 export default function Equipos() {
@@ -30,6 +46,7 @@ export default function Equipos() {
   const [filtro, setFiltro]     = useState("all");
   const [showForm, setShowForm] = useState(false);
   const [form, setForm]         = useState(blankForm());
+  const [precargando, setPrecargando] = useState(false);
   const puedeOperar = canOperate(profile?.rol);
   const puedeBorrar = isAdmin(profile?.rol);
 
@@ -77,6 +94,8 @@ export default function Equipos() {
         marca:          form.marca.trim(),
         modelo:         form.modelo.trim(),
         parent_id:      form.parent_id || null,
+        tipo_nodo:      form.tipo_nodo || "equipo",
+        criticidad:     form.criticidad || null,
         created_by:     profile.id,
       });
       setEquipos((p) => [...p, nuevo]);
@@ -84,6 +103,42 @@ export default function Equipos() {
       setForm(blankForm(form.embarcacion_id));
       setShowForm(false);
     } catch (e) { setError("No se pudo crear el equipo: " + e.message); }
+  }
+
+  // Precarga el árbol estándar de sistemas pesqueros para la nave filtrada.
+  async function precargarPlantilla() {
+    const emb = embarcaciones.find((e) => e.id === filtro);
+    if (!emb) { setError("Selecciona primero una embarcación en los filtros."); return; }
+    const total = contarNodosPlantilla();
+    if (!window.confirm(`¿Precargar la plantilla pesquera estándar en "${emb.nombre}"?\n\nSe crearán ${total} nodos (14 sistemas + subsistemas + sensores). Puedes borrar después los que no apliquen a esta nave.`)) return;
+
+    setPrecargando(true); setError(null);
+    const creados = [];
+    try {
+      for (const sis of PLANTILLA_PESQUERA) {
+        // Sistema raíz
+        const padre = await insertRow("equipos", profile.empresa_id, {
+          embarcacion_id: emb.id, id_visible: `${emb.codigo}-${sis.cod}`,
+          sistema: sis.nom, tipo_nodo: sis.tipo, criticidad: sis.crit,
+          parent_id: null, created_by: profile.id,
+        });
+        creados.push(padre);
+        // Subsistemas / instrumentos hijos
+        for (const hijo of sis.hijos || []) {
+          const child = await insertRow("equipos", profile.empresa_id, {
+            embarcacion_id: emb.id, id_visible: `${emb.codigo}-${hijo.cod}`,
+            sistema: hijo.nom, tipo_nodo: hijo.tipo, criticidad: hijo.crit,
+            parent_id: padre.id, created_by: profile.id,
+          });
+          creados.push(child);
+        }
+      }
+      setEquipos((p) => [...p, ...creados]);
+      logActivity(profile, "Precargar plantilla pesquera", `${emb.nombre} · ${creados.length} nodos`);
+    } catch (e) {
+      setError("Se interrumpió la precarga: " + e.message + ". Recarga la página para ver lo que sí se creó.");
+      setEquipos((p) => [...p, ...creados]);
+    } finally { setPrecargando(false); }
   }
 
   function onChangeLocal(id, campo, valor) { setEquipos((p) => p.map((e) => e.id === id ? { ...e, [campo]: valor } : e)); }
@@ -160,6 +215,23 @@ export default function Equipos() {
         ))}
       </div>
 
+      {/* Precarga de plantilla pesquera (solo con una nave seleccionada) */}
+      {puedeOperar && filtro !== "all" && (
+        <Card style={{ marginBottom: 16, background: `${C.cyan}0D`, border: `1px solid ${C.cyan}40`, display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+          <Layers size={22} color={C.cyan} style={{ flexShrink: 0 }} />
+          <div style={{ flex: 1, minWidth: 200 }}>
+            <div style={{ fontWeight: 700, fontSize: 13.5, color: C.abyss }}>Plantilla pesquera ISO 14224</div>
+            <div style={{ fontSize: 12, color: C.slate, marginTop: 2 }}>
+              Genera el árbol estándar de {contarNodosPlantilla()} nodos (14 sistemas + subsistemas + sensores) para <strong>{embName(filtro)}</strong>. Borra después lo que no aplique.
+            </div>
+          </div>
+          <button onClick={precargarPlantilla} disabled={precargando}
+            style={{ ...primaryBtn, background: C.cyan, borderColor: C.cyan, flexShrink: 0 }}>
+            {precargando ? "Precargando…" : <><Layers size={15} /> Precargar plantilla</>}
+          </button>
+        </Card>
+      )}
+
       {showForm && (
         <Card style={{ marginBottom: 16, background: C.mist }}>
           <div style={{ fontWeight: 700, fontSize: 15, color: C.abyss, marginBottom: 14 }}>Nuevo Equipo / Subsistema</div>
@@ -194,6 +266,18 @@ export default function Equipos() {
             </Field>
             <Field label="Modelo">
               <input value={form.modelo} onChange={(e) => setForm({ ...form, modelo: e.target.value })} style={inputStyle()} />
+            </Field>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginTop: 12 }}>
+            <Field label="Tipo de nodo (nivel ISO 14224)">
+              <select value={form.tipo_nodo} onChange={(e) => setForm({ ...form, tipo_nodo: e.target.value })} style={inputStyle()}>
+                {TIPO_NODOS.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+              </select>
+            </Field>
+            <Field label="Criticidad">
+              <select value={form.criticidad} onChange={(e) => setForm({ ...form, criticidad: e.target.value })} style={inputStyle()}>
+                {CRITICIDADES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
+              </select>
             </Field>
           </div>
           {form.parent_id && (
@@ -256,16 +340,22 @@ export default function Equipos() {
                         </select>
                       </td>
 
-                      {/* Sistema — con indentación de árbol */}
+                      {/* Sistema — con indentación de árbol + tipo + criticidad */}
                       <td style={tdStyle}>
                         <div style={{ display: "flex", alignItems: "center" }}>
                           {e.depth > 0 && (
                             <span style={{ marginLeft: (e.depth - 1) * 14, marginRight: 5, color: C.slate, fontSize: 13, flexShrink: 0 }}>└─</span>
                           )}
+                          {(() => {
+                            const Ico = ICONO_TIPO[e.tipo_nodo] || ICONO_TIPO.equipo;
+                            const meta = TIPO_NODO_META[e.tipo_nodo] || TIPO_NODO_META.equipo;
+                            return <Ico size={13} color={meta.color} style={{ marginRight: 5, flexShrink: 0 }} title={meta.label} />;
+                          })()}
                           <input value={e.sistema} disabled={!puedeOperar}
                             onChange={(ev) => onChangeLocal(e.id, "sistema", ev.target.value)}
                             onBlur={(ev) => commit(e.id, "sistema", ev.target.value)}
-                            style={{ ...bluInput, width: Math.max(120, 180 - e.depth * 14), color: e.depth === 0 ? C.abyss : C.ink, fontWeight: e.depth === 0 ? 700 : 400 }} />
+                            style={{ ...bluInput, width: Math.max(110, 165 - e.depth * 14), color: e.depth === 0 ? C.abyss : C.ink, fontWeight: e.depth === 0 ? 700 : 400 }} />
+                          {e.criticidad && <span style={{ marginLeft: 6, flexShrink: 0 }}><Pill tone={CRITICIDAD_TONE[e.criticidad]}>{e.criticidad}</Pill></span>}
                         </div>
                       </td>
 
