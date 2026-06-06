@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { TrendingUp, ChevronDown, ChevronRight, AlertCircle, Save, Check } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { fetchAll, upsertRow, logActivity } from "../lib/db";
@@ -8,8 +8,8 @@ import { Card, PageHead, Pill, primaryBtn, bluInput, inputStyle, FilterBtn, Empt
 
 const DEFAULT_W = { beta: 2.0, eta: 1000, gamma: 0, cf: 50000, ci: 12000, notas: "" };
 
-// â”€â”€â”€â”€â”€ Funciones matemÃ¡ticas â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-// FunciÃ³n gamma Î“(z) por aproximaciÃ³n de Lanczos. Precisa para los rangos tÃ­picos de Weibull.
+// ───── Funciones matemáticas ─────────────────────────────────────────────
+// Función gamma Γ(z) por aproximación de Lanczos. Precisa para los rangos típicos de Weibull.
 function gammaFunc(z) {
   if (z < 0.5) return Math.PI / (Math.sin(Math.PI * z) * gammaFunc(1 - z));
   z -= 1;
@@ -22,15 +22,15 @@ function gammaFunc(z) {
   return Math.sqrt(2 * Math.PI) * Math.pow(t, z + 0.5) * Math.exp(-t) * x;
 }
 
-// MTBF para Weibull biparamÃ©trica: MTBF = Î· Â· Î“(1 + 1/Î²) + Î³
+// MTBF para Weibull biparamétrica: MTBF = η · Γ(1 + 1/β) + γ
 function calcMTBF(beta, eta, gamma) {
   if (!beta || !eta) return 0;
   return eta * gammaFunc(1 + 1 / beta) + (gamma || 0);
 }
 
-// Tiempo Ã³ptimo de intervenciÃ³n preventiva (Pascual):
-//   Ts* = Î· Â· (1 / (r Â· (Î² âˆ’ 1)))^(1/Î²) + Î³
-// Donde r = Cf / Ci. Solo vÃ¡lido para Î² > 1 (degradaciÃ³n con el tiempo).
+// Tiempo óptimo de intervención preventiva (Pascual):
+//   Ts* = η · (1 / (r · (β − 1)))^(1/β) + γ
+// Donde r = Cf / Ci. Solo válido para β > 1 (degradación con el tiempo).
 function calcTsOpt(beta, eta, gamma, cf, ci) {
   if (beta <= 1) return null;
   if (!cf || !ci || cf <= 0 || ci <= 0) return null;
@@ -41,26 +41,26 @@ function calcTsOpt(beta, eta, gamma, cf, ci) {
   return eta * Math.pow(factor, 1 / beta) + (gamma || 0);
 }
 
-// DecisiÃ³n: Reparar / Preventivo / Overhaul / Reemplazo
+// Decisión: Reparar / Preventivo / Overhaul / Reemplazo
 function decidir(beta, mtbf, tsOpt, r) {
   if (beta <= 1) {
-    return { tipo: "InspecciÃ³n", tone: "yellow",
-      raz: "Î² â‰¤ 1: las fallas son aleatorias o de mortalidad infantil. El PM por calendario no ayuda; conviene inspecciÃ³n por condiciÃ³n." };
+    return { tipo: "Inspección", tone: "yellow",
+      raz: "β ≤ 1: las fallas son aleatorias o de mortalidad infantil. El PM por calendario no ayuda; conviene inspección por condición." };
   }
   if (mtbf < 200 && r > 3) {
     return { tipo: "Reemplazo", tone: "red",
-      raz: "MTBF muy bajo y el costo de falla supera ampliamente al de intervenciÃ³n: la operaciÃ³n pierde dinero, conviene reemplazar." };
+      raz: "MTBF muy bajo y el costo de falla supera ampliamente al de intervención: la operación pierde dinero, conviene reemplazar." };
   }
   if (tsOpt && tsOpt < mtbf * 0.3 && beta > 2) {
     return { tipo: "Overhaul", tone: "purple",
-      raz: "La degradaciÃ³n es agresiva (Î² > 2) y el Ã³ptimo cae muy temprano. Una intervenciÃ³n mayor (overhaul) puede reiniciar el reloj y mejorar la vida Ãºtil." };
+      raz: "La degradación es agresiva (β > 2) y el óptimo cae muy temprano. Una intervención mayor (overhaul) puede reiniciar el reloj y mejorar la vida útil." };
   }
   if (tsOpt && tsOpt > 0) {
     return { tipo: "PM Preventivo", tone: "green",
       raz: `Programa PM en Ts* = ${num(tsOpt, 0)} h. Es el punto donde el costo total se minimiza.` };
   }
   return { tipo: "Reparar (correctivo)", tone: "slate",
-    raz: "No hay Ã³ptimo claro. MantÃ©n estrategia correctiva y revisa parÃ¡metros con mÃ¡s datos." };
+    raz: "No hay óptimo claro. Mantén estrategia correctiva y revisa parámetros con más datos." };
 }
 
 export default function Weibull() {
@@ -73,9 +73,9 @@ export default function Weibull() {
   const [filtro, setFiltro] = useState("all");
   const [abierto, setAbierto] = useState(null);
   const [dirty, setDirty] = useState({});        // equipos con cambios sin guardar
-  const [guardadoOk, setGuardadoOk] = useState(null);  // feedback "âœ“ guardado"
+  const [guardadoOk, setGuardadoOk] = useState(null);  // feedback "✓ guardado"
   const [guardando, setGuardando] = useState(null);
-  const puedeOperar = isAdmin(profile?.rol);  // editar parÃ¡metros/costos: Jefe MantenciÃ³n y superiores
+  const puedeOperar = isAdmin(profile?.rol);  // editar parámetros/costos: Jefe Mantención y superiores
 
   const cargar = useCallback(async () => {
     setLoading(true); setError(null);
@@ -87,7 +87,7 @@ export default function Weibull() {
       ]);
       setEmbarcaciones(embs); setEquipos(eqs); setDatos(ws);
     } catch (e) {
-      setError("No se pudo cargar la optimizaciÃ³n Weibull. " +
+      setError("No se pudo cargar la optimización Weibull. " +
         (e.message.includes("does not exist") ? "Recuerda correr el parche 04_parche_weibull.sql en Supabase." : e.message));
     } finally { setLoading(false); }
   }, []);
@@ -97,9 +97,9 @@ export default function Weibull() {
     const found = datos.find((c) => c.equipo_id === equipoId);
     return found || { ...DEFAULT_W, equipo_id: equipoId };
   }
-  function embName(id) { return embarcaciones.find((e) => e.id === id)?.nombre || "â€”"; }
+  function embName(id) { return embarcaciones.find((e) => e.id === id)?.nombre || "—"; }
 
-  // Edita el parÃ¡metro solo en memoria; los cÃ¡lculos (MTBF, Ts*, decisiÃ³n) se
+  // Edita el parámetro solo en memoria; los cálculos (MTBF, Ts*, decisión) se
   // actualizan al instante, pero la base solo cambia al pulsar "Guardar cambios".
   function setCampo(equipoId, campo, valor) {
     setDatos((p) => {
@@ -111,7 +111,7 @@ export default function Weibull() {
     if (guardadoOk === equipoId) setGuardadoOk(null);
   }
 
-  // Guarda en la base los parÃ¡metros Weibull del equipo (INSERT o UPDATE).
+  // Guarda en la base los parámetros Weibull del equipo (INSERT o UPDATE).
   async function guardar(equipoId) {
     const w = getW(equipoId);
     setError(null); setGuardando(equipoId);
@@ -123,7 +123,7 @@ export default function Weibull() {
       }, "equipo_id");
       setDirty((d) => { const n = { ...d }; delete n[equipoId]; return n; });
       const eq = equipos.find((e) => e.id === equipoId);
-      logActivity(profile, "Guardar Weibull", `${eq?.sistema || ""} Â· ${embName(eq?.embarcacion_id)}`);
+      logActivity(profile, "Guardar Weibull", `${eq?.sistema || ""} · ${embName(eq?.embarcacion_id)}`);
       setGuardadoOk(equipoId);
       setTimeout(() => setGuardadoOk((g) => (g === equipoId ? null : g)), 2500);
     } catch (e) { setError("No se pudo guardar: " + e.message); cargar(); }
@@ -144,12 +144,12 @@ export default function Weibull() {
   const conReemp = enriquecidos.filter((x) => x.dec.tipo === "Reemplazo" || x.dec.tipo === "Overhaul").length;
   const mtbfProm = enriquecidos.length ? enriquecidos.reduce((s, x) => s + x.mtbf, 0) / enriquecidos.length : 0;
 
-  if (loading) return <div><PageHead kicker="OptimizaciÃ³n Â· Pascual" title="OptimizaciÃ³n Weibull" /><Card><InlineSpinner label="Calculando Ã³ptimosâ€¦" /></Card></div>;
+  if (loading) return <div><PageHead kicker="Optimización · Pascual" title="Optimización Weibull" /><Card><InlineSpinner label="Calculando óptimos…" /></Card></div>;
 
   if (equipos.length === 0) {
     return (
       <div>
-        <PageHead kicker="OptimizaciÃ³n Â· Pascual" title="OptimizaciÃ³n Weibull" />
+        <PageHead kicker="Optimización · Pascual" title="Optimización Weibull" />
         <Card><Empty>
           <AlertCircle size={32} color={C.amber} style={{ marginBottom: 10 }} /><br />
           No hay equipos registrados. Carga equipos primero para optimizar su mantenimiento.
@@ -160,16 +160,16 @@ export default function Weibull() {
 
   return (
     <div>
-      <PageHead kicker="OptimizaciÃ³n Â· Pascual / Weibull" title="OptimizaciÃ³n Weibull"
-        sub="Calcula el tiempo Ã³ptimo de intervenciÃ³n preventiva y la decisiÃ³n Reparar / PM / Overhaul / Reemplazar a partir del factor de forma (Î²), vida caracterÃ­stica (Î·) y los costos Cf/Ci." />
+      <PageHead kicker="Optimización · Pascual / Weibull" title="Optimización Weibull"
+        sub="Calcula el tiempo óptimo de intervención preventiva y la decisión Reparar / PM / Overhaul / Reemplazar a partir del factor de forma (β), vida característica (η) y los costos Cf/Ci." />
 
       <ErrorBanner onRetry={cargar}>{error}</ErrorBanner>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14, marginBottom: 16 }}>
         <KPI label="Equipos analizados" value={enriquecidos.length} />
-        <KPI label="Con degradaciÃ³n (Î² > 1)" value={numDegradan} tone={C.amber} sub={`${enriquecidos.length - numDegradan} aleatorios`} />
-        <KPI label="Recomendados con PM" value={conPM} tone={C.green} sub="Ã³ptimo Ts* vÃ¡lido" />
-        <KPI label="Overhaul / Reemplazo" value={conReemp} tone={conReemp ? C.red : C.green} sub="requieren intervenciÃ³n mayor" />
+        <KPI label="Con degradación (β > 1)" value={numDegradan} tone={C.amber} sub={`${enriquecidos.length - numDegradan} aleatorios`} />
+        <KPI label="Recomendados con PM" value={conPM} tone={C.green} sub="óptimo Ts* válido" />
+        <KPI label="Overhaul / Reemplazo" value={conReemp} tone={conReemp ? C.red : C.green} sub="requieren intervención mayor" />
       </div>
 
       <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
@@ -191,14 +191,14 @@ export default function Weibull() {
                 {expanded ? <ChevronDown size={18} color={C.slate} /> : <ChevronRight size={18} color={C.slate} />}
                 <div>
                   <div style={{ fontWeight: 700, color: C.abyss }}>{eq.sistema}</div>
-                  <div style={{ fontSize: 11.5, color: C.slate, fontFamily: "'IBM Plex Mono', monospace" }}>{embName(eq.embarcacion_id)} Â· {eq.id_visible}</div>
+                  <div style={{ fontSize: 11.5, color: C.slate, fontFamily: "'IBM Plex Mono', monospace" }}>{embName(eq.embarcacion_id)} · {eq.id_visible}</div>
                 </div>
-                <Stat label="Î²" value={(w.beta || 0).toFixed(1)} />
+                <Stat label="β" value={(w.beta || 0).toFixed(1)} />
                 <Stat label="MTBF" value={`${num(mtbf, 0)}h`} />
-                <Stat label="Ts*" value={tsOpt ? `${num(tsOpt, 0)}h` : "â€”"} color={tsOpt ? C.green : C.slate} />
+                <Stat label="Ts*" value={tsOpt ? `${num(tsOpt, 0)}h` : "—"} color={tsOpt ? C.green : C.slate} />
                 <Stat label="r" value={(r || 0).toFixed(1)} color={r > 5 ? C.red : C.steel} />
                 <div>
-                  <div style={{ fontSize: 10, letterSpacing: 0.5, color: C.slate, fontWeight: 600, textTransform: "uppercase" }}>RecomendaciÃ³n</div>
+                  <div style={{ fontSize: 10, letterSpacing: 0.5, color: C.slate, fontWeight: 600, textTransform: "uppercase" }}>Recomendación</div>
                   <div style={{ marginTop: 3 }}><Pill tone={dec.tone}>{dec.tipo}</Pill></div>
                 </div>
                 <div style={{ fontSize: 10, color: C.slate }}>{expanded ? "Ocultar" : "Detalle"}</div>
@@ -207,14 +207,14 @@ export default function Weibull() {
               {expanded && (
                 <div style={{ padding: 18, background: C.mist }}>
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 14, marginBottom: 14 }}>
-                    <Group title="ParÃ¡metros Weibull">
-                      <CellEdit label="Î² Â· forma" step={0.1} value={w.beta} disabled={!puedeOperar} onChange={(v) => setCampo(eq.id, "beta", Math.max(0.1, v))} />
-                      <CellEdit label="Î· Â· vida caracterÃ­stica (h)" step={50} value={w.eta} disabled={!puedeOperar} onChange={(v) => setCampo(eq.id, "eta", Math.max(0, v))} />
-                      <CellEdit label="Î³ Â· umbral (h)" step={10} value={w.gamma} disabled={!puedeOperar} onChange={(v) => setCampo(eq.id, "gamma", Math.max(0, v))} />
+                    <Group title="Parámetros Weibull">
+                      <CellEdit label="β · forma" step={0.1} value={w.beta} disabled={!puedeOperar} onChange={(v) => setCampo(eq.id, "beta", Math.max(0.1, v))} />
+                      <CellEdit label="η · vida característica (h)" step={50} value={w.eta} disabled={!puedeOperar} onChange={(v) => setCampo(eq.id, "eta", Math.max(0, v))} />
+                      <CellEdit label="γ · umbral (h)" step={10} value={w.gamma} disabled={!puedeOperar} onChange={(v) => setCampo(eq.id, "gamma", Math.max(0, v))} />
                     </Group>
-                    <Group title="Costos econÃ³micos">
-                      <CellEdit label="Cf Â· costo por falla ($)" step={1000} value={w.cf} disabled={!puedeOperar} onChange={(v) => setCampo(eq.id, "cf", Math.max(0, v))} />
-                      <CellEdit label="Ci Â· costo PM ($)" step={1000} value={w.ci} disabled={!puedeOperar} onChange={(v) => setCampo(eq.id, "ci", Math.max(0, v))} />
+                    <Group title="Costos económicos">
+                      <CellEdit label="Cf · costo por falla ($)" step={1000} value={w.cf} disabled={!puedeOperar} onChange={(v) => setCampo(eq.id, "cf", Math.max(0, v))} />
+                      <CellEdit label="Ci · costo PM ($)" step={1000} value={w.ci} disabled={!puedeOperar} onChange={(v) => setCampo(eq.id, "ci", Math.max(0, v))} />
                       <div>
                         <div style={{ fontSize: 11, color: C.slate, marginBottom: 4 }}>r = Cf / Ci</div>
                         <div style={{ ...archivo, fontSize: 18, fontWeight: 800, color: r > 5 ? C.red : C.steel }}>{r.toFixed(2)}</div>
@@ -226,19 +226,19 @@ export default function Weibull() {
                         <div style={{ ...archivo, fontSize: 18, fontWeight: 800, color: C.steel }}>{num(mtbf, 0)} h</div>
                       </div>
                       <div>
-                        <div style={{ fontSize: 11, color: C.slate, marginBottom: 4 }}>Tiempo Ã³ptimo PM</div>
+                        <div style={{ fontSize: 11, color: C.slate, marginBottom: 4 }}>Tiempo óptimo PM</div>
                         <div style={{ ...archivo, fontSize: 18, fontWeight: 800, color: tsOpt ? C.green : C.slate }}>{tsOpt ? `${num(tsOpt, 0)} h` : "no aplica"}</div>
                       </div>
                       <div>
-                        <div style={{ fontSize: 11, color: C.slate, marginBottom: 4 }}>RazÃ³n Ts*/MTBF</div>
-                        <div style={{ ...archivo, fontSize: 18, fontWeight: 800, color: C.steel }}>{tsOpt && mtbf > 0 ? `${((tsOpt / mtbf) * 100).toFixed(0)}%` : "â€”"}</div>
+                        <div style={{ fontSize: 11, color: C.slate, marginBottom: 4 }}>Razón Ts*/MTBF</div>
+                        <div style={{ ...archivo, fontSize: 18, fontWeight: 800, color: C.steel }}>{tsOpt && mtbf > 0 ? `${((tsOpt / mtbf) * 100).toFixed(0)}%` : "—"}</div>
                       </div>
                     </Group>
                   </div>
 
                   <div style={{ padding: "12px 16px", background: C.surface, border: `1px solid ${C.line}`, borderRadius: 9 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
-                      <span style={{ fontSize: 10.5, letterSpacing: 1, textTransform: "uppercase", color: C.slate, fontWeight: 700 }}>DecisiÃ³n recomendada:</span>
+                      <span style={{ fontSize: 10.5, letterSpacing: 1, textTransform: "uppercase", color: C.slate, fontWeight: 700 }}>Decisión recomendada:</span>
                       <Pill tone={dec.tone}>{dec.tipo}</Pill>
                     </div>
                     <div style={{ fontSize: 12.5, color: C.slate, lineHeight: 1.6 }}>{dec.raz}</div>
@@ -248,7 +248,7 @@ export default function Weibull() {
                     <div style={{ fontSize: 11, color: C.slate, marginBottom: 4 }}>Notas / observaciones</div>
                     <input value={w.notas || ""} disabled={!puedeOperar}
                       onChange={(e) => setCampo(eq.id, "notas", e.target.value)}
-                      style={inputStyle()} placeholder="HistÃ³rico de revisiones, decisiones tomadas, etc." />
+                      style={inputStyle()} placeholder="Histórico de revisiones, decisiones tomadas, etc." />
                   </div>
 
                   {puedeOperar && (
@@ -258,7 +258,7 @@ export default function Weibull() {
                         : dirty[eq.id] && <span style={{ fontSize: 12.5, fontWeight: 600, color: "#7a5b00" }}>Tienes cambios sin guardar</span>}
                       <button onClick={() => guardar(eq.id)} disabled={!dirty[eq.id] || guardando === eq.id}
                         style={{ ...primaryBtn, opacity: dirty[eq.id] && guardando !== eq.id ? 1 : 0.5, cursor: dirty[eq.id] && guardando !== eq.id ? "pointer" : "default" }}>
-                        <Save size={15} /> {guardando === eq.id ? "Guardandoâ€¦" : "Guardar cambios"}
+                        <Save size={15} /> {guardando === eq.id ? "Guardando…" : "Guardar cambios"}
                       </button>
                     </div>
                   )}
@@ -270,12 +270,12 @@ export default function Weibull() {
 
       <Card style={{ marginTop: 16, background: C.mist }}>
         <div style={{ fontSize: 12.5, color: C.slate, lineHeight: 1.7 }}>
-          <strong style={{ color: C.ink }}>InterpretaciÃ³n del factor de forma Î²:</strong>{" "}
-          Î² &lt; 1 = mortalidad infantil (fallas iniciales) Â·{" "}
-          Î² â‰ˆ 1 = aleatorias (tasa constante) Â·{" "}
-          Î² &gt; 1 = degradaciÃ³n con la edad (envejecimiento).{" "}
-          La fÃ³rmula <strong>Ts* = Î· Â· (1/(rÂ·(Î²âˆ’1)))^(1/Î²) + Î³</strong> solo tiene sentido cuando Î² &gt; 1 (hay envejecimiento) y r = Cf/Ci es positivo.
-          Si todavÃ­a no tienes historial estadÃ­stico real, parte con valores tÃ­picos por sistema: motores diÃ©sel Î² â‰ˆ 2.5, bombas hidrÃ¡ulicas Î² â‰ˆ 2.0, sistemas elÃ©ctricos Î² â‰ˆ 1.2.
+          <strong style={{ color: C.ink }}>Interpretación del factor de forma β:</strong>{" "}
+          β &lt; 1 = mortalidad infantil (fallas iniciales) ·{" "}
+          β ≈ 1 = aleatorias (tasa constante) ·{" "}
+          β &gt; 1 = degradación con la edad (envejecimiento).{" "}
+          La fórmula <strong>Ts* = η · (1/(r·(β−1)))^(1/β) + γ</strong> solo tiene sentido cuando β &gt; 1 (hay envejecimiento) y r = Cf/Ci es positivo.
+          Si todavía no tienes historial estadístico real, parte con valores típicos por sistema: motores diésel β ≈ 2.5, bombas hidráulicas β ≈ 2.0, sistemas eléctricos β ≈ 1.2.
         </div>
       </Card>
     </div>
@@ -319,5 +319,3 @@ function KPI({ label, value, tone, sub }) {
     </Card>
   );
 }
-
-

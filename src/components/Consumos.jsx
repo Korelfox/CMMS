@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useState, useCallback, useMemo } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 import { Fuel, Droplet, Waves, AlertCircle, TrendingUp, Gauge, ExternalLink } from "lucide-react";
 import {
   ComposedChart, Area, Line, XAxis, YAxis, Tooltip, ResponsiveContainer,
@@ -10,7 +10,7 @@ import { C, archivo, num } from "../theme";
 import { Card, PageHead, Pill, FilterBtn, thStyle, tdStyle, Empty, ErrorBanner, InlineSpinner } from "../ui";
 
 // Consumo neto por marea (sin reabastecimiento intermedio): lo cargado al
-// zarpar menos lo que quedÃ³ al recalar. Combustible a nivel nave (L/h);
+// zarpar menos lo que quedó al recalar. Combustible a nivel nave (L/h);
 // aceite repartido entre los motores que consumen, proporcional a sus horas (L/100h).
 function calcMarea(m, equiposNave) {
   const consumidores = equiposNave.filter((e) => e.consume_aceite);
@@ -64,7 +64,7 @@ export default function Consumos({ onNavigate }) {
   }, []);
   useEffect(() => { cargar(); }, [cargar]);
 
-  const embName = (id) => embarcaciones.find((e) => e.id === id)?.nombre || "â€”";
+  const embName = (id) => embarcaciones.find((e) => e.id === id)?.nombre || "—";
 
   const { filas, kpis, serie, motoresAlerta, semestreData, avgCombLh } = useMemo(() => {
     const cerradas = mareas.filter((m) => m.estado === "cerrada" && (filtro === "all" || m.embarcacion_id === filtro));
@@ -81,13 +81,13 @@ export default function Consumos({ onNavigate }) {
       combLh: avg(conHoras.map((f) => f.calc.combLh)),
       aceiteL100h: avg(conHoras.map((f) => f.calc.aceiteL100h)),
     };
-    // Serie temporal para el grÃ¡fico
+    // Serie temporal para el gráfico
     const serie = fs.map((f) => ({
       name: f.m.folio || new Date(f.m.zarpe_at).toLocaleDateString("es-CL", { day: "2-digit", month: "2-digit" }),
       combLh: +f.calc.combLh.toFixed(1),
       aceiteL100h: +f.calc.aceiteL100h.toFixed(2),
     }));
-    // â”€â”€ Serie semestral: agrupar por mes los Ãºltimos 6 meses â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Serie semestral: agrupar por mes los últimos 6 meses ─────────────
     const MESES_ES = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
     const hoy = new Date();
     const semestre = Array.from({ length: 6 }, (_, i) => {
@@ -112,7 +112,7 @@ export default function Consumos({ onNavigate }) {
       return validos.length ? +(validos.reduce((a, s) => a + s.combLh, 0) / validos.length).toFixed(1) : null;
     })();
 
-    // Alerta de tendencia por motor: Ãºltimo L/100h vs promedio previo (>30% = en aumento)
+    // Alerta de tendencia por motor: último L/100h vs promedio previo (>30% = en aumento)
     const porMotor = {};
     fs.forEach((f) => f.calc.aceitePorMotor.forEach((am) => {
       if (am.horas <= 0) return;
@@ -130,11 +130,11 @@ export default function Consumos({ onNavigate }) {
     return { filas: fs, kpis, serie, motoresAlerta, semestreData, maxComb, avgCombLh };
   }, [mareas, equipos, filtro]);
 
-  if (loading) return <div><PageHead kicker="AnÃ¡lisis Â· Eficiencia" title="Consumos & Eficiencia" /><Card><InlineSpinner label="Calculando consumosâ€¦" /></Card></div>;
+  if (loading) return <div><PageHead kicker="Análisis · Eficiencia" title="Consumos & Eficiencia" /><Card><InlineSpinner label="Calculando consumos…" /></Card></div>;
 
   return (
     <div>
-      <PageHead kicker="AnÃ¡lisis Â· Eficiencia operacional" title="Consumos & Eficiencia"
+      <PageHead kicker="Análisis · Eficiencia operacional" title="Consumos & Eficiencia"
         sub="Consumo neto por marea (zarpe vs recalada). Combustible por hora de la nave y aceite por 100 horas de cada motor: el indicador clave de salud del motor." />
 
       <ErrorBanner onRetry={cargar}>{error}</ErrorBanner>
@@ -153,7 +153,7 @@ export default function Consumos({ onNavigate }) {
           </div>
           {motoresAlerta.map((a, i) => (
             <div key={i} style={{ fontSize: 12.5, color: C.slate }}>
-              <strong>{a.nombre}</strong>: Ãºltima marea {num(a.ult, 2)} L/100h vs promedio {num(a.prom, 2)} L/100h â€” revisar motor (posible desgaste).
+              <strong>{a.nombre}</strong>: última marea {num(a.ult, 2)} L/100h vs promedio {num(a.prom, 2)} L/100h — revisar motor (posible desgaste).
             </div>
           ))}
         </div>
@@ -166,18 +166,18 @@ export default function Consumos({ onNavigate }) {
         <KPI label="Aceite" value={`${num(kpis.aceiteL100h, 2)} L/100h`} tone={kpis.aceiteL100h > 0 ? C.amber : C.green} sub="salud del motor" />
       </div>
 
-      {/* â”€â”€ GrÃ¡fico semestral de combustible â”€â”€ */}
+      {/* ── Gráfico semestral de combustible ── */}
       <Card style={{ marginBottom: 18, padding: "26px 28px 18px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 24 }}>
           <div>
             <div style={{ fontSize: 10.5, letterSpacing: 2, textTransform: "uppercase", color: C.slate, fontWeight: 700 }}>Consumo semestral</div>
-            <div style={{ ...archivo, fontSize: 20, fontWeight: 800, color: C.abyss, marginTop: 3 }}>Combustible â€” Ãšltimos 6 meses</div>
-            <div style={{ fontSize: 12.5, color: C.slate, marginTop: 3 }}>Litros consumidos por mes Â· Eficiencia L/h</div>
+            <div style={{ ...archivo, fontSize: 20, fontWeight: 800, color: C.abyss, marginTop: 3 }}>Combustible — Últimos 6 meses</div>
+            <div style={{ fontSize: 12.5, color: C.slate, marginTop: 3 }}>Litros consumidos por mes · Eficiencia L/h</div>
           </div>
           <div style={{ textAlign: "right" }}>
             <div style={{ fontSize: 10.5, color: C.slate, letterSpacing: 1, textTransform: "uppercase", fontWeight: 700 }}>Eficiencia promedio</div>
             <div style={{ ...archivo, fontSize: 26, fontWeight: 800, color: C.gold, lineHeight: 1.1, marginTop: 4 }}>
-              {avgCombLh !== null ? `${avgCombLh} L/h` : "â€”"}
+              {avgCombLh !== null ? `${avgCombLh} L/h` : "—"}
             </div>
           </div>
         </div>
@@ -239,7 +239,7 @@ export default function Consumos({ onNavigate }) {
       {filas.length === 0 ? (
         <Card><Empty>
           <AlertCircle size={30} color={C.amber} style={{ marginBottom: 10 }} /><br />
-          AÃºn no hay mareas cerradas con datos de recalada. Registra el prezarpe al zarpar y los datos de stock + horÃ³metros al recalar para ver el consumo.
+          Aún no hay mareas cerradas con datos de recalada. Registra el prezarpe al zarpar y los datos de stock + horómetros al recalar para ver el consumo.
         </Empty></Card>
       ) : (
         <>
@@ -263,8 +263,8 @@ export default function Consumos({ onNavigate }) {
             <div style={{ overflowX: "auto" }}>
               <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 880 }}>
                 <thead><tr>
-                  <th style={thStyle}>Marea</th><th style={thStyle}>EmbarcaciÃ³n</th>
-                  <th style={{ ...thStyle, textAlign: "right" }}>DÃ­as</th>
+                  <th style={thStyle}>Marea</th><th style={thStyle}>Embarcación</th>
+                  <th style={{ ...thStyle, textAlign: "right" }}>Días</th>
                   <th style={{ ...thStyle, textAlign: "right" }}>Horas</th>
                   <th style={{ ...thStyle, textAlign: "right" }}>Comb. (L)</th>
                   <th style={{ ...thStyle, textAlign: "right" }}>L/h</th>
@@ -275,9 +275,9 @@ export default function Consumos({ onNavigate }) {
                 <tbody>
                   {[...filas].reverse().map(({ m, calc }) => (
                     <tr key={m.id}>
-                      <td style={{ ...tdStyle, fontFamily: "'IBM Plex Mono', monospace", fontWeight: 600 }}>{m.folio || "â€”"}</td>
+                      <td style={{ ...tdStyle, fontFamily: "'IBM Plex Mono', monospace", fontWeight: 600 }}>{m.folio || "—"}</td>
                       <td style={tdStyle}>{embName(m.embarcacion_id)}</td>
-                      <td style={{ ...tdStyle, textAlign: "right" }}>{calc.dias ? num(calc.dias, 1) : "â€”"}</td>
+                      <td style={{ ...tdStyle, textAlign: "right" }}>{calc.dias ? num(calc.dias, 1) : "—"}</td>
                       <td style={{ ...tdStyle, textAlign: "right" }}>{num(calc.horasNave, 0)}</td>
                       <td style={{ ...tdStyle, textAlign: "right" }}>{num(calc.combCons, 0)}</td>
                       <td style={{ ...tdStyle, textAlign: "right", fontWeight: 600 }}>{num(calc.combLh, 1)}</td>
@@ -303,9 +303,9 @@ export default function Consumos({ onNavigate }) {
 
           <Card style={{ marginTop: 16, background: C.mist }}>
             <div style={{ fontSize: 12.5, color: C.slate, lineHeight: 1.7 }}>
-              <strong style={{ color: C.ink }}>CÃ³mo leerlo:</strong> el <strong>aceite L/100h</strong> es el mejor indicador de salud de un motor diÃ©sel.
-              Si sube marea a marea, el motor consume mÃ¡s aceite del normal (desgaste de anillos/camisas) â€” conviene programar una intervenciÃ³n antes de que falle.
-              El consumo se reparte entre los motores marcados "consume aceite" en proporciÃ³n a sus horas operadas.
+              <strong style={{ color: C.ink }}>Cómo leerlo:</strong> el <strong>aceite L/100h</strong> es el mejor indicador de salud de un motor diésel.
+              Si sube marea a marea, el motor consume más aceite del normal (desgaste de anillos/camisas) — conviene programar una intervención antes de que falle.
+              El consumo se reparte entre los motores marcados "consume aceite" en proporción a sus horas operadas.
             </div>
           </Card>
         </>

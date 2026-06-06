@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { Package, Plus, Trash2, Download, Anchor, X, Pencil, Check } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { fetchAll, insertRow, updateRow, deleteRow, logActivity } from "../lib/db";
@@ -13,9 +13,9 @@ const CATEGORIAS = [
   "Lubricantes",
   "Filtros",
   "Repuestos Motor",
-  "Repuestos HidrÃ¡ulico",
-  "Repuestos PropulsiÃ³n",
-  "ElÃ©ctrico / ElectrÃ³nico",
+  "Repuestos Hidráulico",
+  "Repuestos Propulsión",
+  "Eléctrico / Electrónico",
   "Seguridad y EPP",
   "Consumibles",
   "Herramientas",
@@ -23,7 +23,7 @@ const CATEGORIAS = [
   "Rodamientos",
   "Sellos y Juntas",
   "Sistema de Enfriamiento",
-  "Mangueras y TuberÃ­as",
+  "Mangueras y Tuberías",
   "Combustible y Aditivos",
   "Pintura y Anticorrosivo",
   "Estructural / Casco",
@@ -70,7 +70,7 @@ export default function Inventario() {
     return stockEntries.filter((s) => s.item_id === itemId).reduce((sum, s) => sum + (Number(s.cantidad) || 0), 0);
   }
 
-  // CÃ¡lculo ABC: 80% valor acumulado = A, 80-95% = B, 95-100% = C
+  // Cálculo ABC: 80% valor acumulado = A, 80-95% = B, 95-100% = C
   const enriquecidos = items
     .map((i) => { const total = totalStock(i.id); return { ...i, total, valor: total * (i.precio || 0) }; })
     .sort((a, b) => b.valor - a.valor);
@@ -81,7 +81,7 @@ export default function Inventario() {
   const categoriasUsadas = [...new Set(items.map((i) => i.categoria).filter(Boolean))].sort();
   const tablaFiltrada = filtroCat === "all" ? conABC : conABC.filter((i) => i.categoria === filtroCat);
 
-  // â”€â”€ Destinos â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Destinos ─────────────────────────────────────────────────
   function destinosDeItem(itemId) { return destinos.filter((d) => d.item_id === itemId); }
   function embColor(embId) { return embarcaciones.find((e) => e.id === embId)?.color || C.steel; }
 
@@ -101,7 +101,7 @@ export default function Inventario() {
   }
 
   async function crear() {
-    if (!form.codigo.trim() || !form.descripcion.trim()) { setError("CÃ³digo y descripciÃ³n son obligatorios."); return; }
+    if (!form.codigo.trim() || !form.descripcion.trim()) { setError("Código y descripción son obligatorios."); return; }
     try {
       const nuevo = await insertRow("inventario_items", profile.empresa_id, {
         codigo: form.codigo.trim().toUpperCase(), descripcion: form.descripcion.trim(),
@@ -116,10 +116,10 @@ export default function Inventario() {
         );
         setDestinos((p) => [...p, ...dests]);
       }
-      logActivity(profile, "Crear Ã­tem inventario", `${nuevo.codigo} Â· ${nuevo.descripcion}`);
+      logActivity(profile, "Crear ítem inventario", `${nuevo.codigo} · ${nuevo.descripcion}`);
       setForm(blank()); setShowForm(false);
     } catch (e) {
-      setError(e.message.includes("duplicate") ? "Ya existe un Ã­tem con ese cÃ³digo." : "No se pudo crear: " + e.message);
+      setError(e.message.includes("duplicate") ? "Ya existe un ítem con ese código." : "No se pudo crear: " + e.message);
     }
   }
 
@@ -138,29 +138,29 @@ export default function Inventario() {
   function cancelarCodigo() { setCodigoEdit({ id: null, valor: "" }); }
   async function confirmarCodigo(id) {
     const nuevo = codigoEdit.valor.trim().toUpperCase();
-    if (!nuevo) { setError("El cÃ³digo no puede quedar vacÃ­o."); return; }
-    if (items.some((i) => i.codigo === nuevo && i.id !== id)) { setError(`El cÃ³digo "${nuevo}" ya existe en otro Ã­tem.`); return; }
+    if (!nuevo) { setError("El código no puede quedar vacío."); return; }
+    if (items.some((i) => i.codigo === nuevo && i.id !== id)) { setError(`El código "${nuevo}" ya existe en otro ítem.`); return; }
     const previo = items.find((i) => i.id === id)?.codigo;
     setItems((p) => p.map((i) => i.id === id ? { ...i, codigo: nuevo } : i));
     setCodigoEdit({ id: null, valor: "" });
-    try { await updateRow("inventario_items", id, { codigo: nuevo }); logActivity(profile, "Editar cÃ³digo", `${previo} â†’ ${nuevo}`); }
+    try { await updateRow("inventario_items", id, { codigo: nuevo }); logActivity(profile, "Editar código", `${previo} → ${nuevo}`); }
     catch (e) { setItems((p) => p.map((i) => i.id === id ? { ...i, codigo: previo } : i)); setError("No se pudo actualizar: " + e.message); }
   }
 
   async function eliminar(id) {
     const it = items.find((i) => i.id === id);
-    if (!window.confirm(`Â¿Eliminar "${it?.descripcion}"? Se borrarÃ¡ tambiÃ©n su stock en todas las bodegas.`)) return;
+    if (!window.confirm(`¿Eliminar "${it?.descripcion}"? Se borrará también su stock en todas las bodegas.`)) return;
     const respaldo = items;
     setItems((p) => p.filter((i) => i.id !== id));
     setDestinos((p) => p.filter((d) => d.item_id !== id));
     if (destinoPanel === id) setDestinoPanel(null);
-    try { await deleteRow("inventario_items", id); logActivity(profile, "Eliminar Ã­tem", `${it?.codigo} Â· ${it?.descripcion}`); }
+    try { await deleteRow("inventario_items", id); logActivity(profile, "Eliminar ítem", `${it?.codigo} · ${it?.descripcion}`); }
     catch (e) { setItems(respaldo); setError("No se pudo eliminar: " + e.message); }
   }
 
   function exportar() {
     const filas = [
-      ["CÃ³digo", "ABC", "DescripciÃ³n", "CategorÃ­a", "Unidad", "Stock Total", "MÃ­n", "MÃ¡x", "Precio", "Valor", "Proveedor", "Lead dÃ­as", "Destino (naves/equipos)"],
+      ["Código", "ABC", "Descripción", "Categoría", "Unidad", "Stock Total", "Mín", "Máx", "Precio", "Valor", "Proveedor", "Lead días", "Destino (naves/equipos)"],
       ...conABC.map((i) => {
         const dests = destinosDeItem(i.id);
         const destinoStr = dests.map((d) => {
@@ -172,33 +172,33 @@ export default function Inventario() {
       }),
     ];
     const csv = filas.map((r) => r.map((c) => { const s = String(c ?? ""); return /[",\n;]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; }).join(";")).join("\n");
-    const blob = new Blob(["ï»¿" + csv], { type: "text/csv;charset=utf-8;" });
+    const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
     const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "inventario.csv"; a.click();
   }
 
   const itemPanel = destinoPanel ? items.find((i) => i.id === destinoPanel) : null;
 
-  if (loading) return <div><PageHead kicker="Repuestos" title="Inventario" /><Card><InlineSpinner label="Cargando inventarioâ€¦" /></Card></div>;
+  if (loading) return <div><PageHead kicker="Repuestos" title="Inventario" /><Card><InlineSpinner label="Cargando inventario…" /></Card></div>;
 
   return (
     <div>
-      <PageHead kicker="ABC + Min-MÃ¡x Â· Libbrecht" title="Inventario de Repuestos"
-        sub="CatÃ¡logo maestro de repuestos. Clase ABC automÃ¡tica segÃºn valor. El stock se gestiona en AlmacÃ©n & Compras."
+      <PageHead kicker="ABC + Min-Máx · Libbrecht" title="Inventario de Repuestos"
+        sub="Catálogo maestro de repuestos. Clase ABC automática según valor. El stock se gestiona en Almacén & Compras."
         action={<div style={{ display: "flex", gap: 8 }}>
           <button onClick={exportar} style={exportBtn}><Download size={15} /> Exportar</button>
-          {puedeOperar && <button onClick={() => { setShowForm(!showForm); setError(null); }} style={primaryBtn}><Plus size={16} /> Agregar Ãtem</button>}
+          {puedeOperar && <button onClick={() => { setShowForm(!showForm); setError(null); }} style={primaryBtn}><Plus size={16} /> Agregar Ítem</button>}
         </div>} />
 
       <ErrorBanner onRetry={cargar}>{error}</ErrorBanner>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14, marginBottom: 16 }}>
         <MiniStat label="Valor Total" value={clp(totalValor)} tone={C.gold} />
-        <MiniStat label="Ãtems Clase A" value={conABC.filter((x) => x.abc === "A").length} tone={C.red} sub="control estricto" />
-        <MiniStat label="Bajo MÃ­nimo" value={conABC.filter((x) => x.total <= x.stock_min).length} tone={C.red} />
-        <MiniStat label="Total Ãtems" value={items.length} />
+        <MiniStat label="Ítems Clase A" value={conABC.filter((x) => x.abc === "A").length} tone={C.red} sub="control estricto" />
+        <MiniStat label="Bajo Mínimo" value={conABC.filter((x) => x.total <= x.stock_min).length} tone={C.red} />
+        <MiniStat label="Total Ítems" value={items.length} />
       </div>
 
-      {/* â”€â”€ Filtro por categorÃ­a â”€â”€ */}
+      {/* ── Filtro por categoría ── */}
       {categoriasUsadas.length > 0 && (
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 }}>
           <FilterBtn active={filtroCat === "all"} onClick={() => setFiltroCat("all")}>Todas</FilterBtn>
@@ -210,28 +210,28 @@ export default function Inventario() {
         </div>
       )}
 
-      {/* â”€â”€ Formulario nuevo Ã­tem â”€â”€ */}
+      {/* ── Formulario nuevo ítem ── */}
       {showForm && (
         <Card style={{ marginBottom: 16, background: C.mist }}>
-          <div style={{ fontWeight: 700, fontSize: 15, color: C.abyss, marginBottom: 14 }}>Nuevo Ãtem de Inventario</div>
+          <div style={{ fontWeight: 700, fontSize: 15, color: C.abyss, marginBottom: 14 }}>Nuevo Ítem de Inventario</div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 12 }}>
-            <Field label="CÃ³digo"><input value={form.codigo} onChange={(e) => setForm({ ...form, codigo: e.target.value })} style={inputStyle()} placeholder="INS-001" /></Field>
-            <Field label="DescripciÃ³n" span={2}><input value={form.descripcion} onChange={(e) => setForm({ ...form, descripcion: e.target.value })} style={inputStyle()} /></Field>
-            <Field label="CategorÃ­a">
-              <input value={form.categoria} list="inv-categorias" onChange={(e) => setForm({ ...form, categoria: e.target.value })} style={inputStyle()} placeholder="Seleccionar o escribirâ€¦" />
+            <Field label="Código"><input value={form.codigo} onChange={(e) => setForm({ ...form, codigo: e.target.value })} style={inputStyle()} placeholder="INS-001" /></Field>
+            <Field label="Descripción" span={2}><input value={form.descripcion} onChange={(e) => setForm({ ...form, descripcion: e.target.value })} style={inputStyle()} /></Field>
+            <Field label="Categoría">
+              <input value={form.categoria} list="inv-categorias" onChange={(e) => setForm({ ...form, categoria: e.target.value })} style={inputStyle()} placeholder="Seleccionar o escribir…" />
             </Field>
             <Field label="Unidad"><input value={form.unidad} onChange={(e) => setForm({ ...form, unidad: e.target.value })} style={inputStyle()} /></Field>
-            <Field label="Stock mÃ­n"><input type="number" value={form.stock_min} onChange={(e) => setForm({ ...form, stock_min: +e.target.value })} style={bluInput} /></Field>
-            <Field label="Stock mÃ¡x"><input type="number" value={form.stock_max} onChange={(e) => setForm({ ...form, stock_max: +e.target.value })} style={bluInput} /></Field>
+            <Field label="Stock mín"><input type="number" value={form.stock_min} onChange={(e) => setForm({ ...form, stock_min: +e.target.value })} style={bluInput} /></Field>
+            <Field label="Stock máx"><input type="number" value={form.stock_max} onChange={(e) => setForm({ ...form, stock_max: +e.target.value })} style={bluInput} /></Field>
             <Field label="Precio"><input type="number" value={form.precio} onChange={(e) => setForm({ ...form, precio: +e.target.value })} style={bluInput} /></Field>
             <Field label="Proveedor"><input value={form.proveedor} onChange={(e) => setForm({ ...form, proveedor: e.target.value })} style={inputStyle()} /></Field>
-            <Field label="Lead dÃ­as"><input type="number" value={form.lead_dias} onChange={(e) => setForm({ ...form, lead_dias: +e.target.value })} style={bluInput} /></Field>
+            <Field label="Lead días"><input type="number" value={form.lead_dias} onChange={(e) => setForm({ ...form, lead_dias: +e.target.value })} style={bluInput} /></Field>
           </div>
 
           {equipos.length > 0 && (
             <div style={{ marginTop: 16, borderTop: `1px solid ${C.line}`, paddingTop: 14 }}>
               <div style={{ fontSize: 11, fontWeight: 700, color: C.slate, textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 10 }}>
-                Destino Â· Nave & Equipo <span style={{ fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>(opcional)</span>
+                Destino · Nave & Equipo <span style={{ fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>(opcional)</span>
               </div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 20 }}>
                 {embarcaciones.map((emb) => {
@@ -250,7 +250,7 @@ export default function Inventario() {
                               ...f, equipoIds: e.target.checked ? [...f.equipoIds, eq.id] : f.equipoIds.filter((id) => id !== eq.id),
                             }))}
                           />
-                          {eq.depth > 0 && <span style={{ color: C.slate, fontSize: 11 }}>â””â”€</span>}
+                          {eq.depth > 0 && <span style={{ color: C.slate, fontSize: 11 }}>└─</span>}
                           <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 10.5, color: C.slate, minWidth: 58 }}>{eq.id_visible}</span>
                           <span>{eq.sistema}</span>
                         </label>
@@ -263,13 +263,13 @@ export default function Inventario() {
           )}
 
           <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
-            <button onClick={crear} style={primaryBtn}>Guardar Ãtem</button>
+            <button onClick={crear} style={primaryBtn}>Guardar Ítem</button>
             <button onClick={() => { setShowForm(false); setError(null); }} style={ghostBtn}>Cancelar</button>
           </div>
         </Card>
       )}
 
-      {/* â”€â”€ Panel de destinos (editor inline) â”€â”€ */}
+      {/* ── Panel de destinos (editor inline) ── */}
       {itemPanel && (
         <Card style={{ marginBottom: 16, borderLeft: `4px solid ${C.steel}`, background: "#F8FAFD" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
@@ -277,7 +277,7 @@ export default function Inventario() {
               <div style={{ fontSize: 10, letterSpacing: 2, textTransform: "uppercase", color: C.slate, fontWeight: 700 }}>Asignar destino</div>
               <div style={{ fontWeight: 800, fontSize: 15, color: C.abyss, marginTop: 2 }}>
                 <span style={{ fontFamily: "'IBM Plex Mono', monospace", color: C.steel }}>{itemPanel.codigo}</span>
-                {" Â· "}{itemPanel.descripcion}
+                {" · "}{itemPanel.descripcion}
               </div>
             </div>
             <button onClick={() => setDestinoPanel(null)} style={{ background: "none", border: "none", cursor: "pointer", color: C.slate, padding: 4 }}>
@@ -285,7 +285,7 @@ export default function Inventario() {
             </button>
           </div>
           <div style={{ fontSize: 12, color: C.slate, marginBottom: 14 }}>
-            Selecciona los equipos a los que estÃ¡ destinado este repuesto. Los cambios se guardan al instante.
+            Selecciona los equipos a los que está destinado este repuesto. Los cambios se guardan al instante.
           </div>
           {embarcaciones.length === 0 ? (
             <span style={{ fontSize: 12.5, color: C.slate }}>No hay embarcaciones registradas.</span>
@@ -308,7 +308,7 @@ export default function Inventario() {
                             checked={!!destino}
                             onChange={() => destino ? quitarDestino(destino.id) : agregarDestino(destinoPanel, eq.id)}
                           />
-                          {eq.depth > 0 && <span style={{ color: C.slate, fontSize: 11, flexShrink: 0 }}>â””â”€</span>}
+                          {eq.depth > 0 && <span style={{ color: C.slate, fontSize: 11, flexShrink: 0 }}>└─</span>}
                           <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 10.5, color: C.slate, minWidth: 60 }}>{eq.id_visible}</span>
                           <span>{eq.sistema}</span>
                         </label>
@@ -322,24 +322,24 @@ export default function Inventario() {
         </Card>
       )}
 
-      {/* â”€â”€ Tabla principal â”€â”€ */}
+      {/* ── Tabla principal ── */}
       {items.length === 0 ? (
         <Card><Empty>
           <Package size={32} color={C.line} style={{ marginBottom: 10 }} /><br />
-          AÃºn no hay Ã­tems en el inventario. {puedeOperar ? "Agrega el primero para comenzar." : "Pide a un administrador que registre los repuestos."}
+          Aún no hay ítems en el inventario. {puedeOperar ? "Agrega el primero para comenzar." : "Pide a un administrador que registre los repuestos."}
         </Empty></Card>
       ) : (
         <Card style={{ padding: 0, overflow: "hidden" }}>
           <div style={{ overflowX: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 1100 }}>
               <thead><tr>
-                <th style={thStyle}>CÃ³digo</th>
+                <th style={thStyle}>Código</th>
                 <th style={{ ...thStyle, textAlign: "center" }}>ABC</th>
-                <th style={thStyle}>DescripciÃ³n</th>
-                <th style={thStyle}>CategorÃ­a</th>
+                <th style={thStyle}>Descripción</th>
+                <th style={thStyle}>Categoría</th>
                 <th style={{ ...thStyle, textAlign: "right" }}>Stock</th>
-                <th style={{ ...thStyle, textAlign: "right" }}>MÃ­n</th>
-                <th style={{ ...thStyle, textAlign: "right" }}>MÃ¡x</th>
+                <th style={{ ...thStyle, textAlign: "right" }}>Mín</th>
+                <th style={{ ...thStyle, textAlign: "right" }}>Máx</th>
                 <th style={{ ...thStyle, textAlign: "right" }}>Precio</th>
                 <th style={{ ...thStyle, textAlign: "right" }}>Valor</th>
                 <th style={thStyle}>Estado</th>
@@ -380,7 +380,7 @@ export default function Inventario() {
                             <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontWeight: 600, color: C.steel }}>{i.codigo}</span>
                             {puedeOperar && (
                               <button onClick={() => iniciarEditCodigo(i.id, i.codigo)}
-                                title="Editar cÃ³digo"
+                                title="Editar código"
                                 style={{ background: "none", border: "none", cursor: "pointer", color: C.slate, padding: 2, opacity: 0.45, lineHeight: 1 }}>
                                 <Pencil size={12} />
                               </button>
@@ -432,7 +432,7 @@ export default function Inventario() {
                             const embNombre = embarcaciones.find((emb) => emb.id === eq?.embarcacion_id)?.nombre || "";
                             return (
                               <span key={d.id}
-                                title={`${embNombre} Â· ${eq?.sistema || ""}`}
+                                title={`${embNombre} · ${eq?.sistema || ""}`}
                                 style={{
                                   fontSize: 10.5, fontFamily: "'IBM Plex Mono', monospace",
                                   background: `${color}18`, color, border: `1px solid ${color}50`,
@@ -454,7 +454,7 @@ export default function Inventario() {
                                 borderRadius: 4, cursor: "pointer", padding: "1px 8px",
                                 fontSize: 11, lineHeight: 1.7, whiteSpace: "nowrap",
                               }}>
-                              {isOpen ? "âœ•" : itemDests.length === 0 ? "+ Asignar" : "âœŽ"}
+                              {isOpen ? "✕" : itemDests.length === 0 ? "+ Asignar" : "✎"}
                             </button>
                           )}
                         </div>

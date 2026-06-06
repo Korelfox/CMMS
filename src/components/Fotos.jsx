@@ -1,11 +1,11 @@
-﻿import React, { useEffect, useRef, useState, useMemo } from "react";
+import React, { useEffect, useRef, useState, useMemo } from "react";
 import { Camera, X, ImageOff, Loader, Trash2 } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { listarFotos, subirFotos, borrarFoto } from "../lib/fotos";
 import { C } from "../theme";
 
-// Selector de fotos en memoria (para formularios de creaciÃ³n). No sube: entrega
-// los File al padre, que los subirÃ¡ tras crear el registro. Previsualiza.
+// Selector de fotos en memoria (para formularios de creación). No sube: entrega
+// los File al padre, que los subirá tras crear el registro. Previsualiza.
 export function FotoInput({ files, onChange, max = 5, disabled }) {
   const inputRef = useRef();
   const previews = useMemo(() => files.map((f) => ({ name: f.name, url: URL.createObjectURL(f) })), [files]);
@@ -38,13 +38,13 @@ export function FotoInput({ files, onChange, max = 5, disabled }) {
         )}
       </div>
       <input ref={inputRef} type="file" accept="image/*" capture="environment" multiple onChange={pick} style={{ display: "none" }} />
-      <div style={{ fontSize: 10.5, color: C.slate, marginTop: 6 }}>Se comprimen y suben al guardar. MÃ¡x {max} fotos.</div>
+      <div style={{ fontSize: 10.5, color: C.slate, marginTop: 6 }}>Se comprimen y suben al guardar. Máx {max} fotos.</div>
     </div>
   );
 }
 
-// GalerÃ­a para un registro ya creado: muestra fotos (URL firmada), permite
-// agregar (sube directo) y borrar (admin). Requiere conexiÃ³n.
+// Galería para un registro ya creado: muestra fotos (URL firmada), permite
+// agregar (sube directo) y borrar (admin). Requiere conexión.
 export function FotoGaleria({ entidad, entidadId, puedeAgregar, puedeBorrar, online = true }) {
   const { profile } = useAuth();
   const [fotos, setFotos] = useState([]);
@@ -70,11 +70,11 @@ export function FotoGaleria({ entidad, entidadId, puedeAgregar, puedeBorrar, onl
     setSubiendo(false); recargar();
   }
   async function quitar(adj) {
-    if (!window.confirm("Â¿Eliminar esta foto?")) return;
+    if (!window.confirm("¿Eliminar esta foto?")) return;
     try { await borrarFoto(adj); recargar(); } catch (e) { setErr("No se pudo eliminar: " + e.message); }
   }
 
-  if (cargando) return <div style={{ fontSize: 12, color: C.slate, display: "flex", alignItems: "center", gap: 6 }}><Loader size={13} /> Cargando fotosâ€¦</div>;
+  if (cargando) return <div style={{ fontSize: 12, color: C.slate, display: "flex", alignItems: "center", gap: 6 }}><Loader size={13} /> Cargando fotos…</div>;
 
   return (
     <div>

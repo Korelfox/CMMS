@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useState, useCallback, useMemo } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 import {
   LayoutDashboard, AlertTriangle, ClipboardList, Wrench, Package,
   Activity, DollarSign, History, ChevronRight, TrendingUp,
@@ -68,20 +68,20 @@ export default function Tablero({ onNavigate }) {
       color: ESTADO_COLOR[e.value],
     }));
 
-    // â”€â”€ DiagnÃ³stico de sistemas POR EMBARCACIÃ“N (grÃ¡fico hexagonal) â”€â”€â”€â”€â”€â”€
+    // ── Diagnóstico de sistemas POR EMBARCACIÓN (gráfico hexagonal) ──────
     const SISTEMAS_HEX = [
-      { key: "Motor",       kw: ["motor", "propulsiÃ³n", "propulsion", "diÃ©sel", "diesel", "generador"] },
+      { key: "Motor",       kw: ["motor", "propulsión", "propulsion", "diésel", "diesel", "generador"] },
       { key: "Casco",       kw: ["casco", "cubierta", "hull", "fondo", "estructura"] },
-      { key: "ElÃ©ctrico",   kw: ["elÃ©ctrico", "electrico", "panel", "baterÃ­a", "bateria", "cableado", "alarma", "generacion"] },
-      { key: "HidrÃ¡ulico",  kw: ["hidrÃ¡ulico", "hidraulico", "grÃºa", "grua", "halador", "winche", "potencia"] },
-      { key: "NavegaciÃ³n",  kw: ["navegaciÃ³n", "navegacion", "radar", "gps", "carta", "compÃ¡s", "compas", "radio"] },
-      { key: "Seguridad",   kw: ["seguridad", "extintor", "balsa", "salvavidas", "aro", "seÃ±al", "senal"] },
+      { key: "Eléctrico",   kw: ["eléctrico", "electrico", "panel", "batería", "bateria", "cableado", "alarma", "generacion"] },
+      { key: "Hidráulico",  kw: ["hidráulico", "hidraulico", "grúa", "grua", "halador", "winche", "potencia"] },
+      { key: "Navegación",  kw: ["navegación", "navegacion", "radar", "gps", "carta", "compás", "compas", "radio"] },
+      { key: "Seguridad",   kw: ["seguridad", "extintor", "balsa", "salvavidas", "aro", "señal", "senal"] },
     ];
     const nowMs = Date.now();
     const diasMs = 90 * 24 * 36e5;
     const match = (txt = "", kw) => kw.some((k) => txt.toLowerCase().includes(k));
 
-    // Calcula los 6 sistemas para una embarcaciÃ³n especÃ­fica
+    // Calcula los 6 sistemas para una embarcación específica
     const calcHex = (embId) => SISTEMAS_HEX.map(({ key, kw }) => {
       const eqsS = eqs.filter((e) => e.embarcacion_id === embId && (match(e.sistema, kw) || match(e.id_visible, kw)));
       const otsS = ots.filter((o) => o.embarcacion_id === embId && (match(o.sistema, kw) || match(o.descripcion, kw)));
@@ -94,7 +94,7 @@ export default function Tablero({ onNavigate }) {
       return { sistema: key, salud: Math.max(0, Math.min(100, score)) };
     });
 
-    // Un conjunto de datos por embarcaciÃ³n
+    // Un conjunto de datos por embarcación
     const diagnostico = embs.map((emb) => {
       const hexData = calcHex(emb.id);
       const saludPromedio = Math.round(hexData.reduce((s, d) => s + d.salud, 0) / hexData.length);
@@ -109,14 +109,14 @@ export default function Tablero({ onNavigate }) {
     };
   }, [data]);
 
-  if (loading) return <div><PageHead kicker="Resumen de Flota" title="Tablero Principal" /><Card><InlineSpinner label="Cargando tableroâ€¦" /></Card></div>;
+  if (loading) return <div><PageHead kicker="Resumen de Flota" title="Tablero Principal" /><Card><InlineSpinner label="Cargando tablero…" /></Card></div>;
 
   const totalAlertas = m.otsCriticas + m.pmVencidos + m.stockBajo + m.solPend;
 
   return (
     <div>
-      <PageHead kicker={`${empresa?.nombre || "Flota"} Â· ${empresa?.puerto_base || ""}`} title={`Buen dÃ­a, ${profile?.nombre?.split(" ")[0] || ""}`}
-        sub={`EstÃ¡s conectado como ${rolLabel(profile?.rol)}. AquÃ­ estÃ¡ el estado de tu operaciÃ³n a hoy.`} />
+      <PageHead kicker={`${empresa?.nombre || "Flota"} · ${empresa?.puerto_base || ""}`} title={`Buen día, ${profile?.nombre?.split(" ")[0] || ""}`}
+        sub={`Estás conectado como ${rolLabel(profile?.rol)}. Aquí está el estado de tu operación a hoy.`} />
 
       <ErrorBanner onRetry={cargar}>{error}</ErrorBanner>
 
@@ -132,12 +132,12 @@ export default function Tablero({ onNavigate }) {
             {totalAlertas === 0 ? "Todo OK" : totalAlertas}
           </div>
           <div style={{ fontSize: 12, marginTop: 8, color: "rgba(255,255,255,.85)" }}>
-            {totalAlertas === 0 ? "Sin alertas activas" : `${m.otsCriticas} OTs Â· ${m.pmVencidos} PM Â· ${m.stockBajo} stock Â· ${m.solPend} solicitudes`}
+            {totalAlertas === 0 ? "Sin alertas activas" : `${m.otsCriticas} OTs · ${m.pmVencidos} PM · ${m.stockBajo} stock · ${m.solPend} solicitudes`}
           </div>
         </Card>
         <Stat icon={ClipboardList} label="OTs abiertas" value={m.otsAbiertas} tone={m.otsAbiertas ? C.amber : C.green} sub={`${m.otsTotal} totales`} onClick={() => onNavigate?.("ots")} />
         <Stat icon={Wrench} label="PM vencidos" value={m.pmVencidos} tone={m.pmVencidos ? C.red : C.green} sub="equipos requieren PM" onClick={() => onNavigate?.("planpm")} />
-        <Stat icon={Package} label="Stock bajo" value={m.stockBajo} tone={m.stockBajo ? C.amber : C.green} sub="Ã­tems bajo mÃ­nimo" onClick={() => onNavigate?.("inventario")} />
+        <Stat icon={Package} label="Stock bajo" value={m.stockBajo} tone={m.stockBajo ? C.amber : C.green} sub="ítems bajo mínimo" onClick={() => onNavigate?.("inventario")} />
       </div>
 
       {/* Estado de flota + indicadores */}
@@ -148,11 +148,11 @@ export default function Tablero({ onNavigate }) {
         <Stat icon={ClipboardList} label="Solicitudes" value={m.solPend} tone={m.solPend ? C.amber : C.green} sub="pendientes de revisar" onClick={() => onNavigate?.("solicitudes")} />
       </div>
 
-      {/* DiagnÃ³stico hexagonal por embarcaciÃ³n */}
+      {/* Diagnóstico hexagonal por embarcación */}
       {(m.diagnostico || []).length > 0 && (
         <div style={{ marginBottom: 18 }}>
-          <div style={{ ...archivo, fontWeight: 800, fontSize: 15, color: C.abyss, marginBottom: 4 }}>DiagnÃ³stico de Sistemas</div>
-          <div style={{ fontSize: 12, color: C.slate, marginBottom: 14 }}>Salud operacional por embarcaciÃ³n â€” calculada desde equipos, PM y OTs correctivas</div>
+          <div style={{ ...archivo, fontWeight: 800, fontSize: 15, color: C.abyss, marginBottom: 4 }}>Diagnóstico de Sistemas</div>
+          <div style={{ fontSize: 12, color: C.slate, marginBottom: 14 }}>Salud operacional por embarcación — calculada desde equipos, PM y OTs correctivas</div>
           <div style={{ display: "grid", gridTemplateColumns: `repeat(${Math.min(m.diagnostico.length, 2)}, 1fr)`, gap: 14 }}>
             {m.diagnostico.map(({ emb, hexData, saludPromedio }) => {
               const colorSalud = saludPromedio >= 80 ? C.green : saludPromedio >= 60 ? C.amber : C.red;
@@ -167,11 +167,11 @@ export default function Tablero({ onNavigate }) {
                     </div>
                     <div style={{ textAlign: "right" }}>
                       <div style={{ ...archivo, fontSize: 30, fontWeight: 800, color: colorSalud, lineHeight: 1 }}>{saludPromedio}%</div>
-                      <div style={{ fontSize: 10.5, color: colorSalud, fontWeight: 600 }}>{saludPromedio >= 80 ? "Ã“ptimo" : saludPromedio >= 60 ? "AtenciÃ³n" : "CrÃ­tico"}</div>
+                      <div style={{ fontSize: 10.5, color: colorSalud, fontWeight: 600 }}>{saludPromedio >= 80 ? "Óptimo" : saludPromedio >= 60 ? "Atención" : "Crítico"}</div>
                     </div>
                   </div>
 
-                  {/* HexÃ¡gono + barras */}
+                  {/* Hexágono + barras */}
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 160px", gap: 12, alignItems: "center" }}>
                     <ResponsiveContainer width="100%" height={250}>
                       <RadarChart data={hexData} margin={{ top: 10, right: 28, bottom: 10, left: 28 }}>
@@ -206,11 +206,11 @@ export default function Tablero({ onNavigate }) {
         </div>
       )}
 
-      {/* GrÃ¡fico + actividad reciente */}
+      {/* Gráfico + actividad reciente */}
       <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 14 }}>
         <Card>
           <div style={{ ...archivo, fontWeight: 700, fontSize: 14, color: C.abyss, marginBottom: 10 }}>OTs por Estado</div>
-          {m.otsTotal === 0 ? <Empty>Sin OTs registradas todavÃ­a.</Empty> :
+          {m.otsTotal === 0 ? <Empty>Sin OTs registradas todavía.</Empty> :
             <ResponsiveContainer width="100%" height={260}>
               <BarChart data={m.porEstado}>
                 <CartesianGrid strokeDasharray="3 3" stroke={C.foam} />
@@ -229,10 +229,10 @@ export default function Tablero({ onNavigate }) {
             <div style={{ ...archivo, fontWeight: 700, fontSize: 14, color: C.abyss }}>Actividad Reciente</div>
             <button onClick={() => onNavigate?.("bitacora")}
               style={{ background: "none", border: "none", color: C.steel, cursor: "pointer", fontSize: 11.5, fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 2 }}>
-              Ver bitÃ¡cora <ChevronRight size={13} />
+              Ver bitácora <ChevronRight size={13} />
             </button>
           </div>
-          {(data.bita || []).length === 0 ? <Empty>Sin actividad aÃºn.</Empty> :
+          {(data.bita || []).length === 0 ? <Empty>Sin actividad aún.</Empty> :
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               {(data.bita || []).map((e) => (
                 <div key={e.id} style={{ padding: "8px 10px", background: C.mist, borderRadius: 7, borderLeft: `3px solid ${C.steel}` }}>
@@ -240,7 +240,7 @@ export default function Tablero({ onNavigate }) {
                     <span style={{ fontSize: 12, fontWeight: 700, color: C.abyss }}>{e.accion}</span>
                     <span style={{ fontSize: 10.5, color: C.slate, fontFamily: "'IBM Plex Mono', monospace" }}>{fechaCorta(e.fecha)}</span>
                   </div>
-                  <div style={{ fontSize: 11.5, color: C.slate }}>{e.usuario_nombre || "Sistema"} Â· {e.detalle?.slice(0, 80)}</div>
+                  <div style={{ fontSize: 11.5, color: C.slate }}>{e.usuario_nombre || "Sistema"} · {e.detalle?.slice(0, 80)}</div>
                 </div>))}
             </div>}
         </Card>
@@ -249,7 +249,7 @@ export default function Tablero({ onNavigate }) {
       {/* OTs recientes */}
       <Card style={{ marginTop: 14 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-          <div style={{ ...archivo, fontWeight: 700, fontSize: 14, color: C.abyss }}>Ãšltimas Ã“rdenes de Trabajo</div>
+          <div style={{ ...archivo, fontWeight: 700, fontSize: 14, color: C.abyss }}>Últimas Órdenes de Trabajo</div>
           <button onClick={() => onNavigate?.("ots")}
             style={{ background: "none", border: "none", color: C.steel, cursor: "pointer", fontSize: 11.5, fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 2 }}>
             Ver todas <ChevronRight size={13} />
@@ -262,12 +262,12 @@ export default function Tablero({ onNavigate }) {
               return (
                 <div key={o.id} style={{ display: "grid", gridTemplateColumns: "auto 1.4fr 1fr auto auto auto", gap: 12, padding: "8px 12px", background: C.mist, borderRadius: 7, alignItems: "center" }}>
                   <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, color: C.steel, fontSize: 12 }}>{o.folio}</span>
-                  <span style={{ fontSize: 12.5 }}>{o.sistema} Â· <span style={{ color: C.slate }}>{o.descripcion?.slice(0, 50)}</span></span>
+                  <span style={{ fontSize: 12.5 }}>{o.sistema} · <span style={{ color: C.slate }}>{o.descripcion?.slice(0, 50)}</span></span>
                   <span style={{ fontSize: 12, color: C.slate, display: "flex", alignItems: "center", gap: 5 }}>
-                    {emb && <span style={{ width: 8, height: 8, borderRadius: 2, background: emb.color }} />}{emb?.nombre || "â€”"}
+                    {emb && <span style={{ width: 8, height: 8, borderRadius: 2, background: emb.color }} />}{emb?.nombre || "—"}
                   </span>
                   <span style={{ fontSize: 11, fontFamily: "'IBM Plex Mono', monospace", color: C.slate }}>{o.fecha}</span>
-                  <Pill tone={o.prioridad === "critica" || o.prioridad === "alta" ? "red" : "slate"}>{lk([{ value: "baja", label: "Baja" }, { value: "media", label: "Media" }, { value: "alta", label: "Alta" }, { value: "critica", label: "CrÃ­tica" }], o.prioridad)}</Pill>
+                  <Pill tone={o.prioridad === "critica" || o.prioridad === "alta" ? "red" : "slate"}>{lk([{ value: "baja", label: "Baja" }, { value: "media", label: "Media" }, { value: "alta", label: "Alta" }, { value: "critica", label: "Crítica" }], o.prioridad)}</Pill>
                   <Pill tone={o.estado === "cerrada" ? "green" : "yellow"}>{lk(ESTADOS_OT, o.estado)}</Pill>
                 </div>);
             })}

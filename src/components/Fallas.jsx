@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { AlertTriangle, Plus, Trash2, Download } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { fetchAll, insertRow, updateRow, deleteRow, logActivity } from "../lib/db";
@@ -9,10 +9,10 @@ import {
 } from "../ui";
 
 const HOY = () => new Date().toISOString().slice(0, 10);
-// RPN = S Ã— O Ã— D, en escala 1-10 cada dimensiÃ³n (rango 1-1000)
+// RPN = S × O × D, en escala 1-10 cada dimensión (rango 1-1000)
 const rpn = (f) => (f.severidad || 0) * (f.ocurrencia || 0) * (f.deteccion || 0);
 const nivelRPN = (r) =>
-  r >= 200 ? ["red", "CrÃ­tico"] :
+  r >= 200 ? ["red", "Crítico"] :
   r >= 125 ? ["red", "Alto"] :
   r >= 50  ? ["yellow", "Medio"] :
              ["green", "Bajo"];
@@ -41,12 +41,12 @@ export default function Fallas() {
         fetchAll("fallas", { order: { col: "fecha", asc: false } }),
       ]);
       setEmbarcaciones(embs); setFallas(fs);
-    } catch (e) { setError("No se pudo cargar el anÃ¡lisis de fallas. " + e.message); }
+    } catch (e) { setError("No se pudo cargar el análisis de fallas. " + e.message); }
     finally { setLoading(false); }
   }, []);
   useEffect(() => { cargar(); }, [cargar]);
 
-  function embName(id) { return embarcaciones.find((e) => e.id === id)?.nombre || "â€”"; }
+  function embName(id) { return embarcaciones.find((e) => e.id === id)?.nombre || "—"; }
 
   async function crear() {
     if (!form.sistema.trim() || !form.modo.trim()) { setError("Sistema y modo de falla son obligatorios."); return; }
@@ -58,7 +58,7 @@ export default function Fallas() {
         accion: form.accion.trim(), fecha: form.fecha, created_by: profile.id,
       });
       setFallas((p) => [nueva, ...p]);
-      logActivity(profile, "Crear anÃ¡lisis FMECA", `${nueva.sistema} Â· ${nueva.modo} (RPN ${rpn(nueva)})`);
+      logActivity(profile, "Crear análisis FMECA", `${nueva.sistema} · ${nueva.modo} (RPN ${rpn(nueva)})`);
       setForm(blank()); setShowForm(false);
     } catch (e) { setError("No se pudo crear: " + e.message); }
   }
@@ -73,15 +73,15 @@ export default function Fallas() {
 
   async function eliminar(id) {
     const f = fallas.find((x) => x.id === id);
-    if (!window.confirm(`Â¿Eliminar el anÃ¡lisis "${f?.modo}"?`)) return;
+    if (!window.confirm(`¿Eliminar el análisis "${f?.modo}"?`)) return;
     const respaldo = fallas;
     setFallas((p) => p.filter((x) => x.id !== id));
-    try { await deleteRow("fallas", id); logActivity(profile, "Eliminar FMECA", `${f?.sistema} Â· ${f?.modo}`); }
+    try { await deleteRow("fallas", id); logActivity(profile, "Eliminar FMECA", `${f?.sistema} · ${f?.modo}`); }
     catch (e) { setFallas(respaldo); setError("No se pudo eliminar: " + e.message); }
   }
 
   function exportar() {
-    const filas = [["Fecha", "EmbarcaciÃ³n", "Sistema", "Modo de falla", "Causa", "S", "O", "D", "RPN", "Nivel", "AcciÃ³n"],
+    const filas = [["Fecha", "Embarcación", "Sistema", "Modo de falla", "Causa", "S", "O", "D", "RPN", "Nivel", "Acción"],
       ...fallas.map((f) => [f.fecha, embName(f.embarcacion_id), f.sistema, f.modo, f.causa, f.severidad, f.ocurrencia, f.deteccion, rpn(f), nivelRPN(rpn(f))[1], f.accion])];
     const csv = filas.map((r) => r.map((c) => { const s = String(c ?? ""); return /[",\n;]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; }).join(";")).join("\n");
     const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8;" });
@@ -96,51 +96,51 @@ export default function Fallas() {
   const altas = lista.filter((x) => x._rpn >= 125 && x._rpn < 200).length;
   const rpnProm = lista.length ? Math.round(lista.reduce((s, x) => s + x._rpn, 0) / lista.length) : 0;
 
-  if (loading) return <div><PageHead kicker="AnÃ¡lisis Â· FMECA" title="AnÃ¡lisis de Modos de Falla" /><Card><InlineSpinner label="Cargando anÃ¡lisisâ€¦" /></Card></div>;
+  if (loading) return <div><PageHead kicker="Análisis · FMECA" title="Análisis de Modos de Falla" /><Card><InlineSpinner label="Cargando análisis…" /></Card></div>;
 
   return (
     <div>
-      <PageHead kicker="FMECA Â· Mora GutiÃ©rrez (RPN)" title="AnÃ¡lisis de Modos de Falla"
-        sub="RPN = Severidad Ã— Ocurrencia Ã— DetecciÃ³n. Cada dimensiÃ³n 1â€“10. Identifica los riesgos que merecen acciÃ³n preventiva o rediseÃ±o."
+      <PageHead kicker="FMECA · Mora Gutiérrez (RPN)" title="Análisis de Modos de Falla"
+        sub="RPN = Severidad × Ocurrencia × Detección. Cada dimensión 1–10. Identifica los riesgos que merecen acción preventiva o rediseño."
         action={<div style={{ display: "flex", gap: 8 }}>
           <button onClick={exportar} style={exportBtn}><Download size={15} /> Exportar</button>
-          {puedeOperar && <button onClick={() => { setShowForm(!showForm); setError(null); }} style={primaryBtn}><Plus size={16} /> Nuevo AnÃ¡lisis</button>}
+          {puedeOperar && <button onClick={() => { setShowForm(!showForm); setError(null); }} style={primaryBtn}><Plus size={16} /> Nuevo Análisis</button>}
         </div>} />
 
       <ErrorBanner onRetry={cargar}>{error}</ErrorBanner>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14, marginBottom: 16 }}>
         <KPI label="Modos Analizados" value={fallas.length} />
-        <KPI label="CrÃ­ticos" value={criticas} tone={criticas ? C.red : C.green} sub="RPN â‰¥ 200" />
-        <KPI label="Alto Riesgo" value={altas} tone={altas ? C.amber : C.green} sub="RPN 125â€“199" />
+        <KPI label="Críticos" value={criticas} tone={criticas ? C.red : C.green} sub="RPN ≥ 200" />
+        <KPI label="Alto Riesgo" value={altas} tone={altas ? C.amber : C.green} sub="RPN 125–199" />
         <KPI label="RPN Promedio" value={rpnProm} tone={nivelRPN(rpnProm)[0] === "red" ? C.red : nivelRPN(rpnProm)[0] === "yellow" ? C.amber : C.green} sub={nivelRPN(rpnProm)[1]} />
       </div>
 
       {showForm && (
         <Card style={{ marginBottom: 16, background: C.mist }}>
-          <div style={{ fontWeight: 700, fontSize: 15, color: C.abyss, marginBottom: 14 }}>Nuevo AnÃ¡lisis de Modo de Falla</div>
+          <div style={{ fontWeight: 700, fontSize: 15, color: C.abyss, marginBottom: 14 }}>Nuevo Análisis de Modo de Falla</div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12 }}>
-            <Field label="EmbarcaciÃ³n">
+            <Field label="Embarcación">
               <select value={form.embarcacion_id} onChange={(e) => setForm({ ...form, embarcacion_id: e.target.value })} style={inputStyle()}>
-                <option value="">â€” Sin asignar â€”</option>
+                <option value="">— Sin asignar —</option>
                 {embarcaciones.map((v) => <option key={v.id} value={v.id}>{v.nombre}</option>)}
               </select>
             </Field>
             <Field label="Sistema"><input value={form.sistema} onChange={(e) => setForm({ ...form, sistema: e.target.value })} style={inputStyle()} placeholder="Motor Principal" /></Field>
             <Field label="Modo de falla" span={2}><input value={form.modo} onChange={(e) => setForm({ ...form, modo: e.target.value })} style={inputStyle()} placeholder="Sobrecalentamiento" /></Field>
-            <Field label="Causa" span={2}><input value={form.causa} onChange={(e) => setForm({ ...form, causa: e.target.value })} style={inputStyle()} placeholder="Bomba de agua daÃ±ada" /></Field>
+            <Field label="Causa" span={2}><input value={form.causa} onChange={(e) => setForm({ ...form, causa: e.target.value })} style={inputStyle()} placeholder="Bomba de agua dañada" /></Field>
             <Field label="Severidad (1-10)"><input type="number" min={1} max={10} value={form.severidad} onChange={(e) => setForm({ ...form, severidad: Math.max(1, Math.min(10, +e.target.value)) })} style={bluInput} /></Field>
             <Field label="Ocurrencia (1-10)"><input type="number" min={1} max={10} value={form.ocurrencia} onChange={(e) => setForm({ ...form, ocurrencia: Math.max(1, Math.min(10, +e.target.value)) })} style={bluInput} /></Field>
-            <Field label="DetecciÃ³n (1-10)"><input type="number" min={1} max={10} value={form.deteccion} onChange={(e) => setForm({ ...form, deteccion: Math.max(1, Math.min(10, +e.target.value)) })} style={bluInput} /></Field>
+            <Field label="Detección (1-10)"><input type="number" min={1} max={10} value={form.deteccion} onChange={(e) => setForm({ ...form, deteccion: Math.max(1, Math.min(10, +e.target.value)) })} style={bluInput} /></Field>
             <Field label="Fecha"><input type="date" value={form.fecha} onChange={(e) => setForm({ ...form, fecha: e.target.value })} style={inputStyle()} /></Field>
-            <Field label="AcciÃ³n recomendada" span={4}><input value={form.accion} onChange={(e) => setForm({ ...form, accion: e.target.value })} style={inputStyle()} placeholder="InspecciÃ³n semanal de bomba y termostato" /></Field>
+            <Field label="Acción recomendada" span={4}><input value={form.accion} onChange={(e) => setForm({ ...form, accion: e.target.value })} style={inputStyle()} placeholder="Inspección semanal de bomba y termostato" /></Field>
           </div>
           <div style={{ marginTop: 12, padding: "10px 14px", background: C.surface, borderRadius: 8, fontSize: 13, color: C.slate }}>
             RPN calculado: <strong style={{ color: C.steel, fontSize: 16, fontFamily: "'IBM Plex Mono', monospace" }}>{form.severidad * form.ocurrencia * form.deteccion}</strong>
             <span style={{ marginLeft: 10 }}><Pill tone={nivelRPN(form.severidad * form.ocurrencia * form.deteccion)[0]}>{nivelRPN(form.severidad * form.ocurrencia * form.deteccion)[1]}</Pill></span>
           </div>
           <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
-            <button onClick={crear} style={primaryBtn}>Guardar anÃ¡lisis</button>
+            <button onClick={crear} style={primaryBtn}>Guardar análisis</button>
             <button onClick={() => { setShowForm(false); setError(null); }} style={ghostBtn}>Cancelar</button>
           </div>
         </Card>
@@ -159,17 +159,17 @@ export default function Fallas() {
         <div style={{ overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 1060 }}>
             <thead><tr>
-              <th style={thStyle}>Fecha</th><th style={thStyle}>EmbarcaciÃ³n</th><th style={thStyle}>Sistema</th>
+              <th style={thStyle}>Fecha</th><th style={thStyle}>Embarcación</th><th style={thStyle}>Sistema</th>
               <th style={thStyle}>Modo de Falla</th><th style={thStyle}>Causa</th>
               <th style={{ ...thStyle, textAlign: "center" }} title="Severidad">S</th>
               <th style={{ ...thStyle, textAlign: "center" }} title="Ocurrencia">O</th>
-              <th style={{ ...thStyle, textAlign: "center" }} title="DetecciÃ³n">D</th>
+              <th style={{ ...thStyle, textAlign: "center" }} title="Detección">D</th>
               <th style={{ ...thStyle, textAlign: "right" }}>RPN</th>
               <th style={{ ...thStyle, textAlign: "center" }}>Nivel</th>
-              <th style={thStyle}>AcciÃ³n</th>{puedeBorrar && <th style={thStyle}></th>}
+              <th style={thStyle}>Acción</th>{puedeBorrar && <th style={thStyle}></th>}
             </tr></thead>
             <tbody>
-              {lista.length === 0 ? <tr><td colSpan={puedeBorrar ? 12 : 11}><Empty>Sin anÃ¡lisis registrados. Documenta los modos de falla para empezar a priorizar acciones preventivas.</Empty></td></tr> :
+              {lista.length === 0 ? <tr><td colSpan={puedeBorrar ? 12 : 11}><Empty>Sin análisis registrados. Documenta los modos de falla para empezar a priorizar acciones preventivas.</Empty></td></tr> :
                 lista.map((f) => {
                   const [tone, label] = nivelRPN(f._rpn);
                   return (
@@ -195,15 +195,15 @@ export default function Fallas() {
 
       <Card style={{ marginTop: 16, background: C.mist }}>
         <div style={{ fontSize: 12.5, color: C.slate, lineHeight: 1.7 }}>
-          <strong style={{ color: C.ink }}>Escala FMECA (1â€“10):</strong>{" "}
-          <strong>Severidad</strong>: 1 = sin efecto, 10 = catastrÃ³fico (peligro vida o pÃ©rdida total).{" "}
+          <strong style={{ color: C.ink }}>Escala FMECA (1–10):</strong>{" "}
+          <strong>Severidad</strong>: 1 = sin efecto, 10 = catastrófico (peligro vida o pérdida total).{" "}
           <strong>Ocurrencia</strong>: 1 = improbable, 10 = casi seguro.{" "}
-          <strong>DetecciÃ³n</strong>: 1 = se detecta seguro antes de la falla, 10 = invisible hasta que falla.
-          <br /><strong style={{ color: C.ink }}>Umbrales tÃ­picos:</strong>{" "}
-          <Pill tone="green">Bajo</Pill> RPN &lt; 50 Â·{" "}
-          <Pill tone="yellow">Medio</Pill> 50â€“124 Â·{" "}
-          <Pill tone="red">Alto</Pill> 125â€“199 Â·{" "}
-          <Pill tone="red">CrÃ­tico</Pill> â‰¥ 200 (requiere acciÃ³n inmediata)
+          <strong>Detección</strong>: 1 = se detecta seguro antes de la falla, 10 = invisible hasta que falla.
+          <br /><strong style={{ color: C.ink }}>Umbrales típicos:</strong>{" "}
+          <Pill tone="green">Bajo</Pill> RPN &lt; 50 ·{" "}
+          <Pill tone="yellow">Medio</Pill> 50–124 ·{" "}
+          <Pill tone="red">Alto</Pill> 125–199 ·{" "}
+          <Pill tone="red">Crítico</Pill> ≥ 200 (requiere acción inmediata)
         </div>
       </Card>
     </div>

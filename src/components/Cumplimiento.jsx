@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useState, useCallback, useMemo } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 import { ShieldCheck, FileText, Upload, ExternalLink, Trash2, AlertCircle, Plus } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { fetchAll, insertRow, updateRow, deleteRow, logActivity } from "../lib/db";
@@ -6,21 +6,21 @@ import { subirArchivoDocumento, urlFirmada, borrarArchivoStorage } from "../lib/
 import { C, archivo, isAdmin } from "../theme";
 import { Card, PageHead, Pill, primaryBtn, ghostBtn, inputStyle, Field, Empty, ErrorBanner, InlineSpinner, FilterBtn } from "../ui";
 
-// Documentos/certificados requeridos por embarcaciÃ³n (pesca artesanal).
+// Documentos/certificados requeridos por embarcación (pesca artesanal).
 const TIPOS_DOC = [
   "Certificado de Navegabilidad",
-  "MatrÃ­cula de la nave",
+  "Matrícula de la nave",
   "Certificado de Seguridad",
-  "Seguro (pÃ³liza)",
-  "InscripciÃ³n RPA",
-  "RevisiÃ³n tÃ©cnica casco/mÃ¡quinas",
+  "Seguro (póliza)",
+  "Inscripción RPA",
+  "Revisión técnica casco/máquinas",
   "Balsa salvavidas",
   "Extintores",
 ];
 const DIAS_HABILES_AVISO = 15;
 const HOY = () => new Date().toISOString().slice(0, 10);
 
-// DÃ­as hÃ¡biles (lun-vie) entre hoy y una fecha (no cuenta feriados).
+// Días hábiles (lun-vie) entre hoy y una fecha (no cuenta feriados).
 function diasHabilesEntre(desde, hasta) {
   let n = 0;
   const d = new Date(desde); d.setHours(0, 0, 0, 0);
@@ -36,11 +36,11 @@ export function estadoDoc(doc) {
   const venc = new Date(doc.vencimiento + "T00:00:00");
   if (venc < hoy) return { key: "vencido", label: "Vencido", tone: "red" };
   const dh = diasHabilesEntre(hoy, venc);
-  if (dh <= DIAS_HABILES_AVISO) return { key: "por_vencer", label: `Por vencer (${dh} dÃ­as hÃ¡b.)`, tone: "yellow" };
+  if (dh <= DIAS_HABILES_AVISO) return { key: "por_vencer", label: `Por vencer (${dh} días háb.)`, tone: "yellow" };
   return { key: "vigente", label: "Vigente", tone: "green" };
 }
 
-// El documento vigente mÃ¡s relevante de un tipo (vencimiento mÃ¡s lejano).
+// El documento vigente más relevante de un tipo (vencimiento más lejano).
 export function docDe(documentos, embId, tipo) {
   const list = documentos.filter((d) => d.embarcacion_id === embId && d.tipo === tipo);
   if (!list.length) return null;
@@ -58,7 +58,7 @@ export default function Cumplimiento() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [filtro, setFiltro] = useState("all");
-  const [form, setForm] = useState(null);  // formulario de carga/ediciÃ³n
+  const [form, setForm] = useState(null);  // formulario de carga/edición
   const puedeAdmin = isAdmin(profile?.rol);
 
   const cargar = useCallback(async () => {
@@ -112,36 +112,36 @@ export default function Cumplimiento() {
       } else {
         await insertRow("documentos", profile.empresa_id, { ...datos, created_by: profile.id });
       }
-      logActivity(profile, form.docId ? "Actualizar documento" : "Cargar documento", `${embName(form.embId)} Â· ${form.tipo}`);
+      logActivity(profile, form.docId ? "Actualizar documento" : "Cargar documento", `${embName(form.embId)} · ${form.tipo}`);
       setForm(null); await cargar();
     } catch (e) { setForm((f) => ({ ...f, guardando: false })); setError("No se pudo guardar: " + e.message); }
   }
 
   async function eliminar(doc) {
-    if (!window.confirm(`Â¿Eliminar "${doc.tipo}" de ${embName(doc.embarcacion_id)}?`)) return;
+    if (!window.confirm(`¿Eliminar "${doc.tipo}" de ${embName(doc.embarcacion_id)}?`)) return;
     try {
       await borrarArchivoStorage(doc.storage_path);
       await deleteRow("documentos", doc.id);
-      logActivity(profile, "Eliminar documento", `${embName(doc.embarcacion_id)} Â· ${doc.tipo}`);
+      logActivity(profile, "Eliminar documento", `${embName(doc.embarcacion_id)} · ${doc.tipo}`);
       await cargar();
     } catch (e) { setError("No se pudo eliminar: " + e.message); }
   }
 
-  function embName(id) { return embarcaciones.find((e) => e.id === id)?.nombre || "â€”"; }
+  function embName(id) { return embarcaciones.find((e) => e.id === id)?.nombre || "—"; }
   function abrirForm(embId, tipo, doc) {
     setForm({ embId, tipo, docId: doc?.id || null, numero: doc?.numero || "", emision: doc?.emision || "", vencimiento: doc?.vencimiento || "", notas: doc?.notas || "", file: null });
   }
 
-  if (loading) return <div><PageHead kicker="Flota Â· Cumplimiento" title="Cumplimiento Normativo" /><Card><InlineSpinner label="Cargando documentosâ€¦" /></Card></div>;
+  if (loading) return <div><PageHead kicker="Flota · Cumplimiento" title="Cumplimiento Normativo" /><Card><InlineSpinner label="Cargando documentos…" /></Card></div>;
 
   if (embarcaciones.length === 0) {
-    return <div><PageHead kicker="Flota Â· Cumplimiento" title="Cumplimiento Normativo" /><Card><Empty><AlertCircle size={30} color={C.amber} style={{ marginBottom: 10 }} /><br />Registra al menos una embarcaciÃ³n para gestionar su documentaciÃ³n.</Empty></Card></div>;
+    return <div><PageHead kicker="Flota · Cumplimiento" title="Cumplimiento Normativo" /><Card><Empty><AlertCircle size={30} color={C.amber} style={{ marginBottom: 10 }} /><br />Registra al menos una embarcación para gestionar su documentación.</Empty></Card></div>;
   }
 
   return (
     <div>
-      <PageHead kicker="Flota Â· Cumplimiento normativo" title="Cumplimiento Normativo"
-        sub="Certificados, inspecciones y documentaciÃ³n requerida por embarcaciÃ³n. Avisa con 15 dÃ­as hÃ¡biles de anticipaciÃ³n al vencimiento." />
+      <PageHead kicker="Flota · Cumplimiento normativo" title="Cumplimiento Normativo"
+        sub="Certificados, inspecciones y documentación requerida por embarcación. Avisa con 15 días hábiles de anticipación al vencimiento." />
 
       <ErrorBanner onRetry={cargar}>{error}</ErrorBanner>
 
@@ -151,8 +151,8 @@ export default function Cumplimiento() {
           <div style={{ ...archivo, fontSize: 28, fontWeight: 800, lineHeight: 1 }}>{kpis.pct}%</div>
           <div style={{ fontSize: 12, marginTop: 6, color: "rgba(255,255,255,.85)" }}>{kpis.vigentes}/{kpis.total} documentos vigentes</div>
         </Card>
-        <KPI label="Vencidos" value={kpis.vencidos} tone={kpis.vencidos ? C.red : C.green} sub="acciÃ³n inmediata" />
-        <KPI label="Por vencer" value={kpis.porVencer} tone={kpis.porVencer ? C.amber : C.green} sub="â‰¤ 15 dÃ­as hÃ¡biles" />
+        <KPI label="Vencidos" value={kpis.vencidos} tone={kpis.vencidos ? C.red : C.green} sub="acción inmediata" />
+        <KPI label="Por vencer" value={kpis.porVencer} tone={kpis.porVencer ? C.amber : C.green} sub="≤ 15 días hábiles" />
         <KPI label="Faltan cargar" value={kpis.faltan} tone={kpis.faltan ? C.slate : C.green} />
       </div>
 
@@ -163,17 +163,17 @@ export default function Cumplimiento() {
 
       {form && (
         <Card style={{ marginBottom: 16, background: C.mist }}>
-          <div style={{ fontWeight: 700, fontSize: 15, color: C.abyss, marginBottom: 14 }}>{form.docId ? "Actualizar" : "Cargar"} documento Â· {form.tipo} Â· {embName(form.embId)}</div>
+          <div style={{ fontWeight: 700, fontSize: 15, color: C.abyss, marginBottom: 14 }}>{form.docId ? "Actualizar" : "Cargar"} documento · {form.tipo} · {embName(form.embId)}</div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12 }}>
-            <Field label="NÂ° / Folio"><input value={form.numero} onChange={(e) => setForm({ ...form, numero: e.target.value })} style={inputStyle()} placeholder="opcional" /></Field>
-            <Field label="EmisiÃ³n"><input type="date" value={form.emision || ""} onChange={(e) => setForm({ ...form, emision: e.target.value })} style={inputStyle()} /></Field>
+            <Field label="N° / Folio"><input value={form.numero} onChange={(e) => setForm({ ...form, numero: e.target.value })} style={inputStyle()} placeholder="opcional" /></Field>
+            <Field label="Emisión"><input type="date" value={form.emision || ""} onChange={(e) => setForm({ ...form, emision: e.target.value })} style={inputStyle()} /></Field>
             <Field label="Vencimiento"><input type="date" value={form.vencimiento || ""} onChange={(e) => setForm({ ...form, vencimiento: e.target.value })} style={inputStyle()} /></Field>
             <Field label="Archivo (PDF o foto)"><input type="file" accept="application/pdf,image/*" onChange={(e) => setForm({ ...form, file: e.target.files?.[0] || null })} style={{ ...inputStyle(), padding: "7px" }} /></Field>
             <Field label="Notas" span={4}><input value={form.notas} onChange={(e) => setForm({ ...form, notas: e.target.value })} style={inputStyle()} placeholder="Observaciones (opcional)" /></Field>
           </div>
           {form.docId && form.file === null && <div style={{ fontSize: 11.5, color: C.slate, marginTop: 8 }}>Si no eliges un archivo nuevo, se conserva el actual.</div>}
           <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
-            <button onClick={guardar} disabled={form.guardando} style={primaryBtn}>{form.guardando ? "Guardandoâ€¦" : "Guardar documento"}</button>
+            <button onClick={guardar} disabled={form.guardando} style={primaryBtn}>{form.guardando ? "Guardando…" : "Guardar documento"}</button>
             <button onClick={() => setForm(null)} style={ghostBtn}>Cancelar</button>
           </div>
         </Card>

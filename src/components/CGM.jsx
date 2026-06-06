@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { DollarSign, ChevronDown, ChevronRight, AlertCircle, Save, Check } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { fetchAll, upsertRow, logActivity } from "../lib/db";
@@ -16,11 +16,11 @@ const DEFAULT_CGM = {
 // Tasa anual de costo de capital sobre inventario (Pascual)
 const TASA_INV = 0.20;
 
-// FÃ³rmulas mensuales:
-//   Ci = (hh_c + hh_p) Ã— c_hh + rep + fung           [intervenciones]
-//   Cf = hrs_par Ã— val_prod + g_extra                [fallas / lucro cesante]
-//   Ca = val_inv Ã— tasa / 12                         [almacenamiento]
-//   Ai = val_eq / (vida Ã— 12)                        [amortizaciÃ³n]
+// Fórmulas mensuales:
+//   Ci = (hh_c + hh_p) × c_hh + rep + fung           [intervenciones]
+//   Cf = hrs_par × val_prod + g_extra                [fallas / lucro cesante]
+//   Ca = val_inv × tasa / 12                         [almacenamiento]
+//   Ai = val_eq / (vida × 12)                        [amortización]
 //   Cg = Ci + Cf + Ca + Ai
 function calcular(c) {
   const Ci = ((c.hh_c || 0) + (c.hh_p || 0)) * (c.c_hh || 0) + (c.rep || 0) + (c.fung || 0);
@@ -40,9 +40,9 @@ export default function CGM() {
   const [filtro, setFiltro] = useState("all");
   const [abierto, setAbierto] = useState(null);
   const [dirty, setDirty] = useState({});        // equipos con cambios sin guardar
-  const [guardadoOk, setGuardadoOk] = useState(null);  // feedback "âœ“ guardado"
+  const [guardadoOk, setGuardadoOk] = useState(null);  // feedback "✓ guardado"
   const [guardando, setGuardando] = useState(null);
-  const puedeOperar = isAdmin(profile?.rol);  // editar costos/CGM: Jefe MantenciÃ³n y superiores
+  const puedeOperar = isAdmin(profile?.rol);  // editar costos/CGM: Jefe Mantención y superiores
 
   const cargar = useCallback(async () => {
     setLoading(true); setError(null);
@@ -62,10 +62,10 @@ export default function CGM() {
     const found = datos.find((c) => c.equipo_id === equipoId);
     return found || { ...DEFAULT_CGM, equipo_id: equipoId };
   }
-  function embName(id) { return embarcaciones.find((e) => e.id === id)?.nombre || "â€”"; }
+  function embName(id) { return embarcaciones.find((e) => e.id === id)?.nombre || "—"; }
 
-  // Edita el parÃ¡metro solo en memoria (no guarda hasta pulsar "Guardar cambios").
-  // AsÃ­ los KPIs y barras muestran el efecto al instante, pero la base solo se
+  // Edita el parámetro solo en memoria (no guarda hasta pulsar "Guardar cambios").
+  // Así los KPIs y barras muestran el efecto al instante, pero la base solo se
   // actualiza cuando el usuario confirma.
   function setCampo(equipoId, campo, valor) {
     setDatos((p) => {
@@ -77,7 +77,7 @@ export default function CGM() {
     if (guardadoOk === equipoId) setGuardadoOk(null);
   }
 
-  // Guarda en la base los parÃ¡metros del equipo (INSERT o UPDATE por equipo_id).
+  // Guarda en la base los parámetros del equipo (INSERT o UPDATE por equipo_id).
   async function guardar(equipoId) {
     const c = getCGM(equipoId);
     setError(null); setGuardando(equipoId);
@@ -91,7 +91,7 @@ export default function CGM() {
       }, "equipo_id");
       setDirty((d) => { const n = { ...d }; delete n[equipoId]; return n; });
       const eq = equipos.find((e) => e.id === equipoId);
-      logActivity(profile, "Guardar CGM", `${eq?.sistema || ""} Â· ${embName(eq?.embarcacion_id)}`);
+      logActivity(profile, "Guardar CGM", `${eq?.sistema || ""} · ${embName(eq?.embarcacion_id)}`);
       setGuardadoOk(equipoId);
       setTimeout(() => setGuardadoOk((g) => (g === equipoId ? null : g)), 2500);
     } catch (e) { setError("No se pudo guardar: " + e.message); cargar(); }
@@ -108,12 +108,12 @@ export default function CGM() {
   const pctFallas = totalMes > 0 ? (totalCf / totalMes) * 100 : 0;
   const masCaro = enriquecidos[0];
 
-  if (loading) return <div><PageHead kicker="OptimizaciÃ³n Â· Pascual" title="Costo Global de MantenciÃ³n" /><Card><InlineSpinner label="Cargando CGMâ€¦" /></Card></div>;
+  if (loading) return <div><PageHead kicker="Optimización · Pascual" title="Costo Global de Mantención" /><Card><InlineSpinner label="Cargando CGM…" /></Card></div>;
 
   if (equipos.length === 0) {
     return (
       <div>
-        <PageHead kicker="OptimizaciÃ³n Â· Pascual" title="Costo Global de MantenciÃ³n" />
+        <PageHead kicker="Optimización · Pascual" title="Costo Global de Mantención" />
         <Card><Empty>
           <AlertCircle size={32} color={C.amber} style={{ marginBottom: 10 }} /><br />
           No hay equipos registrados. Carga equipos primero para calcular su costo global.
@@ -124,16 +124,16 @@ export default function CGM() {
 
   return (
     <div>
-      <PageHead kicker="OptimizaciÃ³n EconÃ³mica Â· Pascual / ISO 55000" title="Costo Global de MantenciÃ³n"
-        sub="Cg = Ci + Cf + Ca + Ai. Captura los 4 componentes de costo por equipo y descubre dÃ³nde se va el dinero realmente." />
+      <PageHead kicker="Optimización Económica · Pascual / ISO 55000" title="Costo Global de Mantención"
+        sub="Cg = Ci + Cf + Ca + Ai. Captura los 4 componentes de costo por equipo y descubre dónde se va el dinero realmente." />
 
       <ErrorBanner onRetry={cargar}>{error}</ErrorBanner>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14, marginBottom: 16 }}>
-        <KPI label="CGM Total Flota / mes" value={clp(totalMes)} tone={C.gold} sub={`${clp(totalMes * 12)} al aÃ±o`} />
+        <KPI label="CGM Total Flota / mes" value={clp(totalMes)} tone={C.gold} sub={`${clp(totalMes * 12)} al año`} />
         <KPI label="Costo Intervenciones" value={clp(totalCi)} sub={`${totalMes > 0 ? Math.round((totalCi / totalMes) * 100) : 0}% del total`} />
-        <KPI label="Costo de Fallas" value={clp(totalCf)} tone={pctFallas > 30 ? C.red : C.steel} sub={`${pctFallas.toFixed(0)}% del total Â· ${pctFallas > 30 ? "alto" : "ok"}`} />
-        <KPI label="Equipo mÃ¡s Costoso" value={masCaro ? clp(masCaro.calc.total) : "â€”"} tone={C.red} sub={masCaro?.eq?.sistema || ""} />
+        <KPI label="Costo de Fallas" value={clp(totalCf)} tone={pctFallas > 30 ? C.red : C.steel} sub={`${pctFallas.toFixed(0)}% del total · ${pctFallas > 30 ? "alto" : "ok"}`} />
+        <KPI label="Equipo más Costoso" value={masCaro ? clp(masCaro.calc.total) : "—"} tone={C.red} sub={masCaro?.eq?.sistema || ""} />
       </div>
 
       <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
@@ -156,7 +156,7 @@ export default function CGM() {
                 {expanded ? <ChevronDown size={18} color={C.slate} /> : <ChevronRight size={18} color={C.slate} />}
                 <div>
                   <div style={{ fontWeight: 700, color: C.abyss }}>{eq.sistema}</div>
-                  <div style={{ fontSize: 11.5, color: C.slate, fontFamily: "'IBM Plex Mono', monospace" }}>{embName(eq.embarcacion_id)} Â· {eq.id_visible}</div>
+                  <div style={{ fontSize: 11.5, color: C.slate, fontFamily: "'IBM Plex Mono', monospace" }}>{embName(eq.embarcacion_id)} · {eq.id_visible}</div>
                 </div>
                 <Bar label="Ci" v={calc.Ci} max={calc.total} color={C.steel} />
                 <Bar label="Cf" v={calc.Cf} max={calc.total} color={C.red} />
@@ -164,7 +164,7 @@ export default function CGM() {
                 <Bar label="Ai" v={calc.Ai} max={calc.total} color={C.purple} />
                 <div style={{ textAlign: "right" }}>
                   <div style={{ ...archivo, fontSize: 17, fontWeight: 800, color: C.gold }}>{clp(calc.total)}</div>
-                  <div style={{ fontSize: 11, color: C.slate, fontFamily: "'IBM Plex Mono', monospace" }}>{pct.toFixed(1)}% Â· /mes</div>
+                  <div style={{ fontSize: 11, color: C.slate, fontFamily: "'IBM Plex Mono', monospace" }}>{pct.toFixed(1)}% · /mes</div>
                 </div>
                 <Pill tone={pct > 25 ? "red" : pct > 15 ? "yellow" : "green"}>{pct > 25 ? "Alto" : pct > 15 ? "Medio" : "Bajo"}</Pill>
               </div>
@@ -188,15 +188,15 @@ export default function CGM() {
                   <Section title="Activos">
                     <CellEdit label="Inventario inmovilizado ($)" value={c.val_inv} disabled={!puedeOperar} onChange={(v) => setCampo(eq.id, "val_inv", v)} step={1000} />
                     <CellEdit label="Valor del equipo ($)" value={c.val_eq} disabled={!puedeOperar} onChange={(v) => setCampo(eq.id, "val_eq", v)} step={10000} />
-                    <CellEdit label="Vida Ãºtil (aÃ±os)" value={c.vida} disabled={!puedeOperar} onChange={(v) => setCampo(eq.id, "vida", v)} />
+                    <CellEdit label="Vida útil (años)" value={c.vida} disabled={!puedeOperar} onChange={(v) => setCampo(eq.id, "vida", v)} />
                   </Section>
 
                   <div style={{ marginTop: 14, padding: 12, background: C.surface, border: `1px solid ${C.line}`, borderRadius: 9 }}>
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 12 }}>
-                      <ResVal label="Ci Â· Intervenciones" v={calc.Ci} color={C.steel} />
-                      <ResVal label="Cf Â· Fallas" v={calc.Cf} color={C.red} />
-                      <ResVal label="Ca Â· AlmacÃ©n" v={calc.Ca} color={C.amber} />
-                      <ResVal label="Ai Â· AmortizaciÃ³n" v={calc.Ai} color={C.purple} />
+                      <ResVal label="Ci · Intervenciones" v={calc.Ci} color={C.steel} />
+                      <ResVal label="Cf · Fallas" v={calc.Cf} color={C.red} />
+                      <ResVal label="Ca · Almacén" v={calc.Ca} color={C.amber} />
+                      <ResVal label="Ai · Amortización" v={calc.Ai} color={C.purple} />
                       <ResVal label="Total / mes" v={calc.total} color={C.gold} big />
                     </div>
                   </div>
@@ -208,7 +208,7 @@ export default function CGM() {
                         : dirty[eq.id] && <span style={{ fontSize: 12.5, fontWeight: 600, color: "#7a5b00" }}>Tienes cambios sin guardar</span>}
                       <button onClick={() => guardar(eq.id)} disabled={!dirty[eq.id] || guardando === eq.id}
                         style={{ ...primaryBtn, opacity: dirty[eq.id] && guardando !== eq.id ? 1 : 0.5, cursor: dirty[eq.id] && guardando !== eq.id ? "pointer" : "default" }}>
-                        <Save size={15} /> {guardando === eq.id ? "Guardandoâ€¦" : "Guardar cambios"}
+                        <Save size={15} /> {guardando === eq.id ? "Guardando…" : "Guardar cambios"}
                       </button>
                     </div>
                   )}
@@ -221,11 +221,11 @@ export default function CGM() {
       <Card style={{ marginTop: 16, background: C.mist }}>
         <div style={{ fontSize: 12.5, color: C.slate, lineHeight: 1.7 }}>
           <strong style={{ color: C.ink }}>Modelo Pascual:</strong>{" "}
-          <strong>Ci</strong> = mano de obra + repuestos + fungibles Â·{" "}
-          <strong>Cf</strong> = horas de paro Ã— lucro cesante + gastos extra Â·{" "}
-          <strong>Ca</strong> = inventario Ã— 20% Ã· 12 (costo de capital sobre inventario inmovilizado) Â·{" "}
-          <strong>Ai</strong> = valor del equipo Ã· (vida Ã— 12).{" "}
-          Si Cf supera el 30% del total, el equipo estÃ¡ sufriendo demasiadas fallas no controladas y conviene revisar su plan preventivo.
+          <strong>Ci</strong> = mano de obra + repuestos + fungibles ·{" "}
+          <strong>Cf</strong> = horas de paro × lucro cesante + gastos extra ·{" "}
+          <strong>Ca</strong> = inventario × 20% ÷ 12 (costo de capital sobre inventario inmovilizado) ·{" "}
+          <strong>Ai</strong> = valor del equipo ÷ (vida × 12).{" "}
+          Si Cf supera el 30% del total, el equipo está sufriendo demasiadas fallas no controladas y conviene revisar su plan preventivo.
         </div>
       </Card>
     </div>
@@ -282,5 +282,3 @@ function KPI({ label, value, tone, sub }) {
     </Card>
   );
 }
-
-

@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { Ship, Plus, Trash2, Download, AlertCircle, GitBranch, Layers, Cpu, Wrench, Box } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { fetchAll, insertRow, updateRow, deleteRow, logActivity } from "../lib/db";
@@ -11,23 +11,23 @@ import {
 } from "../ui";
 
 const TIPO_NODOS = [
-  { value: "equipo",      label: "Equipo (genÃ©rico)" },
+  { value: "equipo",      label: "Equipo (genérico)" },
   { value: "sistema",     label: "Sistema (nivel 3)" },
   { value: "subsistema",  label: "Subsistema (nivel 4)" },
   { value: "componente",  label: "Componente (nivel 5)" },
   { value: "instrumento", label: "Instrumento / Sensor (nivel 7)" },
 ];
 const CRITICIDADES = [
-  { value: "",  label: "â€” Sin clasificar" },
-  { value: "A", label: "A Â· CrÃ­tico" },
-  { value: "B", label: "B Â· Importante" },
-  { value: "C", label: "C Â· Menor" },
+  { value: "",  label: "— Sin clasificar" },
+  { value: "A", label: "A · Crítico" },
+  { value: "B", label: "B · Importante" },
+  { value: "C", label: "C · Menor" },
 ];
 const ICONO_TIPO = { sistema: Layers, subsistema: GitBranch, componente: Wrench, instrumento: Cpu, equipo: Box };
 
 // Tipo de niveles que se revisan en el prezarpe para este equipo
 const NIVEL_TIPOS = [
-  { value: "ninguno", label: "â€” No aplica" },
+  { value: "ninguno", label: "— No aplica" },
   { value: "aceite",  label: "Solo aceite" },
   { value: "aceite_agua", label: "Aceite + agua chaqueta" },
 ];
@@ -64,15 +64,15 @@ export default function Equipos() {
   }, []); // eslint-disable-line
   useEffect(() => { cargar(); }, [cargar]);
 
-  function embName(id)  { return embarcaciones.find((e) => e.id === id)?.nombre || "â€”"; }
+  function embName(id)  { return embarcaciones.find((e) => e.id === id)?.nombre || "—"; }
   function embColor(id) { return embarcaciones.find((e) => e.id === id)?.color  || C.steel; }
-  function eqName(id)   { const e = equipos.find((q) => q.id === id); return e ? `${e.id_visible} Â· ${e.sistema}` : "â€”"; }
+  function eqName(id)   { const e = equipos.find((q) => q.id === id); return e ? `${e.id_visible} · ${e.sistema}` : "—"; }
 
-  // Lista en orden de Ã¡rbol segÃºn filtro de nave
+  // Lista en orden de árbol según filtro de nave
   const baseList = filtro === "all" ? equipos : equipos.filter((e) => e.embarcacion_id === filtro);
   const lista    = buildEquipoTree(baseList);
 
-  // Padres disponibles para un equipo (misma nave, no Ã©l mismo ni sus hijos)
+  // Padres disponibles para un equipo (misma nave, no él mismo ni sus hijos)
   function padresDisponibles(eqId, embId) {
     const candidatos = equipos.filter((e) => e.embarcacion_id === embId && e.id !== eqId);
     // Excluir descendientes del equipo actual (para no crear ciclos)
@@ -99,24 +99,24 @@ export default function Equipos() {
         created_by:     profile.id,
       });
       setEquipos((p) => [...p, nuevo]);
-      logActivity(profile, "Crear equipo", `${idVis} Â· ${nuevo.sistema}${form.parent_id ? ` (sub de ${eqName(form.parent_id)})` : ""} (${emb?.nombre})`);
+      logActivity(profile, "Crear equipo", `${idVis} · ${nuevo.sistema}${form.parent_id ? ` (sub de ${eqName(form.parent_id)})` : ""} (${emb?.nombre})`);
       setForm(blankForm(form.embarcacion_id));
       setShowForm(false);
     } catch (e) { setError("No se pudo crear el equipo: " + e.message); }
   }
 
-  // Precarga el Ã¡rbol estÃ¡ndar de sistemas pesqueros para la nave filtrada.
+  // Precarga el árbol estándar de sistemas pesqueros para la nave filtrada.
   async function precargarPlantilla() {
     const emb = embarcaciones.find((e) => e.id === filtro);
-    if (!emb) { setError("Selecciona primero una embarcaciÃ³n en los filtros."); return; }
+    if (!emb) { setError("Selecciona primero una embarcación en los filtros."); return; }
     const total = contarNodosPlantilla();
-    if (!window.confirm(`Â¿Precargar la plantilla pesquera estÃ¡ndar en "${emb.nombre}"?\n\nSe crearÃ¡n ${total} nodos (14 sistemas + subsistemas + sensores). Puedes borrar despuÃ©s los que no apliquen a esta nave.`)) return;
+    if (!window.confirm(`¿Precargar la plantilla pesquera estándar en "${emb.nombre}"?\n\nSe crearán ${total} nodos (14 sistemas + subsistemas + sensores). Puedes borrar después los que no apliquen a esta nave.`)) return;
 
     setPrecargando(true); setError(null);
     const creados = [];
     try {
       for (const sis of PLANTILLA_PESQUERA) {
-        // Sistema raÃ­z
+        // Sistema raíz
         const padre = await insertRow("equipos", profile.empresa_id, {
           embarcacion_id: emb.id, id_visible: `${emb.codigo}-${sis.cod}`,
           sistema: sis.nom, tipo_nodo: sis.tipo, criticidad: sis.crit,
@@ -134,9 +134,9 @@ export default function Equipos() {
         }
       }
       setEquipos((p) => [...p, ...creados]);
-      logActivity(profile, "Precargar plantilla pesquera", `${emb.nombre} Â· ${creados.length} nodos`);
+      logActivity(profile, "Precargar plantilla pesquera", `${emb.nombre} · ${creados.length} nodos`);
     } catch (e) {
-      setError("Se interrumpiÃ³ la precarga: " + e.message + ". Recarga la pÃ¡gina para ver lo que sÃ­ se creÃ³.");
+      setError("Se interrumpió la precarga: " + e.message + ". Recarga la página para ver lo que sí se creó.");
       setEquipos((p) => [...p, ...creados]);
     } finally { setPrecargando(false); }
   }
@@ -153,19 +153,19 @@ export default function Equipos() {
   async function eliminar(id) {
     const eq = equipos.find((e) => e.id === id);
     const hijos = equipos.filter((e) => e.parent_id === id);
-    const aviso = hijos.length > 0 ? `\nâš ï¸ Tiene ${hijos.length} subsistema(s) que quedarÃ¡n como raÃ­z.` : "";
-    if (!window.confirm(`Â¿Eliminar el equipo "${eq?.sistema}"? Se borrarÃ¡n tambiÃ©n su criticidad, costos y planes asociados.${aviso}`)) return;
+    const aviso = hijos.length > 0 ? `\n⚠️ Tiene ${hijos.length} subsistema(s) que quedarán como raíz.` : "";
+    if (!window.confirm(`¿Eliminar el equipo "${eq?.sistema}"? Se borrarán también su criticidad, costos y planes asociados.${aviso}`)) return;
     const respaldo = equipos;
     setEquipos((p) => p.filter((e) => e.id !== id));
     try {
       await deleteRow("equipos", id);
-      logActivity(profile, "Eliminar equipo", `${eq?.id_visible} Â· ${eq?.sistema}`);
+      logActivity(profile, "Eliminar equipo", `${eq?.id_visible} · ${eq?.sistema}`);
     } catch (e) { setEquipos(respaldo); setError("No se pudo eliminar: " + e.message); }
   }
 
   function exportar() {
     const filas = [
-      ["ID", "EmbarcaciÃ³n", "Sistema padre", "Sistema / Equipo", "Marca", "Modelo", "Horas Actuales", "Hrs Ãšlt PM", "Estado"],
+      ["ID", "Embarcación", "Sistema padre", "Sistema / Equipo", "Marca", "Modelo", "Horas Actuales", "Hrs Últ PM", "Estado"],
       ...equipos.map((e) => [
         e.id_visible, embName(e.embarcacion_id),
         e.parent_id ? eqName(e.parent_id) : "",
@@ -173,20 +173,20 @@ export default function Equipos() {
       ]),
     ];
     const csv = filas.map((r) => r.map((c) => { const s = String(c ?? ""); return /[",\n;]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; }).join(";")).join("\n");
-    const blob = new Blob(["ï»¿" + csv], { type: "text/csv;charset=utf-8;" });
+    const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
     const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "equipos.csv"; a.click();
   }
 
-  if (loading) return <div><PageHead kicker="TaxonomÃ­a ISO 14224" title="Registro de Equipos" /><Card><InlineSpinner label="Cargando equiposâ€¦" /></Card></div>;
+  if (loading) return <div><PageHead kicker="Taxonomía ISO 14224" title="Registro de Equipos" /><Card><InlineSpinner label="Cargando equipos…" /></Card></div>;
 
   if (!loading && embarcaciones.length === 0) {
     return (
       <div>
-        <PageHead kicker="TaxonomÃ­a ISO 14224" title="Registro de Equipos" />
+        <PageHead kicker="Taxonomía ISO 14224" title="Registro de Equipos" />
         <ErrorBanner onRetry={cargar}>{error}</ErrorBanner>
         <Card><Empty>
           <AlertCircle size={32} color={C.amber} style={{ marginBottom: 10 }} /><br />
-          Primero debes registrar al menos una <strong>embarcaciÃ³n</strong>. Ve al mÃ³dulo <strong>Embarcaciones</strong> y agrega tu flota.
+          Primero debes registrar al menos una <strong>embarcación</strong>. Ve al módulo <strong>Embarcaciones</strong> y agrega tu flota.
         </Empty></Card>
       </div>
     );
@@ -197,8 +197,8 @@ export default function Equipos() {
 
   return (
     <div>
-      <PageHead kicker="TaxonomÃ­a ISO 14224 Â· JerarquÃ­a funcional" title="Registro de Equipos"
-        sub="Estructura Ã¡rbol: sistema raÃ­z â†’ subsistemas. Las horas alimentan el Plan Preventivo, Criticidad y Costo Global."
+      <PageHead kicker="Taxonomía ISO 14224 · Jerarquía funcional" title="Registro de Equipos"
+        sub="Estructura árbol: sistema raíz → subsistemas. Las horas alimentan el Plan Preventivo, Criticidad y Costo Global."
         action={<div style={{ display: "flex", gap: 8 }}>
           <button onClick={exportar} style={exportBtn}><Download size={15} /> Exportar CSV</button>
           {puedeOperar && <button onClick={() => setShowForm(!showForm)} style={primaryBtn}><Plus size={16} /> Agregar Equipo</button>}
@@ -222,12 +222,12 @@ export default function Equipos() {
           <div style={{ flex: 1, minWidth: 200 }}>
             <div style={{ fontWeight: 700, fontSize: 13.5, color: C.abyss }}>Plantilla pesquera ISO 14224</div>
             <div style={{ fontSize: 12, color: C.slate, marginTop: 2 }}>
-              Genera el Ã¡rbol estÃ¡ndar de {contarNodosPlantilla()} nodos (14 sistemas + subsistemas + sensores) para <strong>{embName(filtro)}</strong>. Borra despuÃ©s lo que no aplique.
+              Genera el árbol estándar de {contarNodosPlantilla()} nodos (14 sistemas + subsistemas + sensores) para <strong>{embName(filtro)}</strong>. Borra después lo que no aplique.
             </div>
           </div>
           <button onClick={precargarPlantilla} disabled={precargando}
             style={{ ...primaryBtn, background: C.cyan, borderColor: C.cyan, flexShrink: 0 }}>
-            {precargando ? "Precargandoâ€¦" : <><Layers size={15} /> Precargar plantilla</>}
+            {precargando ? "Precargando…" : <><Layers size={15} /> Precargar plantilla</>}
           </button>
         </Card>
       )}
@@ -236,19 +236,19 @@ export default function Equipos() {
         <Card style={{ marginBottom: 16, background: C.mist }}>
           <div style={{ fontWeight: 700, fontSize: 15, color: C.abyss, marginBottom: 14 }}>Nuevo Equipo / Subsistema</div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 12, marginBottom: 12 }}>
-            <Field label="EmbarcaciÃ³n">
+            <Field label="Embarcación">
               <select value={form.embarcacion_id}
                 onChange={(e) => setForm({ ...form, embarcacion_id: e.target.value, parent_id: "" })}
                 style={inputStyle()}>
                 {embarcaciones.map((v) => <option key={v.id} value={v.id}>{v.nombre}</option>)}
               </select>
             </Field>
-            <Field label="Sistema padre (opcional â€” si es subsistema)">
+            <Field label="Sistema padre (opcional — si es subsistema)">
               <select value={form.parent_id} onChange={(e) => setForm({ ...form, parent_id: e.target.value })} style={inputStyle()}>
-                <option value="">â€” Ninguno (sistema raÃ­z) â€”</option>
+                <option value="">— Ninguno (sistema raíz) —</option>
                 {buildEquipoTree(candidatosPadre).map((eq) => (
                   <option key={eq.id} value={eq.id}>
-                    {"ã€€".repeat(eq.depth)}{eq.depth > 0 ? "â””â”€ " : ""}{eq.id_visible} Â· {eq.sistema}
+                    {"　".repeat(eq.depth)}{eq.depth > 0 ? "└─ " : ""}{eq.id_visible} · {eq.sistema}
                   </option>
                 ))}
               </select>
@@ -259,7 +259,7 @@ export default function Equipos() {
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr", gap: 12 }}>
             <Field label="Sistema / Equipo">
-              <input value={form.sistema} onChange={(e) => setForm({ ...form, sistema: e.target.value })} style={inputStyle()} placeholder="Motor Principal, Bomba HidrÃ¡ulicaâ€¦" />
+              <input value={form.sistema} onChange={(e) => setForm({ ...form, sistema: e.target.value })} style={inputStyle()} placeholder="Motor Principal, Bomba Hidráulica…" />
             </Field>
             <Field label="Marca">
               <input value={form.marca} onChange={(e) => setForm({ ...form, marca: e.target.value })} style={inputStyle()} />
@@ -287,7 +287,7 @@ export default function Equipos() {
             </div>
           )}
 
-          {/* â”€â”€ Nota de ejemplo de jerarquÃ­a â”€â”€ */}
+          {/* ── Nota de ejemplo de jerarquía ── */}
           <NotaJerarquia compacta />
 
           <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
@@ -340,11 +340,11 @@ export default function Equipos() {
                         </select>
                       </td>
 
-                      {/* Sistema â€” con indentaciÃ³n de Ã¡rbol + tipo + criticidad */}
+                      {/* Sistema — con indentación de árbol + tipo + criticidad */}
                       <td style={tdStyle}>
                         <div style={{ display: "flex", alignItems: "center" }}>
                           {e.depth > 0 && (
-                            <span style={{ marginLeft: (e.depth - 1) * 14, marginRight: 5, color: C.slate, fontSize: 13, flexShrink: 0 }}>â””â”€</span>
+                            <span style={{ marginLeft: (e.depth - 1) * 14, marginRight: 5, color: C.slate, fontSize: 13, flexShrink: 0 }}>└─</span>
                           )}
                           {(() => {
                             const Ico = ICONO_TIPO[e.tipo_nodo] || ICONO_TIPO.equipo;
@@ -364,8 +364,8 @@ export default function Equipos() {
                         <select value={e.parent_id || ""} disabled={!puedeOperar}
                           onChange={(ev) => commit(e.id, "parent_id", ev.target.value || null)}
                           style={{ ...inputStyle(210), fontSize: 12.5, color: e.parent_id ? C.steel : C.line }}>
-                          <option value="">â€” RaÃ­z â€”</option>
-                          {padres.map((p) => <option key={p.id} value={p.id}>{p.id_visible} Â· {p.sistema}</option>)}
+                          <option value="">— Raíz —</option>
+                          {padres.map((p) => <option key={p.id} value={p.id}>{p.id_visible} · {p.sistema}</option>)}
                         </select>
                       </td>
 
@@ -400,7 +400,7 @@ export default function Equipos() {
                       <td style={{ ...tdStyle, textAlign: "center" }}>
                         <input type="checkbox" checked={!!e.prezarpe} disabled={!puedeOperar}
                           onChange={(ev) => commit(e.id, "prezarpe", ev.target.checked)}
-                          title="Incluir en inspecciÃ³n de prezarpe"
+                          title="Incluir en inspección de prezarpe"
                           style={{ width: 16, height: 16, cursor: puedeOperar ? "pointer" : "default", accentColor: C.steel }} />
                       </td>
 
@@ -439,22 +439,22 @@ export default function Equipos() {
   );
 }
 
-// â”€â”€ Nota de ejemplo: nueva jerarquÃ­a de sistemas â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Nota de ejemplo: nueva jerarquía de sistemas ──────────────────
 const EJEMPLOS_JERARQUIA = [
   {
-    sistema: "PropulsiÃ³n",
+    sistema: "Propulsión",
     color: "#2563EB",
-    hijos: ["Motor Principal", "Reductora / Caja de cambios", "Eje y bocina", "HÃ©lice"],
+    hijos: ["Motor Principal", "Reductora / Caja de cambios", "Eje y bocina", "Hélice"],
   },
   {
-    sistema: "GeneraciÃ³n ElÃ©ctrica",
+    sistema: "Generación Eléctrica",
     color: "#D97706",
-    hijos: ["Generador Principal", "Generador de Emergencia", "Tablero elÃ©ctrico"],
+    hijos: ["Generador Principal", "Generador de Emergencia", "Tablero eléctrico"],
   },
   {
-    sistema: "HidrÃ¡ulico",
+    sistema: "Hidráulico",
     color: "#059669",
-    hijos: ["Bomba HidrÃ¡ulica", "Cilindros (popa / proa)", "VÃ¡lvulas de control"],
+    hijos: ["Bomba Hidráulica", "Cilindros (popa / proa)", "Válvulas de control"],
   },
   {
     sistema: "Enfriamiento",
@@ -472,29 +472,29 @@ function NotaJerarquia({ compacta = false }) {
         <button onClick={() => setAbierta((p) => !p)}
           style={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 7, color: C.steel, fontSize: 12.5, fontWeight: 600, padding: 0 }}>
           <GitBranch size={14} />
-          {abierta ? "â–² Ocultar ejemplo de jerarquÃ­a" : "â–¼ Ver ejemplo: cÃ³mo estructurar sistemas y subsistemas"}
+          {abierta ? "▲ Ocultar ejemplo de jerarquía" : "▼ Ver ejemplo: cómo estructurar sistemas y subsistemas"}
         </button>
         {abierta && <EjemploArbol />}
       </div>
     );
   }
 
-  // VersiÃ³n completa para lista vacÃ­a
+  // Versión completa para lista vacía
   return (
     <div style={{ textAlign: "left", padding: "8px 0" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
         <GitBranch size={20} color={C.cyan} />
-        <span style={{ fontWeight: 700, fontSize: 15, color: C.abyss }}>Nueva funcionalidad: JerarquÃ­a de sistemas</span>
+        <span style={{ fontWeight: 700, fontSize: 15, color: C.abyss }}>Nueva funcionalidad: Jerarquía de sistemas</span>
       </div>
       <p style={{ fontSize: 13, color: C.slate, marginBottom: 14, lineHeight: 1.6 }}>
         Ahora puedes crear <strong>subsistemas</strong> asignando un "Sistema padre" al registrar un equipo.
-        Esto te permite organizar la flota como un Ã¡rbol funcional, igual que IBM Maximo o SAP PM.
+        Esto te permite organizar la flota como un árbol funcional, igual que IBM Maximo o SAP PM.
       </p>
       <EjemploArbol />
       <div style={{ marginTop: 14, padding: "10px 14px", background: `${C.cyan}12`, borderRadius: 8, fontSize: 12.5, color: C.steel, lineHeight: 1.6 }}>
-        <strong>Â¿CÃ³mo empezar?</strong> Crea primero los sistemas raÃ­z (ej. <em>PropulsiÃ³n</em>) sin padre.
-        Luego crea los subsistemas (ej. <em>Motor Principal</em>) seleccionando el sistema raÃ­z como padre.
-        En las Ã“rdenes de Trabajo, Plan PM y AnÃ¡lisis verÃ¡s los equipos en este orden jerÃ¡rquico.
+        <strong>¿Cómo empezar?</strong> Crea primero los sistemas raíz (ej. <em>Propulsión</em>) sin padre.
+        Luego crea los subsistemas (ej. <em>Motor Principal</em>) seleccionando el sistema raíz como padre.
+        En las Órdenes de Trabajo, Plan PM y Análisis verás los equipos en este orden jerárquico.
       </div>
     </div>
   );
@@ -505,16 +505,16 @@ function EjemploArbol() {
     <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 12, marginTop: 12 }}>
       {EJEMPLOS_JERARQUIA.map((ej) => (
         <div key={ej.sistema} style={{ background: C.surface, border: `1px solid ${C.line}`, borderRadius: 9, padding: "12px 14px" }}>
-          {/* Sistema raÃ­z */}
+          {/* Sistema raíz */}
           <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 8 }}>
             <div style={{ width: 10, height: 10, borderRadius: "50%", background: ej.color, flexShrink: 0 }} />
             <span style={{ fontWeight: 700, fontSize: 13, color: C.abyss }}>{ej.sistema}</span>
-            <span style={{ fontSize: 10.5, color: C.slate, background: C.foam, borderRadius: 4, padding: "1px 6px" }}>sistema raÃ­z</span>
+            <span style={{ fontSize: 10.5, color: C.slate, background: C.foam, borderRadius: 4, padding: "1px 6px" }}>sistema raíz</span>
           </div>
           {/* Hijos */}
           {ej.hijos.map((h, i) => (
             <div key={i} style={{ display: "flex", alignItems: "center", gap: 6, marginLeft: 6, marginBottom: 4 }}>
-              <span style={{ color: C.slate, fontSize: 13, flexShrink: 0 }}>â””â”€</span>
+              <span style={{ color: C.slate, fontSize: 13, flexShrink: 0 }}>└─</span>
               <span style={{ fontSize: 12.5, color: C.slate }}>{h}</span>
             </div>
           ))}

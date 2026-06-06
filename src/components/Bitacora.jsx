@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useState, useCallback, useMemo } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 import { History, Search, Download, User } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { fetchAll } from "../lib/db";
@@ -11,7 +11,7 @@ function fechaCompacta(ts) {
   const d = new Date(ts);
   return d.toLocaleString("es-CL", { day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit" });
 }
-// Color por categorÃ­a de acciÃ³n (heurÃ­stico sobre la primera palabra)
+// Color por categoría de acción (heurístico sobre la primera palabra)
 function tonoAccion(accion = "") {
   const a = accion.toLowerCase();
   if (a.startsWith("crear")) return "green";
@@ -34,7 +34,7 @@ export default function Bitacora() {
   const cargar = useCallback(async () => {
     setLoading(true); setError(null);
     try { setEntries(await fetchAll("bitacora", { order: { col: "fecha", asc: false } })); }
-    catch (e) { setError("No se pudo cargar la bitÃ¡cora. " + e.message); }
+    catch (e) { setError("No se pudo cargar la bitácora. " + e.message); }
     finally { setLoading(false); }
   }, []);
   useEffect(() => { cargar(); }, [cargar]);
@@ -62,23 +62,23 @@ export default function Bitacora() {
     const m = {};
     entries.forEach((e) => { if (e.usuario_nombre) m[e.usuario_nombre] = (m[e.usuario_nombre] || 0) + 1; });
     const ranked = Object.entries(m).sort((a, b) => b[1] - a[1]);
-    return { top: ranked[0]?.[0] || "â€”", topN: ranked[0]?.[1] || 0, total: ranked.length };
+    return { top: ranked[0]?.[0] || "—", topN: ranked[0]?.[1] || 0, total: ranked.length };
   }, [entries]);
 
   function exportar() {
-    const filas = [["Fecha", "Usuario", "Rol", "AcciÃ³n", "Detalle"],
+    const filas = [["Fecha", "Usuario", "Rol", "Acción", "Detalle"],
       ...filtradas.map((e) => [fechaCompacta(e.fecha), e.usuario_nombre, rolLabel(e.rol), e.accion, e.detalle])];
     const csv = filas.map((r) => r.map((c) => { const s = String(c ?? ""); return /[",\n;]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; }).join(";")).join("\n");
     const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8;" });
     const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "bitacora.csv"; a.click();
   }
 
-  if (loading) return <div><PageHead kicker="AuditorÃ­a" title="BitÃ¡cora de Actividad" /><Card><InlineSpinner label="Cargando bitÃ¡coraâ€¦" /></Card></div>;
+  if (loading) return <div><PageHead kicker="Auditoría" title="Bitácora de Actividad" /><Card><InlineSpinner label="Cargando bitácora…" /></Card></div>;
 
   return (
     <div>
-      <PageHead kicker="AuditorÃ­a Â· Trazabilidad" title="BitÃ¡cora de Actividad"
-        sub="Todo lo que se hace en el sistema queda registrado: quiÃ©n, cuÃ¡ndo y quÃ©. Solo lectura â€” no se puede editar ni borrar."
+      <PageHead kicker="Auditoría · Trazabilidad" title="Bitácora de Actividad"
+        sub="Todo lo que se hace en el sistema queda registrado: quién, cuándo y qué. Solo lectura — no se puede editar ni borrar."
         action={<button onClick={exportar} style={exportBtn}><Download size={15} /> Exportar</button>} />
 
       <ErrorBanner onRetry={cargar}>{error}</ErrorBanner>
@@ -86,8 +86,8 @@ export default function Bitacora() {
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14, marginBottom: 16 }}>
         <KPI label="Eventos totales" value={entries.length} />
         <KPI label="Hoy" value={hoy} tone={C.steel} />
-        <KPI label="Ãšltimos 7 dÃ­as" value={semana} tone={C.steel} />
-        <KPI label="Usuario mÃ¡s activo" value={usuarios.top} sub={`${usuarios.topN} acciones Â· ${usuarios.total} usuarios`} />
+        <KPI label="Últimos 7 días" value={semana} tone={C.steel} />
+        <KPI label="Usuario más activo" value={usuarios.top} sub={`${usuarios.topN} acciones · ${usuarios.total} usuarios`} />
       </div>
 
       <Card style={{ marginBottom: 14, padding: 14 }}>
@@ -95,14 +95,14 @@ export default function Bitacora() {
           <div style={{ position: "relative" }}>
             <Search size={14} color={C.slate} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)" }} />
             <input value={busqueda} onChange={(e) => setBusqueda(e.target.value)}
-              placeholder="Buscar en acciÃ³n, detalle o usuarioâ€¦"
+              placeholder="Buscar en acción, detalle o usuario…"
               style={{ ...inputStyle(), paddingLeft: 34 }} />
           </div>
           <select value={dias} onChange={(e) => setDias(+e.target.value)} style={inputStyle()}>
-            <option value={1}>Ãšltimas 24 horas</option>
-            <option value={7}>Ãšltimos 7 dÃ­as</option>
-            <option value={30}>Ãšltimos 30 dÃ­as</option>
-            <option value={90}>Ãšltimos 90 dÃ­as</option>
+            <option value={1}>Últimas 24 horas</option>
+            <option value={7}>Últimos 7 días</option>
+            <option value={30}>Últimos 30 días</option>
+            <option value={90}>Últimos 90 días</option>
             <option value={3650}>Todo el historial</option>
           </select>
         </div>
@@ -113,12 +113,12 @@ export default function Bitacora() {
           <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 880 }}>
             <thead><tr>
               <th style={thStyle}>Fecha</th><th style={thStyle}>Usuario</th><th style={thStyle}>Rol</th>
-              <th style={thStyle}>AcciÃ³n</th><th style={thStyle}>Detalle</th>
+              <th style={thStyle}>Acción</th><th style={thStyle}>Detalle</th>
             </tr></thead>
             <tbody>
               {filtradas.length === 0 ? <tr><td colSpan={5}><Empty>
                 <History size={32} color={C.line} style={{ marginBottom: 10 }} /><br />
-                {entries.length === 0 ? "AÃºn no hay actividad registrada." : "Sin eventos en el filtro actual."}
+                {entries.length === 0 ? "Aún no hay actividad registrada." : "Sin eventos en el filtro actual."}
               </Empty></td></tr> :
                 filtradas.slice(0, 200).map((e) => (
                   <tr key={e.id}>
@@ -138,7 +138,7 @@ export default function Bitacora() {
         </div>
         {filtradas.length > 200 && (
           <div style={{ padding: "10px 16px", textAlign: "center", fontSize: 11.5, color: C.slate, borderTop: `1px solid ${C.foam}` }}>
-            Mostrando los 200 mÃ¡s recientes de {filtradas.length} eventos. Usa la bÃºsqueda o el rango de fechas para refinar.
+            Mostrando los 200 más recientes de {filtradas.length} eventos. Usa la búsqueda o el rango de fechas para refinar.
           </div>
         )}
       </Card>
