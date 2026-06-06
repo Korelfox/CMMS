@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import {
   Ship, Anchor, Fuel, Droplet, Gauge, Check, X, AlertTriangle,
   ArrowLeft, Camera, ClipboardCheck, Waves, CloudOff, Clock, Trash2,
+  AlertOctagon, ChevronDown,
 } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { fetchAll, insertRow, updateRow, deleteRow, logActivity } from "../lib/db";
@@ -29,7 +30,8 @@ export default function Prezarpe() {
   const [documentos, setDocumentos] = useState([]);
   const [vista, setVista] = useState("flota");
   const [nave, setNave] = useState(null);
-  const [mareaRec, setMareaRec] = useState(null);   // marea a cerrar en recalada
+  const [mareaRec,   setMareaRec]   = useState(null); // marea a cerrar en recalada
+  const [mareaFalla, setMareaFalla] = useState(null); // marea retorno por falla
   const [prezarpeSel, setPrezarpeSel] = useState(null);  // informe abierto
   const [confirmar, setConfirmar] = useState(null);      // modal de eliminación con motivo
   const puedeOperar = canOperate(profile?.rol);
@@ -96,6 +98,44 @@ export default function Prezarpe() {
       setVista("flota"); setMareaRec(null); setError(null);
       await cargar();
     } catch (e) { setError("No se pudo registrar la recalada: " + e.message); }
+  }
+
+  async function guardarRetornoFalla(marea, datos) {
+    if (!online) { setError("Registrar retorno por falla requiere conexión."); return; }
+    try {
+      // 1) Cerrar la marea como retorno por falla
+      await updateRow("mareas", marea.id, {
+        estado: "cerrada", recalada_at: new Date().toISOString(),
+        retorno_falla: true, falla_descripcion: datos.descripcion,
+        falla_equipo_id: datos.equipo_id || null,
+        falla_severidad: datos.severidad, falla_riesgo_trip: datos.riesgoTrip,
+      });
+      // 2) OT urgente para el jefe de mantención
+      const detalle = [
+        `🚨 RETORNO POR FALLA · ${embName(marea.embarcacion_id)}`,
+        `Sistema/Equipo: ${datos.sistemaLabel}`,
+        `Severidad: ${datos.severidad.toUpperCase()}`,
+        datos.riesgoTrip ? "⚠️ RIESGO PARA LA TRIPULACIÓN" : null,
+        `Descripción: ${datos.descripcion}`,
+      ].filter(Boolean).join("\n");
+      await insertRow("ordenes_trabajo", profile.empresa_id, {
+        folio: `OT-RF-${Date.now().toString().slice(-6)}`,
+        embarcacion_id: marea.embarcacion_id, equipo_id: datos.equipo_id || null,
+        sistema: datos.sistemaLabel, tipo: "correctivo", prioridad: "critica",
+        descripcion: detalle, fecha: HOY(), estado: "solicitada", created_by: profile.id,
+      });
+      // 3) Solicitud visible para el Jefe de Mantención
+      await insertRow("solicitudes", profile.empresa_id, {
+        folio: `SOL-RF-${Date.now().toString().slice(-6)}`,
+        solicitante: profile.nombre || "", embarcacion_id: marea.embarcacion_id,
+        sistema: datos.sistemaLabel,
+        descripcion: `RETORNO POR FALLA [${datos.severidad.toUpperCase()}] · ${embName(marea.embarcacion_id)} · ${datos.descripcion}`,
+        prioridad: "alta", fecha: HOY(), estado: "pendiente", created_by: profile.id,
+      });
+      logActivity(profile, "Retorno por falla", `${embName(marea.embarcacion_id)} · ${datos.sistemaLabel} · ${datos.severidad}`);
+      setVista("flota"); setMareaFalla(null); setError(null);
+      await cargar();
+    } catch (e) { setError("No se pudo registrar el retorno por falla: " + e.message); }
   }
 
   // Guarda el prezarpe: abre la marea + registra el checklist. El trigger de
@@ -191,7 +231,8 @@ export default function Prezarpe() {
 
       {vista === "flota" && (
         <VistaFlota embarcaciones={embarcaciones} mareaAbierta={mareaAbierta} docsVencidos={docsVencidos} puedeOperar={puedeOperar} puedeBorrar={puedeBorrar}
-          onIniciar={(n) => { setNave(n); setVista("checklist"); }} onRecalada={abrirRecalada} onEliminarZarpe={pedirEliminarZarpe} />
+          onIniciar={(n) => { setNave(n); setVista("checklist"); }} onRecalada={abrirRecalada} onEliminarZarpe={pedirEliminarZarpe}
+          onRetornoFalla={(m) => { setMareaFalla(m); setVista("retorno_falla"); }} />
       )}
       {vista === "checklist" && (
         <VistaChecklist nave={nave} equipos={buildEquipoTree(equipos.filter((e) => e.embarcacion_id === nave.id))} online={online}
@@ -201,6 +242,13 @@ export default function Prezarpe() {
         <VistaRecalada marea={mareaRec} nave={embarcaciones.find((e) => e.id === mareaRec?.embarcacion_id)}
           equipos={buildEquipoTree(equipos.filter((e) => e.embarcacion_id === mareaRec?.embarcacion_id && (e.nivel_tipo || "ninguno") !== "ninguno"))}
           onVolver={() => { setVista("flota"); setMareaRec(null); }} onGuardar={(datos) => guardarRecalada(mareaRec, datos)} />
+      )}
+      {vista === "retorno_falla" && mareaFalla && (
+        <VistaRetornoFalla
+          marea={mareaFalla} nave={embarcaciones.find((e) => e.id === mareaFalla?.embarcacion_id)}
+          equipos={buildEquipoTree(equipos.filter((e) => e.embarcacion_id === mareaFalla?.embarcacion_id))}
+          onVolver={() => { setVista("flota"); setMareaFalla(null); }}
+          onGuardar={(datos) => guardarRetornoFalla(mareaFalla, datos)} />
       )}
       {vista === "historial" && (
         <VistaHistorial prezarpes={prezarpes} embName={embName} mareas={mareas} puedeBorrar={puedeBorrar}
@@ -217,7 +265,7 @@ export default function Prezarpe() {
 }
 
 // ---------- Pantalla 1: flota ----------
-function VistaFlota({ embarcaciones, mareaAbierta, docsVencidos, puedeOperar, puedeBorrar, onIniciar, onRecalada, onEliminarZarpe }) {
+function VistaFlota({ embarcaciones, mareaAbierta, docsVencidos, puedeOperar, puedeBorrar, onIniciar, onRecalada, onEliminarZarpe, onRetornoFalla }) {
   if (embarcaciones.length === 0) {
     return <Card><Empty><Ship size={30} color={C.amber} style={{ marginBottom: 10 }} /><br />Registra al menos una embarcación para usar el prezarpe.</Empty></Card>;
   }
@@ -251,7 +299,12 @@ function VistaFlota({ embarcaciones, mareaAbierta, docsVencidos, puedeOperar, pu
                     Zarpó {new Date(marea.zarpe_at).toLocaleString("es-CL", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
                     {marea._pending && <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 700, color: "#7a5b00", background: C.amber, padding: "1px 6px", borderRadius: 20 }}><Clock size={9} /> Pendiente</span>}
                   </div>
-                  {puedeOperar && <button onClick={() => onRecalada(marea)} style={{ ...ghostBtn, width: "100%", justifyContent: "center", padding: "11px", color: C.steel, borderColor: C.steel }}><Anchor size={16} /> Registrar recalada</button>}
+                  {puedeOperar && (
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <button onClick={() => onRecalada(marea)} style={{ ...ghostBtn, flex: 1, justifyContent: "center", padding: "11px", color: C.steel, borderColor: C.steel }}><Anchor size={16} /> Recalada</button>
+                      <button onClick={() => onRetornoFalla(marea)} style={{ ...ghostBtn, flex: 1, justifyContent: "center", padding: "11px", color: "#fff", background: C.red, borderColor: C.red }}><AlertOctagon size={16} /> Retorno por falla</button>
+                    </div>
+                  )}
                   {puedeBorrar && <button onClick={() => onEliminarZarpe(marea)} style={{ ...ghostBtn, width: "100%", justifyContent: "center", padding: "9px", marginTop: 8, color: C.red, borderColor: C.red, fontSize: 12.5 }}><Trash2 size={14} /> Eliminar zarpe (creado por error)</button>}
                 </div>
               ) : (
@@ -490,6 +543,152 @@ function StepperRef({ label, unidad, icon, ini, value, onChange, step }) {
   );
 }
 
+// ---------- Pantalla: retorno por falla ----------
+function VistaRetornoFalla({ marea, nave, equipos, onVolver, onGuardar }) {
+  const [form, setForm] = useState({
+    equipo_id: "", descripcion: "", severidad: "alta", riesgoTrip: false,
+  });
+  const [enviando, setEnviando] = useState(false);
+
+  if (!nave || !marea) return null;
+
+  function sistemaLabel() {
+    if (!form.equipo_id) return "Sin especificar";
+    const eq = equipos.find((e) => e.id === form.equipo_id);
+    if (!eq) return "—";
+    const padre = eq.parent_id ? equipos.find((p) => p.id === eq.parent_id) : null;
+    return padre ? `${padre.sistema} > ${eq.sistema}` : eq.sistema;
+  }
+
+  async function enviar() {
+    if (!form.descripcion.trim()) return;
+    setEnviando(true);
+    try {
+      await onGuardar({ ...form, sistemaLabel: sistemaLabel() });
+    } finally { setEnviando(false); }
+  }
+
+  return (
+    <div>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+        <button onClick={onVolver} style={{ ...ghostBtn, padding: "7px 12px" }}><ArrowLeft size={15} /> Volver</button>
+      </div>
+
+      {/* Cabecera de alerta */}
+      <Card style={{ borderTop: `5px solid ${C.red}`, marginBottom: 16, background: "#FEF2F2" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+          <div style={{ width: 54, height: 54, borderRadius: 14, background: C.red, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+            <AlertOctagon size={28} color="#fff" />
+          </div>
+          <div>
+            <div style={{ fontSize: 10.5, letterSpacing: 2, textTransform: "uppercase", color: C.red, fontWeight: 700 }}>Retorno por falla</div>
+            <div style={{ ...archivo, fontSize: 22, fontWeight: 800, color: C.abyss, marginTop: 2 }}>{nave.nombre}</div>
+            <div style={{ fontSize: 12.5, color: C.slate, marginTop: 2 }}>
+              Marea {marea.folio || "—"} · Zarpó {new Date(marea.zarpe_at).toLocaleString("es-CL", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
+            </div>
+          </div>
+        </div>
+      </Card>
+
+      {/* Formulario */}
+      <Card style={{ marginBottom: 16 }}>
+        <div style={{ fontWeight: 700, fontSize: 15, color: C.abyss, marginBottom: 16 }}>Informe de falla</div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
+          {/* Sistema/equipo afectado */}
+          <Field label="Sistema o equipo afectado">
+            <select value={form.equipo_id} onChange={(e) => setForm((p) => ({ ...p, equipo_id: e.target.value }))}
+              style={{ ...inputStyle(), borderColor: C.red }}>
+              <option value="">— Seleccionar sistema —</option>
+              {equipos.map((eq) => (
+                <option key={eq.id} value={eq.id}>
+                  {"　".repeat(eq.depth || 0)}{(eq.depth || 0) > 0 ? "└─ " : ""}{eq.id_visible} · {eq.sistema}
+                </option>
+              ))}
+            </select>
+          </Field>
+
+          {/* Severidad */}
+          <Field label="Severidad de la falla">
+            <div style={{ display: "flex", gap: 8 }}>
+              {[
+                { v: "media",   lbl: "Media",   desc: "Puede operar limitado",      color: C.amber },
+                { v: "alta",    lbl: "Alta",     desc: "No puede pescar",            color: "#E05050" },
+                { v: "critica", lbl: "Crítica",  desc: "Riesgo para nave/seguridad", color: "#B91C1C" },
+              ].map((s) => (
+                <button key={s.v} onClick={() => setForm((p) => ({ ...p, severidad: s.v }))}
+                  title={s.desc}
+                  style={{
+                    flex: 1, padding: "10px 8px", borderRadius: 8, cursor: "pointer", fontSize: 13, fontWeight: 700, textAlign: "center",
+                    background: form.severidad === s.v ? s.color : "#fff",
+                    color: form.severidad === s.v ? "#fff" : s.color,
+                    border: `2px solid ${s.color}`,
+                  }}>
+                  {s.lbl}
+                </button>
+              ))}
+            </div>
+          </Field>
+        </div>
+
+        {/* Descripción */}
+        <Field label="Descripción de la falla (qué se detectó, qué falló, síntomas)">
+          <textarea value={form.descripcion}
+            onChange={(e) => setForm((p) => ({ ...p, descripcion: e.target.value }))}
+            placeholder="Ej: Motor principal perdió potencia a las 350 RPM, humo negro excesivo, temperatura sobre 100°C. Se decidió retornar a puerto."
+            style={{ ...inputStyle(), width: "100%", minHeight: 100, resize: "vertical", fontFamily: "inherit", lineHeight: 1.6 }} />
+        </Field>
+
+        {/* Riesgo tripulación */}
+        <label style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 16, padding: "12px 14px", borderRadius: 8, border: `1px solid ${form.riesgoTrip ? C.red : C.line}`, background: form.riesgoTrip ? "#FEF2F2" : "#fff", cursor: "pointer" }}>
+          <input type="checkbox" checked={form.riesgoTrip}
+            onChange={(e) => setForm((p) => ({ ...p, riesgoTrip: e.target.checked }))}
+            style={{ width: 18, height: 18, accentColor: C.red }} />
+          <div>
+            <div style={{ fontWeight: 700, fontSize: 13.5, color: form.riesgoTrip ? C.red : C.ink }}>Hubo riesgo para la tripulación</div>
+            <div style={{ fontSize: 12, color: C.slate }}>Marcar si la falla puso en peligro la seguridad de las personas a bordo</div>
+          </div>
+        </label>
+      </Card>
+
+      {/* Preview de lo que se generará */}
+      <Card style={{ marginBottom: 16, background: "#FFFBEB", borderLeft: `4px solid ${C.amber}` }}>
+        <div style={{ fontSize: 10.5, letterSpacing: 1.5, textTransform: "uppercase", color: C.slate, fontWeight: 700, marginBottom: 10 }}>
+          Al confirmar se generará automáticamente:
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13 }}>
+            <Pill tone="red">OT Urgente</Pill>
+            <span style={{ color: C.ink }}>Orden de trabajo correctiva prioridad <strong>CRÍTICA</strong></span>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13 }}>
+            <Pill tone="yellow">Solicitud</Pill>
+            <span style={{ color: C.ink }}>Notificación al Jefe de Mantención con detalle de la falla</span>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13 }}>
+            <Pill tone="slate">Cierre de marea</Pill>
+            <span style={{ color: C.ink }}>La marea se cierra como <strong>retorno por falla</strong> (distinguible de recalada normal)</span>
+          </div>
+        </div>
+        {form.equipo_id && (
+          <div style={{ marginTop: 12, padding: "8px 12px", background: "#fff", borderRadius: 6, fontSize: 12.5, color: C.steel }}>
+            Sistema afectado: <strong>{sistemaLabel()}</strong>
+          </div>
+        )}
+      </Card>
+
+      {/* Botones */}
+      <div style={{ display: "flex", gap: 10 }}>
+        <button onClick={enviar} disabled={!form.descripcion.trim() || enviando}
+          style={{ ...primaryBtn, background: C.red, borderColor: C.red, padding: "14px 28px", fontSize: 15 }}>
+          <AlertOctagon size={18} /> {enviando ? "Enviando…" : "Confirmar retorno por falla"}
+        </button>
+        <button onClick={onVolver} style={{ ...ghostBtn, padding: "14px 20px" }}>Cancelar</button>
+      </div>
+    </div>
+  );
+}
+
 // ---------- Pantalla 4: historial de prezarpes ----------
 function VistaHistorial({ prezarpes, embName, mareas, puedeBorrar, onAbrir, onEliminar }) {
   if (prezarpes.length === 0) {
@@ -513,7 +712,10 @@ function VistaHistorial({ prezarpes, embName, mareas, puedeBorrar, onAbrir, onEl
                   <td style={tdStyle}>{embName(p.embarcacion_id)}</td>
                   <td style={{ ...tdStyle, fontSize: 12.5 }}>{p.responsable || "—"}</td>
                   <td style={{ ...tdStyle, fontFamily: "'IBM Plex Mono', monospace", fontSize: 12 }}>{m?.folio || "—"}</td>
-                  <td style={tdStyle}><Pill tone={p.apto ? "green" : "red"}>{p.apto ? "Apto" : "No apto"}</Pill></td>
+                  <td style={tdStyle}>
+                    <Pill tone={p.apto ? "green" : "red"}>{p.apto ? "Apto" : "No apto"}</Pill>
+                    {m?.retorno_falla && <Pill tone="red" style={{ marginLeft: 6 }}>Retorno falla</Pill>}
+                  </td>
                   <td style={{ ...tdStyle, textAlign: "right", color: C.steel, fontSize: 12, fontWeight: 600 }}>Ver informe ›</td>
                   {puedeBorrar && <td style={tdStyle}><button onClick={(e) => { e.stopPropagation(); onEliminar(p); }} title="Eliminar prezarpe" style={{ background: "none", border: "none", cursor: "pointer", color: C.slate }}><Trash2 size={15} /></button></td>}
                 </tr>
