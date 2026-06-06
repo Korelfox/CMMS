@@ -313,7 +313,7 @@ export default function Inventario() {
 
       {/* ── Panel de destinos (editor inline) ── */}
       {itemPanel && (
-        <Card style={{ marginBottom: 16, borderLeft: `4px solid ${C.steel}`, background: "#F8FAFD" }}>
+        <Card style={{ marginBottom: 16, borderLeft: `4px solid ${C.steel}`, background: tint(C.steel, 8) }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
             <div>
               <div style={{ fontSize: 10, letterSpacing: 2, textTransform: "uppercase", color: C.slate, fontWeight: 700 }}>Asignar destino</div>
@@ -395,7 +395,7 @@ export default function Inventario() {
                   const itemDests = destinosDeItem(i.id);
                   const isOpen = destinoPanel === i.id;
                   return (
-                    <tr key={i.id} style={{ background: isOpen ? "#EFF6FF" : undefined }}>
+                    <tr key={i.id} style={{ background: isOpen ? tint(C.sky, 12) : undefined }}>
                       <td style={tdStyle}>
                         {codigoEdit.id === i.id ? (
                           <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
