@@ -211,7 +211,7 @@ export default function AppShell() {
       {/* CONTENIDO */}
       <main style={{ flex: 1, overflowY: "auto", background: C.mist }}>
         {/* Barra superior: Armador + estado de conexión */}
-        <div style={{ position: "sticky", top: 0, zIndex: 20, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "8px 34px", background: online ? "rgba(244,248,251,.92)" : C.yellowBg, borderBottom: `1px solid ${online ? C.line : C.amber}`, backdropFilter: "blur(6px)" }}>
+        <div className="cmms-topbar" style={{ position: "sticky", top: 0, zIndex: 20, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, background: online ? "rgba(244,248,251,.92)" : C.yellowBg, borderBottom: `1px solid ${online ? C.line : C.amber}`, backdropFilter: "blur(6px)" }}>
           <span style={{ fontSize: 12, color: C.slate, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
             Armador: <strong style={{ color: C.steel }}>{armador || profile?.nombre || "—"}</strong>
             {empresa?.puerto_base ? <span style={{ opacity: 0.7 }}> · {empresa.puerto_base}</span> : null}
@@ -235,7 +235,7 @@ export default function AppShell() {
             </span>
           </div>
         </div>
-        <div style={{ maxWidth: 1680, margin: "0 auto", padding: "28px 30px 60px" }}>
+        <div className="cmms-work-area" style={{ maxWidth: 1680, margin: "0 auto" }}>
           <Suspense fallback={<InlineSpinner label="Cargando módulo…" />}>
           {(() => {
             const Modulo = MODULOS[view];
@@ -264,6 +264,20 @@ export default function AppShell() {
           </Suspense>
         </div>
       </main>
+
+      {/* Padding responsivo: amplio en escritorio, mínimo en celular */}
+      <style>{`
+        .cmms-topbar    { padding: 8px 34px; }
+        .cmms-work-area { padding: 28px 30px 60px; }
+        @media (max-width: 760px) {
+          .cmms-topbar    { padding: 8px 14px; }
+          .cmms-work-area { padding: 18px 12px 48px; }
+        }
+        @media (max-width: 440px) {
+          .cmms-topbar    { padding: 7px 9px; }
+          .cmms-work-area { padding: 14px 7px 40px; }
+        }
+      `}</style>
     </div>
   );
 }
