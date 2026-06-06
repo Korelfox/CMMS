@@ -135,8 +135,10 @@ export default function Equipos() {
 
   // Precarga el árbol estándar de sistemas pesqueros para la nave filtrada.
   async function precargarPlantilla() {
-    const emb = embarcaciones.find((e) => e.id === filtro);
-    if (!emb) { setError("Selecciona primero una embarcación en los filtros."); return; }
+    // Nave objetivo: la del filtro; si está en "Todas" y solo hay una nave, esa.
+    const targetId = filtro !== "all" ? filtro : (embarcaciones.length === 1 ? embarcaciones[0].id : null);
+    const emb = embarcaciones.find((e) => e.id === targetId);
+    if (!emb) { setError("Selecciona primero una embarcación en los filtros para precargar la plantilla."); return; }
     const totalNodos = contarNodosPlantilla();
     const totalReps  = contarRepuestosPlantilla();
     if (!window.confirm(`¿Precargar la plantilla de excelencia (ISO 14224) en "${emb.nombre}"?\n\nSe crearán hasta ${totalNodos} nodos de equipos (sistemas → subsistemas → componentes → sensores) y hasta ${totalReps} repuestos (SKU OEM/Alternativo/Genérico) en el Inventario, enlazados a su componente.\n\nLos nodos que ya existan en esta nave NO se duplican: puedes ejecutarla otra vez para completar lo que falte. Puedes borrar después lo que no aplique.`)) return;
@@ -327,22 +329,29 @@ export default function Equipos() {
         )}
       </div>
 
-      {/* Precarga de plantilla pesquera (solo con una nave seleccionada) */}
-      {puedeOperar && filtro !== "all" && (
-        <Card style={{ marginBottom: 16, background: `${C.cyan}0D`, border: `1px solid ${C.cyan}40`, display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
-          <Layers size={22} color={C.cyan} style={{ flexShrink: 0 }} />
-          <div style={{ flex: 1, minWidth: 200 }}>
-            <div style={{ fontWeight: 700, fontSize: 13.5, color: C.abyss }}>Plantilla pesquera ISO 14224</div>
-            <div style={{ fontSize: 12, color: C.slate, marginTop: 2 }}>
-              Genera el árbol estándar de {contarNodosPlantilla()} nodos (14 sistemas + subsistemas + sensores) para <strong>{embName(filtro)}</strong>. Borra después lo que no aplique.
+      {/* Precarga de plantilla ISO 14224. Visible al seleccionar una nave, o
+          cuando aún no hay equipos (para que sea fácil de encontrar). */}
+      {puedeOperar && (filtro !== "all" || equipos.length === 0) && (() => {
+        const navePrecarga = filtro !== "all" ? filtro : (embarcaciones.length === 1 ? embarcaciones[0].id : "");
+        const lista = !navePrecarga;
+        return (
+          <Card style={{ marginBottom: 16, background: `${C.cyan}0D`, border: `1px solid ${C.cyan}40`, display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+            <Layers size={22} color={C.cyan} style={{ flexShrink: 0 }} />
+            <div style={{ flex: 1, minWidth: 200 }}>
+              <div style={{ fontWeight: 700, fontSize: 13.5, color: C.abyss }}>Plantilla de excelencia ISO 14224</div>
+              <div style={{ fontSize: 12, color: C.slate, marginTop: 2 }}>
+                {lista
+                  ? <>Selecciona una <strong>nave</strong> en los filtros de arriba para precargar su jerarquía.</>
+                  : <>Genera el árbol estándar de hasta {contarNodosPlantilla()} nodos (sistemas → Motor Principal y Generador desglosados → componentes → sensores) y {contarRepuestosPlantilla()} repuestos en el Inventario para <strong>{embName(navePrecarga)}</strong>. No duplica lo que ya exista; borra después lo que no aplique.</>}
+              </div>
             </div>
-          </div>
-          <button onClick={precargarPlantilla} disabled={precargando}
-            style={{ ...primaryBtn, background: C.cyan, borderColor: C.cyan, flexShrink: 0 }}>
-            {precargando ? "Precargando…" : <><Layers size={15} /> Precargar plantilla</>}
-          </button>
-        </Card>
-      )}
+            <button onClick={precargarPlantilla} disabled={precargando || lista}
+              style={{ ...primaryBtn, background: C.cyan, borderColor: C.cyan, flexShrink: 0, opacity: lista ? 0.5 : 1 }}>
+              {precargando ? "Precargando…" : <><Layers size={15} /> Precargar plantilla</>}
+            </button>
+          </Card>
+        );
+      })()}
 
       {showForm && (
         <Card style={{ marginBottom: 16, background: C.mist }}>
