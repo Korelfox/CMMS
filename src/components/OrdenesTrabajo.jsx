@@ -3,7 +3,6 @@ import { ClipboardList, Plus, Trash2, Download, CloudOff, Clock, DollarSign, Che
 import { useAuth } from "../lib/auth";
 import { fetchAll, insertRow, updateRow, deleteRow, logActivity } from "../lib/db";
 import { useOnline, cacheTable, getCached, queueInsert, nuevoId } from "../lib/offline";
-import { buildEquipoTree } from "../lib/equipTree";
 import { subirFotos } from "../lib/fotos";
 import { C, clp, num, isAdmin, canOperate, TIPOS_OT, PRIORIDADES, ESTADOS_OT, lk, tn, tint } from "../theme";
 import {
@@ -13,6 +12,7 @@ import {
 import { FotoInput, FotoGaleria } from "./Fotos";
 import { blankOT, folioOT, kpisOT, costoOT, filtrarOTs, validarNuevaOT } from "../lib/ot";
 import EstadoSelect from "./ot/EstadoSelect";
+import EquipoPicker from "./ot/EquipoPicker";
 
 const HOY = () => new Date().toISOString().slice(0, 10);
 
@@ -225,17 +225,9 @@ export default function OrdenesTrabajo({ navParams }) {
               </select>
             </Field>
             <Field label="Equipo (opcional)">
-              <select value={form.equipo_id} disabled={!form.embarcacion_id} onChange={(e) => {
-                const eq = equipos.find((x) => x.id === e.target.value);
-                setForm({ ...form, equipo_id: e.target.value, sistema: eq?.sistema || form.sistema });
-              }} style={inputStyle()}>
-                <option value="">— Ninguno —</option>
-                {buildEquipoTree(equiposDeNave).map((eq) => (
-                  <option key={eq.id} value={eq.id}>
-                    {"　".repeat(eq.depth)}{eq.depth > 0 ? "└─ " : ""}{eq.id_visible} · {eq.sistema}
-                  </option>
-                ))}
-              </select>
+              <EquipoPicker equipos={equiposDeNave} value={form.equipo_id} disabled={!form.embarcacion_id}
+                testId="ot-form-equipo"
+                onChange={(eq) => setForm({ ...form, equipo_id: eq?.id || "", sistema: eq?.sistema || form.sistema })} />
             </Field>
             <Field label="Sistema"><input value={form.sistema} onChange={(e) => setForm({ ...form, sistema: e.target.value })} style={inputStyle()} placeholder="Motor Principal" /></Field>
             <Field label="Fecha"><input type="date" value={form.fecha} onChange={(e) => setForm({ ...form, fecha: e.target.value })} style={inputStyle()} /></Field>
