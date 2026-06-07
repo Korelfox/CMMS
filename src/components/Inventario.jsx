@@ -107,7 +107,16 @@ export default function Inventario() {
   const categoriasUsadas = [...new Set(items.map((i) => i.categoria).filter(Boolean))].sort();
 
   // ── Filtros combinables ──────────────────────────────────────
-  const stockStatus = (i) => i.total <= i.stock_min ? "bajo" : i.total <= i.stock_min * 1.5 ? "revisar" : "ok";
+  // Estado de stock. Un ítem sin mínimo definido (stock_min = 0) NO se marca
+  // como "Bajo": no tiene umbral configurado, así que se muestra "Sin mín".
+  const estadoStock = (i) => {
+    const min = i.stock_min || 0;
+    if (min <= 0) return { key: "ok", tone: "slate", label: "Sin mín" };
+    if (i.total <= min) return { key: "bajo", tone: "red", label: "Bajo" };
+    if (i.total <= min * 1.5) return { key: "revisar", tone: "yellow", label: "Revisar" };
+    return { key: "ok", tone: "green", label: "OK" };
+  };
+  const stockStatus = (i) => estadoStock(i).key;
   const q = busqueda.trim().toLowerCase();
   const lista = conABC.filter((i) =>
     (filtroCat === "all" || i.categoria === filtroCat) &&
@@ -257,7 +266,7 @@ export default function Inventario() {
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14, marginBottom: 16 }}>
         <MiniStat label="Valor Total" value={clp(totalValor)} tone={C.gold} />
         <MiniStat label="Ítems Clase A" value={conABC.filter((x) => x.abc === "A").length} tone={C.red} sub="control estricto" />
-        <MiniStat label="Bajo Mínimo" value={conABC.filter((x) => x.total <= x.stock_min).length} tone={C.red} />
+        <MiniStat label="Bajo Mínimo" value={conABC.filter((x) => estadoStock(x).key === "bajo").length} tone={C.red} />
         <MiniStat label="Total Ítems" value={items.length} />
       </div>
 
@@ -505,7 +514,7 @@ export default function Inventario() {
                 {(() => {
                 const filaItem = (i, indent = 0) => {
                   const abcTone = { A: "red", B: "yellow", C: "green" }[i.abc];
-                  const st = i.total <= i.stock_min ? ["red", "Bajo"] : i.total <= i.stock_min * 1.5 ? ["yellow", "Revisar"] : ["green", "OK"];
+                  const st = estadoStock(i);
                   const itemDests = destinosDeItem(i.id);
                   const isOpen = destinoPanel === i.id;
                   return (
@@ -602,7 +611,7 @@ export default function Inventario() {
                           style={{ ...bluInput, width: 90, textAlign: "right" }} />
                       </td>
                       <td style={{ ...tdStyle, textAlign: "right", fontFamily: "'IBM Plex Mono', monospace", fontWeight: 600 }}>{clp(i.valor)}</td>
-                      <td style={tdStyle}><Pill tone={st[0]}>{st[1]}</Pill></td>
+                      <td style={tdStyle}><Pill tone={st.tone}>{st.label}</Pill></td>
 
                       {/* Columna Destino */}
                       <td style={{ ...tdStyle, minWidth: 150 }}>
