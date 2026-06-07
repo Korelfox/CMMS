@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 import { Package, Plus, Trash2, Download, Anchor, X, Pencil, Check, Tag, Search, ChevronDown, ChevronRight, List, FolderTree, Layers } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { fetchAll, insertRow, updateRow, deleteRow, logActivity } from "../lib/db";
@@ -31,9 +31,10 @@ const PREFIJOS_SKU = [
   ["CON", "Consumibles", "—"],
 ];
 
-// Categorías por SISTEMA — derivadas de la plantilla de equipos ISO 14224,
-// así se mantienen sincronizadas con la jerarquía de la flota.
-const CATEGORIAS_SISTEMA = PLANTILLA_PESQUERA.map((s) => s.nom);
+// Respaldo de categorías por sistema (plantilla ISO 14224). Se usa solo si la
+// flota aún no tiene equipos cargados; si los hay, las categorías de sistema
+// se derivan del árbol real de Equipos (ver categoriasSugeridas).
+const CATEGORIAS_SISTEMA_DEFAULT = PLANTILLA_PESQUERA.map((s) => s.nom);
 // Categorías por TIPO DE MATERIAL — transversales a los sistemas.
 const CATEGORIAS_MATERIAL = [
   "Lubricantes y Aceites",
@@ -47,7 +48,6 @@ const CATEGORIAS_MATERIAL = [
   "Seguridad y EPP",
   "Pintura y Anticorrosivo",
 ];
-const CATEGORIAS = [...CATEGORIAS_SISTEMA, ...CATEGORIAS_MATERIAL];
 
 export default function Inventario() {
   const { profile } = useAuth();
@@ -105,6 +105,18 @@ export default function Inventario() {
   const conABC = enriquecidos.map((x) => { cum += x.valor; const pct = totalValor ? cum / totalValor : 0; return { ...x, abc: pct <= 0.8 ? "A" : pct <= 0.95 ? "B" : "C" }; });
 
   const categoriasUsadas = [...new Set(items.map((i) => i.categoria).filter(Boolean))].sort();
+
+  // Categorías sugeridas en el datalist: SISTEMAS reales del árbol de Equipos
+  // (nivel sistema/subsistema), + tipos de material, + las ya usadas. Si la flota
+  // aún no tiene equipos, cae a la plantilla por defecto.
+  const categoriasSugeridas = useMemo(() => {
+    const sistemas = equipos
+      .filter((e) => e.tipo_nodo === "sistema" || e.tipo_nodo === "subsistema")
+      .map((e) => e.sistema).filter(Boolean);
+    const base = sistemas.length ? sistemas : CATEGORIAS_SISTEMA_DEFAULT;
+    return [...new Set([...base, ...CATEGORIAS_MATERIAL, ...categoriasUsadas])]
+      .sort((a, b) => a.localeCompare(b, "es"));
+  }, [equipos, categoriasUsadas]);
 
   // ── Filtros combinables ──────────────────────────────────────
   // Estado de stock. Un ítem sin mínimo definido (stock_min = 0) NO se marca
@@ -747,7 +759,7 @@ export default function Inventario() {
         </Card>
       )}
       <datalist id="inv-categorias">
-        {CATEGORIAS.map((c) => <option key={c} value={c} />)}
+        {categoriasSugeridas.map((c) => <option key={c} value={c} />)}
       </datalist>
     </div>
   );
