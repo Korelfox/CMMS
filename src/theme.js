@@ -57,6 +57,16 @@ export const THEME_VARS = `
     ${Object.entries(HEX_DARK).map(([k, v]) => `--c-${k}: ${v};`).join("\n    ")}
     color-scheme: dark;
   }
+
+  /* Impresión / Exportar PDF: imprime solo el área de trabajo, en claro. */
+  @media print {
+    [data-theme="dark"] { ${Object.entries(HEX_LIGHT).map(([k, v]) => `--c-${k}: ${v};`).join(" ")} color-scheme: light; }
+    .cmms-sidebar, .cmms-topbar, .cmms-overlay, .no-print { display: none !important; }
+    .cmms-work-area { padding: 0 !important; max-width: 100% !important; }
+    main, body, html { overflow: visible !important; height: auto !important; background: #fff !important; }
+    .print-only { display: block !important; }
+  }
+  .print-only { display: none; }
 `;
 
 export const mono = { fontFamily: "'IBM Plex Mono', monospace" };

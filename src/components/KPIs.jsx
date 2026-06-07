@@ -1,15 +1,15 @@
 import React, { useEffect, useState, useCallback } from "react";
-import { Gauge, TrendingUp, Clock, Wrench, AlertCircle } from "lucide-react";
+import { Gauge, TrendingUp, Clock, Wrench, AlertCircle, Printer } from "lucide-react";
 import { BarChart, Bar, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import { useAuth } from "../lib/auth";
 import { fetchAll } from "../lib/db";
 import { C, archivo, clp, num, TIPOS_OT, lk } from "../theme";
-import { Card, PageHead, Pill, thStyle, tdStyle, Empty, ErrorBanner, InlineSpinner } from "../ui";
+import { Card, PageHead, Pill, exportBtn, thStyle, tdStyle, Empty, ErrorBanner, InlineSpinner } from "../ui";
 
 const TIPO_COLOR = { preventivo: "#1E9E6A", correctivo: "#D8443C", modificativo: "#6C4FA3", predictivo: "#127C8A" };
 
 export default function KPIs() {
-  const { profile } = useAuth();
+  const { profile, empresa } = useAuth();
   const [embarcaciones, setEmbarcaciones] = useState([]);
   const [equipos, setEquipos] = useState([]);
   const [ots, setOts] = useState([]);
@@ -55,6 +55,12 @@ export default function KPIs() {
   // Costos
   const costoMO = ots.reduce((s, o) => s + (Number(o.costo_mo) || 0), 0);
   const costoMat = ots.reduce((s, o) => s + (Number(o.costo_mat) || 0), 0);
+  // Backlog: antigüedad (días) de la OT abierta más vieja — alerta ejecutiva.
+  const backlogDias = abiertas.reduce((max, o) => {
+    if (!o.fecha) return max;
+    const d = Math.floor((Date.now() - new Date(o.fecha + "T00:00:00").getTime()) / 86400000);
+    return d > max ? d : max;
+  }, 0);
 
   // Datos por embarcación
   const porEmbarcacion = embarcaciones.map((e) => {
@@ -98,7 +104,16 @@ export default function KPIs() {
   return (
     <div>
       <PageHead kicker="Confiabilidad · Pascual / Mora Gutiérrez" title="KPIs & Confiabilidad"
-        sub="MTBF, MTTR y Disponibilidad calculados desde las OTs. Los datos se llenan automáticamente a medida que registres y cierres trabajos." />
+        sub="MTBF, MTTR y Disponibilidad calculados desde las OTs. Los datos se llenan automáticamente a medida que registres y cierres trabajos."
+        action={<button onClick={() => window.print()} className="no-print" style={exportBtn}><Printer size={15} /> Exportar PDF</button>} />
+
+      {/* Encabezado solo visible al imprimir / exportar a PDF */}
+      <div className="print-only" style={{ marginBottom: 12, borderBottom: `2px solid ${C.steel}`, paddingBottom: 8 }}>
+        <div style={{ ...archivo, fontSize: 18, fontWeight: 800, color: C.abyss }}>Reporte de Confiabilidad — {empresa?.nombre || "Flota"}</div>
+        <div style={{ fontSize: 12, color: C.slate }}>
+          MTBF · MTTR · Disponibilidad · Backlog · Generado el {new Date().toLocaleDateString("es-CL")} por {profile?.nombre || ""}
+        </div>
+      </div>
 
       <ErrorBanner onRetry={cargar}>{error}</ErrorBanner>
 
@@ -109,9 +124,10 @@ export default function KPIs() {
         <BigKPI label="Proactividad" value={`${propProactivo.toFixed(0)}%`} tone={proTone} icon={TrendingUp} sub={`${proactivas.length} de ${ots.length} OTs`} />
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14, marginBottom: 18 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 14, marginBottom: 18 }}>
         <MiniKPI label="OTs Totales" value={ots.length} />
-        <MiniKPI label="OTs Abiertas" value={abiertas.length} tone={abiertas.length ? C.amber : C.green} />
+        <MiniKPI label="Backlog (abiertas)" value={abiertas.length} tone={abiertas.length ? C.amber : C.green} sub={backlogDias > 0 ? `más antigua: ${backlogDias} d` : "al día"} />
+        <MiniKPI label="Antigüedad máx" value={`${backlogDias} d`} tone={backlogDias > 30 ? C.red : backlogDias > 14 ? C.amber : C.green} sub="OT abierta más vieja" />
         <MiniKPI label="% Cumplimiento" value={`${cumplimiento.toFixed(0)}%`} />
         <MiniKPI label="Costo Total" value={clp(costoMO + costoMat)} tone={C.gold} sub={`MO ${clp(costoMO)} · Mat ${clp(costoMat)}`} />
       </div>
