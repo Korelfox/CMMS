@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from "react";
-import { Package, Plus, Trash2, Download, Anchor, X, Pencil, Check, Tag } from "lucide-react";
+import { Package, Plus, Trash2, Download, Anchor, X, Pencil, Check, Tag, Search, ChevronDown, ChevronRight, List, FolderTree, Layers } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { fetchAll, insertRow, updateRow, deleteRow, logActivity } from "../lib/db";
 import { C, clp, isAdmin, canOperate, tint } from "../theme";
@@ -62,8 +62,14 @@ export default function Inventario() {
   const [destinoPanel, setDestinoPanel] = useState(null); // item_id | null
   const [filtroCat, setFiltroCat] = useState("all");
   const [codigoEdit, setCodigoEdit] = useState({ id: null, valor: "" });
+  const [vista, setVista] = useState("plano");        // plano | categoria | jerarquia
+  const [busqueda, setBusqueda] = useState("");
+  const [filtroABC, setFiltroABC] = useState("all");   // all | A | B | C
+  const [filtroStock, setFiltroStock] = useState("all"); // all | bajo | revisar | ok
+  const [gruposCol, setGruposCol] = useState(() => new Set()); // grupos colapsados
   const puedeOperar = canOperate(profile?.rol);
   const puedeBorrar = isAdmin(profile?.rol);
+  const NCOLS = 12 + (puedeBorrar ? 1 : 0);
 
   function blank() {
     return { codigo: "", descripcion: "", categoria: "", unidad: "Un", stock_min: 0, stock_max: 0, precio: 0, proveedor: "", lead_dias: 7, tipo_repuesto: "oem", grupo_intercambio: "", equipoIds: [] };
@@ -98,11 +104,47 @@ export default function Inventario() {
   const conABC = enriquecidos.map((x) => { cum += x.valor; const pct = totalValor ? cum / totalValor : 0; return { ...x, abc: pct <= 0.8 ? "A" : pct <= 0.95 ? "B" : "C" }; });
 
   const categoriasUsadas = [...new Set(items.map((i) => i.categoria).filter(Boolean))].sort();
-  const tablaFiltrada = filtroCat === "all" ? conABC : conABC.filter((i) => i.categoria === filtroCat);
+
+  // ── Filtros combinables ──────────────────────────────────────
+  const stockStatus = (i) => i.total <= i.stock_min ? "bajo" : i.total <= i.stock_min * 1.5 ? "revisar" : "ok";
+  const q = busqueda.trim().toLowerCase();
+  const lista = conABC.filter((i) =>
+    (filtroCat === "all" || i.categoria === filtroCat) &&
+    (filtroABC === "all" || i.abc === filtroABC) &&
+    (filtroStock === "all" || stockStatus(i) === filtroStock) &&
+    (!q || i.codigo.toLowerCase().includes(q) || (i.descripcion || "").toLowerCase().includes(q) || (i.proveedor || "").toLowerCase().includes(q))
+  );
+  const hayFiltro = filtroCat !== "all" || filtroABC !== "all" || filtroStock !== "all" || !!q;
+  const limpiarFiltros = () => { setFiltroCat("all"); setFiltroABC("all"); setFiltroStock("all"); setBusqueda(""); };
+  const toggleGrupo = (k) => setGruposCol((p) => { const n = new Set(p); n.has(k) ? n.delete(k) : n.add(k); return n; });
 
   // ── Destinos ─────────────────────────────────────────────────
   function destinosDeItem(itemId) { return destinos.filter((d) => d.item_id === itemId); }
   function embColor(embId) { return embarcaciones.find((e) => e.id === embId)?.color || C.steel; }
+  function embName(embId)  { return embarcaciones.find((e) => e.id === embId)?.nombre || ""; }
+
+  // ── Agrupación para las vistas colapsables ───────────────────
+  // Cada grupo = { key, label, sub, depth, items }.
+  function construirGrupos() {
+    if (vista === "categoria") {
+      const byCat = new Map();
+      lista.forEach((i) => { const k = i.categoria || "— Sin categoría"; if (!byCat.has(k)) byCat.set(k, []); byCat.get(k).push(i); });
+      return [...byCat.entries()].sort((a, b) => a[0].localeCompare(b[0], "es"))
+        .map(([k, its]) => ({ key: "cat:" + k, label: k, sub: null, depth: 0, items: its }));
+    }
+    if (vista === "jerarquia") {
+      const tree = buildEquipoTree(equipos);
+      const grupos = [];
+      tree.forEach((eq) => {
+        const its = lista.filter((i) => destinos.some((d) => d.item_id === i.id && d.equipo_id === eq.id));
+        if (its.length) grupos.push({ key: "eq:" + eq.id, label: eq.sistema, sub: `${eq.id_visible} · ${embName(eq.embarcacion_id)}`, depth: eq.depth, items: its });
+      });
+      const sinAsig = lista.filter((i) => !destinos.some((d) => d.item_id === i.id));
+      if (sinAsig.length) grupos.push({ key: "sin", label: "Sin asignar a equipo", sub: null, depth: 0, items: sinAsig });
+      return grupos;
+    }
+    return null; // plano
+  }
 
   async function agregarDestino(itemId, equipoId) {
     if (destinos.some((d) => d.item_id === itemId && d.equipo_id === equipoId)) return;
@@ -220,15 +262,69 @@ export default function Inventario() {
         <MiniStat label="Total Ítems" value={items.length} />
       </div>
 
-      {/* ── Filtro por categoría ── */}
-      {categoriasUsadas.length > 0 && (
-        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 }}>
-          <FilterBtn active={filtroCat === "all"} onClick={() => setFiltroCat("all")}>Todas</FilterBtn>
-          {categoriasUsadas.map((cat) => (
-            <FilterBtn key={cat} active={filtroCat === cat} onClick={() => setFiltroCat(cat)}>
-              {cat} <span style={{ opacity: 0.6, fontSize: 10.5 }}>({conABC.filter((i) => i.categoria === cat).length})</span>
-            </FilterBtn>
-          ))}
+      {/* ── Barra de filtros + vista ── */}
+      {items.length > 0 && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 14 }}>
+          {/* Fila 1: buscador + toggle de vista */}
+          <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+            <div style={{ position: "relative", flex: "1 1 280px", maxWidth: 360 }}>
+              <Search size={15} color={C.slate} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)" }} />
+              <input value={busqueda} onChange={(e) => setBusqueda(e.target.value)}
+                placeholder="Buscar código, descripción o proveedor…"
+                style={{ ...inputStyle(), width: "100%", paddingLeft: 32, fontSize: 13 }} />
+            </div>
+            <div style={{ display: "flex", gap: 0, border: `1px solid ${C.line}`, borderRadius: 8, overflow: "hidden" }}>
+              {[["plano", "Plano", List], ["categoria", "Categoría", FolderTree], ["jerarquia", "Jerarquía", Layers]].map(([v, lbl, Ico]) => (
+                <button key={v} onClick={() => setVista(v)}
+                  style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 12px", border: "none", borderLeft: v !== "plano" ? `1px solid ${C.line}` : "none", background: vista === v ? C.steel : "#fff", color: vista === v ? "#fff" : C.slate, fontSize: 12.5, fontWeight: 600, cursor: "pointer" }}>
+                  <Ico size={14} /> {lbl}
+                </button>
+              ))}
+            </div>
+            <span style={{ marginLeft: "auto", fontSize: 12, color: C.slate }}>{lista.length} de {items.length} ítems</span>
+            {hayFiltro && (
+              <button onClick={limpiarFiltros} style={{ padding: "6px 10px", borderRadius: 7, border: `1px solid ${C.line}`, background: "none", color: C.slate, fontSize: 12, cursor: "pointer" }}>
+                <X size={13} style={{ display: "inline", verticalAlign: "middle" }} /> Limpiar
+              </button>
+            )}
+          </div>
+
+          {/* Fila 2: ABC + estado de stock */}
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+            <span style={{ fontSize: 11, color: C.slate, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5 }}>ABC</span>
+            {[["all", "Todos", C.slate], ["A", "A", C.red], ["B", "B", C.amber], ["C", "C", C.green]].map(([v, lbl, tone]) => {
+              const active = filtroABC === v;
+              return <button key={v} onClick={() => setFiltroABC(v)} style={{ padding: "5px 12px", borderRadius: 7, border: `1px solid ${active ? tone : C.line}`, background: active ? tone : "#fff", color: active ? "#fff" : C.slate, fontSize: 12.5, fontWeight: 600, cursor: "pointer" }}>{lbl}</button>;
+            })}
+            <div style={{ width: 1, alignSelf: "stretch", background: C.line, margin: "0 4px" }} />
+            <span style={{ fontSize: 11, color: C.slate, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5 }}>Stock</span>
+            {[["all", "Todos", C.slate], ["bajo", "Bajo mínimo", C.red], ["revisar", "Por revisar", C.amber], ["ok", "OK", C.green]].map(([v, lbl, tone]) => {
+              const active = filtroStock === v;
+              const n = v === "all" ? null : conABC.filter((i) => stockStatus(i) === v).length;
+              return <button key={v} onClick={() => setFiltroStock(v)} style={{ padding: "5px 12px", borderRadius: 7, border: `1px solid ${active ? tone : C.line}`, background: active ? tone : "#fff", color: active ? "#fff" : C.slate, fontSize: 12.5, fontWeight: 600, cursor: "pointer" }}>{lbl}{n != null && <span style={{ opacity: 0.7, marginLeft: 4, fontSize: 11 }}>({n})</span>}</button>;
+            })}
+          </div>
+
+          {/* Fila 3: categorías */}
+          {categoriasUsadas.length > 0 && (
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+              <span style={{ fontSize: 11, color: C.slate, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, marginRight: 2 }}>Categoría</span>
+              <FilterBtn active={filtroCat === "all"} onClick={() => setFiltroCat("all")}>Todas</FilterBtn>
+              {categoriasUsadas.map((cat) => (
+                <FilterBtn key={cat} active={filtroCat === cat} onClick={() => setFiltroCat(cat)}>
+                  {cat} <span style={{ opacity: 0.6, fontSize: 10.5 }}>({conABC.filter((i) => i.categoria === cat).length})</span>
+                </FilterBtn>
+              ))}
+            </div>
+          )}
+
+          {/* Colapsar / expandir todo (solo en vistas agrupadas) */}
+          {vista !== "plano" && (
+            <div style={{ display: "flex", gap: 8 }}>
+              <button onClick={() => { const g = construirGrupos() || []; setGruposCol(new Set(g.map((x) => x.key))); }} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, padding: "5px 12px", borderRadius: 8, border: `1px solid ${C.line}`, background: "#fff", color: C.slate, cursor: "pointer", fontWeight: 600 }}><ChevronRight size={13} /> Colapsar todo</button>
+              <button onClick={() => setGruposCol(new Set())} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, padding: "5px 12px", borderRadius: 8, border: `1px solid ${C.line}`, background: "#fff", color: C.slate, cursor: "pointer", fontWeight: 600 }}><ChevronDown size={13} /> Expandir todo</button>
+            </div>
+          )}
         </div>
       )}
 
@@ -407,7 +503,8 @@ export default function Inventario() {
                 {puedeBorrar && <th style={thStyle}></th>}
               </tr></thead>
               <tbody>
-                {tablaFiltrada.map((i) => {
+                {(() => {
+                const filaItem = (i) => {
                   const abcTone = { A: "red", B: "yellow", C: "green" }[i.abc];
                   const st = i.total <= i.stock_min ? ["red", "Bajo"] : i.total <= i.stock_min * 1.5 ? ["yellow", "Revisar"] : ["green", "OK"];
                   const itemDests = destinosDeItem(i.id);
@@ -554,7 +651,34 @@ export default function Inventario() {
                       )}
                     </tr>
                   );
-                })}
+                };
+                if (vista === "plano") {
+                  return lista.length ? lista.map(filaItem)
+                    : <tr><td colSpan={NCOLS} style={{ textAlign: "center", padding: 24, color: C.slate, fontSize: 13 }}>Sin ítems para los filtros seleccionados.</td></tr>;
+                }
+                const grupos = construirGrupos() || [];
+                if (!grupos.length) return <tr><td colSpan={NCOLS} style={{ textAlign: "center", padding: 24, color: C.slate, fontSize: 13 }}>Sin ítems para los filtros seleccionados.</td></tr>;
+                return grupos.map((g) => {
+                  const col = gruposCol.has(g.key);
+                  const valorG = g.items.reduce((s, i) => s + i.valor, 0);
+                  return (
+                    <React.Fragment key={g.key}>
+                      <tr onClick={() => toggleGrupo(g.key)} style={{ cursor: "pointer", background: tint(C.steel, 8) }}>
+                        <td colSpan={NCOLS} style={{ ...tdStyle, padding: "8px 14px" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8, paddingLeft: (g.depth || 0) * 16 }}>
+                            {col ? <ChevronRight size={15} color={C.steel} /> : <ChevronDown size={15} color={C.steel} />}
+                            <span style={{ fontWeight: 700, color: C.abyss }}>{g.label}</span>
+                            {g.sub && <span style={{ fontSize: 11.5, color: C.slate, fontFamily: "'IBM Plex Mono', monospace" }}>{g.sub}</span>}
+                            <span style={{ fontSize: 11.5, color: C.slate }}>· {g.items.length} ítem{g.items.length > 1 ? "s" : ""}</span>
+                            <span style={{ marginLeft: "auto", fontSize: 12.5, color: C.steel, fontWeight: 700, fontFamily: "'IBM Plex Mono', monospace" }}>{clp(valorG)}</span>
+                          </div>
+                        </td>
+                      </tr>
+                      {!col && g.items.map(filaItem)}
+                    </React.Fragment>
+                  );
+                });
+                })()}
               </tbody>
             </table>
           </div>
