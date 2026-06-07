@@ -1,10 +1,13 @@
 import React, { useEffect, useState, useCallback, useMemo } from "react";
 import {
   Warehouse, ArrowRightLeft, ShoppingCart, Plus, Trash2, Download,
-  ChevronRight, X, PackagePlus, Ship, Anchor, Check, AlertCircle, Pencil,
+  ChevronRight, ChevronDown, X, PackagePlus, Ship, Anchor, Check, AlertCircle, Pencil,
+  Search, List, FolderTree, Layers,
 } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { fetchAll, insertRow, updateRow, deleteRow, upsertRow, logActivity } from "../lib/db";
+import { buildEquipoTree } from "../lib/equipTree";
+import { useArbolColapsable, EquipoNodoLabel } from "../lib/arbolColapsable";
 import { supabase } from "../lib/supabase";
 import { C, archivo, clp, num, isAdmin, canOperate, tint } from "../theme";
 import {
@@ -20,6 +23,8 @@ export default function Almacen() {
   const [embarcaciones, setEmbarcaciones] = useState([]);
   const [bodegas, setBodegas] = useState([]);
   const [items, setItems] = useState([]);
+  const [equipos, setEquipos] = useState([]);
+  const [destinos, setDestinos] = useState([]);
   const [stock, setStock] = useState([]);
   const [movimientos, setMovimientos] = useState([]);
   const [compras, setCompras] = useState([]);
@@ -33,7 +38,7 @@ export default function Almacen() {
   const cargar = useCallback(async () => {
     setLoading(true); setError(null);
     try {
-      const [embs, bods, its, stk, movs, cps, cpsIts, otsAll] = await Promise.all([
+      const [embs, bods, its, stk, movs, cps, cpsIts, otsAll, eqs, dests] = await Promise.all([
         fetchAll("embarcaciones", { order: { col: "codigo", asc: true } }),
         fetchAll("bodegas", { order: { col: "codigo", asc: true } }),
         fetchAll("inventario_items", { order: { col: "codigo", asc: true } }),
@@ -42,9 +47,12 @@ export default function Almacen() {
         fetchAll("compras", { order: { col: "fecha", asc: false } }),
         fetchAll("compras_items"),
         fetchAll("ordenes_trabajo", { order: { col: "fecha", asc: false } }),
+        fetchAll("equipos", { order: { col: "id_visible", asc: true } }),
+        fetchAll("inventario_item_destinos"),
       ]);
       setEmbarcaciones(embs); setBodegas(bods); setItems(its); setStock(stk);
       setMovimientos(movs); setCompras(cps); setComprasItems(cpsIts); setOts(otsAll);
+      setEquipos(eqs); setDestinos(dests);
     } catch (e) { setError("No se pudo cargar el almacén. " + e.message); }
     finally { setLoading(false); }
   }, []);
@@ -90,7 +98,8 @@ export default function Almacen() {
       )}
       {tab === "stock" && (
         <TabStock profile={profile} items={items} setItems={setItems} bodegas={bodegas} stockMap={stockMap}
-          stock={stock} setStock={setStock} setError={setError} onReponer={reponer} />
+          stock={stock} setStock={setStock} setError={setError} onReponer={reponer}
+          equipos={equipos} destinos={destinos} embarcaciones={embarcaciones} />
       )}
       {tab === "movs" && (
         <TabMovimientos profile={profile} items={items} bodegas={bodegas} ots={ots}
@@ -247,12 +256,15 @@ function TabBodegas({ profile, empresa, embarcaciones, bodegas, setBodegas, reca
 }
 
 /* ============================ TAB · STOCK por bodega ============================ */
-function TabStock({ profile, items, setItems, bodegas, stockMap, stock, setStock, setError, onReponer }) {
+function TabStock({ profile, items, setItems, bodegas, stockMap, stock, setStock, setError, onReponer, equipos = [], destinos = [], embarcaciones = [] }) {
   const puedeOperar = canOperate(profile?.rol);
   const [stockEdit, setStockEdit] = useState({ item_id: null, bodega_id: null, valor: "" });
   const [descEdit, setDescEdit]   = useState({ id: null, valor: "" });
   const [filtroSt, setFiltroSt]   = useState("all");
+  const [filtroABC, setFiltroABC] = useState("all");
   const [busqueda, setBusqueda]   = useState("");
+  const [vista, setVista]         = useState("plano");      // plano | categoria | jerarquia
+  const [gruposCol, setGruposCol] = useState(() => new Set());
 
   // ── Stock ────────────────────────────────────────────────────
   async function setCantidad(item_id, bodega_id, v) {
@@ -338,8 +350,30 @@ function TabStock({ profile, items, setItems, bodegas, stockMap, stock, setStock
     const st = t <= i.stock_min ? "bajo" : t <= i.stock_min * 1.5 ? "revisar" : "ok";
     const q  = busqueda.toLowerCase();
     return (filtroSt === "all" || st === filtroSt)
-      && (!q || i.codigo.toLowerCase().includes(q) || i.descripcion.toLowerCase().includes(q) || (i.categoria || "").toLowerCase().includes(q));
+      && (filtroABC === "all" || conABC.get(i.id) === filtroABC)
+      && (!q || i.codigo.toLowerCase().includes(q) || i.descripcion.toLowerCase().includes(q) || (i.categoria || "").toLowerCase().includes(q) || (i.proveedor || "").toLowerCase().includes(q));
   });
+  const hayFiltro = filtroSt !== "all" || filtroABC !== "all" || !!busqueda;
+  const NCOLS = 7 + bodegas.length; // Código, ABC, Categoría, Descripción, [bodegas], Total, Mín, Nivel
+
+  // ── Agrupaciones (consistente con Inventario) ────────────────
+  const embName = (id) => embarcaciones.find((e) => e.id === id)?.nombre || "";
+  const toggleGrupo = (k) => setGruposCol((p) => { const n = new Set(p); n.has(k) ? n.delete(k) : n.add(k); return n; });
+  const gruposCategoria = () => {
+    const m = new Map();
+    itemsFiltrados.forEach((i) => { const k = i.categoria || "— Sin categoría"; if (!m.has(k)) m.set(k, []); m.get(k).push(i); });
+    return [...m.entries()].sort((a, b) => a[0].localeCompare(b[0], "es")).map(([k, its]) => ({ key: "cat:" + k, label: k, items: its }));
+  };
+  const itemsDeEqDirect = (eqId) => itemsFiltrados.filter((i) => destinos.some((d) => d.item_id === i.id && d.equipo_id === eqId));
+  const eqById = new Map(equipos.map((e) => [e.id, e]));
+  const relevante = new Set();
+  itemsFiltrados.forEach((i) => destinos.filter((d) => d.item_id === i.id).forEach((d) => {
+    let cur = eqById.get(d.equipo_id);
+    while (cur && !relevante.has(cur.id)) { relevante.add(cur.id); cur = cur.parent_id ? eqById.get(cur.parent_id) : null; }
+  }));
+  const treeJerarquia = buildEquipoTree(equipos).filter((eq) => relevante.has(eq.id));
+  const arbolInv = useArbolColapsable(treeJerarquia); // colapso por nodo (como Registro de Equipos)
+  const sinAsignar = itemsFiltrados.filter((i) => !destinos.some((d) => d.item_id === i.id));
 
   if (bodegas.length === 0) return <Card><Empty><AlertCircle size={28} color={C.amber} /><br/>Primero crea bodegas en la pestaña <strong>Bodegas</strong>.</Empty></Card>;
   if (items.length === 0)   return <Card><Empty><AlertCircle size={28} color={C.amber} /><br/>Primero carga ítems en <strong>Inventario</strong>.</Empty></Card>;
@@ -360,35 +394,55 @@ function TabStock({ profile, items, setItems, bodegas, stockMap, stock, setStock
         ))}
       </div>
 
-      {/* ── Filtros y buscador ── */}
-      <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap", alignItems: "center" }}>
-        <input value={busqueda} onChange={(e) => setBusqueda(e.target.value)}
-          placeholder="Buscar código, descripción o categoría…"
-          style={{ ...inputStyle(260), fontSize: 13 }} />
-        {[["all","Todos"], ["bajo","Bajo mínimo"], ["revisar","Por revisar"], ["ok","OK"]].map(([v, lbl]) => {
-          const tone = v === "bajo" ? C.red : v === "revisar" ? C.amber : v === "ok" ? C.green : C.slate;
-          const active = filtroSt === v;
-          return (
-            <button key={v} onClick={() => setFiltroSt(v)}
-              style={{ padding: "6px 13px", borderRadius: 7, border: `1px solid ${active ? tone : C.line}`,
-                background: active ? tone : "#fff", color: active ? "#fff" : C.slate,
-                fontSize: 12.5, fontWeight: 600, cursor: "pointer" }}>
-              {lbl}
-              {v !== "all" && <span style={{ marginLeft: 5, opacity: 0.75, fontSize: 11 }}>
-                ({items.filter(i => { const t = totalItem(i.id); return v === "bajo" ? t <= i.stock_min : v === "revisar" ? t > i.stock_min && t <= i.stock_min * 1.5 : t > i.stock_min * 1.5; }).length})
-              </span>}
+      {/* ── Filtros + vista (consistente con Inventario) ── */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 12 }}>
+        {/* Fila 1: buscador + toggle de vista */}
+        <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+          <div style={{ position: "relative", flex: "1 1 280px", maxWidth: 360 }}>
+            <Search size={15} color={C.slate} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)" }} />
+            <input value={busqueda} onChange={(e) => setBusqueda(e.target.value)}
+              placeholder="Buscar código, descripción, categoría o proveedor…"
+              style={{ ...inputStyle(), width: "100%", paddingLeft: 32, fontSize: 13 }} />
+          </div>
+          <div style={{ display: "flex", border: `1px solid ${C.line}`, borderRadius: 8, overflow: "hidden" }}>
+            {[["plano", "Plano", List], ["categoria", "Categoría", FolderTree], ["jerarquia", "Jerarquía", Layers]].map(([v, lbl, Ico]) => (
+              <button key={v} onClick={() => setVista(v)}
+                style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 12px", border: "none", borderLeft: v !== "plano" ? `1px solid ${C.line}` : "none", background: vista === v ? C.steel : "#fff", color: vista === v ? "#fff" : C.slate, fontSize: 12.5, fontWeight: 600, cursor: "pointer" }}>
+                <Ico size={14} /> {lbl}
+              </button>
+            ))}
+          </div>
+          <span style={{ marginLeft: "auto", fontSize: 12, color: C.slate }}>{itemsFiltrados.length} de {items.length} ítems</span>
+          {hayFiltro && (
+            <button onClick={() => { setBusqueda(""); setFiltroSt("all"); setFiltroABC("all"); }}
+              style={{ padding: "6px 10px", borderRadius: 7, border: `1px solid ${C.line}`, background: "none", color: C.slate, fontSize: 12, cursor: "pointer" }}>
+              <X size={13} style={{ display: "inline", verticalAlign: "middle" }} /> Limpiar
             </button>
-          );
-        })}
-        {(busqueda || filtroSt !== "all") && (
-          <button onClick={() => { setBusqueda(""); setFiltroSt("all"); }}
-            style={{ padding: "6px 10px", borderRadius: 7, border: `1px solid ${C.line}`, background: "none", color: C.slate, fontSize: 12, cursor: "pointer" }}>
-            <X size={13} style={{ display: "inline", verticalAlign: "middle" }} /> Limpiar
-          </button>
+          )}
+        </div>
+        {/* Fila 2: ABC + estado de stock */}
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+          <span style={{ fontSize: 11, color: C.slate, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5 }}>ABC</span>
+          {[["all", "Todos", C.slate], ["A", "A", C.red], ["B", "B", C.amber], ["C", "C", C.green]].map(([v, lbl, tone]) => {
+            const active = filtroABC === v;
+            return <button key={v} onClick={() => setFiltroABC(v)} style={{ padding: "5px 12px", borderRadius: 7, border: `1px solid ${active ? tone : C.line}`, background: active ? tone : "#fff", color: active ? "#fff" : C.slate, fontSize: 12.5, fontWeight: 600, cursor: "pointer" }}>{lbl}</button>;
+          })}
+          <div style={{ width: 1, alignSelf: "stretch", background: C.line, margin: "0 4px" }} />
+          <span style={{ fontSize: 11, color: C.slate, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5 }}>Stock</span>
+          {[["all", "Todos"], ["bajo", "Bajo mínimo"], ["revisar", "Por revisar"], ["ok", "OK"]].map(([v, lbl]) => {
+            const tone = v === "bajo" ? C.red : v === "revisar" ? C.amber : v === "ok" ? C.green : C.slate;
+            const active = filtroSt === v;
+            const n = v === "all" ? null : items.filter((i) => { const t = totalItem(i.id); return v === "bajo" ? t <= i.stock_min : v === "revisar" ? t > i.stock_min && t <= i.stock_min * 1.5 : t > i.stock_min * 1.5; }).length;
+            return <button key={v} onClick={() => setFiltroSt(v)} style={{ padding: "5px 12px", borderRadius: 7, border: `1px solid ${active ? tone : C.line}`, background: active ? tone : "#fff", color: active ? "#fff" : C.slate, fontSize: 12.5, fontWeight: 600, cursor: "pointer" }}>{lbl}{n != null && <span style={{ opacity: 0.75, marginLeft: 4, fontSize: 11 }}>({n})</span>}</button>;
+          })}
+        </div>
+        {/* Colapsar/expandir todo en vistas agrupadas */}
+        {vista !== "plano" && (
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={() => { vista === "categoria" ? setGruposCol(new Set(gruposCategoria().map((x) => x.key))) : arbolInv.colapsarTodo(true); }} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, padding: "5px 12px", borderRadius: 8, border: `1px solid ${C.line}`, background: "#fff", color: C.slate, cursor: "pointer", fontWeight: 600 }}><ChevronRight size={13} /> Colapsar todo</button>
+            <button onClick={() => { vista === "categoria" ? setGruposCol(new Set()) : arbolInv.colapsarTodo(false); }} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, padding: "5px 12px", borderRadius: 8, border: `1px solid ${C.line}`, background: "#fff", color: C.slate, cursor: "pointer", fontWeight: 600 }}><ChevronDown size={13} /> Expandir todo</button>
+          </div>
         )}
-        <span style={{ marginLeft: "auto", fontSize: 12, color: C.slate }}>
-          {itemsFiltrados.length} de {items.length} ítems
-        </span>
       </div>
 
       {puedeOperar && (
@@ -412,15 +466,13 @@ function TabStock({ profile, items, setItems, bodegas, stockMap, stock, setStock
               <th style={thStyle}>Nivel de Stock</th>
             </tr></thead>
             <tbody>
-              {itemsFiltrados.length === 0 && (
-                <tr><td colSpan={4 + bodegas.length} style={{ textAlign: "center", padding: 24, color: C.slate, fontSize: 13 }}>Sin ítems para los filtros seleccionados.</td></tr>
-              )}
-              {itemsFiltrados.map((i) => {
+              {(() => {
+                const filaItem = (i, indent = 0) => {
                 const t = totalItem(i.id);
                 const st = t <= i.stock_min ? ["red", "Bajo"] : t <= i.stock_min * 1.5 ? ["yellow", "Revisar"] : ["green", "OK"];
                 return (
                   <tr key={i.id}>
-                    <td style={{ ...tdStyle, fontFamily: "'IBM Plex Mono', monospace", color: C.steel, fontWeight: 600 }}>{i.codigo}</td>
+                    <td style={{ ...tdStyle, fontFamily: "'IBM Plex Mono', monospace", color: C.steel, fontWeight: 600, paddingLeft: 12 + indent }}>{i.codigo}</td>
                     <td style={{ ...tdStyle, textAlign: "center" }}>
                       <Pill tone={{ A: "red", B: "yellow", C: "green" }[conABC.get(i.id)]}>{conABC.get(i.id)}</Pill>
                     </td>
@@ -497,7 +549,76 @@ function TabStock({ profile, items, setItems, bodegas, stockMap, stock, setStock
                     </td>
                   </tr>
                 );
-              })}
+                };
+                const vacio = <tr><td colSpan={NCOLS} style={{ textAlign: "center", padding: 24, color: C.slate, fontSize: 13 }}>Sin ítems para los filtros seleccionados.</td></tr>;
+
+                if (vista === "plano") return itemsFiltrados.length ? itemsFiltrados.map((i) => filaItem(i)) : vacio;
+
+                if (vista === "categoria") {
+                  const grupos = gruposCategoria();
+                  if (!grupos.length) return vacio;
+                  return grupos.map((g) => {
+                    const col = gruposCol.has(g.key);
+                    const valorG = g.items.reduce((s, i) => s + totalItem(i.id) * (i.precio || 0), 0);
+                    return (
+                      <React.Fragment key={g.key}>
+                        <tr onClick={() => toggleGrupo(g.key)} style={{ cursor: "pointer", background: tint(C.steel, 8) }}>
+                          <td colSpan={NCOLS} style={{ ...tdStyle, padding: "8px 14px" }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                              {col ? <ChevronRight size={15} color={C.steel} /> : <ChevronDown size={15} color={C.steel} />}
+                              <span style={{ fontWeight: 700, color: C.abyss }}>{g.label}</span>
+                              <span style={{ fontSize: 11.5, color: C.slate }}>· {g.items.length} ítem{g.items.length > 1 ? "s" : ""}</span>
+                              <span style={{ marginLeft: "auto", fontSize: 12.5, color: C.steel, fontWeight: 700, fontFamily: "'IBM Plex Mono', monospace" }}>{clp(valorG)}</span>
+                            </div>
+                          </td>
+                        </tr>
+                        {!col && g.items.map((i) => filaItem(i))}
+                      </React.Fragment>
+                    );
+                  });
+                }
+
+                // ── Vista por jerarquía (árbol anidado de equipos → repuestos) ──
+                if (!treeJerarquia.length && !sinAsignar.length) return vacio;
+                const filasArbol = treeJerarquia.filter((eq) => arbolInv.visible(eq)).map((eq) => {
+                  const directos = itemsDeEqDirect(eq.id);
+                  const expandible = arbolInv.tieneHijos(eq) || directos.length > 0;
+                  const col = arbolInv.estaColapsado(eq);
+                  const valorN = directos.reduce((s, i) => s + totalItem(i.id) * (i.precio || 0), 0);
+                  return (
+                    <React.Fragment key={eq.id}>
+                      <tr onClick={() => expandible && arbolInv.toggle(eq.id)} style={{ cursor: expandible ? "pointer" : "default", background: tint(C.steel, eq.depth === 0 ? 9 : 5) }}>
+                        <td colSpan={NCOLS} style={{ ...tdStyle, padding: "7px 14px" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                            <EquipoNodoLabel eq={eq} tieneHijos={expandible} colapsado={col} onToggle={() => arbolInv.toggle(eq.id)} nSub={0} embName={embName} showEmb={eq.depth === 0} />
+                            {directos.length > 0 && <span style={{ fontSize: 11.5, color: C.cyan, fontWeight: 700, whiteSpace: "nowrap" }}>· {directos.length} repuesto{directos.length > 1 ? "s" : ""}</span>}
+                            {directos.length > 0 && <span style={{ marginLeft: "auto", fontSize: 12, color: C.steel, fontWeight: 700, fontFamily: "'IBM Plex Mono', monospace" }}>{clp(valorN)}</span>}
+                          </div>
+                        </td>
+                      </tr>
+                      {!col && directos.map((i) => filaItem(i, eq.depth * 18 + 26))}
+                    </React.Fragment>
+                  );
+                });
+                const filaSin = sinAsignar.length > 0 && (() => {
+                  const col = gruposCol.has("sin");
+                  return (
+                    <React.Fragment key="sin">
+                      <tr onClick={() => toggleGrupo("sin")} style={{ cursor: "pointer", background: tint(C.amber, 10) }}>
+                        <td colSpan={NCOLS} style={{ ...tdStyle, padding: "7px 14px" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                            {col ? <ChevronRight size={15} color={C.amber} /> : <ChevronDown size={15} color={C.amber} />}
+                            <span style={{ fontWeight: 700, color: C.abyss }}>Sin asignar a equipo</span>
+                            <span style={{ fontSize: 11.5, color: C.slate }}>· {sinAsignar.length} ítem{sinAsignar.length > 1 ? "s" : ""}</span>
+                          </div>
+                        </td>
+                      </tr>
+                      {!col && sinAsignar.map((i) => filaItem(i, 26))}
+                    </React.Fragment>
+                  );
+                })();
+                return <>{filasArbol}{filaSin}</>;
+                })()}
             </tbody>
           </table>
         </div>
