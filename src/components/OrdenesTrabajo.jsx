@@ -12,7 +12,7 @@ import {
 import { FotoInput, FotoGaleria } from "./Fotos";
 import { blankOT, folioOT, kpisOT, costoOT, filtrarOTs, validarNuevaOT } from "../lib/ot";
 import EstadoSelect from "./ot/EstadoSelect";
-import EquipoPicker from "./ot/EquipoPicker";
+import EquipoPicker from "./EquipoPicker";
 
 const HOY = () => new Date().toISOString().slice(0, 10);
 

@@ -1,10 +1,11 @@
 import React, { useEffect, useState, useCallback, useMemo } from "react";
-import { Package, Plus, Trash2, Download, Anchor, X, Pencil, Check, Tag, Search, ChevronDown, ChevronRight, List, FolderTree, Layers } from "lucide-react";
+import { Package, Plus, Trash2, Download, X, Pencil, Check, Tag, Search, ChevronDown, ChevronRight, List, FolderTree, Layers } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { fetchAll, insertRow, updateRow, deleteRow, logActivity } from "../lib/db";
 import { C, clp, isAdmin, canOperate, tint } from "../theme";
 import { buildEquipoTree } from "../lib/equipTree";
 import { useArbolColapsable, EquipoNodoLabel, fondoTipo } from "../lib/arbolColapsable";
+import EquipoPicker from "./EquipoPicker";
 import { PLANTILLA_PESQUERA, TIPO_REPUESTO_META } from "../lib/plantillaPesquera";
 
 const TIPOS_REPUESTO = [
@@ -382,34 +383,28 @@ export default function Inventario() {
           {equipos.length > 0 && (
             <div style={{ marginTop: 16, borderTop: `1px solid ${C.line}`, paddingTop: 14 }}>
               <div style={{ fontSize: 11, fontWeight: 700, color: C.slate, textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 10 }}>
-                Destino · Nave & Equipo <span style={{ fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>(opcional)</span>
+                Destino · Equipos <span style={{ fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>(opcional)</span>
               </div>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 20 }}>
-                {embarcaciones.map((emb) => {
-                  const eqsNave = buildEquipoTree(equipos.filter((eq) => eq.embarcacion_id === emb.id));
-                  if (!eqsNave.length) return null;
-                  return (
-                    <div key={emb.id} style={{ minWidth: 170 }}>
-                      <div style={{ fontSize: 11.5, fontWeight: 700, color: emb.color || C.steel, marginBottom: 7, display: "flex", alignItems: "center", gap: 5, borderBottom: `2px solid ${emb.color || C.steel}`, paddingBottom: 4 }}>
-                        <Anchor size={12} /> {emb.nombre}
-                      </div>
-                      {eqsNave.map((eq) => (
-                        <label key={eq.id} style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 12.5, color: C.ink, marginBottom: 5, cursor: "pointer", paddingLeft: eq.depth * 14 }}>
-                          <input type="checkbox"
-                            checked={form.equipoIds.includes(eq.id)}
-                            onChange={(e) => setForm((f) => ({
-                              ...f, equipoIds: e.target.checked ? [...f.equipoIds, eq.id] : f.equipoIds.filter((id) => id !== eq.id),
-                            }))}
-                          />
-                          {eq.depth > 0 && <span style={{ color: C.slate, fontSize: 11 }}>└─</span>}
-                          <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 10.5, color: C.slate, minWidth: 58 }}>{eq.id_visible}</span>
-                          <span>{eq.sistema}</span>
-                        </label>
-                      ))}
-                    </div>
-                  );
-                })}
+              <div style={{ maxWidth: 440 }}>
+                <EquipoPicker equipos={equipos} value={null}
+                  placeholder="Buscar equipo (código/sistema) para asignar…"
+                  onChange={(eq) => { if (eq && !form.equipoIds.includes(eq.id)) setForm((f) => ({ ...f, equipoIds: [...f.equipoIds, eq.id] })); }} />
               </div>
+              {form.equipoIds.length > 0 && (
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 10 }}>
+                  {form.equipoIds.map((eqId) => {
+                    const eq = equipos.find((e) => e.id === eqId); const color = embColor(eq?.embarcacion_id);
+                    return (
+                      <span key={eqId} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11.5, background: `${color}18`, color, border: `1px solid ${color}50`, borderRadius: 6, padding: "3px 8px", fontWeight: 600 }}>
+                        <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 10.5 }}>{eq?.id_visible || "?"}</span>
+                        <span style={{ color: C.ink }}>{eq?.sistema || ""}</span>
+                        <button onClick={() => setForm((f) => ({ ...f, equipoIds: f.equipoIds.filter((id) => id !== eqId) }))}
+                          title="Quitar" style={{ background: "none", border: "none", cursor: "pointer", color, padding: 0, display: "flex" }}><X size={12} /></button>
+                      </span>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
 
@@ -464,39 +459,36 @@ export default function Inventario() {
               <X size={18} />
             </button>
           </div>
-          <div style={{ fontSize: 12, color: C.slate, marginBottom: 14 }}>
-            Selecciona los equipos a los que está destinado este repuesto. Los cambios se guardan al instante.
+          <div style={{ fontSize: 12, color: C.slate, marginBottom: 12 }}>
+            Busca y agrega los equipos a los que está destinado este repuesto. Los cambios se guardan al instante.
           </div>
           {embarcaciones.length === 0 ? (
             <span style={{ fontSize: 12.5, color: C.slate }}>No hay embarcaciones registradas.</span>
           ) : (
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 24 }}>
-              {embarcaciones.map((emb) => {
-                const eqsNave = equipos.filter((eq) => eq.embarcacion_id === emb.id);
-                if (!eqsNave.length) return null;
-                const itemDests = destinosDeItem(destinoPanel);
+            <div>
+              <div style={{ maxWidth: 440 }}>
+                <EquipoPicker equipos={equipos} value={null}
+                  placeholder="Buscar equipo (código/sistema) para agregar…"
+                  onChange={(eq) => { if (eq) agregarDestino(destinoPanel, eq.id); }} />
+              </div>
+              {(() => {
+                const dests = destinosDeItem(destinoPanel);
+                if (!dests.length) return <div style={{ fontSize: 12, color: C.slate, marginTop: 10, fontStyle: "italic" }}>Sin destinos asignados aún.</div>;
                 return (
-                  <div key={emb.id} style={{ minWidth: 180 }}>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: emb.color || C.steel, marginBottom: 8, display: "flex", alignItems: "center", gap: 6, borderBottom: `2px solid ${emb.color || C.steel}`, paddingBottom: 5 }}>
-                      <Anchor size={13} /> {emb.nombre}
-                    </div>
-                    {eqsNave.map((eq) => {
-                      const destino = itemDests.find((d) => d.equipo_id === eq.id);
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 10 }}>
+                    {dests.map((d) => {
+                      const eq = equipos.find((e) => e.id === d.equipo_id); const color = embColor(eq?.embarcacion_id);
                       return (
-                        <label key={eq.id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12.5, color: C.ink, marginBottom: 6, cursor: "pointer", paddingLeft: eq.depth * 14 }}>
-                          <input type="checkbox"
-                            checked={!!destino}
-                            onChange={() => destino ? quitarDestino(destino.id) : agregarDestino(destinoPanel, eq.id)}
-                          />
-                          {eq.depth > 0 && <span style={{ color: C.slate, fontSize: 11, flexShrink: 0 }}>└─</span>}
-                          <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 10.5, color: C.slate, minWidth: 60 }}>{eq.id_visible}</span>
-                          <span>{eq.sistema}</span>
-                        </label>
+                        <span key={d.id} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11.5, background: `${color}18`, color, border: `1px solid ${color}50`, borderRadius: 6, padding: "3px 8px", fontWeight: 600 }}>
+                          <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 10.5 }}>{eq?.id_visible || "?"}</span>
+                          <span style={{ color: C.ink }}>{eq?.sistema || ""}</span>
+                          <button onClick={() => quitarDestino(d.id)} title="Quitar destino" style={{ background: "none", border: "none", cursor: "pointer", color, padding: 0, display: "flex" }}><X size={12} /></button>
+                        </span>
                       );
                     })}
                   </div>
                 );
-              })}
+              })()}
             </div>
           )}
         </Card>

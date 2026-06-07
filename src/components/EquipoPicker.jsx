@@ -1,8 +1,8 @@
 import React, { useState, useMemo, useRef } from "react";
 import { Search, X } from "lucide-react";
-import { C, tint } from "../../theme";
-import { buildEquipoTree } from "../../lib/equipTree";
-import { inputStyle } from "../../ui";
+import { C, tint } from "../theme";
+import { buildEquipoTree } from "../lib/equipTree";
+import { inputStyle } from "../ui";
 
 // Selector de equipo tipo combobox para ingreso rápido de OT:
 // se escribe y filtra por código (id_visible), sistema o ruta jerárquica;
