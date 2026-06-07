@@ -27,14 +27,20 @@ function rankSistema(eq) {
 }
 const rankCrit = (e) => CRIT_RANK[e.criticidad] ?? 3;
 const porCodigo = (a, b) => (a.id_visible || a.sistema || "").localeCompare(b.id_visible || b.sistema || "", "es");
-
-// Raíces: por orden de sistema → criticidad → código
-function ordenarRaices(arr) {
-  return [...arr].sort((a, b) => rankSistema(a) - rankSistema(b) || rankCrit(a) - rankCrit(b) || porCodigo(a, b));
+// Orden manual (jefe de Mantención). Menor = primero; NULL al final (orden por defecto).
+function byOrden(a, b) {
+  const oa = a.orden == null ? Infinity : Number(a.orden);
+  const ob = b.orden == null ? Infinity : Number(b.orden);
+  return oa === ob ? 0 : oa - ob;
 }
-// Subsistemas: por criticidad → código
+
+// Raíces: orden manual → orden de sistema → criticidad → código
+function ordenarRaices(arr) {
+  return [...arr].sort((a, b) => byOrden(a, b) || rankSistema(a) - rankSistema(b) || rankCrit(a) - rankCrit(b) || porCodigo(a, b));
+}
+// Subsistemas: orden manual → criticidad → código
 function ordenarNivel(arr) {
-  return [...arr].sort((a, b) => rankCrit(a) - rankCrit(b) || porCodigo(a, b));
+  return [...arr].sort((a, b) => byOrden(a, b) || rankCrit(a) - rankCrit(b) || porCodigo(a, b));
 }
 
 export function buildEquipoTree(equipos) {

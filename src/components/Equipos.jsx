@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from "react";
-import { Ship, Plus, Trash2, Download, AlertCircle, GitBranch, Layers, Cpu, Wrench, Box, Hash, ChevronDown, ChevronRight, Check, Package, X } from "lucide-react";
+import { Ship, Plus, Trash2, Download, AlertCircle, GitBranch, Layers, Cpu, Wrench, Box, Hash, ChevronDown, ChevronRight, ChevronUp, Check, Package, X } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { fetchAll, insertRow, updateRow, deleteRow, logActivity } from "../lib/db";
 import { C, isAdmin, canOperate, ESTADOS_EQUIPO, estadoLabel, tint, shadow } from "../theme";
@@ -63,6 +63,9 @@ export default function Equipos() {
   const puedeOperar = canOperate(profile?.rol);
   const puedeBorrar = isAdmin(profile?.rol);
   const hasActions  = puedeOperar || puedeBorrar;
+  // Nº de columnas (para colSpan de filas vacías y del panel de repuestos):
+  // 13 base + Orden (si puede operar) + Acción (si hay acciones).
+  const NCOLS = 13 + (puedeOperar ? 1 : 0) + (hasActions ? 1 : 0);
 
   const cargar = useCallback(async () => {
     setLoading(true); setError(null);
@@ -103,6 +106,16 @@ export default function Equipos() {
       pila.forEach((a) => descCount.set(a.id, (descCount.get(a.id) || 0) + 1));
       pila.push(e);
     }
+  }
+
+  // Grupos de hermanos (mismo padre + nave) en el orden mostrado, para mover
+  // arriba/abajo. posInfo: id → { first, last } dentro de su grupo.
+  const grupoKey = (e) => `${e.parent_id ?? "root"}|${e.embarcacion_id}`;
+  const posInfo = new Map();
+  {
+    const grupos = new Map();
+    lista.forEach((e) => { const k = grupoKey(e); if (!grupos.has(k)) grupos.set(k, []); grupos.get(k).push(e); });
+    grupos.forEach((arr) => arr.forEach((e, i) => posInfo.set(e.id, { first: i === 0, last: i === arr.length - 1 })));
   }
 
   // Visibilidad: un nodo se oculta si CUALQUIER ancestro está colapsado.
@@ -198,6 +211,29 @@ export default function Equipos() {
       setColapsados((prev) => { const n = new Set(prev); n.delete(parent.id); return n; }); // expandir el padre
       logActivity(profile, "Crear equipo", `${idVis} (sub de ${parent.id_visible})`);
     } catch (e) { setError("No se pudo agregar el subnodo: " + e.message); }
+  }
+
+  // Mueve un nodo arriba/abajo entre sus hermanos (mismo padre + nave) y
+  // persiste el orden. Normaliza el `orden` de todo el grupo (10, 20, 30…).
+  async function moverNodo(node, dir) {
+    const k = grupoKey(node);
+    const sib = lista.filter((e) => grupoKey(e) === k);
+    const idx = sib.findIndex((x) => x.id === node.id);
+    const swap = idx + (dir === "up" ? -1 : 1);
+    if (idx < 0 || swap < 0 || swap >= sib.length) return;
+    const arr = [...sib];
+    [arr[idx], arr[swap]] = [arr[swap], arr[idx]];
+    const updates = arr.map((x, i) => ({ id: x.id, orden: (i + 1) * 10 }));
+    const previo = Object.fromEntries(sib.map((x) => [x.id, x.orden ?? null]));
+    // Optimista: actualiza estado y snapshot (orden no pasa por la barra de Guardar).
+    setEquipos((p) => p.map((e) => { const u = updates.find((u) => u.id === e.id); return u ? { ...e, orden: u.orden } : e; }));
+    setOriginal((o) => { const n = { ...o }; updates.forEach((u) => { if (n[u.id]) n[u.id] = { ...n[u.id], orden: u.orden }; }); return n; });
+    try {
+      for (const u of updates) await updateRow("equipos", u.id, { orden: u.orden });
+    } catch (err) {
+      setEquipos((p) => p.map((e) => (e.id in previo ? { ...e, orden: previo[e.id] } : e)));
+      setError("No se pudo reordenar: " + err.message);
+    }
   }
 
   // ── Repuestos enlazados a un nodo (inventario_item_destinos) ──
@@ -545,8 +581,9 @@ export default function Equipos() {
 
       <Card style={{ padding: 0, overflow: "hidden" }}>
         <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 1440 }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 1500 }}>
             <thead><tr>
+              {puedeOperar && <th style={{ ...thStyle, textAlign: "center" }} title="Reordenar por prioridad">Orden</th>}
               <th style={thStyle}>ID</th>
               <th style={thStyle}>Nave</th>
               <th style={thStyle}>Sistema / Equipo</th>
@@ -564,7 +601,7 @@ export default function Equipos() {
             </tr></thead>
             <tbody>
               {lista.length === 0
-                ? <tr><td colSpan={hasActions ? 14 : 13}><Empty>{equipos.length === 0 ? <NotaJerarquia /> : "Sin equipos para este filtro."}</Empty></td></tr>
+                ? <tr><td colSpan={NCOLS}><Empty>{equipos.length === 0 ? <NotaJerarquia /> : "Sin equipos para este filtro."}</Empty></td></tr>
                 : listaVisible.map((e) => {
                   const padres = padresDisponibles(e.id, e.embarcacion_id);
                   const tieneHijos = conHijos.has(e.id);
@@ -574,8 +611,25 @@ export default function Equipos() {
                   const esComponente = e.tipo_nodo === "componente" || e.tipo_nodo === "instrumento" || !tieneHijos;
                   const nReps = destinos.filter((d) => d.equipo_id === e.id).length;
                   const panelAbierto = repuestoPanel === e.id;
+                  const pos = posInfo.get(e.id) || { first: true, last: true };
                   return ([
                     <tr key={e.id} style={{ background: eqDirty(e) ? tint(C.gold, 14) : e.depth > 0 ? tint(C.steel, 5) : undefined }}>
+
+                      {/* Orden (reordenar entre hermanos) */}
+                      {puedeOperar && (
+                        <td style={{ ...tdStyle, textAlign: "center", whiteSpace: "nowrap", padding: "4px 6px" }}>
+                          <div style={{ display: "inline-flex", flexDirection: "column", gap: 1 }}>
+                            <button onClick={() => moverNodo(e, "up")} disabled={pos.first} title="Subir (mayor prioridad)"
+                              style={{ background: "none", border: "none", cursor: pos.first ? "default" : "pointer", color: pos.first ? C.line : C.steel, padding: 0, display: "flex", lineHeight: 1 }}>
+                              <ChevronUp size={15} strokeWidth={2.5} />
+                            </button>
+                            <button onClick={() => moverNodo(e, "down")} disabled={pos.last} title="Bajar (menor prioridad)"
+                              style={{ background: "none", border: "none", cursor: pos.last ? "default" : "pointer", color: pos.last ? C.line : C.steel, padding: 0, display: "flex", lineHeight: 1 }}>
+                              <ChevronDown size={15} strokeWidth={2.5} />
+                            </button>
+                          </div>
+                        </td>
+                      )}
 
                       {/* ID */}
                       <td style={tdStyle}>
@@ -718,7 +772,7 @@ export default function Equipos() {
                     </tr>,
                     panelAbierto && (
                       <tr key={e.id + "-rep"}>
-                        <td colSpan={hasActions ? 14 : 13} style={{ padding: 0, background: tint(C.steel, 6), borderBottom: `1px solid ${C.line}` }}>
+                        <td colSpan={NCOLS} style={{ padding: 0, background: tint(C.steel, 6), borderBottom: `1px solid ${C.line}` }}>
                           <RepuestoPanel
                             node={e}
                             repuestos={repuestosDe(e.id)}
