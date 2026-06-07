@@ -7,12 +7,13 @@ import { useArbolColapsable, BotonesColapsar, EquipoNodoLabel } from "../lib/arb
 import { C, archivo, clp, isAdmin } from "../theme";
 import { Card, PageHead, Pill, primaryBtn, bluInput, FilterBtn, Empty, ErrorBanner, InlineSpinner } from "../ui";
 
-// Valores por defecto (mismos que el schema)
+// Valores por defecto LIMPIOS: cero hasta que el usuario ingrese costos.
+// Así un equipo solo aporta costo cuando realmente se cargan sus datos.
 const DEFAULT_CGM = {
-  hh_c: 4, hh_p: 3, c_hh: 12000,
-  rep: 25000, fung: 4000,
-  hrs_par: 4, val_prod: 40000, g_extra: 5000,
-  val_inv: 25000, val_eq: 600000, vida: 15,
+  hh_c: 0, hh_p: 0, c_hh: 0,
+  rep: 0, fung: 0,
+  hrs_par: 0, val_prod: 0, g_extra: 0,
+  val_inv: 0, val_eq: 0, vida: 0,
 };
 // Tasa anual de costo de capital sobre inventario (Pascual)
 const TASA_INV = 0.20;
@@ -27,7 +28,7 @@ function calcular(c) {
   const Ci = ((c.hh_c || 0) + (c.hh_p || 0)) * (c.c_hh || 0) + (c.rep || 0) + (c.fung || 0);
   const Cf = (c.hrs_par || 0) * (c.val_prod || 0) + (c.g_extra || 0);
   const Ca = ((c.val_inv || 0) * TASA_INV) / 12;
-  const Ai = (c.val_eq || 0) / Math.max(1, (c.vida || 1) * 12);
+  const Ai = (c.vida || 0) > 0 ? (c.val_eq || 0) / (c.vida * 12) : 0;
   return { Ci, Cf, Ca, Ai, total: Ci + Cf + Ca + Ai };
 }
 
@@ -104,11 +105,35 @@ export default function CGM() {
   const enriquecidos = filtrados.map((eq) => { const c = getCGM(eq.id); return { eq, c, calc: calcular(c) }; });
   const arbol = useArbolColapsable(filtrados);
 
-  const totalMes = enriquecidos.reduce((s, x) => s + x.calc.total, 0);
-  const totalCi = enriquecidos.reduce((s, x) => s + x.calc.Ci, 0);
-  const totalCf = enriquecidos.reduce((s, x) => s + x.calc.Cf, 0);
+  // ── Rollup jerárquico ──────────────────────────────────────────
+  // Los costos se ingresan en las HOJAS (componentes). Cada nodo padre
+  // (sistema/subsistema) muestra la SUMA de sus descendientes con costo.
+  const esHoja = (eq) => !arbol.tieneHijos(eq);
+  const agg = new Map(); // id → { Ci, Cf, Ca, Ai, total, nData }
+  filtrados.forEach((eq) => {
+    if (esHoja(eq)) {
+      const calc = calcular(getCGM(eq.id));
+      const conDato = datos.some((d) => d.equipo_id === eq.id) ? 1 : 0;
+      agg.set(eq.id, { ...calc, nData: conDato });
+    } else {
+      agg.set(eq.id, { Ci: 0, Cf: 0, Ca: 0, Ai: 0, total: 0, nData: 0 });
+    }
+  });
+  // Acumular hijo → padre, del más profundo al más superficial.
+  [...filtrados].sort((a, b) => b.depth - a.depth).forEach((eq) => {
+    if (eq.parent_id && agg.has(eq.parent_id)) {
+      const p = agg.get(eq.parent_id), c = agg.get(eq.id);
+      p.Ci += c.Ci; p.Cf += c.Cf; p.Ca += c.Ca; p.Ai += c.Ai; p.total += c.total; p.nData += c.nData;
+    }
+  });
+
+  // KPIs: solo hojas, para no duplicar al sumar padres.
+  const hojas = filtrados.filter(esHoja);
+  const totalMes = hojas.reduce((s, eq) => s + agg.get(eq.id).total, 0);
+  const totalCi = hojas.reduce((s, eq) => s + agg.get(eq.id).Ci, 0);
+  const totalCf = hojas.reduce((s, eq) => s + agg.get(eq.id).Cf, 0);
   const pctFallas = totalMes > 0 ? (totalCf / totalMes) * 100 : 0;
-  const masCaro = enriquecidos.reduce((m, x) => (!m || x.calc.total > m.calc.total ? x : m), null);
+  const masCaro = hojas.reduce((m, eq) => { const t = agg.get(eq.id).total; return (!m || t > m.total ? { eq, total: t } : m); }, null);
 
   if (loading) return <div><PageHead kicker="Optimización · Pascual" title="Costo Global de Mantención" /><Card><InlineSpinner label="Cargando CGM…" /></Card></div>;
 
@@ -135,7 +160,7 @@ export default function CGM() {
         <KPI label="CGM Total Flota / mes" value={clp(totalMes)} tone={C.gold} sub={`${clp(totalMes * 12)} al año`} />
         <KPI label="Costo Intervenciones" value={clp(totalCi)} sub={`${totalMes > 0 ? Math.round((totalCi / totalMes) * 100) : 0}% del total`} />
         <KPI label="Costo de Fallas" value={clp(totalCf)} tone={pctFallas > 30 ? C.red : C.steel} sub={`${pctFallas.toFixed(0)}% del total · ${pctFallas > 30 ? "alto" : "ok"}`} />
-        <KPI label="Equipo más Costoso" value={masCaro ? clp(masCaro.calc.total) : "—"} tone={C.red} sub={masCaro?.eq?.sistema || ""} />
+        <KPI label="Equipo más Costoso" value={masCaro && masCaro.total > 0 ? clp(masCaro.total) : "—"} tone={C.red} sub={masCaro && masCaro.total > 0 ? masCaro.eq.sistema : "sin costos aún"} />
       </div>
 
       <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
@@ -150,25 +175,31 @@ export default function CGM() {
       <BotonesColapsar conHijos={arbol.conHijos} colapsarTodo={arbol.colapsarTodo} />
 
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        {enriquecidos.filter(({ eq }) => arbol.visible(eq)).map(({ eq, c, calc }) => {
-          const expanded = abierto === eq.id;
-          const pct = totalMes > 0 ? (calc.total / totalMes) * 100 : 0;
+        {enriquecidos.filter(({ eq }) => arbol.visible(eq)).map(({ eq, c }) => {
+          const a = agg.get(eq.id);
+          const hoja = esHoja(eq);
+          const expanded = hoja && abierto === eq.id;
+          const pct = totalMes > 0 ? (a.total / totalMes) * 100 : 0;
           return (
             <Card key={eq.id} style={{ padding: 0, overflow: "hidden" }}>
-              <div onClick={() => setAbierto(expanded ? null : eq.id)}
-                style={{ display: "grid", gridTemplateColumns: "auto 2fr repeat(4, 1fr) 1.2fr auto", gap: 14, padding: "14px 18px", alignItems: "center", cursor: "pointer", borderBottom: expanded ? `1px solid ${C.line}` : "none" }}>
-                {expanded ? <ChevronDown size={18} color={C.slate} /> : <ChevronRight size={18} color={C.slate} />}
+              <div onClick={() => hoja && setAbierto(expanded ? null : eq.id)}
+                style={{ display: "grid", gridTemplateColumns: "auto 2fr repeat(4, 1fr) 1.2fr auto", gap: 14, padding: "14px 18px", alignItems: "center", cursor: hoja ? "pointer" : "default", borderBottom: expanded ? `1px solid ${C.line}` : "none" }}>
+                {hoja ? (expanded ? <ChevronDown size={18} color={C.slate} /> : <ChevronRight size={18} color={C.slate} />) : <span style={{ width: 18 }} />}
                 <EquipoNodoLabel eq={eq} tieneHijos={arbol.tieneHijos(eq)} colapsado={arbol.estaColapsado(eq)}
                   onToggle={() => arbol.toggle(eq.id)} nSub={arbol.nSubDe(eq)} embName={embName} />
-                <Bar label="Ci" v={calc.Ci} max={calc.total} color={C.steel} />
-                <Bar label="Cf" v={calc.Cf} max={calc.total} color={C.red} />
-                <Bar label="Ca" v={calc.Ca} max={calc.total} color={C.amber} />
-                <Bar label="Ai" v={calc.Ai} max={calc.total} color={C.purple} />
+                <Bar label="Ci" v={a.Ci} max={a.total} color={C.steel} />
+                <Bar label="Cf" v={a.Cf} max={a.total} color={C.red} />
+                <Bar label="Ca" v={a.Ca} max={a.total} color={C.amber} />
+                <Bar label="Ai" v={a.Ai} max={a.total} color={C.purple} />
                 <div style={{ textAlign: "right" }}>
-                  <div style={{ ...archivo, fontSize: 17, fontWeight: 800, color: C.gold }}>{clp(calc.total)}</div>
-                  <div style={{ fontSize: 11, color: C.slate, fontFamily: "'IBM Plex Mono', monospace" }}>{pct.toFixed(1)}% · /mes</div>
+                  <div style={{ ...archivo, fontSize: 17, fontWeight: 800, color: a.total > 0 ? C.gold : C.line }}>{clp(a.total)}</div>
+                  <div style={{ fontSize: 11, color: C.slate, fontFamily: "'IBM Plex Mono', monospace" }}>
+                    {hoja ? `${pct.toFixed(1)}% · /mes` : `∑ ${a.nData} con costo`}
+                  </div>
                 </div>
-                <Pill tone={pct > 25 ? "red" : pct > 15 ? "yellow" : "green"}>{pct > 25 ? "Alto" : pct > 15 ? "Medio" : "Bajo"}</Pill>
+                {hoja
+                  ? <Pill tone={pct > 25 ? "red" : pct > 15 ? "yellow" : "green"}>{pct > 25 ? "Alto" : pct > 15 ? "Medio" : "Bajo"}</Pill>
+                  : <Pill tone="steel">Resumen</Pill>}
               </div>
 
               {expanded && (
