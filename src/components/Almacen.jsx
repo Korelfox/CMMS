@@ -779,9 +779,11 @@ function TabCompras({ profile, items, bodegas, compras, comprasItems, stockMap, 
   const itemCodigo    = (id) => items.find((i) => i.id === id)?.codigo     || "";
   const itemCategoria = (id) => items.find((i) => i.id === id)?.categoria || "";
 
-  // Sugerencias de reposición: ítems bajo mínimo (total)
+  // Sugerencias de reposición: solo ítems con un mínimo real definido
+  // (stock_min > 0) cuyo stock total esté en o bajo ese mínimo. Así se
+  // excluyen los ítems sin configurar (valores en 0), que no aportan info.
   const totalItem = (id) => bodegas.reduce((s, b) => s + (stockMap.get(skey(id, b.id)) || 0), 0);
-  const sugerencias = items.map((i) => ({ ...i, total: totalItem(i.id) })).filter((i) => i.total <= i.stock_min)
+  const sugerencias = items.map((i) => ({ ...i, total: totalItem(i.id) })).filter((i) => (i.stock_min || 0) > 0 && i.total <= i.stock_min)
     .map((i) => ({ ...i, sugerido: Math.max((i.stock_max || 0) - i.total, 1) }));
 
   const ocTotal = (oc) => comprasItems.filter((it) => it.compra_id === oc.id).reduce((s, it) => s + (it.cantidad || 0) * (it.precio || 0), 0);
