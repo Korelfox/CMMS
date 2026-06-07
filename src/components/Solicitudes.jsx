@@ -10,6 +10,7 @@ import {
   Card, PageHead, Pill, primaryBtn, ghostBtn, inputStyle,
   thStyle, tdStyle, FilterBtn, Field, Empty, ErrorBanner, InlineSpinner,
 } from "../ui";
+import EquipoPicker from "./EquipoPicker";
 
 const HOY = () => new Date().toISOString().slice(0, 10);
 
@@ -34,6 +35,7 @@ export default function Solicitudes() {
   const [filtro, setFiltro] = useState("pendiente");
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(blank());
+  const [selEq, setSelEq] = useState(null); // equipo elegido en el picker (para mostrar el chip)
   const puedeOperar = canOperate(profile?.rol);
   const puedeBorrar = isAdmin(profile?.rol);
 
@@ -57,10 +59,9 @@ export default function Solicitudes() {
 
   function embName(id) { return embarcaciones.find((e) => e.id === id)?.nombre || "—"; }
 
-  // Sistemas a mostrar en el desplegable: los de los equipos de la embarcación
-  // elegida (o de toda la flota si aún no se eligió embarcación), sin repetir.
+  // Equipos para el buscador de sistema: los de la embarcación elegida
+  // (o de toda la flota si aún no se eligió). Se guarda el nombre del sistema.
   const equiposDeNave = form.embarcacion_id ? equipos.filter((e) => e.embarcacion_id === form.embarcacion_id) : equipos;
-  const sistemasDisponibles = [...new Set(equiposDeNave.map((e) => e.sistema).filter(Boolean))];
 
   async function crear() {
     if (!form.solicitante.trim() || !form.descripcion.trim()) { setError("Indica solicitante y descripción."); return; }
@@ -73,7 +74,7 @@ export default function Solicitudes() {
       });
       setSolicitudes((p) => [nueva, ...p]);
       logActivity(profile, "Crear solicitud", `${folio} · ${nueva.descripcion}`);
-      setForm(blank()); setShowForm(false);
+      setForm(blank()); setSelEq(null); setShowForm(false);
     } catch (e) { setError("No se pudo crear: " + e.message); }
   }
 
@@ -144,16 +145,15 @@ export default function Solicitudes() {
           <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12 }}>
             <Field label="Solicitante"><input value={form.solicitante} onChange={(e) => setForm({ ...form, solicitante: e.target.value })} style={inputStyle()} /></Field>
             <Field label="Embarcación">
-              <select value={form.embarcacion_id} onChange={(e) => setForm({ ...form, embarcacion_id: e.target.value, sistema: "" })} style={inputStyle()}>
+              <select value={form.embarcacion_id} onChange={(e) => { setForm({ ...form, embarcacion_id: e.target.value, sistema: "" }); setSelEq(null); }} style={inputStyle()}>
                 <option value="">— Selecciona —</option>
                 {embarcaciones.map((v) => <option key={v.id} value={v.id}>{v.nombre}</option>)}
               </select>
             </Field>
             <Field label="Sistema">
-              <select value={form.sistema} onChange={(e) => setForm({ ...form, sistema: e.target.value })} style={inputStyle()}>
-                <option value="">{sistemasDisponibles.length ? "— Selecciona —" : "— Sin sistemas registrados —"}</option>
-                {sistemasDisponibles.map((s) => <option key={s} value={s}>{s}</option>)}
-              </select>
+              <EquipoPicker equipos={equiposDeNave} value={selEq}
+                placeholder="Buscar sistema o equipo…"
+                onChange={(eq) => { setSelEq(eq?.id || null); setForm((f) => ({ ...f, sistema: eq?.sistema || "" })); }} />
             </Field>
             <Field label="Prioridad"><select value={form.prioridad} onChange={(e) => setForm({ ...form, prioridad: e.target.value })} style={inputStyle()}>{PRIORIDADES.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}</select></Field>
             <Field label="Descripción" span={3}><input value={form.descripcion} onChange={(e) => setForm({ ...form, descripcion: e.target.value })} style={inputStyle()} placeholder="Qué se necesita" /></Field>
