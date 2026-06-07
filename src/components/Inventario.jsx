@@ -4,6 +4,7 @@ import { useAuth } from "../lib/auth";
 import { fetchAll, insertRow, updateRow, deleteRow, logActivity } from "../lib/db";
 import { C, clp, isAdmin, canOperate, tint } from "../theme";
 import { buildEquipoTree } from "../lib/equipTree";
+import { useArbolColapsable, EquipoNodoLabel } from "../lib/arbolColapsable";
 import { PLANTILLA_PESQUERA, TIPO_REPUESTO_META } from "../lib/plantillaPesquera";
 
 const TIPOS_REPUESTO = [
@@ -123,28 +124,26 @@ export default function Inventario() {
   function embColor(embId) { return embarcaciones.find((e) => e.id === embId)?.color || C.steel; }
   function embName(embId)  { return embarcaciones.find((e) => e.id === embId)?.nombre || ""; }
 
-  // ── Agrupación para las vistas colapsables ───────────────────
-  // Cada grupo = { key, label, sub, depth, items }.
-  function construirGrupos() {
-    if (vista === "categoria") {
-      const byCat = new Map();
-      lista.forEach((i) => { const k = i.categoria || "— Sin categoría"; if (!byCat.has(k)) byCat.set(k, []); byCat.get(k).push(i); });
-      return [...byCat.entries()].sort((a, b) => a[0].localeCompare(b[0], "es"))
-        .map(([k, its]) => ({ key: "cat:" + k, label: k, sub: null, depth: 0, items: its }));
-    }
-    if (vista === "jerarquia") {
-      const tree = buildEquipoTree(equipos);
-      const grupos = [];
-      tree.forEach((eq) => {
-        const its = lista.filter((i) => destinos.some((d) => d.item_id === i.id && d.equipo_id === eq.id));
-        if (its.length) grupos.push({ key: "eq:" + eq.id, label: eq.sistema, sub: `${eq.id_visible} · ${embName(eq.embarcacion_id)}`, depth: eq.depth, items: its });
-      });
-      const sinAsig = lista.filter((i) => !destinos.some((d) => d.item_id === i.id));
-      if (sinAsig.length) grupos.push({ key: "sin", label: "Sin asignar a equipo", sub: null, depth: 0, items: sinAsig });
-      return grupos;
-    }
-    return null; // plano
+  // ── Vista "Por categoría": grupos planos colapsables ─────────
+  function construirGruposCategoria() {
+    const byCat = new Map();
+    lista.forEach((i) => { const k = i.categoria || "— Sin categoría"; if (!byCat.has(k)) byCat.set(k, []); byCat.get(k).push(i); });
+    return [...byCat.entries()].sort((a, b) => a[0].localeCompare(b[0], "es"))
+      .map(([k, its]) => ({ key: "cat:" + k, label: k, items: its }));
   }
+
+  // ── Vista "Por jerarquía": árbol de equipos anidado, podado a las
+  //    ramas que contienen repuestos (según los filtros activos). ──
+  const eqById = new Map(equipos.map((e) => [e.id, e]));
+  const itemsDeEqDirect = (eqId) => lista.filter((i) => destinos.some((d) => d.item_id === i.id && d.equipo_id === eqId));
+  const relevante = new Set();
+  lista.forEach((i) => destinos.filter((d) => d.item_id === i.id).forEach((d) => {
+    let cur = eqById.get(d.equipo_id);
+    while (cur && !relevante.has(cur.id)) { relevante.add(cur.id); cur = cur.parent_id ? eqById.get(cur.parent_id) : null; }
+  }));
+  const treeJerarquia = buildEquipoTree(equipos).filter((eq) => relevante.has(eq.id));
+  const arbolInv = useArbolColapsable(treeJerarquia); // colapso por nodo (como Registro de Equipos)
+  const sinAsignar = lista.filter((i) => !destinos.some((d) => d.item_id === i.id));
 
   async function agregarDestino(itemId, equipoId) {
     if (destinos.some((d) => d.item_id === itemId && d.equipo_id === equipoId)) return;
@@ -321,8 +320,8 @@ export default function Inventario() {
           {/* Colapsar / expandir todo (solo en vistas agrupadas) */}
           {vista !== "plano" && (
             <div style={{ display: "flex", gap: 8 }}>
-              <button onClick={() => { const g = construirGrupos() || []; setGruposCol(new Set(g.map((x) => x.key))); }} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, padding: "5px 12px", borderRadius: 8, border: `1px solid ${C.line}`, background: "#fff", color: C.slate, cursor: "pointer", fontWeight: 600 }}><ChevronRight size={13} /> Colapsar todo</button>
-              <button onClick={() => setGruposCol(new Set())} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, padding: "5px 12px", borderRadius: 8, border: `1px solid ${C.line}`, background: "#fff", color: C.slate, cursor: "pointer", fontWeight: 600 }}><ChevronDown size={13} /> Expandir todo</button>
+              <button onClick={() => { vista === "categoria" ? setGruposCol(new Set(construirGruposCategoria().map((x) => x.key))) : arbolInv.colapsarTodo(true); }} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, padding: "5px 12px", borderRadius: 8, border: `1px solid ${C.line}`, background: "#fff", color: C.slate, cursor: "pointer", fontWeight: 600 }}><ChevronRight size={13} /> Colapsar todo</button>
+              <button onClick={() => { vista === "categoria" ? setGruposCol(new Set()) : arbolInv.colapsarTodo(false); }} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, padding: "5px 12px", borderRadius: 8, border: `1px solid ${C.line}`, background: "#fff", color: C.slate, cursor: "pointer", fontWeight: 600 }}><ChevronDown size={13} /> Expandir todo</button>
             </div>
           )}
         </div>
@@ -504,14 +503,14 @@ export default function Inventario() {
               </tr></thead>
               <tbody>
                 {(() => {
-                const filaItem = (i) => {
+                const filaItem = (i, indent = 0) => {
                   const abcTone = { A: "red", B: "yellow", C: "green" }[i.abc];
                   const st = i.total <= i.stock_min ? ["red", "Bajo"] : i.total <= i.stock_min * 1.5 ? ["yellow", "Revisar"] : ["green", "OK"];
                   const itemDests = destinosDeItem(i.id);
                   const isOpen = destinoPanel === i.id;
                   return (
                     <tr key={i.id} style={{ background: isOpen ? tint(C.sky, 12) : undefined }}>
-                      <td style={tdStyle}>
+                      <td style={{ ...tdStyle, paddingLeft: 12 + indent }}>
                         {codigoEdit.id === i.id ? (
                           <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
                             <input
@@ -652,32 +651,81 @@ export default function Inventario() {
                     </tr>
                   );
                 };
+                const vacio = <tr><td colSpan={NCOLS} style={{ textAlign: "center", padding: 24, color: C.slate, fontSize: 13 }}>Sin ítems para los filtros seleccionados.</td></tr>;
+
+                // ── Vista PLANO ──
                 if (vista === "plano") {
-                  return lista.length ? lista.map(filaItem)
-                    : <tr><td colSpan={NCOLS} style={{ textAlign: "center", padding: 24, color: C.slate, fontSize: 13 }}>Sin ítems para los filtros seleccionados.</td></tr>;
+                  return lista.length ? lista.map((i) => filaItem(i)) : vacio;
                 }
-                const grupos = construirGrupos() || [];
-                if (!grupos.length) return <tr><td colSpan={NCOLS} style={{ textAlign: "center", padding: 24, color: C.slate, fontSize: 13 }}>Sin ítems para los filtros seleccionados.</td></tr>;
-                return grupos.map((g) => {
-                  const col = gruposCol.has(g.key);
-                  const valorG = g.items.reduce((s, i) => s + i.valor, 0);
+
+                // ── Vista POR CATEGORÍA (grupos planos colapsables) ──
+                if (vista === "categoria") {
+                  const grupos = construirGruposCategoria();
+                  if (!grupos.length) return vacio;
+                  return grupos.map((g) => {
+                    const col = gruposCol.has(g.key);
+                    const valorG = g.items.reduce((s, i) => s + i.valor, 0);
+                    return (
+                      <React.Fragment key={g.key}>
+                        <tr onClick={() => toggleGrupo(g.key)} style={{ cursor: "pointer", background: tint(C.steel, 8) }}>
+                          <td colSpan={NCOLS} style={{ ...tdStyle, padding: "8px 14px" }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                              {col ? <ChevronRight size={15} color={C.steel} /> : <ChevronDown size={15} color={C.steel} />}
+                              <span style={{ fontWeight: 700, color: C.abyss }}>{g.label}</span>
+                              <span style={{ fontSize: 11.5, color: C.slate }}>· {g.items.length} ítem{g.items.length > 1 ? "s" : ""}</span>
+                              <span style={{ marginLeft: "auto", fontSize: 12.5, color: C.steel, fontWeight: 700, fontFamily: "'IBM Plex Mono', monospace" }}>{clp(valorG)}</span>
+                            </div>
+                          </td>
+                        </tr>
+                        {!col && g.items.map((i) => filaItem(i))}
+                      </React.Fragment>
+                    );
+                  });
+                }
+
+                // ── Vista POR JERARQUÍA (árbol anidado de equipos → repuestos) ──
+                if (!treeJerarquia.length && !sinAsignar.length) return vacio;
+                const filasArbol = treeJerarquia.filter((eq) => arbolInv.visible(eq)).map((eq) => {
+                  const directos = itemsDeEqDirect(eq.id);
+                  const expandible = arbolInv.tieneHijos(eq) || directos.length > 0;
+                  const col = arbolInv.estaColapsado(eq);
+                  const valorN = directos.reduce((s, i) => s + i.valor, 0);
                   return (
-                    <React.Fragment key={g.key}>
-                      <tr onClick={() => toggleGrupo(g.key)} style={{ cursor: "pointer", background: tint(C.steel, 8) }}>
-                        <td colSpan={NCOLS} style={{ ...tdStyle, padding: "8px 14px" }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: 8, paddingLeft: (g.depth || 0) * 16 }}>
-                            {col ? <ChevronRight size={15} color={C.steel} /> : <ChevronDown size={15} color={C.steel} />}
-                            <span style={{ fontWeight: 700, color: C.abyss }}>{g.label}</span>
-                            {g.sub && <span style={{ fontSize: 11.5, color: C.slate, fontFamily: "'IBM Plex Mono', monospace" }}>{g.sub}</span>}
-                            <span style={{ fontSize: 11.5, color: C.slate }}>· {g.items.length} ítem{g.items.length > 1 ? "s" : ""}</span>
-                            <span style={{ marginLeft: "auto", fontSize: 12.5, color: C.steel, fontWeight: 700, fontFamily: "'IBM Plex Mono', monospace" }}>{clp(valorG)}</span>
+                    <React.Fragment key={eq.id}>
+                      <tr onClick={() => expandible && arbolInv.toggle(eq.id)} style={{ cursor: expandible ? "pointer" : "default", background: tint(C.steel, eq.depth === 0 ? 9 : 5) }}>
+                        <td colSpan={NCOLS} style={{ ...tdStyle, padding: "7px 14px" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                            <EquipoNodoLabel eq={eq} tieneHijos={expandible} colapsado={col}
+                              onToggle={() => arbolInv.toggle(eq.id)} nSub={0} embName={embName} showEmb={eq.depth === 0} />
+                            {directos.length > 0 && (
+                              <span style={{ fontSize: 11.5, color: C.cyan, fontWeight: 700, whiteSpace: "nowrap" }}>· {directos.length} repuesto{directos.length > 1 ? "s" : ""}</span>
+                            )}
+                            {directos.length > 0 && <span style={{ marginLeft: "auto", fontSize: 12, color: C.steel, fontWeight: 700, fontFamily: "'IBM Plex Mono', monospace" }}>{clp(valorN)}</span>}
                           </div>
                         </td>
                       </tr>
-                      {!col && g.items.map(filaItem)}
+                      {!col && directos.map((i) => filaItem(i, eq.depth * 18 + 26))}
                     </React.Fragment>
                   );
                 });
+                const filaSin = sinAsignar.length > 0 && (() => {
+                  const col = gruposCol.has("sin");
+                  return (
+                    <React.Fragment key="sin">
+                      <tr onClick={() => toggleGrupo("sin")} style={{ cursor: "pointer", background: tint(C.amber, 10) }}>
+                        <td colSpan={NCOLS} style={{ ...tdStyle, padding: "7px 14px" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                            {col ? <ChevronRight size={15} color={C.amber} /> : <ChevronDown size={15} color={C.amber} />}
+                            <span style={{ fontWeight: 700, color: C.abyss }}>Sin asignar a equipo</span>
+                            <span style={{ fontSize: 11.5, color: C.slate }}>· {sinAsignar.length} ítem{sinAsignar.length > 1 ? "s" : ""}</span>
+                          </div>
+                        </td>
+                      </tr>
+                      {!col && sinAsignar.map((i) => filaItem(i, 26))}
+                    </React.Fragment>
+                  );
+                })();
+                return <>{filasArbol}{filaSin}</>;
                 })()}
               </tbody>
             </table>
