@@ -4,6 +4,7 @@ import { useAuth } from "../lib/auth";
 import { fetchAll, upsertRow, logActivity } from "../lib/db";
 import { buildEquipoTree } from "../lib/equipTree";
 import { useArbolColapsable, BotonesColapsar, EquipoNodoLabel, fondoTipo } from "../lib/arbolColapsable";
+import { calcCT, catCT } from "../lib/calculos";
 import { C, archivo, isAdmin, tint } from "../theme";
 import { Card, PageHead, Pill, exportBtn, thStyle, tdStyle, Empty, ErrorBanner, InlineSpinner, FilterBtn, GuiaColapsable } from "../ui";
 
@@ -16,8 +17,6 @@ const DIMS = [
   { key: "costo", label: "Costo",       desc: "costo de la falla" },
 ];
 const DEFAULT = { frec: 3, prod: 3, seg: 2, amb: 2, costo: 3 };
-const calcCT = (c) => (c.frec || 0) * ((c.prod || 0) + (c.seg || 0) + (c.amb || 0) + (c.costo || 0));
-const catCT = (ct) => ct >= 50 ? ["red", "Alta"] : ct >= 20 ? ["yellow", "Media"] : ["green", "Baja"];
 
 export default function Criticidad() {
   const { profile } = useAuth();

@@ -11,6 +11,7 @@ import { fetchAll } from "../lib/db";
 import { useOnline, outboxCount, flushOutbox } from "../lib/offline";
 import { C, archivo, rolLabel, ROLES, isAdmin, isSuperAdmin, tint } from "../theme";
 import { Card, InlineSpinner, PageHead } from "../ui";
+import ErrorBoundary from "./ErrorBoundary";
 
 const Tablero       = lazy(() => import("./Tablero"));
 const Alertas       = lazy(() => import("./Alertas"));
@@ -280,6 +281,7 @@ export default function AppShell() {
           </div>
         </div>
         <div className="cmms-work-area" style={{ maxWidth: "100%", margin: "0 auto" }}>
+          <ErrorBoundary key={view}>
           <Suspense fallback={<InlineSpinner label="Cargando módulo…" />}>
           {(() => {
             const Modulo = MODULOS[view];
@@ -306,6 +308,7 @@ export default function AppShell() {
             );
           })()}
           </Suspense>
+          </ErrorBoundary>
         </div>
       </main>
 

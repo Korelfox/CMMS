@@ -4,7 +4,8 @@ import { useAuth } from "../lib/auth";
 import { fetchAll, upsertRow, logActivity } from "../lib/db";
 import { buildEquipoTree } from "../lib/equipTree";
 import { useArbolColapsable, BotonesColapsar, EquipoNodoLabel, fondoTipo } from "../lib/arbolColapsable";
-import { C, archivo, clp, num, isAdmin, tint } from "../theme";
+import { calcMTBF, calcTsOpt, decidir } from "../lib/calculos";
+import { C, archivo, num, isAdmin } from "../theme";
 import { Card, PageHead, Pill, primaryBtn, bluInput, inputStyle, FilterBtn, Empty, ErrorBanner, InlineSpinner } from "../ui";
 
 // Valores iniciales sugeridos en el editor (β típico de degradación). El análisis
@@ -16,60 +17,7 @@ const DECISION_RANK = {
   "Reemplazo": 5, "Overhaul": 4, "Inspección": 3, "PM Preventivo": 2, "Reparar (correctivo)": 1,
 };
 
-// ───── Funciones matemáticas ─────────────────────────────────────────────
-// Función gamma Γ(z) por aproximación de Lanczos. Precisa para los rangos típicos de Weibull.
-function gammaFunc(z) {
-  if (z < 0.5) return Math.PI / (Math.sin(Math.PI * z) * gammaFunc(1 - z));
-  z -= 1;
-  const c = [0.99999999999980993, 676.5203681218851, -1259.1392167224028,
-    771.32342877765313, -176.61502916214059, 12.507343278686905,
-    -0.13857109526572012, 9.9843695780195716e-6, 1.5056327351493116e-7];
-  let x = c[0];
-  for (let i = 1; i < c.length; i++) x += c[i] / (z + i);
-  const t = z + c.length - 1.5;
-  return Math.sqrt(2 * Math.PI) * Math.pow(t, z + 0.5) * Math.exp(-t) * x;
-}
-
-// MTBF para Weibull biparamétrica: MTBF = η · Γ(1 + 1/β) + γ
-function calcMTBF(beta, eta, gamma) {
-  if (!beta || !eta) return 0;
-  return eta * gammaFunc(1 + 1 / beta) + (gamma || 0);
-}
-
-// Tiempo óptimo de intervención preventiva (Pascual):
-//   Ts* = η · (1 / (r · (β − 1)))^(1/β) + γ
-// Donde r = Cf / Ci. Solo válido para β > 1 (degradación con el tiempo).
-function calcTsOpt(beta, eta, gamma, cf, ci) {
-  if (beta <= 1) return null;
-  if (!cf || !ci || cf <= 0 || ci <= 0) return null;
-  const r = cf / ci;
-  if (r <= 0) return null;
-  const factor = 1 / (r * (beta - 1));
-  if (factor <= 0) return null;
-  return eta * Math.pow(factor, 1 / beta) + (gamma || 0);
-}
-
-// Decisión: Reparar / Preventivo / Overhaul / Reemplazo
-function decidir(beta, mtbf, tsOpt, r) {
-  if (beta <= 1) {
-    return { tipo: "Inspección", tone: "yellow",
-      raz: "β ≤ 1: las fallas son aleatorias o de mortalidad infantil. El PM por calendario no ayuda; conviene inspección por condición." };
-  }
-  if (mtbf < 200 && r > 3) {
-    return { tipo: "Reemplazo", tone: "red",
-      raz: "MTBF muy bajo y el costo de falla supera ampliamente al de intervención: la operación pierde dinero, conviene reemplazar." };
-  }
-  if (tsOpt && tsOpt < mtbf * 0.3 && beta > 2) {
-    return { tipo: "Overhaul", tone: "purple",
-      raz: "La degradación es agresiva (β > 2) y el óptimo cae muy temprano. Una intervención mayor (overhaul) puede reiniciar el reloj y mejorar la vida útil." };
-  }
-  if (tsOpt && tsOpt > 0) {
-    return { tipo: "PM Preventivo", tone: "green",
-      raz: `Programa PM en Ts* = ${num(tsOpt, 0)} h. Es el punto donde el costo total se minimiza.` };
-  }
-  return { tipo: "Reparar (correctivo)", tone: "slate",
-    raz: "No hay óptimo claro. Mantén estrategia correctiva y revisa parámetros con más datos." };
-}
+// Funciones de confiabilidad Weibull (gamma, MTBF, Ts*, decisión) en lib/calculos.
 
 export default function Weibull() {
   const { profile } = useAuth();

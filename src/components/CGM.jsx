@@ -4,6 +4,7 @@ import { useAuth } from "../lib/auth";
 import { fetchAll, upsertRow, logActivity } from "../lib/db";
 import { buildEquipoTree } from "../lib/equipTree";
 import { useArbolColapsable, BotonesColapsar, EquipoNodoLabel, fondoTipo } from "../lib/arbolColapsable";
+import { cgmCalcular as calcular } from "../lib/calculos";
 import { C, archivo, clp, isAdmin } from "../theme";
 import { Card, PageHead, Pill, primaryBtn, bluInput, FilterBtn, Empty, ErrorBanner, InlineSpinner } from "../ui";
 
@@ -15,22 +16,7 @@ const DEFAULT_CGM = {
   hrs_par: 0, val_prod: 0, g_extra: 0,
   val_inv: 0, val_eq: 0, vida: 0,
 };
-// Tasa anual de costo de capital sobre inventario (Pascual)
-const TASA_INV = 0.20;
-
-// Fórmulas mensuales:
-//   Ci = (hh_c + hh_p) × c_hh + rep + fung           [intervenciones]
-//   Cf = hrs_par × val_prod + g_extra                [fallas / lucro cesante]
-//   Ca = val_inv × tasa / 12                         [almacenamiento]
-//   Ai = val_eq / (vida × 12)                        [amortización]
-//   Cg = Ci + Cf + Ca + Ai
-function calcular(c) {
-  const Ci = ((c.hh_c || 0) + (c.hh_p || 0)) * (c.c_hh || 0) + (c.rep || 0) + (c.fung || 0);
-  const Cf = (c.hrs_par || 0) * (c.val_prod || 0) + (c.g_extra || 0);
-  const Ca = ((c.val_inv || 0) * TASA_INV) / 12;
-  const Ai = (c.vida || 0) > 0 ? (c.val_eq || 0) / (c.vida * 12) : 0;
-  return { Ci, Cf, Ca, Ai, total: Ci + Cf + Ca + Ai };
-}
+// Fórmula CGM (modelo Pascual) en lib/calculos: Cg = Ci + Cf + Ca + Ai.
 
 export default function CGM() {
   const { profile } = useAuth();
@@ -226,11 +212,11 @@ export default function CGM() {
 
                   <div style={{ marginTop: 14, padding: 12, background: C.surface, border: `1px solid ${C.line}`, borderRadius: 9 }}>
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 12 }}>
-                      <ResVal label="Ci · Intervenciones" v={calc.Ci} color={C.steel} />
-                      <ResVal label="Cf · Fallas" v={calc.Cf} color={C.red} />
-                      <ResVal label="Ca · Almacén" v={calc.Ca} color={C.amber} />
-                      <ResVal label="Ai · Amortización" v={calc.Ai} color={C.purple} />
-                      <ResVal label="Total / mes" v={calc.total} color={C.gold} big />
+                      <ResVal label="Ci · Intervenciones" v={a.Ci} color={C.steel} />
+                      <ResVal label="Cf · Fallas" v={a.Cf} color={C.red} />
+                      <ResVal label="Ca · Almacén" v={a.Ca} color={C.amber} />
+                      <ResVal label="Ai · Amortización" v={a.Ai} color={C.purple} />
+                      <ResVal label="Total / mes" v={a.total} color={C.gold} big />
                     </div>
                   </div>
 
