@@ -71,18 +71,47 @@ export default function Criticidad() {
   }
 
   const filtrados = buildEquipoTree(filtro === "all" ? equipos : equipos.filter((e) => e.embarcacion_id === filtro));
-  // Orden jerárquico (igual que Plan Preventivo), sin reordenar por CT.
-  const lista = filtrados.map((eq) => { const c = getC(eq.id); return { eq, c, ct: calcCT(c) }; });
   const arbol = useArbolColapsable(filtrados);
+  const esHoja   = (eq) => !arbol.tieneHijos(eq);
+  const evaluado = (eqId) => crit.some((c) => c.equipo_id === eqId); // tiene puntaje cargado
 
-  const altas = lista.filter((x) => x.ct >= 50).length;
-  const medias = lista.filter((x) => x.ct >= 20 && x.ct < 50).length;
-  const bajas = lista.filter((x) => x.ct < 20).length;
-  const promedio = lista.length ? Math.round(lista.reduce((s, x) => s + x.ct, 0) / lista.length) : 0;
+  // ── Rollup jerárquico de criticidad ────────────────────────────
+  // Se puntúa en las HOJAS (componentes). Cada padre (sistema/subsistema)
+  // hereda el CT MÁXIMO de sus descendientes (peor caso, RCM/ISO 14224) y
+  // muestra la distribución Alta/Media/Baja de lo evaluado bajo él.
+  const info = new Map(); // id → { hoja, evaluado, ct, alta, media, baja, nEval }
+  filtrados.forEach((eq) => {
+    if (esHoja(eq)) {
+      const ev = evaluado(eq.id);
+      const ct = ev ? calcCT(getC(eq.id)) : null;
+      const cat = ct == null ? null : catCT(ct)[1];
+      info.set(eq.id, { hoja: true, evaluado: ev, ct,
+        alta: cat === "Alta" ? 1 : 0, media: cat === "Media" ? 1 : 0, baja: cat === "Baja" ? 1 : 0, nEval: ev ? 1 : 0 });
+    } else {
+      info.set(eq.id, { hoja: false, evaluado: false, ct: null, alta: 0, media: 0, baja: 0, nEval: 0 });
+    }
+  });
+  [...filtrados].sort((a, b) => b.depth - a.depth).forEach((eq) => {
+    if (eq.parent_id && info.has(eq.parent_id)) {
+      const p = info.get(eq.parent_id), c = info.get(eq.id);
+      p.alta += c.alta; p.media += c.media; p.baja += c.baja; p.nEval += c.nEval;
+      if (c.ct != null) p.ct = p.ct == null ? c.ct : Math.max(p.ct, c.ct);
+    }
+  });
+
+  // KPIs: solo hojas evaluadas, para no contar el "Media fantasma".
+  const hojasEval = filtrados.filter((eq) => esHoja(eq) && evaluado(eq.id));
+  const altas   = hojasEval.filter((eq) => info.get(eq.id).ct >= 50).length;
+  const medias  = hojasEval.filter((eq) => { const ct = info.get(eq.id).ct; return ct >= 20 && ct < 50; }).length;
+  const bajas   = hojasEval.filter((eq) => info.get(eq.id).ct < 20).length;
+  const promedio = hojasEval.length ? Math.round(hojasEval.reduce((s, eq) => s + info.get(eq.id).ct, 0) / hojasEval.length) : 0;
 
   function exportar() {
     const filas = [["Equipo", "Embarcación", "F", "P", "S", "A", "C", "CT", "Categoría"],
-      ...lista.map(({ eq, c, ct }) => [eq.id_visible, embName(eq.embarcacion_id), c.frec, c.prod, c.seg, c.amb, c.costo, ct, catCT(ct)[1]])];
+      ...filtrados.filter(esHoja).map((eq) => {
+        const c = getC(eq.id); const ev = evaluado(eq.id); const ct = ev ? calcCT(c) : "";
+        return [eq.id_visible, embName(eq.embarcacion_id), ev ? c.frec : "", ev ? c.prod : "", ev ? c.seg : "", ev ? c.amb : "", ev ? c.costo : "", ct, ev ? catCT(ct)[1] : "Sin clasificar"];
+      })];
     const csv = filas.map((r) => r.map((c) => { const s = String(c ?? ""); return /[",\n;]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; }).join(";")).join("\n");
     const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8;" });
     const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "criticidad.csv"; a.click();
@@ -164,8 +193,41 @@ export default function Criticidad() {
               <th style={{ ...thStyle, textAlign: "center" }}>Categoría</th>
             </tr></thead>
             <tbody>
-              {lista.filter(({ eq }) => arbol.visible(eq)).map(({ eq, c, ct }) => {
-                const [tone, label] = catCT(ct);
+              {filtrados.filter((eq) => arbol.visible(eq)).map((eq) => {
+                const i = info.get(eq.id);
+
+                // ── Nodo padre: resumen (CT máximo + distribución) ──
+                if (!i.hoja) {
+                  return (
+                    <tr key={eq.id} style={{ background: tint(C.steel, 7) }}>
+                      <td style={tdStyle}>
+                        <EquipoNodoLabel eq={eq} tieneHijos={arbol.tieneHijos(eq)} colapsado={arbol.estaColapsado(eq)}
+                          onToggle={() => arbol.toggle(eq.id)} nSub={arbol.nSubDe(eq)} embName={embName} />
+                      </td>
+                      <td style={{ ...tdStyle }} colSpan={DIMS.length}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                          <span style={{ fontSize: 11, fontWeight: 700, color: C.steel, textTransform: "uppercase", letterSpacing: 0.5 }}>Resumen</span>
+                          {i.nEval === 0
+                            ? <span style={{ fontSize: 12, color: C.slate, fontStyle: "italic" }}>sin componentes evaluados</span>
+                            : <>
+                                <Pill tone="red">{i.alta} Alta</Pill>
+                                <Pill tone="yellow">{i.media} Media</Pill>
+                                <Pill tone="green">{i.baja} Baja</Pill>
+                              </>}
+                        </div>
+                      </td>
+                      <td style={{ ...tdStyle, textAlign: "right", fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, fontSize: 14 }}>
+                        {i.ct == null ? <span style={{ color: C.line }}>—</span> : i.ct}
+                      </td>
+                      <td style={{ ...tdStyle, textAlign: "center" }}>
+                        {i.ct == null ? <span style={{ color: C.line }}>—</span> : <Pill tone={catCT(i.ct)[0]}>{catCT(i.ct)[1]} · máx</Pill>}
+                      </td>
+                    </tr>);
+                }
+
+                // ── Nodo hoja: puntuación editable ──
+                const c = getC(eq.id);
+                const ev = i.evaluado;
                 return (
                   <tr key={eq.id} style={{ background: eq.depth > 0 ? tint(C.steel, 4) : undefined }}>
                     <td style={tdStyle}>
@@ -174,11 +236,15 @@ export default function Criticidad() {
                     </td>
                     {DIMS.map((d) => (
                       <td key={d.key} style={{ ...tdStyle, textAlign: "center" }}>
-                        <ScoreSelector value={c[d.key] || DEFAULT[d.key]} onChange={(v) => setScore(eq.id, d.key, v)} disabled={!puedeOperar} />
+                        <ScoreSelector value={ev ? c[d.key] : null} onChange={(v) => setScore(eq.id, d.key, v)} disabled={!puedeOperar} />
                       </td>
                     ))}
-                    <td style={{ ...tdStyle, textAlign: "right", fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, fontSize: 14 }}>{ct}</td>
-                    <td style={{ ...tdStyle, textAlign: "center" }}><Pill tone={tone}>{label}</Pill></td>
+                    <td style={{ ...tdStyle, textAlign: "right", fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, fontSize: 14 }}>
+                      {ev ? i.ct : <span style={{ color: C.line }}>—</span>}
+                    </td>
+                    <td style={{ ...tdStyle, textAlign: "center" }}>
+                      {ev ? <Pill tone={catCT(i.ct)[0]}>{catCT(i.ct)[1]}</Pill> : <span style={{ fontSize: 11, color: C.slate, fontStyle: "italic" }}>Sin clasificar</span>}
+                    </td>
                   </tr>);
               })}
             </tbody>
