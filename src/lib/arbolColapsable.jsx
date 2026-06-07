@@ -13,10 +13,19 @@ import { C, tint } from "../theme";
 import { Pill } from "../ui";
 import { TIPO_NODO_META } from "./plantillaPesquera";
 
-// Color y fondo tenue de un nodo según su tipo (Sistema azul, Subsistema cian,
-// Componente verde, Instrumento morado). Centralizado para todos los desplegables.
-export const colorTipo = (eq) => (TIPO_NODO_META[eq?.tipo_nodo] || TIPO_NODO_META.equipo).color;
-export const fondoTipo = (eq) => tint(colorTipo(eq), eq?.depth === 0 ? 12 : 6);
+// Color de acento y fondo tenue de un nodo según su tipo. Usa TOKENS DEL TEMA
+// (variables CSS) para que respeten el modo claro/oscuro fielmente, en vez de
+// hex fijos. Sistema=azul acero · Subsistema=cian · Componente=verde ·
+// Instrumento=morado · Equipo=pizarra.
+const COLOR_TIPO = {
+  sistema: C.steel, subsistema: C.cyan, componente: C.green, instrumento: C.purple, equipo: C.slate,
+};
+export const colorTipo = (eq) => COLOR_TIPO[eq?.tipo_nodo] || C.slate;
+
+// Fondo: degradación CONSISTENTE por profundidad (−3% por nivel desde 14%,
+// con piso en 4%). Como es color-mix con transparente, se adapta al fondo del
+// tema (claro u oscuro) automáticamente.
+export const fondoTipo = (eq) => tint(colorTipo(eq), Math.max(4, 14 - (eq?.depth || 0) * 3));
 
 // Hook: recibe la lista ya en orden de árbol (buildEquipoTree) y maneja el colapso.
 export function useArbolColapsable(treeList) {

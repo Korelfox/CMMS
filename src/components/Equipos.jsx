@@ -4,6 +4,7 @@ import { useAuth } from "../lib/auth";
 import { fetchAll, insertRow, updateRow, deleteRow, logActivity } from "../lib/db";
 import { C, isAdmin, canOperate, ESTADOS_EQUIPO, estadoLabel, tint, shadow } from "../theme";
 import { buildEquipoTree } from "../lib/equipTree";
+import { fondoTipo } from "../lib/arbolColapsable";
 import { PLANTILLA_PESQUERA, contarNodosPlantilla, contarRepuestosPlantilla, TIPO_NODO_META, CRITICIDAD_TONE, TIPO_REPUESTO_META } from "../lib/plantillaPesquera";
 
 const TIPOS_REPUESTO = [
@@ -613,7 +614,7 @@ export default function Equipos() {
                   const panelAbierto = repuestoPanel === e.id;
                   const pos = posInfo.get(e.id) || { first: true, last: true };
                   return ([
-                    <tr key={e.id} style={{ background: eqDirty(e) ? tint(C.gold, 14) : tint((TIPO_NODO_META[e.tipo_nodo] || TIPO_NODO_META.equipo).color, e.depth === 0 ? 12 : 6) }}>
+                    <tr key={e.id} style={{ background: eqDirty(e) ? tint(C.gold, 14) : fondoTipo(e) }}>
 
                       {/* Orden (reordenar entre hermanos) */}
                       {puedeOperar && (
