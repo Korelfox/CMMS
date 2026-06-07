@@ -158,7 +158,7 @@ export default function CGM() {
               <div onClick={() => setAbierto(expanded ? null : eq.id)}
                 style={{ display: "grid", gridTemplateColumns: "auto 2fr repeat(4, 1fr) 1.2fr auto", gap: 14, padding: "14px 18px", alignItems: "center", cursor: "pointer", borderBottom: expanded ? `1px solid ${C.line}` : "none" }}>
                 {expanded ? <ChevronDown size={18} color={C.slate} /> : <ChevronRight size={18} color={C.slate} />}
-                <EquipoNodoLabel eq={eq} esRaiz={arbol.esRaizConHijos(eq)} colapsado={arbol.estaColapsado(eq)}
+                <EquipoNodoLabel eq={eq} tieneHijos={arbol.tieneHijos(eq)} colapsado={arbol.estaColapsado(eq)}
                   onToggle={() => arbol.toggle(eq.id)} nSub={arbol.nSubDe(eq)} embName={embName} />
                 <Bar label="Ci" v={calc.Ci} max={calc.total} color={C.steel} />
                 <Bar label="Cf" v={calc.Cf} max={calc.total} color={C.red} />

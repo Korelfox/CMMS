@@ -169,7 +169,7 @@ export default function Criticidad() {
                 return (
                   <tr key={eq.id} style={{ background: eq.depth > 0 ? tint(C.steel, 4) : undefined }}>
                     <td style={tdStyle}>
-                      <EquipoNodoLabel eq={eq} esRaiz={arbol.esRaizConHijos(eq)} colapsado={arbol.estaColapsado(eq)}
+                      <EquipoNodoLabel eq={eq} tieneHijos={arbol.tieneHijos(eq)} colapsado={arbol.estaColapsado(eq)}
                         onToggle={() => arbol.toggle(eq.id)} nSub={arbol.nSubDe(eq)} embName={embName} />
                     </td>
                     {DIMS.map((d) => (

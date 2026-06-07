@@ -193,7 +193,7 @@ export default function Weibull() {
               <div onClick={() => setAbierto(expanded ? null : eq.id)}
                 style={{ display: "grid", gridTemplateColumns: "auto 2fr 0.8fr 1fr 1fr 0.7fr 1.3fr auto", gap: 14, padding: "14px 18px", alignItems: "center", cursor: "pointer", borderBottom: expanded ? `1px solid ${C.line}` : "none" }}>
                 {expanded ? <ChevronDown size={18} color={C.slate} /> : <ChevronRight size={18} color={C.slate} />}
-                <EquipoNodoLabel eq={eq} esRaiz={arbol.esRaizConHijos(eq)} colapsado={arbol.estaColapsado(eq)}
+                <EquipoNodoLabel eq={eq} tieneHijos={arbol.tieneHijos(eq)} colapsado={arbol.estaColapsado(eq)}
                   onToggle={() => arbol.toggle(eq.id)} nSub={arbol.nSubDe(eq)} embName={embName} />
                 <Stat label="β" value={(w.beta || 0).toFixed(1)} />
                 <Stat label="MTBF" value={`${num(mtbf, 0)}h`} />
