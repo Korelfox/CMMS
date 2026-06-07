@@ -167,6 +167,12 @@ export default function Cumplimiento() {
         } else {
           const orig = tipos.find((x) => x.id === t.id);
           if (!orig || orig.nombre !== t.nombre || (orig.orden ?? 0) !== orden) await updateRow("documento_tipos", t.id, { nombre: t.nombre, orden });
+          // Renombrado: actualizar en cascada los documentos ya cargados de ese tipo.
+          if (orig && orig.nombre !== t.nombre) {
+            const afectados = documentos.filter((d) => d.tipo === orig.nombre);
+            for (const d of afectados) await updateRow("documentos", d.id, { tipo: t.nombre });
+            if (afectados.length) logActivity(profile, "Renombrar tipo documento", `${orig.nombre} → ${t.nombre} (${afectados.length} doc.)`);
+          }
         }
       }
       logActivity(profile, "Editar tipos de documentación", `${limpio.length} tipo(s)`);
@@ -235,7 +241,7 @@ export default function Cumplimiento() {
             </button>
             <button onClick={() => setTiposEdit(null)} disabled={guardandoTipos} style={ghostBtn}><X size={14} /> Cancelar</button>
             <span style={{ fontSize: 11.5, color: C.slate, marginLeft: "auto" }}>
-              Los documentos ya cargados de un tipo renombrado deben re-asociarse manualmente.
+              Al renombrar un tipo, sus documentos ya cargados se actualizan automáticamente.
             </span>
           </div>
         </Card>
