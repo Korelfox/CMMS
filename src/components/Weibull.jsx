@@ -7,7 +7,14 @@ import { useArbolColapsable, BotonesColapsar, EquipoNodoLabel } from "../lib/arb
 import { C, archivo, clp, num, isAdmin } from "../theme";
 import { Card, PageHead, Pill, primaryBtn, bluInput, inputStyle, FilterBtn, Empty, ErrorBanner, InlineSpinner } from "../ui";
 
+// Valores iniciales sugeridos en el editor (β típico de degradación). El análisis
+// solo se considera "real" cuando el componente tiene una fila guardada en weibull.
 const DEFAULT_W = { beta: 2.0, eta: 1000, gamma: 0, cf: 50000, ci: 12000, notas: "" };
+
+// Prioridad de urgencia de las decisiones (mayor = más urgente) para el rollup.
+const DECISION_RANK = {
+  "Reemplazo": 5, "Overhaul": 4, "Inspección": 3, "PM Preventivo": 2, "Reparar (correctivo)": 1,
+};
 
 // ───── Funciones matemáticas ─────────────────────────────────────────────
 // Función gamma Γ(z) por aproximación de Lanczos. Precisa para los rangos típicos de Weibull.
@@ -132,19 +139,50 @@ export default function Weibull() {
   }
 
   const filtrados = buildEquipoTree(filtro === "all" ? equipos : equipos.filter((e) => e.embarcacion_id === filtro));
-  const enriquecidos = filtrados.map((eq) => {
-    const w = getW(eq.id);
-    const mtbf = calcMTBF(w.beta, w.eta, w.gamma);
-    const tsOpt = calcTsOpt(w.beta, w.eta, w.gamma, w.cf, w.ci);
-    const r = w.ci > 0 ? w.cf / w.ci : 0;
-    return { eq, w, mtbf, tsOpt, r, dec: decidir(w.beta, mtbf, tsOpt, r) };
-  });
   const arbol = useArbolColapsable(filtrados); // orden jerárquico (igual que Plan Preventivo)
+  const esHoja    = (eq) => !arbol.tieneHijos(eq);
+  const analizado = (eqId) => datos.some((d) => d.equipo_id === eqId); // tiene parámetros Weibull cargados
 
-  const numDegradan = enriquecidos.filter((x) => x.w.beta > 1).length;
-  const conPM = enriquecidos.filter((x) => x.dec.tipo === "PM Preventivo").length;
-  const conReemp = enriquecidos.filter((x) => x.dec.tipo === "Reemplazo" || x.dec.tipo === "Overhaul").length;
-  const mtbfProm = enriquecidos.length ? enriquecidos.reduce((s, x) => s + x.mtbf, 0) / enriquecidos.length : 0;
+  // ── Rollup jerárquico de confiabilidad ─────────────────────────
+  // Se analiza en las HOJAS (componentes con historial de fallas). NO se
+  // promedian β/η (no tiene sentido entre componentes distintos): cada padre
+  // resume la decisión más urgente, la distribución, el peor MTBF / mayor r
+  // y la cobertura del análisis de sus descendientes.
+  const info = new Map(); // id → { hoja, analizado, mtbf, tsOpt, r, dec, beta, peorMTBF, mayorR, urgente, dist, nAnalizados, nLeaves }
+  filtrados.forEach((eq) => {
+    if (esHoja(eq)) {
+      if (analizado(eq.id)) {
+        const w = getW(eq.id);
+        const mtbf = calcMTBF(w.beta, w.eta, w.gamma);
+        const tsOpt = calcTsOpt(w.beta, w.eta, w.gamma, w.cf, w.ci);
+        const r = w.ci > 0 ? w.cf / w.ci : 0;
+        const dec = decidir(w.beta, mtbf, tsOpt, r);
+        info.set(eq.id, { hoja: true, analizado: true, mtbf, tsOpt, r, dec, beta: w.beta,
+          peorMTBF: mtbf, mayorR: r, urgente: dec, dist: { [dec.tipo]: 1 }, nAnalizados: 1, nLeaves: 1 });
+      } else {
+        info.set(eq.id, { hoja: true, analizado: false, peorMTBF: null, mayorR: null, urgente: null, dist: {}, nAnalizados: 0, nLeaves: 1 });
+      }
+    } else {
+      info.set(eq.id, { hoja: false, analizado: false, peorMTBF: null, mayorR: null, urgente: null, dist: {}, nAnalizados: 0, nLeaves: 0 });
+    }
+  });
+  [...filtrados].sort((a, b) => b.depth - a.depth).forEach((eq) => {
+    if (eq.parent_id && info.has(eq.parent_id)) {
+      const p = info.get(eq.parent_id), c = info.get(eq.id);
+      p.nAnalizados += c.nAnalizados; p.nLeaves += c.nLeaves;
+      if (c.peorMTBF != null) p.peorMTBF = p.peorMTBF == null ? c.peorMTBF : Math.min(p.peorMTBF, c.peorMTBF);
+      if (c.mayorR != null) p.mayorR = p.mayorR == null ? c.mayorR : Math.max(p.mayorR, c.mayorR);
+      if (c.urgente && (!p.urgente || DECISION_RANK[c.urgente.tipo] > DECISION_RANK[p.urgente.tipo])) p.urgente = c.urgente;
+      for (const t in c.dist) p.dist[t] = (p.dist[t] || 0) + c.dist[t];
+    }
+  });
+
+  // KPIs: solo hojas analizadas.
+  const hojasAn = filtrados.filter((eq) => esHoja(eq) && analizado(eq.id));
+  const numDegradan = hojasAn.filter((eq) => info.get(eq.id).beta > 1).length;
+  const conPM = hojasAn.filter((eq) => info.get(eq.id).dec.tipo === "PM Preventivo").length;
+  const conReemp = hojasAn.filter((eq) => { const t = info.get(eq.id).dec.tipo; return t === "Reemplazo" || t === "Overhaul"; }).length;
+  const mtbfProm = hojasAn.length ? hojasAn.reduce((s, eq) => s + info.get(eq.id).mtbf, 0) / hojasAn.length : 0;
 
   if (loading) return <div><PageHead kicker="Optimización · Pascual" title="Optimización Weibull" /><Card><InlineSpinner label="Calculando óptimos…" /></Card></div>;
 
@@ -168,8 +206,8 @@ export default function Weibull() {
       <ErrorBanner onRetry={cargar}>{error}</ErrorBanner>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14, marginBottom: 16 }}>
-        <KPI label="Equipos analizados" value={enriquecidos.length} />
-        <KPI label="Con degradación (β > 1)" value={numDegradan} tone={C.amber} sub={`${enriquecidos.length - numDegradan} aleatorios`} />
+        <KPI label="Componentes analizados" value={hojasAn.length} sub={`de ${filtrados.filter(esHoja).length} componentes`} />
+        <KPI label="Con degradación (β > 1)" value={numDegradan} tone={C.amber} sub={`${hojasAn.length - numDegradan} aleatorios`} />
         <KPI label="Recomendados con PM" value={conPM} tone={C.green} sub="óptimo Ts* válido" />
         <KPI label="Overhaul / Reemplazo" value={conReemp} tone={conReemp ? C.red : C.green} sub="requieren intervención mayor" />
       </div>
@@ -186,7 +224,48 @@ export default function Weibull() {
       <BotonesColapsar conHijos={arbol.conHijos} colapsarTodo={arbol.colapsarTodo} />
 
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        {enriquecidos.filter(({ eq }) => arbol.visible(eq)).map(({ eq, w, mtbf, tsOpt, r, dec }) => {
+        {filtrados.filter((eq) => arbol.visible(eq)).map((eq) => {
+          const i = info.get(eq.id);
+
+          // ── Nodo padre: resumen de confiabilidad (rollup, no editable) ──
+          if (!i.hoja) {
+            return (
+              <Card key={eq.id} style={{ padding: "12px 18px", background: tint(C.steel, 5) }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+                  <span style={{ width: 18, flexShrink: 0 }} />
+                  <div style={{ flex: "1 1 240px", minWidth: 200 }}>
+                    <EquipoNodoLabel eq={eq} tieneHijos={arbol.tieneHijos(eq)} colapsado={arbol.estaColapsado(eq)}
+                      onToggle={() => arbol.toggle(eq.id)} nSub={arbol.nSubDe(eq)} embName={embName} />
+                  </div>
+                  {i.nAnalizados === 0 ? (
+                    <span style={{ fontSize: 12, color: C.slate, fontStyle: "italic" }}>Sin componentes analizados ({i.nLeaves})</span>
+                  ) : (
+                    <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        <span style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, color: C.slate, fontWeight: 600 }}>Más urgente</span>
+                        {i.urgente && <Pill tone={i.urgente.tone}>{i.urgente.tipo}</Pill>}
+                      </div>
+                      <Stat label="Peor MTBF" value={i.peorMTBF != null ? `${num(i.peorMTBF, 0)}h` : "—"} />
+                      <Stat label="r máx" value={i.mayorR != null ? i.mayorR.toFixed(1) : "—"} color={i.mayorR > 5 ? C.red : C.steel} />
+                      <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+                        {Object.entries(i.dist).sort((a, b) => (DECISION_RANK[b[0]] || 0) - (DECISION_RANK[a[0]] || 0)).map(([t, n]) => (
+                          <span key={t} style={{ fontSize: 10.5, color: C.slate, background: C.foam, borderRadius: 4, padding: "1px 6px" }}>{n} {t}</span>
+                        ))}
+                      </div>
+                      <span style={{ fontSize: 11, color: C.slate, fontFamily: "'IBM Plex Mono', monospace" }}>{i.nAnalizados}/{i.nLeaves} analizados</span>
+                    </div>
+                  )}
+                </div>
+              </Card>);
+          }
+
+          // ── Nodo hoja: análisis editable (valores en vivo según parámetros) ──
+          const w = getW(eq.id);
+          const an = i.analizado;
+          const mtbf = calcMTBF(w.beta, w.eta, w.gamma);
+          const tsOpt = calcTsOpt(w.beta, w.eta, w.gamma, w.cf, w.ci);
+          const r = w.ci > 0 ? w.cf / w.ci : 0;
+          const dec = decidir(w.beta, mtbf, tsOpt, r);
           const expanded = abierto === eq.id;
           return (
             <Card key={eq.id} style={{ padding: 0, overflow: "hidden" }}>
@@ -195,15 +274,15 @@ export default function Weibull() {
                 {expanded ? <ChevronDown size={18} color={C.slate} /> : <ChevronRight size={18} color={C.slate} />}
                 <EquipoNodoLabel eq={eq} tieneHijos={arbol.tieneHijos(eq)} colapsado={arbol.estaColapsado(eq)}
                   onToggle={() => arbol.toggle(eq.id)} nSub={arbol.nSubDe(eq)} embName={embName} />
-                <Stat label="β" value={(w.beta || 0).toFixed(1)} />
-                <Stat label="MTBF" value={`${num(mtbf, 0)}h`} />
-                <Stat label="Ts*" value={tsOpt ? `${num(tsOpt, 0)}h` : "—"} color={tsOpt ? C.green : C.slate} />
-                <Stat label="r" value={(r || 0).toFixed(1)} color={r > 5 ? C.red : C.steel} />
+                <Stat label="β" value={an ? (w.beta || 0).toFixed(1) : "—"} />
+                <Stat label="MTBF" value={an ? `${num(mtbf, 0)}h` : "—"} />
+                <Stat label="Ts*" value={an && tsOpt ? `${num(tsOpt, 0)}h` : "—"} color={tsOpt ? C.green : C.slate} />
+                <Stat label="r" value={an ? (r || 0).toFixed(1) : "—"} color={r > 5 ? C.red : C.steel} />
                 <div>
                   <div style={{ fontSize: 10, letterSpacing: 0.5, color: C.slate, fontWeight: 600, textTransform: "uppercase" }}>Recomendación</div>
-                  <div style={{ marginTop: 3 }}><Pill tone={dec.tone}>{dec.tipo}</Pill></div>
+                  <div style={{ marginTop: 3 }}>{an ? <Pill tone={dec.tone}>{dec.tipo}</Pill> : <span style={{ fontSize: 11, color: C.slate, fontStyle: "italic" }}>Sin analizar</span>}</div>
                 </div>
-                <div style={{ fontSize: 10, color: C.slate }}>{expanded ? "Ocultar" : "Detalle"}</div>
+                <div style={{ fontSize: 10, color: C.slate }}>{expanded ? "Ocultar" : an ? "Detalle" : "Analizar"}</div>
               </div>
 
               {expanded && (
