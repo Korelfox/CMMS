@@ -345,11 +345,24 @@ function TabStock({ profile, items, setItems, bodegas, stockMap, stock, setStock
     return new Map(enr.map((x) => { cum += x.val; const p = tot ? cum / tot : 0; return [x.id, p <= 0.8 ? "A" : p <= 0.95 ? "B" : "C"]; }));
   })();
 
+  // Estado de stock (total en toda la flota). Sin mínimo (stock_min = 0) no se
+  // marca "Bajo", salvo que el máximo sea 1 (repuesto crítico de 1 unidad) y el
+  // stock haya caído a 0. Consistente con Inventario.
+  const estadoStock = (i) => {
+    const t = totalItem(i.id);
+    const min = i.stock_min || 0;
+    if (min <= 0) {
+      if ((i.stock_max || 0) === 1 && t < 1) return { key: "bajo", tone: "red", label: "Bajo" };
+      return { key: "ok", tone: "slate", label: "Sin mín" };
+    }
+    if (t <= min) return { key: "bajo", tone: "red", label: "Bajo" };
+    if (t <= min * 1.5) return { key: "revisar", tone: "yellow", label: "Revisar" };
+    return { key: "ok", tone: "green", label: "OK" };
+  };
+
   const itemsFiltrados = items.filter((i) => {
-    const t  = totalItem(i.id);
-    const st = t <= i.stock_min ? "bajo" : t <= i.stock_min * 1.5 ? "revisar" : "ok";
     const q  = busqueda.toLowerCase();
-    return (filtroSt === "all" || st === filtroSt)
+    return (filtroSt === "all" || estadoStock(i).key === filtroSt)
       && (filtroABC === "all" || conABC.get(i.id) === filtroABC)
       && (!q || i.codigo.toLowerCase().includes(q) || i.descripcion.toLowerCase().includes(q) || (i.categoria || "").toLowerCase().includes(q) || (i.proveedor || "").toLowerCase().includes(q));
   });
@@ -432,7 +445,7 @@ function TabStock({ profile, items, setItems, bodegas, stockMap, stock, setStock
           {[["all", "Todos"], ["bajo", "Bajo mínimo"], ["revisar", "Por revisar"], ["ok", "OK"]].map(([v, lbl]) => {
             const tone = v === "bajo" ? C.red : v === "revisar" ? C.amber : v === "ok" ? C.green : C.slate;
             const active = filtroSt === v;
-            const n = v === "all" ? null : items.filter((i) => { const t = totalItem(i.id); return v === "bajo" ? t <= i.stock_min : v === "revisar" ? t > i.stock_min && t <= i.stock_min * 1.5 : t > i.stock_min * 1.5; }).length;
+            const n = v === "all" ? null : items.filter((i) => estadoStock(i).key === v).length;
             return <button key={v} onClick={() => setFiltroSt(v)} style={{ padding: "5px 12px", borderRadius: 7, border: `1px solid ${active ? tone : C.line}`, background: active ? tone : "#fff", color: active ? "#fff" : C.slate, fontSize: 12.5, fontWeight: 600, cursor: "pointer" }}>{lbl}{n != null && <span style={{ opacity: 0.75, marginLeft: 4, fontSize: 11 }}>({n})</span>}</button>;
           })}
         </div>
@@ -469,7 +482,7 @@ function TabStock({ profile, items, setItems, bodegas, stockMap, stock, setStock
               {(() => {
                 const filaItem = (i, indent = 0) => {
                 const t = totalItem(i.id);
-                const st = t <= i.stock_min ? ["red", "Bajo"] : t <= i.stock_min * 1.5 ? ["yellow", "Revisar"] : ["green", "OK"];
+                const st = estadoStock(i);
                 return (
                   <tr key={i.id}>
                     <td style={{ ...tdStyle, fontFamily: "'IBM Plex Mono', monospace", color: C.steel, fontWeight: 600, paddingLeft: 12 + indent }}>{i.codigo}</td>
@@ -538,7 +551,7 @@ function TabStock({ profile, items, setItems, bodegas, stockMap, stock, setStock
                     <td style={{ ...tdStyle, minWidth: 140 }}>
                       <NivelBar total={t} min={i.stock_min} max={i.stock_max} />
                       <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 5 }}>
-                        <Pill tone={st[0]}>{st[1]}</Pill>
+                        <Pill tone={st.tone}>{st.label}</Pill>
                         {puedeOperar && (
                           <button onClick={() => onReponer(i)} title="Crear OC para reponer este ítem"
                             style={{ fontSize: 10.5, padding: "2px 7px", borderRadius: 4, border: `1px solid ${C.cyan}`, background: "none", color: C.cyan, cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap" }}>

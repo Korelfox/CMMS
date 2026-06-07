@@ -111,7 +111,12 @@ export default function Inventario() {
   // como "Bajo": no tiene umbral configurado, así que se muestra "Sin mín".
   const estadoStock = (i) => {
     const min = i.stock_min || 0;
-    if (min <= 0) return { key: "ok", tone: "slate", label: "Sin mín" };
+    if (min <= 0) {
+      // Sin mínimo: solo se marca "Bajo" si el máximo es 1 (repuesto crítico
+      // de 1 unidad) y el stock cayó a 0; si no, "Sin mín".
+      if ((i.stock_max || 0) === 1 && i.total < 1) return { key: "bajo", tone: "red", label: "Bajo" };
+      return { key: "ok", tone: "slate", label: "Sin mín" };
+    }
     if (i.total <= min) return { key: "bajo", tone: "red", label: "Bajo" };
     if (i.total <= min * 1.5) return { key: "revisar", tone: "yellow", label: "Revisar" };
     return { key: "ok", tone: "green", label: "OK" };
