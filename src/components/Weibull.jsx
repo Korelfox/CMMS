@@ -4,7 +4,7 @@ import { useAuth } from "../lib/auth";
 import { fetchAll, upsertRow, logActivity } from "../lib/db";
 import { buildEquipoTree } from "../lib/equipTree";
 import { useArbolColapsable, BotonesColapsar, EquipoNodoLabel } from "../lib/arbolColapsable";
-import { C, archivo, clp, num, isAdmin } from "../theme";
+import { C, archivo, clp, num, isAdmin, tint } from "../theme";
 import { Card, PageHead, Pill, primaryBtn, bluInput, inputStyle, FilterBtn, Empty, ErrorBanner, InlineSpinner } from "../ui";
 
 // Valores iniciales sugeridos en el editor (β típico de degradación). El análisis
