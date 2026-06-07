@@ -4,7 +4,7 @@ import { insertRow, updateRow, deleteRow, logActivity } from "../../lib/db";
 import { useOnline, cacheTable, getCached, queueInsert, nuevoId } from "../../lib/offline";
 import { subirFotos, listarFotos, borrarFoto } from "../../lib/fotos";
 import { C, archivo, canOperate, isAdmin, tint } from "../../theme";
-import { buildEquipoTree } from "../../lib/equipTree";
+import EquipoPicker from "../EquipoPicker";
 import { Card, Pill, primaryBtn, ghostBtn, thStyle, tdStyle, Empty, Field, inputStyle } from "../../ui";
 import { FotoInput, FotoGaleria } from "../Fotos";
 import { Bloque, Semaforo, NivelItem, Stepper, StepperRef } from "./widgets";
@@ -339,15 +339,9 @@ export function VistaRetornoFalla({ marea, nave, equipos, onVolver, onGuardar })
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
           {/* Sistema/equipo afectado */}
           <Field label="Sistema o equipo afectado">
-            <select value={form.equipo_id} onChange={(e) => setForm((p) => ({ ...p, equipo_id: e.target.value }))}
-              style={{ ...inputStyle(), borderColor: C.red }}>
-              <option value="">— Seleccionar sistema —</option>
-              {equipos.map((eq) => (
-                <option key={eq.id} value={eq.id}>
-                  {"　".repeat(eq.depth || 0)}{(eq.depth || 0) > 0 ? "└─ " : ""}{eq.id_visible} · {eq.sistema}
-                </option>
-              ))}
-            </select>
+            <EquipoPicker equipos={equipos} value={form.equipo_id}
+              placeholder="Buscar sistema o equipo afectado…"
+              onChange={(eq) => setForm((p) => ({ ...p, equipo_id: eq?.id || "" }))} />
           </Field>
 
           {/* Severidad */}
