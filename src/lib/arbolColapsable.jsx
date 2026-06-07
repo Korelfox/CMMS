@@ -9,8 +9,14 @@
 // ============================================================
 import React, { useState, useEffect } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
-import { C } from "../theme";
+import { C, tint } from "../theme";
 import { Pill } from "../ui";
+import { TIPO_NODO_META } from "./plantillaPesquera";
+
+// Color y fondo tenue de un nodo según su tipo (Sistema azul, Subsistema cian,
+// Componente verde, Instrumento morado). Centralizado para todos los desplegables.
+export const colorTipo = (eq) => (TIPO_NODO_META[eq?.tipo_nodo] || TIPO_NODO_META.equipo).color;
+export const fondoTipo = (eq) => tint(colorTipo(eq), eq?.depth === 0 ? 12 : 6);
 
 // Hook: recibe la lista ya en orden de árbol (buildEquipoTree) y maneja el colapso.
 export function useArbolColapsable(treeList) {
@@ -88,6 +94,8 @@ export function EquipoNodoLabel({ eq, tieneHijos, colapsado, onToggle, nSub = 0,
   const critTone = { A: "red", B: "yellow", C: "green" }[eq.criticidad];
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 8, paddingLeft: eq.depth * 16, minWidth: 0 }}>
+      {/* Acento lateral de color por tipo de nodo */}
+      <span style={{ width: 3, height: 18, borderRadius: 2, background: colorTipo(eq), flexShrink: 0 }} title={(TIPO_NODO_META[eq?.tipo_nodo] || TIPO_NODO_META.equipo).label} />
       {tieneHijos ? (
         <button onClick={(e) => { e.stopPropagation(); onToggle?.(); }} title={colapsado ? "Expandir" : "Colapsar"}
           style={{ background: "none", border: "none", cursor: "pointer", color: C.steel, padding: 0, display: "flex", alignItems: "center", flexShrink: 0 }}>

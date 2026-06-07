@@ -7,7 +7,7 @@ import {
 import { useAuth } from "../lib/auth";
 import { fetchAll, insertRow, updateRow, deleteRow, upsertRow, logActivity } from "../lib/db";
 import { buildEquipoTree } from "../lib/equipTree";
-import { useArbolColapsable, EquipoNodoLabel } from "../lib/arbolColapsable";
+import { useArbolColapsable, EquipoNodoLabel, fondoTipo } from "../lib/arbolColapsable";
 import { supabase } from "../lib/supabase";
 import { C, archivo, clp, num, isAdmin, canOperate, tint } from "../theme";
 import {
@@ -600,7 +600,7 @@ function TabStock({ profile, items, setItems, bodegas, stockMap, stock, setStock
                   const valorN = directos.reduce((s, i) => s + totalItem(i.id) * (i.precio || 0), 0);
                   return (
                     <React.Fragment key={eq.id}>
-                      <tr onClick={() => expandible && arbolInv.toggle(eq.id)} style={{ cursor: expandible ? "pointer" : "default", background: tint(C.steel, eq.depth === 0 ? 9 : 5) }}>
+                      <tr onClick={() => expandible && arbolInv.toggle(eq.id)} style={{ cursor: expandible ? "pointer" : "default", background: fondoTipo(eq) }}>
                         <td colSpan={NCOLS} style={{ ...tdStyle, padding: "7px 14px" }}>
                           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                             <EquipoNodoLabel eq={eq} tieneHijos={expandible} colapsado={col} onToggle={() => arbolInv.toggle(eq.id)} nSub={0} embName={embName} showEmb={eq.depth === 0} />

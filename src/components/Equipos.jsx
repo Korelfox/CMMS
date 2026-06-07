@@ -613,7 +613,7 @@ export default function Equipos() {
                   const panelAbierto = repuestoPanel === e.id;
                   const pos = posInfo.get(e.id) || { first: true, last: true };
                   return ([
-                    <tr key={e.id} style={{ background: eqDirty(e) ? tint(C.gold, 14) : e.depth > 0 ? tint(C.steel, 5) : undefined }}>
+                    <tr key={e.id} style={{ background: eqDirty(e) ? tint(C.gold, 14) : tint((TIPO_NODO_META[e.tipo_nodo] || TIPO_NODO_META.equipo).color, e.depth === 0 ? 12 : 6) }}>
 
                       {/* Orden (reordenar entre hermanos) */}
                       {puedeOperar && (

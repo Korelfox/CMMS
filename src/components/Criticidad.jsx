@@ -3,7 +3,7 @@ import { Activity, AlertTriangle, Download } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { fetchAll, upsertRow, logActivity } from "../lib/db";
 import { buildEquipoTree } from "../lib/equipTree";
-import { useArbolColapsable, BotonesColapsar, EquipoNodoLabel } from "../lib/arbolColapsable";
+import { useArbolColapsable, BotonesColapsar, EquipoNodoLabel, fondoTipo } from "../lib/arbolColapsable";
 import { C, archivo, isAdmin, tint } from "../theme";
 import { Card, PageHead, Pill, exportBtn, thStyle, tdStyle, Empty, ErrorBanner, InlineSpinner, FilterBtn, GuiaColapsable } from "../ui";
 
@@ -199,7 +199,7 @@ export default function Criticidad() {
                 // ── Nodo padre: resumen (CT máximo + distribución) ──
                 if (!i.hoja) {
                   return (
-                    <tr key={eq.id} style={{ background: tint(C.steel, 7) }}>
+                    <tr key={eq.id} style={{ background: fondoTipo(eq) }}>
                       <td style={tdStyle}>
                         <EquipoNodoLabel eq={eq} tieneHijos={arbol.tieneHijos(eq)} colapsado={arbol.estaColapsado(eq)}
                           onToggle={() => arbol.toggle(eq.id)} nSub={arbol.nSubDe(eq)} embName={embName} />
@@ -229,7 +229,7 @@ export default function Criticidad() {
                 const c = getC(eq.id);
                 const ev = i.evaluado;
                 return (
-                  <tr key={eq.id} style={{ background: eq.depth > 0 ? tint(C.steel, 4) : undefined }}>
+                  <tr key={eq.id} style={{ background: fondoTipo(eq) }}>
                     <td style={tdStyle}>
                       <EquipoNodoLabel eq={eq} tieneHijos={arbol.tieneHijos(eq)} colapsado={arbol.estaColapsado(eq)}
                         onToggle={() => arbol.toggle(eq.id)} nSub={arbol.nSubDe(eq)} embName={embName} />

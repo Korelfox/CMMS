@@ -4,7 +4,7 @@ import { useAuth } from "../lib/auth";
 import { fetchAll, insertRow, updateRow, deleteRow, logActivity } from "../lib/db";
 import { C, clp, isAdmin, canOperate, tint } from "../theme";
 import { buildEquipoTree } from "../lib/equipTree";
-import { useArbolColapsable, EquipoNodoLabel } from "../lib/arbolColapsable";
+import { useArbolColapsable, EquipoNodoLabel, fondoTipo } from "../lib/arbolColapsable";
 import { PLANTILLA_PESQUERA, TIPO_REPUESTO_META } from "../lib/plantillaPesquera";
 
 const TIPOS_REPUESTO = [
@@ -706,7 +706,7 @@ export default function Inventario() {
                   const valorN = directos.reduce((s, i) => s + i.valor, 0);
                   return (
                     <React.Fragment key={eq.id}>
-                      <tr onClick={() => expandible && arbolInv.toggle(eq.id)} style={{ cursor: expandible ? "pointer" : "default", background: tint(C.steel, eq.depth === 0 ? 9 : 5) }}>
+                      <tr onClick={() => expandible && arbolInv.toggle(eq.id)} style={{ cursor: expandible ? "pointer" : "default", background: fondoTipo(eq) }}>
                         <td colSpan={NCOLS} style={{ ...tdStyle, padding: "7px 14px" }}>
                           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                             <EquipoNodoLabel eq={eq} tieneHijos={expandible} colapsado={col}

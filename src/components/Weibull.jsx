@@ -3,7 +3,7 @@ import { TrendingUp, ChevronDown, ChevronRight, AlertCircle, Save, Check } from 
 import { useAuth } from "../lib/auth";
 import { fetchAll, upsertRow, logActivity } from "../lib/db";
 import { buildEquipoTree } from "../lib/equipTree";
-import { useArbolColapsable, BotonesColapsar, EquipoNodoLabel } from "../lib/arbolColapsable";
+import { useArbolColapsable, BotonesColapsar, EquipoNodoLabel, fondoTipo } from "../lib/arbolColapsable";
 import { C, archivo, clp, num, isAdmin, tint } from "../theme";
 import { Card, PageHead, Pill, primaryBtn, bluInput, inputStyle, FilterBtn, Empty, ErrorBanner, InlineSpinner } from "../ui";
 
@@ -230,7 +230,7 @@ export default function Weibull() {
           // ── Nodo padre: resumen de confiabilidad (rollup, no editable) ──
           if (!i.hoja) {
             return (
-              <Card key={eq.id} style={{ padding: "12px 18px", background: tint(C.steel, 5) }}>
+              <Card key={eq.id} style={{ padding: "12px 18px", background: fondoTipo(eq) }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
                   <span style={{ width: 18, flexShrink: 0 }} />
                   <div style={{ flex: "1 1 240px", minWidth: 200 }}>
@@ -270,7 +270,7 @@ export default function Weibull() {
           return (
             <Card key={eq.id} style={{ padding: 0, overflow: "hidden" }}>
               <div onClick={() => setAbierto(expanded ? null : eq.id)}
-                style={{ display: "grid", gridTemplateColumns: "auto 2fr 0.8fr 1fr 1fr 0.7fr 1.3fr auto", gap: 14, padding: "14px 18px", alignItems: "center", cursor: "pointer", borderBottom: expanded ? `1px solid ${C.line}` : "none" }}>
+                style={{ display: "grid", gridTemplateColumns: "auto 2fr 0.8fr 1fr 1fr 0.7fr 1.3fr auto", gap: 14, padding: "14px 18px", alignItems: "center", cursor: "pointer", background: fondoTipo(eq), borderBottom: expanded ? `1px solid ${C.line}` : "none" }}>
                 {expanded ? <ChevronDown size={18} color={C.slate} /> : <ChevronRight size={18} color={C.slate} />}
                 <EquipoNodoLabel eq={eq} tieneHijos={arbol.tieneHijos(eq)} colapsado={arbol.estaColapsado(eq)}
                   onToggle={() => arbol.toggle(eq.id)} nSub={arbol.nSubDe(eq)} embName={embName} />

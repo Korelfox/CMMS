@@ -3,7 +3,7 @@ import { CalendarClock, Check, AlertCircle, Plus, Trash2, Download, History, Cli
 import { useAuth } from "../lib/auth";
 import { fetchAll, insertRow, updateRow, deleteRow, logActivity } from "../lib/db";
 import { buildEquipoTree } from "../lib/equipTree";
-import { useArbolColapsable, BotonesColapsar } from "../lib/arbolColapsable";
+import { useArbolColapsable, BotonesColapsar, colorTipo, fondoTipo } from "../lib/arbolColapsable";
 import { C, archivo, num, canOperate, isAdmin, tint } from "../theme";
 import {
   Card, PageHead, Pill, FilterBtn, primaryBtn, ghostBtn, exportBtn,
@@ -246,7 +246,7 @@ function TabPlan({ lista, equipos, setEquipos, planes, setPlanes, historial, set
         const nSub = arbol.nSubDe(eq);
 
         return (
-          <Card key={eq.id} style={{ marginBottom: 10, borderLeft: `4px solid ${vencidosEq > 0 ? C.red : C.line}`, paddingBottom: 8 }}>
+          <Card key={eq.id} style={{ marginBottom: 10, borderLeft: `4px solid ${vencidosEq > 0 ? C.red : colorTipo(eq)}`, background: fondoTipo(eq), paddingBottom: 8 }}>
             {/* ── Cabecera del equipo ── */}
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: planesEq.length > 0 ? 12 : 4, paddingLeft: eq.depth * 16 }}>
               {tieneHijos ? (

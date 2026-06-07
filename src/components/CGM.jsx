@@ -3,7 +3,7 @@ import { DollarSign, ChevronDown, ChevronRight, AlertCircle, Save, Check } from 
 import { useAuth } from "../lib/auth";
 import { fetchAll, upsertRow, logActivity } from "../lib/db";
 import { buildEquipoTree } from "../lib/equipTree";
-import { useArbolColapsable, BotonesColapsar, EquipoNodoLabel } from "../lib/arbolColapsable";
+import { useArbolColapsable, BotonesColapsar, EquipoNodoLabel, fondoTipo } from "../lib/arbolColapsable";
 import { C, archivo, clp, isAdmin } from "../theme";
 import { Card, PageHead, Pill, primaryBtn, bluInput, FilterBtn, Empty, ErrorBanner, InlineSpinner } from "../ui";
 
@@ -183,7 +183,7 @@ export default function CGM() {
           return (
             <Card key={eq.id} style={{ padding: 0, overflow: "hidden" }}>
               <div onClick={() => hoja && setAbierto(expanded ? null : eq.id)}
-                style={{ display: "grid", gridTemplateColumns: "auto 2fr repeat(4, 1fr) 1.2fr auto", gap: 14, padding: "14px 18px", alignItems: "center", cursor: hoja ? "pointer" : "default", borderBottom: expanded ? `1px solid ${C.line}` : "none" }}>
+                style={{ display: "grid", gridTemplateColumns: "auto 2fr repeat(4, 1fr) 1.2fr auto", gap: 14, padding: "14px 18px", alignItems: "center", cursor: hoja ? "pointer" : "default", background: fondoTipo(eq), borderBottom: expanded ? `1px solid ${C.line}` : "none" }}>
                 {hoja ? (expanded ? <ChevronDown size={18} color={C.slate} /> : <ChevronRight size={18} color={C.slate} />) : <span style={{ width: 18 }} />}
                 <EquipoNodoLabel eq={eq} tieneHijos={arbol.tieneHijos(eq)} colapsado={arbol.estaColapsado(eq)}
                   onToggle={() => arbol.toggle(eq.id)} nSub={arbol.nSubDe(eq)} embName={embName} />
