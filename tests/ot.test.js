@@ -1,0 +1,67 @@
+import { describe, it, expect } from "vitest";
+import { blankOT, folioOT, costoOT, kpisOT, filtrarOTs, validarNuevaOT } from "../src/lib/ot.js";
+
+describe("OT · folio", () => {
+  it("online: correlativo con padding a 3", () => {
+    expect(folioOT(0, true)).toBe("OT-001");
+    expect(folioOT(11, true)).toBe("OT-012");
+  });
+  it("offline: provisional S/N sin ':' problemáticos", () => {
+    const f = folioOT(5, false, "2026-06-07T09:15:00.000Z");
+    expect(f.startsWith("OT-S/N-")).toBe(true);
+    expect(f).not.toContain(":");
+  });
+});
+
+describe("OT · costo y KPIs", () => {
+  it("costoOT = MO + Mat (tolera faltantes)", () => {
+    expect(costoOT({ costo_mo: 1000, costo_mat: 500 })).toBe(1500);
+    expect(costoOT({})).toBe(0);
+  });
+  it("kpisOT cuenta abiertas, preventivas, proactividad y costo", () => {
+    const ots = [
+      { estado: "cerrada", tipo: "correctivo", costo_mo: 1000, costo_mat: 0 },
+      { estado: "solicitada", tipo: "preventivo", costo_mo: 0, costo_mat: 500 },
+      { estado: "en_ejecucion", tipo: "preventivo", costo_mo: 0, costo_mat: 0 },
+    ];
+    const k = kpisOT(ots);
+    expect(k.total).toBe(3);
+    expect(k.abiertas).toBe(2);
+    expect(k.preventivas).toBe(2);
+    expect(k.propProactivo).toBe(67);
+    expect(k.costoTotal).toBe(1500);
+  });
+  it("kpisOT vacío → proactividad 0", () => {
+    expect(kpisOT([]).propProactivo).toBe(0);
+  });
+});
+
+describe("OT · filtro de lista", () => {
+  const ots = [
+    { id: 1, estado: "cerrada", embarcacion_id: "n1" },
+    { id: 2, estado: "solicitada", embarcacion_id: "n2" },
+  ];
+  it("all devuelve todas", () => expect(filtrarOTs(ots, "all")).toHaveLength(2));
+  it("filtra por estado", () => expect(filtrarOTs(ots, "cerrada").map((o) => o.id)).toEqual([1]));
+  it("filtra por embarcación", () => expect(filtrarOTs(ots, "n2").map((o) => o.id)).toEqual([2]));
+});
+
+describe("OT · validación de OT nueva", () => {
+  it("exige embarcación y descripción", () => {
+    expect(validarNuevaOT({ descripcion: "x" })).toBeTruthy();
+    expect(validarNuevaOT({ embarcacion_id: "n", descripcion: "   " })).toBeTruthy();
+  });
+  it("válida cuando tiene ambas", () => {
+    expect(validarNuevaOT({ embarcacion_id: "n", descripcion: "cambio aceite" })).toBeNull();
+  });
+});
+
+describe("OT · formulario en blanco", () => {
+  it("trae defaults coherentes", () => {
+    const b = blankOT("2026-06-07");
+    expect(b.estado).toBe("solicitada");
+    expect(b.tipo).toBe("preventivo");
+    expect(b.fecha).toBe("2026-06-07");
+    expect(b.costo_mo).toBe(0);
+  });
+});

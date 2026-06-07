@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from "react";
-import { ClipboardList, Plus, Trash2, Download, CloudOff, Clock, ChevronDown, DollarSign, Check, Camera } from "lucide-react";
+import { ClipboardList, Plus, Trash2, Download, CloudOff, Clock, DollarSign, Check, Camera } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { fetchAll, insertRow, updateRow, deleteRow, logActivity } from "../lib/db";
 import { useOnline, cacheTable, getCached, queueInsert, nuevoId } from "../lib/offline";
@@ -11,6 +11,8 @@ import {
   thStyle, tdStyle, FilterBtn, Field, Empty, ErrorBanner, InlineSpinner,
 } from "../ui";
 import { FotoInput, FotoGaleria } from "./Fotos";
+import { blankOT, folioOT, kpisOT, costoOT, filtrarOTs, validarNuevaOT } from "../lib/ot";
+import EstadoSelect from "./ot/EstadoSelect";
 
 const HOY = () => new Date().toISOString().slice(0, 10);
 
@@ -35,10 +37,7 @@ export default function OrdenesTrabajo({ navParams }) {
   const puedeBorrar = isAdmin(profile?.rol);
   const puedeCostos = isAdmin(profile?.rol);  // valorizar costos: Jefe Mantención y superiores
 
-  function blank() {
-    return { embarcacion_id: "", equipo_id: "", sistema: "", tipo: "preventivo", prioridad: "media",
-      estado: "solicitada", fecha: HOY(), descripcion: "", mttr_horas: 0, hrs_oper_desde: 0, costo_mo: 0, costo_mat: 0 };
-  }
+  function blank() { return blankOT(HOY()); }
 
   const cargar = useCallback(async () => {
     setLoading(true); setError(null);
@@ -86,24 +85,18 @@ export default function OrdenesTrabajo({ navParams }) {
 
   // Si venimos de una alerta, mostramos solo esa OT; si no, el filtro normal.
   const otDestacada = otDestacadaId ? ots.find((o) => o.id === otDestacadaId) : null;
-  const lista = otDestacada ? [otDestacada]
-    : filtro === "all" ? ots
-    : ["solicitada", "planificada", "programada", "en_ejecucion", "cerrada"].includes(filtro)
-      ? ots.filter((o) => o.estado === filtro)
-      : ots.filter((o) => o.embarcacion_id === filtro);
+  const lista = otDestacada ? [otDestacada] : filtrarOTs(ots, filtro);
 
   // KPIs rápidos
-  const abiertas = ots.filter((o) => o.estado !== "cerrada").length;
-  const costoTotal = ots.reduce((s, o) => s + (o.costo_mo || 0) + (o.costo_mat || 0), 0);
-  const preventivas = ots.filter((o) => o.tipo === "preventivo").length;
-  const propProactivo = ots.length ? Math.round((preventivas / ots.length) * 100) : 0;
+  const { abiertas, costoTotal, preventivas, propProactivo } = kpisOT(ots);
 
   async function crear() {
-    if (!form.descripcion.trim() || !form.embarcacion_id) { setError("Indica al menos la embarcación y una descripción."); return; }
+    const err = validarNuevaOT(form);
+    if (err) { setError(err); return; }
     const id = nuevoId();
     const fila = {
       id,
-      folio: online ? `OT-${String(ots.length + 1).padStart(3, "0")}` : `OT-S/N-${new Date().toISOString().slice(5, 16).replace("T", "-").replace(":", "")}`,
+      folio: folioOT(ots.length, online),
       empresa_id: profile.empresa_id,
       embarcacion_id: form.embarcacion_id,
       equipo_id: form.equipo_id || null,
@@ -196,7 +189,7 @@ export default function OrdenesTrabajo({ navParams }) {
         sub="Flujo: Solicitada → Planificada → Programada → En ejecución → Cerrada. Registra costos, MTTR y horas de operación."
         action={<div style={{ display: "flex", gap: 8 }}>
           <button onClick={exportar} style={exportBtn}><Download size={15} /> Exportar</button>
-          {puedeOperar && <button onClick={() => { setShowForm(!showForm); setError(null); }} style={primaryBtn}><Plus size={16} /> Nueva OT</button>}
+          {puedeOperar && <button data-testid="ot-nueva" onClick={() => { setShowForm(!showForm); setError(null); }} style={primaryBtn}><Plus size={16} /> Nueva OT</button>}
         </div>} />
 
       <ErrorBanner onRetry={cargar}>{error}</ErrorBanner>
@@ -226,7 +219,7 @@ export default function OrdenesTrabajo({ navParams }) {
           <div style={{ fontWeight: 700, fontSize: 15, color: C.abyss, marginBottom: 14 }}>Nueva Orden de Trabajo</div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12 }}>
             <Field label="Embarcación">
-              <select value={form.embarcacion_id} onChange={(e) => setForm({ ...form, embarcacion_id: e.target.value, equipo_id: "" })} style={inputStyle()}>
+              <select data-testid="ot-form-embarcacion" value={form.embarcacion_id} onChange={(e) => setForm({ ...form, embarcacion_id: e.target.value, equipo_id: "" })} style={inputStyle()}>
                 <option value="">— Selecciona —</option>
                 {embarcaciones.map((v) => <option key={v.id} value={v.id}>{v.nombre}</option>)}
               </select>
@@ -252,7 +245,7 @@ export default function OrdenesTrabajo({ navParams }) {
             <Field label="Estado"><select value={form.estado} onChange={(e) => setForm({ ...form, estado: e.target.value })} style={inputStyle()}>{ESTADOS_OT.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}</select></Field>
             <Field label="MTTR (hrs paro)"><input type="number" value={form.mttr_horas} onChange={(e) => setForm({ ...form, mttr_horas: +e.target.value })} style={bluInput} /></Field>
 
-            <Field label="Descripción" span={2}><input value={form.descripcion} onChange={(e) => setForm({ ...form, descripcion: e.target.value })} style={inputStyle()} placeholder="Trabajo a realizar" /></Field>
+            <Field label="Descripción" span={2}><input data-testid="ot-form-descripcion" value={form.descripcion} onChange={(e) => setForm({ ...form, descripcion: e.target.value })} style={inputStyle()} placeholder="Trabajo a realizar" /></Field>
             <Field label="Costo MO ($)"><input type="number" value={form.costo_mo} onChange={(e) => setForm({ ...form, costo_mo: +e.target.value })} style={bluInput} /></Field>
             <Field label="Costo Mat. ($)"><input type="number" value={form.costo_mat} onChange={(e) => setForm({ ...form, costo_mat: +e.target.value })} style={bluInput} /></Field>
           </div>
@@ -261,7 +254,7 @@ export default function OrdenesTrabajo({ navParams }) {
             <FotoInput files={fotos} onChange={setFotos} max={5} disabled={!online} />
           </div>
           <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
-            <button onClick={crear} style={primaryBtn}>Guardar OT</button>
+            <button data-testid="ot-form-guardar" onClick={crear} style={primaryBtn}>Guardar OT</button>
             <button onClick={() => { setShowForm(false); setError(null); }} style={ghostBtn}>Cancelar</button>
           </div>
         </Card>
@@ -293,7 +286,7 @@ export default function OrdenesTrabajo({ navParams }) {
 
       <Card style={{ padding: 0, overflow: "hidden" }}>
         <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 960 }}>
+          <table data-testid="ot-tabla" style={{ width: "100%", borderCollapse: "collapse", minWidth: 960 }}>
             <thead><tr>
               <th style={thStyle}>Folio</th><th style={thStyle}>Fecha</th><th style={thStyle}>Embarcación</th>
               <th style={thStyle}>Sistema</th><th style={thStyle}>Tipo</th><th style={thStyle}>Prioridad</th>
@@ -330,7 +323,7 @@ export default function OrdenesTrabajo({ navParams }) {
                         </div>
                       </td>
                     ) : (
-                      <td style={{ ...tdStyle, textAlign: "right", fontFamily: "'IBM Plex Mono', monospace", fontWeight: 600 }}>{clp((o.costo_mo || 0) + (o.costo_mat || 0))}</td>
+                      <td style={{ ...tdStyle, textAlign: "right", fontFamily: "'IBM Plex Mono', monospace", fontWeight: 600 }}>{clp(costoOT(o))}</td>
                     )}
                     <td style={tdStyle}>
                       {puedeOperar && !o._pending && online
@@ -359,36 +352,6 @@ export default function OrdenesTrabajo({ navParams }) {
           </table>
         </div>
       </Card>
-    </div>
-  );
-}
-
-// Selector de estado: permite avanzar la OT de Solicitada hasta Cerrada
-// (y corregir si fuera necesario). Se ve como una píldora con el color del estado.
-function EstadoSelect({ estado, onChange }) {
-  const map = {
-    green: [C.green, C.greenBg], yellow: [C.yellow, C.yellowBg], slate: [C.slate, C.foam],
-    steel: [C.steel, tint(C.steel, 14)], purple: [C.purple, C.purpleBg], red: [C.red, C.redBg],
-  };
-  const [fg, bg] = map[tn(ESTADOS_OT, estado)] || map.slate;
-  return (
-    <div style={{ position: "relative", display: "inline-flex", alignItems: "center" }}>
-      <select
-        value={estado}
-        onChange={(e) => onChange(e.target.value)}
-        title="Cambiar estado de la orden"
-        style={{
-          appearance: "none", WebkitAppearance: "none", MozAppearance: "none",
-          background: bg, color: fg, border: `1px solid ${fg}40`, borderRadius: 20,
-          padding: "4px 26px 4px 11px", fontSize: 11.5, fontWeight: 600,
-          cursor: "pointer", fontFamily: "inherit",
-        }}
-      >
-        {ESTADOS_OT.map((s) => (
-          <option key={s.value} value={s.value} style={{ background: C.surface, color: C.ink }}>{s.label}</option>
-        ))}
-      </select>
-      <ChevronDown size={13} color={fg} style={{ position: "absolute", right: 8, pointerEvents: "none" }} />
     </div>
   );
 }

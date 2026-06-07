@@ -5,7 +5,7 @@ import reactHooks from "eslint-plugin-react-hooks";
 import reactRefresh from "eslint-plugin-react-refresh";
 
 export default [
-  { ignores: ["dist/**", "dev-dist/**", "node_modules/**", "*.config.js", "public/**"] },
+  { ignores: ["dist/**", "dev-dist/**", "node_modules/**", "*.config.js", "public/**", "e2e/**", "playwright-report/**"] },
   js.configs.recommended,
   {
     files: ["src/**/*.{js,jsx}"],
@@ -34,6 +34,13 @@ export default [
   },
   {
     files: ["tests/**/*.{js,jsx}"],
-    languageOptions: { ecmaVersion: 2022, sourceType: "module", globals: { ...globals.node } },
+    plugins: { react },
+    languageOptions: {
+      ecmaVersion: 2022,
+      sourceType: "module",
+      globals: { ...globals.node, ...globals.browser },
+      parserOptions: { ecmaFeatures: { jsx: true } },
+    },
+    rules: { "react/jsx-uses-vars": "error" },
   },
 ];

@@ -7,3 +7,9 @@ dist
 .claude/
 
 .vercel
+
+# Pruebas E2E (Playwright)
+playwright-report/
+test-results/
+/blob-report/
+.playwright/
