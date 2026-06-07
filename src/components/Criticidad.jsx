@@ -3,7 +3,8 @@ import { Activity, AlertTriangle, Download } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { fetchAll, upsertRow, logActivity } from "../lib/db";
 import { buildEquipoTree } from "../lib/equipTree";
-import { C, archivo, isAdmin } from "../theme";
+import { useArbolColapsable, BotonesColapsar, EquipoNodoLabel } from "../lib/arbolColapsable";
+import { C, archivo, isAdmin, tint } from "../theme";
 import { Card, PageHead, Pill, exportBtn, thStyle, tdStyle, Empty, ErrorBanner, InlineSpinner, FilterBtn, GuiaColapsable } from "../ui";
 
 // Dimensiones del modelo INGEMAN / Parra & Crespo
@@ -70,8 +71,9 @@ export default function Criticidad() {
   }
 
   const filtrados = buildEquipoTree(filtro === "all" ? equipos : equipos.filter((e) => e.embarcacion_id === filtro));
-  const lista = filtrados.map((eq) => { const c = getC(eq.id); return { eq, c, ct: calcCT(c) }; })
-    .sort((a, b) => b.ct - a.ct);
+  // Orden jerárquico (igual que Plan Preventivo), sin reordenar por CT.
+  const lista = filtrados.map((eq) => { const c = getC(eq.id); return { eq, c, ct: calcCT(c) }; });
+  const arbol = useArbolColapsable(filtrados);
 
   const altas = lista.filter((x) => x.ct >= 50).length;
   const medias = lista.filter((x) => x.ct >= 20 && x.ct < 50).length;
@@ -150,6 +152,8 @@ export default function Criticidad() {
         </div>
       </GuiaColapsable>
 
+      <BotonesColapsar conHijos={arbol.conHijos} colapsarTodo={arbol.colapsarTodo} />
+
       <Card style={{ padding: 0, overflow: "hidden" }}>
         <div style={{ overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 1000 }}>
@@ -160,13 +164,13 @@ export default function Criticidad() {
               <th style={{ ...thStyle, textAlign: "center" }}>Categoría</th>
             </tr></thead>
             <tbody>
-              {lista.map(({ eq, c, ct }) => {
+              {lista.filter(({ eq }) => arbol.visible(eq)).map(({ eq, c, ct }) => {
                 const [tone, label] = catCT(ct);
                 return (
-                  <tr key={eq.id}>
+                  <tr key={eq.id} style={{ background: eq.depth > 0 ? tint(C.steel, 4) : undefined }}>
                     <td style={tdStyle}>
-                      <div style={{ fontWeight: 600 }}>{eq.sistema}</div>
-                      <div style={{ fontSize: 11, color: C.slate }}>{embName(eq.embarcacion_id)} · <span style={{ fontFamily: "'IBM Plex Mono', monospace" }}>{eq.id_visible}</span></div>
+                      <EquipoNodoLabel eq={eq} esRaiz={arbol.esRaizConHijos(eq)} colapsado={arbol.estaColapsado(eq)}
+                        onToggle={() => arbol.toggle(eq.id)} nSub={arbol.nSubDe(eq)} embName={embName} />
                     </td>
                     {DIMS.map((d) => (
                       <td key={d.key} style={{ ...tdStyle, textAlign: "center" }}>

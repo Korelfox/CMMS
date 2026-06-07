@@ -3,6 +3,7 @@ import { DollarSign, ChevronDown, ChevronRight, AlertCircle, Save, Check } from 
 import { useAuth } from "../lib/auth";
 import { fetchAll, upsertRow, logActivity } from "../lib/db";
 import { buildEquipoTree } from "../lib/equipTree";
+import { useArbolColapsable, BotonesColapsar, EquipoNodoLabel } from "../lib/arbolColapsable";
 import { C, archivo, clp, isAdmin } from "../theme";
 import { Card, PageHead, Pill, primaryBtn, bluInput, FilterBtn, Empty, ErrorBanner, InlineSpinner } from "../ui";
 
@@ -99,14 +100,15 @@ export default function CGM() {
   }
 
   const filtrados = buildEquipoTree(filtro === "all" ? equipos : equipos.filter((e) => e.embarcacion_id === filtro));
-  const enriquecidos = filtrados.map((eq) => { const c = getCGM(eq.id); return { eq, c, calc: calcular(c) }; })
-    .sort((a, b) => b.calc.total - a.calc.total);
+  // Orden jerárquico (igual que Plan Preventivo), sin reordenar por costo.
+  const enriquecidos = filtrados.map((eq) => { const c = getCGM(eq.id); return { eq, c, calc: calcular(c) }; });
+  const arbol = useArbolColapsable(filtrados);
 
   const totalMes = enriquecidos.reduce((s, x) => s + x.calc.total, 0);
   const totalCi = enriquecidos.reduce((s, x) => s + x.calc.Ci, 0);
   const totalCf = enriquecidos.reduce((s, x) => s + x.calc.Cf, 0);
   const pctFallas = totalMes > 0 ? (totalCf / totalMes) * 100 : 0;
-  const masCaro = enriquecidos[0];
+  const masCaro = enriquecidos.reduce((m, x) => (!m || x.calc.total > m.calc.total ? x : m), null);
 
   if (loading) return <div><PageHead kicker="Optimización · Pascual" title="Costo Global de Mantención" /><Card><InlineSpinner label="Cargando CGM…" /></Card></div>;
 
@@ -145,8 +147,10 @@ export default function CGM() {
         ))}
       </div>
 
+      <BotonesColapsar conHijos={arbol.conHijos} colapsarTodo={arbol.colapsarTodo} />
+
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        {enriquecidos.map(({ eq, c, calc }) => {
+        {enriquecidos.filter(({ eq }) => arbol.visible(eq)).map(({ eq, c, calc }) => {
           const expanded = abierto === eq.id;
           const pct = totalMes > 0 ? (calc.total / totalMes) * 100 : 0;
           return (
@@ -154,10 +158,8 @@ export default function CGM() {
               <div onClick={() => setAbierto(expanded ? null : eq.id)}
                 style={{ display: "grid", gridTemplateColumns: "auto 2fr repeat(4, 1fr) 1.2fr auto", gap: 14, padding: "14px 18px", alignItems: "center", cursor: "pointer", borderBottom: expanded ? `1px solid ${C.line}` : "none" }}>
                 {expanded ? <ChevronDown size={18} color={C.slate} /> : <ChevronRight size={18} color={C.slate} />}
-                <div>
-                  <div style={{ fontWeight: 700, color: C.abyss }}>{eq.sistema}</div>
-                  <div style={{ fontSize: 11.5, color: C.slate, fontFamily: "'IBM Plex Mono', monospace" }}>{embName(eq.embarcacion_id)} · {eq.id_visible}</div>
-                </div>
+                <EquipoNodoLabel eq={eq} esRaiz={arbol.esRaizConHijos(eq)} colapsado={arbol.estaColapsado(eq)}
+                  onToggle={() => arbol.toggle(eq.id)} nSub={arbol.nSubDe(eq)} embName={embName} />
                 <Bar label="Ci" v={calc.Ci} max={calc.total} color={C.steel} />
                 <Bar label="Cf" v={calc.Cf} max={calc.total} color={C.red} />
                 <Bar label="Ca" v={calc.Ca} max={calc.total} color={C.amber} />

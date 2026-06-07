@@ -3,6 +3,7 @@ import { TrendingUp, ChevronDown, ChevronRight, AlertCircle, Save, Check } from 
 import { useAuth } from "../lib/auth";
 import { fetchAll, upsertRow, logActivity } from "../lib/db";
 import { buildEquipoTree } from "../lib/equipTree";
+import { useArbolColapsable, BotonesColapsar, EquipoNodoLabel } from "../lib/arbolColapsable";
 import { C, archivo, clp, num, isAdmin } from "../theme";
 import { Card, PageHead, Pill, primaryBtn, bluInput, inputStyle, FilterBtn, Empty, ErrorBanner, InlineSpinner } from "../ui";
 
@@ -137,7 +138,8 @@ export default function Weibull() {
     const tsOpt = calcTsOpt(w.beta, w.eta, w.gamma, w.cf, w.ci);
     const r = w.ci > 0 ? w.cf / w.ci : 0;
     return { eq, w, mtbf, tsOpt, r, dec: decidir(w.beta, mtbf, tsOpt, r) };
-  }).sort((a, b) => (a.mtbf || 1e9) - (b.mtbf || 1e9));
+  });
+  const arbol = useArbolColapsable(filtrados); // orden jerárquico (igual que Plan Preventivo)
 
   const numDegradan = enriquecidos.filter((x) => x.w.beta > 1).length;
   const conPM = enriquecidos.filter((x) => x.dec.tipo === "PM Preventivo").length;
@@ -181,18 +183,18 @@ export default function Weibull() {
         ))}
       </div>
 
+      <BotonesColapsar conHijos={arbol.conHijos} colapsarTodo={arbol.colapsarTodo} />
+
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        {enriquecidos.map(({ eq, w, mtbf, tsOpt, r, dec }) => {
+        {enriquecidos.filter(({ eq }) => arbol.visible(eq)).map(({ eq, w, mtbf, tsOpt, r, dec }) => {
           const expanded = abierto === eq.id;
           return (
             <Card key={eq.id} style={{ padding: 0, overflow: "hidden" }}>
               <div onClick={() => setAbierto(expanded ? null : eq.id)}
                 style={{ display: "grid", gridTemplateColumns: "auto 2fr 0.8fr 1fr 1fr 0.7fr 1.3fr auto", gap: 14, padding: "14px 18px", alignItems: "center", cursor: "pointer", borderBottom: expanded ? `1px solid ${C.line}` : "none" }}>
                 {expanded ? <ChevronDown size={18} color={C.slate} /> : <ChevronRight size={18} color={C.slate} />}
-                <div>
-                  <div style={{ fontWeight: 700, color: C.abyss }}>{eq.sistema}</div>
-                  <div style={{ fontSize: 11.5, color: C.slate, fontFamily: "'IBM Plex Mono', monospace" }}>{embName(eq.embarcacion_id)} · {eq.id_visible}</div>
-                </div>
+                <EquipoNodoLabel eq={eq} esRaiz={arbol.esRaizConHijos(eq)} colapsado={arbol.estaColapsado(eq)}
+                  onToggle={() => arbol.toggle(eq.id)} nSub={arbol.nSubDe(eq)} embName={embName} />
                 <Stat label="β" value={(w.beta || 0).toFixed(1)} />
                 <Stat label="MTBF" value={`${num(mtbf, 0)}h`} />
                 <Stat label="Ts*" value={tsOpt ? `${num(tsOpt, 0)}h` : "—"} color={tsOpt ? C.green : C.slate} />
