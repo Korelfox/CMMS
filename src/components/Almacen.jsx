@@ -760,6 +760,9 @@ function TabCompras({ profile, items, bodegas, compras, comprasItems, stockMap, 
   const [line, setLine] = useState({ item_id: "", cantidad: 1 });
   const [recepPanel, setRecepPanel] = useState(null);  // oc.id al recibir parcialmente
   const [recepCants, setRecepCants] = useState({});    // { compra_item_id: cantidad_a_recibir }
+  const [fEstado, setFEstado] = useState("all");
+  const [fProv, setFProv] = useState("all");
+  const [fBusca, setFBusca] = useState("");
   const puedeOperar = isAdmin(profile?.rol);
   const puedeBorrar = isAdmin(profile?.rol);
   const puedeAprobar = isAdmin(profile?.rol);
@@ -784,6 +787,16 @@ function TabCompras({ profile, items, bodegas, compras, comprasItems, stockMap, 
   const ocTotal = (oc) => comprasItems.filter((it) => it.compra_id === oc.id).reduce((s, it) => s + (it.cantidad || 0) * (it.precio || 0), 0);
   const ocItemsList = (oc) => comprasItems.filter((it) => it.compra_id === oc.id);
   const pendiente = compras.filter((o) => o.estado !== "recibida").reduce((s, o) => s + ocTotal(o), 0);
+
+  // ── Filtros de OCs ───────────────────────────────────────────
+  const proveedores = [...new Set(compras.map((o) => o.proveedor).filter(Boolean))].sort((a, b) => a.localeCompare(b, "es"));
+  const qOC = fBusca.trim().toLowerCase();
+  const comprasFiltradas = compras.filter((o) =>
+    (fEstado === "all" || o.estado === fEstado) &&
+    (fProv === "all" || o.proveedor === fProv) &&
+    (!qOC || (o.folio || "").toLowerCase().includes(qOC) || (o.proveedor || "").toLowerCase().includes(qOC) || (o.ref_proveedor || "").toLowerCase().includes(qOC) || (o.notas || "").toLowerCase().includes(qOC))
+  );
+  const hayFiltroOC = fEstado !== "all" || fProv !== "all" || !!qOC;
 
   function addLine() {
     if (!line.item_id) return;
@@ -1056,6 +1069,36 @@ function TabCompras({ profile, items, bodegas, compras, comprasItems, stockMap, 
         );
       })()}
 
+      {/* ── Filtros de OCs ── */}
+      {compras.length > 0 && (
+        <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap", alignItems: "center" }}>
+          <div style={{ position: "relative", flex: "1 1 240px", maxWidth: 320 }}>
+            <Search size={15} color={C.slate} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)" }} />
+            <input value={fBusca} onChange={(e) => setFBusca(e.target.value)}
+              placeholder="Buscar folio, proveedor, ref o notas…"
+              style={{ ...inputStyle(), width: "100%", paddingLeft: 32, fontSize: 13 }} />
+          </div>
+          {[["all", "Todos", C.slate], ["solicitada", "Solicitada", C.slate], ["aprobada", "Aprobada", C.purple], ["enviada", "Enviada", C.steel], ["recibida", "Recibida", C.green]].map(([v, lbl, tone]) => {
+            const active = fEstado === v;
+            const n = v === "all" ? null : compras.filter((o) => o.estado === v).length;
+            return <button key={v} onClick={() => setFEstado(v)} style={{ padding: "5px 12px", borderRadius: 7, border: `1px solid ${active ? tone : C.line}`, background: active ? tone : "#fff", color: active ? "#fff" : C.slate, fontSize: 12.5, fontWeight: 600, cursor: "pointer" }}>{lbl}{n != null && <span style={{ opacity: 0.75, marginLeft: 4, fontSize: 11 }}>({n})</span>}</button>;
+          })}
+          {proveedores.length > 0 && (
+            <select value={fProv} onChange={(e) => setFProv(e.target.value)} style={{ ...inputStyle(180), fontSize: 12.5 }}>
+              <option value="all">Todos los proveedores</option>
+              {proveedores.map((p) => <option key={p} value={p}>{p}</option>)}
+            </select>
+          )}
+          {hayFiltroOC && (
+            <button onClick={() => { setFEstado("all"); setFProv("all"); setFBusca(""); }}
+              style={{ padding: "6px 10px", borderRadius: 7, border: `1px solid ${C.line}`, background: "none", color: C.slate, fontSize: 12, cursor: "pointer" }}>
+              <X size={13} style={{ display: "inline", verticalAlign: "middle" }} /> Limpiar
+            </button>
+          )}
+          <span style={{ marginLeft: "auto", fontSize: 12, color: C.slate }}>{comprasFiltradas.length} de {compras.length} OCs</span>
+        </div>
+      )}
+
       <Card style={{ padding: 0, overflow: "hidden" }}>
         <div style={{ overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 920 }}>
@@ -1067,8 +1110,8 @@ function TabCompras({ profile, items, bodegas, compras, comprasItems, stockMap, 
               <th style={thStyle}>Estado</th><th style={thStyle}>Acción</th>{puedeBorrar && <th style={thStyle}></th>}
             </tr></thead>
             <tbody>
-              {compras.length === 0 ? <tr><td colSpan={puedeBorrar ? 10 : 9}><Empty>Sin órdenes de compra.</Empty></td></tr> :
-                compras.map((o) => {
+              {comprasFiltradas.length === 0 ? <tr><td colSpan={puedeBorrar ? 11 : 10}><Empty>{compras.length === 0 ? "Sin órdenes de compra." : "Sin OCs para los filtros seleccionados."}</Empty></td></tr> :
+                comprasFiltradas.map((o) => {
                   const its = ocItemsList(o);
                   return (
                     <tr key={o.id}>
