@@ -332,7 +332,7 @@ export default function Equipos() {
     // Inserta un nodo y, recursivamente, todos sus descendientes (cualquier profundidad).
     // rootNom = nombre del sistema raíz (se usa como categoría del repuesto).
     async function insertarNodo(nodo, parentId, rootNom) {
-      const idVis = `${emb.codigo}-${nodo.cod}-001`;
+      const idVis = `${emb.codigo}-${nodo.cod}`;
       let nodeId = existentesNave.get(idVis);
       if (!nodeId) {
         const row = await insertRow("equipos", profile.empresa_id, {

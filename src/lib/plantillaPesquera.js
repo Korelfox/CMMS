@@ -11,7 +11,7 @@
 //  intercambiabilidad OEM / Alternativo / Genérico.
 //
 //  Estructura de cada nodo:
-//    cod    → código estructurado, ruta completa (id_visible sin nave ni -001)
+//    cod    → código estructurado, ruta completa (id_visible sin el prefijo de nave)
 //    nom    → nombre legible (sistema)
 //    crit   → criticidad A | B | C
 //    tipo   → tipo_nodo: sistema | subsistema | componente | instrumento
