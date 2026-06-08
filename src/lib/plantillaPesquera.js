@@ -26,6 +26,12 @@
 const comp = (cod, nom, rep = [], tipo = "componente", crit = "A") => ({ cod, nom, crit, tipo, rep });
 const inst = (cod, nom, rep = []) => comp(cod, nom, rep, "instrumento");
 
+// Componente / instrumento que además trae su PLAN PREVENTIVO precargado.
+// `pm` = array de tuplas [descripcion, intervalo_horas]. El loader de la
+// plantilla crea estos planes_pm automáticamente al precargar la nave.
+const compPM = (cod, nom, rep = [], pm = [], crit = "A") => ({ cod, nom, crit, tipo: "componente", rep, pm });
+const instPM = (cod, nom, rep = [], pm = []) => ({ cod, nom, crit: "A", tipo: "instrumento", rep, pm });
+
 // ============================================================
 //  MOTOR PRINCIPAL — 7 subsistemas · 58 componentes
 //  (subárbol de PROP → PROP-MTR)
@@ -479,6 +485,139 @@ const MOTOR_GENERADOR = {
   ],
 };
 
+// ============================================================
+//  CENTRAL / GRUPO HIDRÁULICO (Hydraulic Power Unit · HPU)
+//  Caso A: motor diésel DEDICADO que acciona la bomba hidráulica
+//  (power pack). Se modela como UNIDAD FUNCIONAL propia — NO se
+//  cuelga del Sistema Hidráulico — porque el motor es un accionador
+//  (prime mover) con plan PM y modos de falla distintos a la bomba.
+//    Accionador (motor) + Accionada (bomba) + Estanque + Válvulas + Filtros
+//  Cada componente trae sus repuestos (OEM/Alt./Genérico) y su plan PM.
+// ============================================================
+const CENTRAL_HIDRAULICA = {
+  cod: "HPU", nom: "Central/Grupo Hidráulico", crit: "A", tipo: "sistema",
+  hijos: [
+    // ── 1. Motor Diésel (accionador / prime mover) ──
+    {
+      cod: "HPU-MTR", nom: "Motor Diésel (accionador)", crit: "A", tipo: "subsistema", mtbf: 15000,
+      hijos: [
+        compPM("HPU-MTR-ACE", "Aceite y Filtro de Motor", [
+          ["FLT-ACE-HPU-OEM", "Filtro de Aceite Motor HPU (OEM)", "oem"],
+          ["FLT-ACE-HPU-DON", "Filtro de Aceite Donaldson", "alternativo"],
+          ["ACE-15W40-CK4", "Aceite Motor 15W-40 CK-4 (balde)", "generico"],
+        ], [["Cambio de aceite de motor", 250], ["Análisis de aceite (muestra a laboratorio)", 1000]]),
+        compPM("HPU-MTR-FCO", "Filtros de Combustible", [
+          ["FLT-COMB-HPU-OEM", "Filtro Combustible HPU (OEM)", "oem"],
+          ["FLT-COMB-HPU-DON", "Filtro Combustible Donaldson", "alternativo"],
+          ["FLT-SEP-HPU-GEN", "Separador Agua-Combustible (elemento)", "generico"],
+        ], [["Cambio de filtros de combustible", 500]]),
+        compPM("HPU-MTR-INY", "Inyectores", [
+          ["INY-HPU-OEM", "Inyectores HPU (kit)", "oem"],
+          ["INY-HPU-ALT", "Inyectores Alternativos (kit)", "alternativo"],
+        ], [["Revisión / calibración de inyectores", 4000]]),
+        compPM("HPU-MTR-COR", "Correas y Tensores", [
+          ["COR-HPU-OEM", "Correa HPU (OEM)", "oem"],
+          ["COR-HPU-GEN", "Correa Genérica Equivalente", "generico"],
+        ], [["Revisión de correas y tensores", 1000]]),
+        compPM("HPU-MTR-REF", "Refrigeración (impeller / agua)", [
+          ["IMP-HPU-OEM", "Impeller Bomba Agua Mar HPU (OEM)", "oem"],
+          ["IMP-HPU-ALT", "Impeller Alternativo", "alternativo"],
+          ["ANT-COOL-GEN", "Refrigerante / Anticorrosivo (galón)", "generico"],
+        ], [["Revisión de bomba de agua de mar (impeller)", 1000], ["Limpieza de radiador / intercambiador de calor", 2000]]),
+        instPM("HPU-MTR-SEN", "Sensores (presión / temperatura)", [
+          ["SEN-PRE-HPU-OEM", "Sensor Presión Aceite HPU (OEM)", "oem"],
+          ["SEN-TEM-HPU-OEM", "Sensor Temperatura HPU (OEM)", "oem"],
+        ], [["Prueba de alarmas y paradas de seguridad", 1000]]),
+      ],
+    },
+    // ── 2. Bomba Hidráulica (accionada) ──
+    {
+      cod: "HPU-BMB", nom: "Bomba Hidráulica (accionada)", crit: "A", tipo: "subsistema", mtbf: 12000,
+      hijos: [
+        compPM("HPU-BMB-BMB", "Bomba Hidráulica Principal", [
+          ["BMB-HID-OEM", "Bomba Hidráulica (OEM)", "oem"],
+          ["BMB-HID-ALT", "Bomba Hidráulica Alternativa", "alternativo"],
+          ["KIT-REP-BMB-HID", "Kit de Reparación de Bomba", "generico"],
+        ], [["Análisis de aceite (muestra a laboratorio)", 500], ["Revisión de mangueras y presión hidráulica", 1000]]),
+        compPM("HPU-BMB-ACO", "Acoplamiento / Cardán", [
+          ["ACO-HPU-OEM", "Acoplamiento Elástico (OEM)", "oem"],
+          ["ACO-HPU-GEN", "Inserto/Taco de Acoplamiento", "generico"],
+        ], [["Engrase / lubricación general", 500]]),
+        compPM("HPU-BMB-SEL", "Sello Mecánico", [
+          ["SEL-BMB-HID-OEM", "Sello Mecánico Bomba (OEM)", "oem"],
+          ["SEL-BMB-HID-GEN", "Kit de Sellos (genérico)", "generico"],
+        ], [["Inspección visual / por condición", 4000]]),
+      ],
+    },
+    // ── 3. Estanque / Depósito de Aceite Hidráulico ──
+    {
+      cod: "HPU-TNK", nom: "Estanque / Depósito de Aceite", crit: "B", tipo: "subsistema",
+      hijos: [
+        compPM("HPU-TNK-TNK", "Estanque Hidráulico", [
+          ["ACE-HID-ISO46", "Aceite Hidráulico ISO VG 46 (tambor)", "generico"],
+          ["JD-TNK-001", "Junta Tapa de Estanque (kit)", "generico"],
+        ], [["Cambio de aceite hidráulico", 2000]]),
+        compPM("HPU-TNK-RES", "Respiradero / Breather", [
+          ["BRE-HPU-OEM", "Respiradero con Filtro (OEM)", "oem"],
+          ["BRE-HPU-GEN", "Respiradero Genérico", "generico"],
+        ], [["Inspección visual / por condición", 1000]]),
+        instPM("HPU-TNK-NVL", "Indicador de Nivel / Temperatura", [
+          ["NVL-HPU-OEM", "Visor Nivel-Temperatura (OEM)", "oem"],
+        ], [["Inspección visual / por condición", 2000]]),
+      ],
+    },
+    // ── 4. Válvulas y Manifold ──
+    {
+      cod: "HPU-VLV", nom: "Válvulas y Manifold", crit: "A", tipo: "subsistema",
+      hijos: [
+        compPM("HPU-VLV-DIR", "Válvula Direccional", [
+          ["VLV-DIR-OEM", "Válvula Direccional (OEM)", "oem"],
+          ["VLV-DIR-ALT", "Válvula Direccional Alternativa", "alternativo"],
+          ["KIT-SEL-VLV", "Kit de Sellos de Válvula", "generico"],
+        ], [["Inspección visual / por condición", 2000]]),
+        compPM("HPU-VLV-ALI", "Válvula de Alivio (presión)", [
+          ["VLV-ALI-OEM", "Válvula de Alivio (OEM)", "oem"],
+          ["VLV-ALI-ALT", "Válvula de Alivio Alternativa", "alternativo"],
+        ], [["Revisión de mangueras y presión hidráulica", 1000]]),
+        compPM("HPU-VLV-MAN", "Manifold / Bloque de Válvulas", [
+          ["MAN-HPU-OEM", "Manifold Hidráulico (OEM)", "oem"],
+          ["KIT-SEL-MAN", "Kit de Sellos de Manifold", "generico"],
+        ], [["Inspección visual / por condición", 4000]]),
+      ],
+    },
+    // ── 5. Filtros Hidráulicos ──
+    {
+      cod: "HPU-FLT", nom: "Filtros Hidráulicos", crit: "A", tipo: "subsistema",
+      hijos: [
+        compPM("HPU-FLT-PRE", "Filtro de Presión", [
+          ["FLT-PRE-HPU-OEM", "Filtro de Presión (OEM)", "oem"],
+          ["FLT-PRE-HPU-PAR", "Filtro de Presión Parker", "alternativo"],
+          ["FLT-PRE-HPU-GEN", "Filtro de Presión Genérico", "generico"],
+        ], [["Cambio de filtro hidráulico", 500]]),
+        compPM("HPU-FLT-RET", "Filtro de Retorno", [
+          ["FLT-RET-HPU-OEM", "Filtro de Retorno (OEM)", "oem"],
+          ["FLT-RET-HPU-PAR", "Filtro de Retorno Parker", "alternativo"],
+          ["FLT-RET-HPU-GEN", "Filtro de Retorno Genérico", "generico"],
+        ], [["Cambio de filtro hidráulico", 500]]),
+        compPM("HPU-FLT-SUC", "Filtro de Succión (strainer)", [
+          ["FLT-SUC-HPU-OEM", "Strainer de Succión (OEM)", "oem"],
+          ["FLT-SUC-HPU-GEN", "Strainer Genérico", "generico"],
+        ], [["Limpieza de radiador / intercambiador de calor", 1000]]),
+      ],
+    },
+    // ── 6. Enfriador de Aceite Hidráulico ──
+    compPM("HPU-ENF", "Enfriador de Aceite Hidráulico", [
+      ["ENF-HPU-OEM", "Enfriador Hidráulico (OEM)", "oem"],
+      ["ENF-HPU-ALT", "Enfriador Hidráulico Alternativo", "alternativo"],
+    ], [["Limpieza de radiador / intercambiador de calor", 1000]], "B"),
+    // ── 7. Instrumentación ──
+    instPM("HPU-SEN-P", "Sensor de Presión Hidráulica", [
+      ["SEN-PRE-HID-OEM", "Sensor Presión Hidráulica (OEM)", "oem"],
+      ["SEN-PRE-HID-ALT", "Sensor Presión Hidráulica Alternativo", "alternativo"],
+    ], [["Calibración de sensores / instrumentos", 2000]]),
+  ],
+};
+
 export const PLANTILLA_PESQUERA = [
   {
     cod: "PROP", nom: "Propulsión Principal", crit: "A", tipo: "sistema",
@@ -525,6 +664,7 @@ export const PLANTILLA_PESQUERA = [
       { cod: "HYD-SEN-P", nom: "Sensor Presión Hidráulica", crit: "A", tipo: "instrumento" },
     ],
   },
+  CENTRAL_HIDRAULICA,
   {
     cod: "FISH", nom: "Equipo de Pesca", crit: "A", tipo: "sistema",
     hijos: [
@@ -605,6 +745,13 @@ export function contarNodosPlantilla() {
 export function contarRepuestosPlantilla() {
   const contar = (nodos) => (nodos || []).reduce(
     (s, n) => s + (n.rep ? n.rep.length : 0) + contar(n.hijos), 0);
+  return contar(PLANTILLA_PESQUERA);
+}
+
+// Cuenta total de PLANES PM precargados en la plantilla (recursivo).
+export function contarPlanesPMPlantilla() {
+  const contar = (nodos) => (nodos || []).reduce(
+    (s, n) => s + (n.pm ? n.pm.length : 0) + contar(n.hijos), 0);
   return contar(PLANTILLA_PESQUERA);
 }
 

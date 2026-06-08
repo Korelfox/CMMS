@@ -5,7 +5,7 @@ import { fetchAll, insertRow, updateRow, deleteRow, logActivity } from "../lib/d
 import { C, isAdmin, canOperate, ESTADOS_EQUIPO, estadoLabel, tint, shadow } from "../theme";
 import { buildEquipoTree } from "../lib/equipTree";
 import { fondoTipo } from "../lib/arbolColapsable";
-import { PLANTILLA_PESQUERA, contarNodosPlantilla, contarRepuestosPlantilla, TIPO_NODO_META, CRITICIDAD_TONE } from "../lib/plantillaPesquera";
+import { PLANTILLA_PESQUERA, contarNodosPlantilla, contarRepuestosPlantilla, contarPlanesPMPlantilla, TIPO_NODO_META, CRITICIDAD_TONE } from "../lib/plantillaPesquera";
 
 import {
   Card, PageHead, Pill, primaryBtn, ghostBtn, exportBtn, inputStyle, bluInput,
@@ -286,11 +286,13 @@ export default function Equipos() {
     if (!emb) { setError("Selecciona primero una embarcación en los filtros para precargar la plantilla."); return; }
     const totalNodos = contarNodosPlantilla();
     const totalReps  = contarRepuestosPlantilla();
-    if (!window.confirm(`¿Precargar la plantilla de excelencia (ISO 14224) en "${emb.nombre}"?\n\nSe crearán hasta ${totalNodos} nodos de equipos (sistemas → subsistemas → componentes → sensores) y hasta ${totalReps} repuestos (SKU OEM/Alternativo/Genérico) en el Inventario, enlazados a su componente.\n\nLos nodos que ya existan en esta nave NO se duplican: puedes ejecutarla otra vez para completar lo que falte. Puedes borrar después lo que no aplique.`)) return;
+    const totalPM    = contarPlanesPMPlantilla();
+    if (!window.confirm(`¿Precargar la plantilla de excelencia (ISO 14224) en "${emb.nombre}"?\n\nSe crearán hasta ${totalNodos} nodos de equipos (sistemas → subsistemas → componentes → sensores), hasta ${totalReps} repuestos (SKU OEM/Alternativo/Genérico) en el Inventario y hasta ${totalPM} planes preventivos precargados, todo enlazado a su componente.\n\nLos nodos que ya existan en esta nave NO se duplican: puedes ejecutarla otra vez para completar lo que falte. Puedes borrar después lo que no aplique.`)) return;
 
     setPrecargando(true); setError(null);
     const creados = [];        // equipos nuevos creados en esta corrida
     const itemsCreados = [];   // inventario_items nuevos
+    const planesCreados = [];  // planes_pm nuevos
 
     // Mapa codigo→id de repuestos existentes para no duplicar SKU (un SKU se
     // reutiliza en varios componentes: se crea una vez y se enlaza a cada uno).
@@ -327,6 +329,19 @@ export default function Equipos() {
       }
     }
 
+    // Crea los planes preventivos precargados del componente (campo `pm`).
+    async function crearPlanes(nodo, equipoId) {
+      for (const [descripcion, intervalo] of nodo.pm || []) {
+        try {
+          const plan = await insertRow("planes_pm", profile.empresa_id, {
+            equipo_id: equipoId, descripcion, intervalo_horas: intervalo,
+            activo: true, horas_ult_pm: 0,
+          });
+          planesCreados.push(plan);
+        } catch { /* plan duplicado u otra carrera: ignorar */ }
+      }
+    }
+
     // Inserta un nodo y, recursivamente, todos sus descendientes (cualquier profundidad).
     // rootNom = nombre del sistema raíz (se usa como categoría del repuesto).
     async function insertarNodo(nodo, parentId, rootNom) {
@@ -343,6 +358,7 @@ export default function Equipos() {
         creados.push(row);
         existentesNave.set(idVis, nodeId);
         if (nodo.rep?.length) await crearRepuestos(nodo, nodeId, rootNom);
+        if (nodo.pm?.length) await crearPlanes(nodo, nodeId);
       }
       for (const hijo of nodo.hijos || []) await insertarNodo(hijo, nodeId, rootNom);
     }
@@ -350,7 +366,7 @@ export default function Equipos() {
     try {
       for (const sis of PLANTILLA_PESQUERA) await insertarNodo(sis, null, sis.nom);
       setEquipos((p) => [...p, ...creados]); sincOriginal();
-      logActivity(profile, "Precargar plantilla pesquera", `${emb.nombre} · ${creados.length} nodos · ${itemsCreados.length} repuestos`);
+      logActivity(profile, "Precargar plantilla pesquera", `${emb.nombre} · ${creados.length} nodos · ${itemsCreados.length} repuestos · ${planesCreados.length} planes PM`);
     } catch (e) {
       setError("Se interrumpió la precarga: " + e.message + ". Recarga la página para ver lo que sí se creó.");
       setEquipos((p) => [...p, ...creados]); sincOriginal();

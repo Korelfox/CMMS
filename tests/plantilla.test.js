@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
-  PLANTILLA_PESQUERA, contarNodosPlantilla, contarRepuestosPlantilla,
+  PLANTILLA_PESQUERA, contarNodosPlantilla, contarRepuestosPlantilla, contarPlanesPMPlantilla,
 } from "../src/lib/plantillaPesquera.js";
 
 // Cuenta componentes (hojas tipo componente/instrumento) bajo un nodo.
@@ -30,6 +30,26 @@ describe("Plantilla pesquera ISO 14224", () => {
     const haySufijo = (nodos) => (nodos || []).some(
       (n) => /-001$/.test(n.cod) || haySufijo(n.hijos));
     expect(haySufijo(PLANTILLA_PESQUERA)).toBe(false);
+  });
+
+  it("Central/Grupo Hidráulico (HPU, Caso A): es sistema propio con motor + bomba + estanque + válvulas + filtros", () => {
+    const hpu = find(PLANTILLA_PESQUERA, "HPU");
+    expect(hpu).toBeTruthy();
+    expect(hpu.tipo).toBe("sistema");
+    // El motor diésel es accionador DENTRO de la central, NO cuelga de Hidráulico.
+    expect(find(hpu.hijos, "HPU-MTR")).toBeTruthy();
+    expect(find(hpu.hijos, "HPU-BMB")).toBeTruthy();
+    expect(find(hpu.hijos, "HPU-TNK")).toBeTruthy();
+    expect(find(hpu.hijos, "HPU-VLV")).toBeTruthy();
+    expect(find(hpu.hijos, "HPU-FLT")).toBeTruthy();
+    expect(countComp(hpu)).toBeGreaterThan(0);
+  });
+
+  it("la plantilla precarga planes PM válidos (descripción + intervalo > 0)", () => {
+    expect(contarPlanesPMPlantilla()).toBeGreaterThan(0);
+    const ok = (nodos) => (nodos || []).every(
+      (n) => (n.pm || []).every(([d, h]) => typeof d === "string" && d.length > 0 && h > 0) && ok(n.hijos));
+    expect(ok(PLANTILLA_PESQUERA)).toBe(true);
   });
 
   it("cada repuesto declara un tipo válido", () => {
