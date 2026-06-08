@@ -9,6 +9,8 @@ import {
   Card, PageHead, Pill, FilterBtn, primaryBtn, ghostBtn, exportBtn,
   inputStyle, bluInput, thStyle, tdStyle, Field, Empty, ErrorBanner, InlineSpinner, GuiaColapsable,
 } from "../ui";
+import ComboInput from "./ComboInput";
+import { TAREAS_PM } from "../lib/tareasPM";
 
 const HOY = () => new Date().toISOString().slice(0, 10);
 const INTERVALOS_COMUNES = [50, 100, 250, 500, 1000, 2000, 4000];
@@ -366,10 +368,11 @@ function TabPlan({ lista, equipos, setEquipos, planes, setPlanes, historial, set
               <div style={{ marginLeft: eq.depth * 16 + 8, marginTop: 8, padding: "12px 14px", background: C.mist, borderRadius: 8, border: `1px solid ${C.line}` }}>
                 <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr auto auto", gap: 10, alignItems: "flex-end" }}>
                   <Field label="Tarea de mantenimiento">
-                    <input value={newPlan.descripcion} list="intervalos-sugeridos"
-                      onChange={(e) => setNewPlan((p) => ({ ...p, descripcion: e.target.value }))}
-                      placeholder="Cambio aceite + filtro, Revisión válvulas…"
-                      style={inputStyle()} autoFocus />
+                    <ComboInput value={newPlan.descripcion}
+                      onChange={(v) => setNewPlan((p) => ({ ...p, descripcion: v }))}
+                      options={TAREAS_PM}
+                      placeholder="Buscar tarea… (Cambio de aceite, Análisis de aceite…)"
+                      autoFocus />
                   </Field>
                   <Field label="Intervalo (horas)">
                     <input type="number" value={newPlan.intervalo_horas} list="intervalosnums"
@@ -380,9 +383,6 @@ function TabPlan({ lista, equipos, setEquipos, planes, setPlanes, historial, set
                   <button onClick={() => agregarPlan(eq.id)} style={{ ...primaryBtn, marginTop: 22 }}>Guardar</button>
                   <button onClick={() => setAddingFor(null)} style={{ ...ghostBtn, marginTop: 22 }}><X size={13} /></button>
                 </div>
-                <datalist id="intervalos-sugeridos">
-                  {["Cambio aceite + filtro", "Revisión válvulas", "Revisión general motor", "Limpieza radiador", "Revisión bomba hidráulica", "Cambio correas", "Revisión sistema eléctrico", "Inspección casco y ánodos", "Revisión bomba agua mar", "Revisión turbocompresor"].map((s) => <option key={s} value={s} />)}
-                </datalist>
                 <GuiaColapsable titulo="¿Cómo elegir el intervalo?" icon={CalendarClock}>
                   <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 8 }}>
                     <tbody>
