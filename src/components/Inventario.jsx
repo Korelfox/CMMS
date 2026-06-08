@@ -552,18 +552,19 @@ export default function Inventario() {
                         )}
                       </td>
                       <td style={{ ...tdStyle, textAlign: "center" }}><Pill tone={abcTone}>{i.abc}</Pill></td>
-                      <td style={{ ...tdStyle, minWidth: 340, width: "30%" }}>
+                      <td style={{ ...tdStyle, minWidth: 280, width: "22%" }}>
                         <input value={i.descripcion} disabled={!puedeOperar}
                           title={i.descripcion}
                           onChange={(e) => onChangeLocal(i.id, "descripcion", e.target.value)}
                           onBlur={(e) => commit(i.id, "descripcion", e.target.value)}
-                          style={{ ...inputStyle(), width: "100%", minWidth: 300 }} />
+                          style={{ ...inputStyle(), width: "100%", minWidth: 240 }} />
                       </td>
-                      <td style={tdStyle}>
+                      <td style={{ ...tdStyle, minWidth: 220, width: "18%" }}>
                         <input value={i.categoria || ""} list="inv-categorias" disabled={!puedeOperar}
+                          title={i.categoria || ""}
                           onChange={(e) => onChangeLocal(i.id, "categoria", e.target.value)}
                           onBlur={(e) => commit(i.id, "categoria", e.target.value)}
-                          style={inputStyle(120)} />
+                          style={{ ...inputStyle(), width: "100%", minWidth: 180 }} />
                       </td>
 
                       {/* Tipo de repuesto (intercambiabilidad) + grupo */}
