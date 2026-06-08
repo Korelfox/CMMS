@@ -25,3 +25,29 @@ jobs:
         run: npm test
       - name: Build de producción
         run: npm run build
+
+  e2e-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Instalar dependencias
+        run: npm ci
+      - name: Instalar navegador Playwright
+        run: npx playwright install --with-deps chromium
+      - name: Variables dummy para que la app monte (sin backend real)
+        run: |
+          echo "VITE_SUPABASE_URL=https://example.supabase.co" > .env
+          echo "VITE_SUPABASE_ANON_KEY=dummy-anon-key-ci" >> .env
+      - name: Smoke E2E (la app arranca)
+        run: npx playwright test e2e/smoke.spec.js
+      - name: Subir reporte si falla
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7

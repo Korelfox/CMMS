@@ -3,6 +3,7 @@ import { Search, List, FolderTree, Layers, ChevronRight, ChevronDown, X, Check, 
 import { updateRow, upsertRow } from "../../lib/db";
 import { buildEquipoTree } from "../../lib/equipTree";
 import { useArbolColapsable, EquipoNodoLabel, fondoTipo } from "../../lib/arbolColapsable";
+import { estadoStock as estadoStockOf } from "../../lib/stock";
 import { C, archivo, clp, canOperate, tint } from "../../theme";
 import { Card, Pill, inputStyle, bluInput, thStyle, tdStyle, Empty } from "../../ui";
 import { skey } from "./util";
@@ -96,20 +97,9 @@ export default function TabStock({ profile, items, setItems, bodegas, stockMap, 
     return new Map(enr.map((x) => { cum += x.val; const p = tot ? cum / tot : 0; return [x.id, p <= 0.8 ? "A" : p <= 0.95 ? "B" : "C"]; }));
   })();
 
-  // Estado de stock (total en toda la flota). Sin mínimo (stock_min = 0) no se
-  // marca "Bajo", salvo que el máximo sea 1 (repuesto crítico de 1 unidad) y el
-  // stock haya caído a 0. Consistente con Inventario.
-  const estadoStock = (i) => {
-    const t = totalItem(i.id);
-    const min = i.stock_min || 0;
-    if (min <= 0) {
-      if ((i.stock_max || 0) === 1 && t < 1) return { key: "bajo", tone: "red", label: "Bajo" };
-      return { key: "ok", tone: "slate", label: "Sin mín" };
-    }
-    if (t <= min) return { key: "bajo", tone: "red", label: "Bajo" };
-    if (t <= min * 1.5) return { key: "revisar", tone: "yellow", label: "Revisar" };
-    return { key: "ok", tone: "green", label: "OK" };
-  };
+  // Estado de stock (lib/stock): total en toda la flota; sin mínimo no marca
+  // "Bajo" salvo máximo = 1. Consistente con Inventario.
+  const estadoStock = (i) => estadoStockOf(totalItem(i.id), i.stock_min, i.stock_max);
 
   const itemsFiltrados = items.filter((i) => {
     const q  = busqueda.toLowerCase();

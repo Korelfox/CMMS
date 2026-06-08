@@ -5,6 +5,7 @@ import { fetchAll, insertRow, updateRow, deleteRow, logActivity } from "../lib/d
 import { C, clp, isAdmin, canOperate, tint } from "../theme";
 import { buildEquipoTree } from "../lib/equipTree";
 import { useArbolColapsable, EquipoNodoLabel, fondoTipo } from "../lib/arbolColapsable";
+import { estadoStock as estadoStockOf } from "../lib/stock";
 import EquipoPicker from "./EquipoPicker";
 import { PLANTILLA_PESQUERA, TIPO_REPUESTO_META } from "../lib/plantillaPesquera";
 
@@ -120,20 +121,8 @@ export default function Inventario() {
   }, [equipos, categoriasUsadas]);
 
   // ── Filtros combinables ──────────────────────────────────────
-  // Estado de stock. Un ítem sin mínimo definido (stock_min = 0) NO se marca
-  // como "Bajo": no tiene umbral configurado, así que se muestra "Sin mín".
-  const estadoStock = (i) => {
-    const min = i.stock_min || 0;
-    if (min <= 0) {
-      // Sin mínimo: solo se marca "Bajo" si el máximo es 1 (repuesto crítico
-      // de 1 unidad) y el stock cayó a 0; si no, "Sin mín".
-      if ((i.stock_max || 0) === 1 && i.total < 1) return { key: "bajo", tone: "red", label: "Bajo" };
-      return { key: "ok", tone: "slate", label: "Sin mín" };
-    }
-    if (i.total <= min) return { key: "bajo", tone: "red", label: "Bajo" };
-    if (i.total <= min * 1.5) return { key: "revisar", tone: "yellow", label: "Revisar" };
-    return { key: "ok", tone: "green", label: "OK" };
-  };
+  // Estado de stock (lib/stock): sin mínimo no marca "Bajo" salvo máximo = 1.
+  const estadoStock = (i) => estadoStockOf(i.total, i.stock_min, i.stock_max);
   const stockStatus = (i) => estadoStock(i).key;
   const q = busqueda.trim().toLowerCase();
   const lista = conABC.filter((i) =>

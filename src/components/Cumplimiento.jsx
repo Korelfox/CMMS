@@ -3,6 +3,7 @@ import { ShieldCheck, FileText, Upload, ExternalLink, Trash2, AlertCircle, Plus,
 import { useAuth } from "../lib/auth";
 import { fetchAll, insertRow, updateRow, deleteRow, logActivity } from "../lib/db";
 import { subirArchivoDocumento, urlFirmada, borrarArchivoStorage } from "../lib/fotos";
+import { estadoDoc, docDe } from "../lib/cumplimiento";
 import { C, archivo, isAdmin, tint } from "../theme";
 import { Card, PageHead, Pill, primaryBtn, ghostBtn, inputStyle, Field, Empty, ErrorBanner, InlineSpinner, FilterBtn } from "../ui";
 
@@ -18,39 +19,8 @@ const TIPOS_DOC_DEFAULT = [
   "Balsa salvavidas",
   "Extintores",
 ];
-const DIAS_HABILES_AVISO = 15;
 const HOY = () => new Date().toISOString().slice(0, 10);
-
-// Días hábiles (lun-vie) entre hoy y una fecha (no cuenta feriados).
-function diasHabilesEntre(desde, hasta) {
-  let n = 0;
-  const d = new Date(desde); d.setHours(0, 0, 0, 0);
-  const fin = new Date(hasta); fin.setHours(0, 0, 0, 0);
-  while (d < fin) { d.setDate(d.getDate() + 1); const w = d.getDay(); if (w !== 0 && w !== 6) n++; }
-  return n;
-}
-
-export function estadoDoc(doc) {
-  if (!doc) return { key: "falta", label: "Falta", tone: "slate" };
-  if (!doc.vencimiento) return { key: "vigente", label: "Sin vencimiento", tone: "green" };
-  const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
-  const venc = new Date(doc.vencimiento + "T00:00:00");
-  if (venc < hoy) return { key: "vencido", label: "Vencido", tone: "red" };
-  const dh = diasHabilesEntre(hoy, venc);
-  if (dh <= DIAS_HABILES_AVISO) return { key: "por_vencer", label: `Por vencer (${dh} días háb.)`, tone: "yellow" };
-  return { key: "vigente", label: "Vigente", tone: "green" };
-}
-
-// El documento vigente más relevante de un tipo (vencimiento más lejano).
-export function docDe(documentos, embId, tipo) {
-  const list = documentos.filter((d) => d.embarcacion_id === embId && d.tipo === tipo);
-  if (!list.length) return null;
-  return list.slice().sort((a, b) => {
-    const va = a.vencimiento ? +new Date(a.vencimiento) : (a.emision ? +new Date(a.emision) : 0);
-    const vb = b.vencimiento ? +new Date(b.vencimiento) : (b.emision ? +new Date(b.emision) : 0);
-    return vb - va;
-  })[0];
-}
+// estadoDoc, docDe y diasHabilesEntre viven ahora en lib/cumplimiento (testeables).
 
 export default function Cumplimiento() {
   const { profile } = useAuth();
