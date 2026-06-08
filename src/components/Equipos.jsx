@@ -5,7 +5,7 @@ import { fetchAll, insertRow, updateRow, deleteRow, logActivity } from "../lib/d
 import { C, isAdmin, canOperate, ESTADOS_EQUIPO, estadoLabel, tint, shadow } from "../theme";
 import { buildEquipoTree } from "../lib/equipTree";
 import { fondoTipo } from "../lib/arbolColapsable";
-import { PLANTILLA_PESQUERA, contarNodosPlantilla, contarRepuestosPlantilla, contarPlanesPMPlantilla, TIPO_NODO_META, CRITICIDAD_TONE } from "../lib/plantillaPesquera";
+import { PLANTILLA_PESQUERA, nodoIncluido, contarNodosPlantilla, contarRepuestosPlantilla, contarPlanesPMPlantilla, TIPO_NODO_META, CRITICIDAD_TONE } from "../lib/plantillaPesquera";
 
 import {
   Card, PageHead, Pill, primaryBtn, ghostBtn, exportBtn, inputStyle, bluInput,
@@ -279,15 +279,16 @@ export default function Equipos() {
   }
 
   // Precarga el árbol estándar de sistemas pesqueros para la nave filtrada.
-  async function precargarPlantilla() {
+  async function precargarPlantilla(modo = "completo") {
     // Nave objetivo: la del filtro; si está en "Todas" y solo hay una nave, esa.
     const targetId = filtro !== "all" ? filtro : (embarcaciones.length === 1 ? embarcaciones[0].id : null);
     const emb = embarcaciones.find((e) => e.id === targetId);
     if (!emb) { setError("Selecciona primero una embarcación en los filtros para precargar la plantilla."); return; }
-    const totalNodos = contarNodosPlantilla();
-    const totalReps  = contarRepuestosPlantilla();
-    const totalPM    = contarPlanesPMPlantilla();
-    if (!window.confirm(`¿Precargar la plantilla de excelencia (ISO 14224) en "${emb.nombre}"?\n\nSe crearán hasta ${totalNodos} nodos de equipos (sistemas → subsistemas → componentes → sensores), hasta ${totalReps} repuestos (SKU OEM/Alternativo/Genérico) en el Inventario y hasta ${totalPM} planes preventivos precargados, todo enlazado a su componente.\n\nLos nodos que ya existan en esta nave NO se duplican: puedes ejecutarla otra vez para completar lo que falte. Puedes borrar después lo que no aplique.`)) return;
+    const totalNodos = contarNodosPlantilla(modo);
+    const totalReps  = contarRepuestosPlantilla(modo);
+    const totalPM    = contarPlanesPMPlantilla(modo);
+    const etiqueta = modo === "basico" ? "ESENCIAL (solo componentes básicos)" : "COMPLETA (incluye overhaul y mecánica profunda)";
+    if (!window.confirm(`¿Precargar la plantilla ${etiqueta} (ISO 14224) en "${emb.nombre}"?\n\nSe crearán hasta ${totalNodos} nodos de equipos (sistemas → subsistemas → componentes → sensores), hasta ${totalReps} repuestos (SKU OEM/Alternativo/Genérico) en el Inventario y hasta ${totalPM} planes preventivos precargados, todo enlazado a su componente.\n\nLos nodos que ya existan en esta nave NO se duplican: puedes ejecutarla otra vez (incluso cambiando a Completa) para completar lo que falte. Puedes borrar después lo que no aplique.`)) return;
 
     setPrecargando(true); setError(null);
     const creados = [];        // equipos nuevos creados en esta corrida
@@ -344,7 +345,10 @@ export default function Equipos() {
 
     // Inserta un nodo y, recursivamente, todos sus descendientes (cualquier profundidad).
     // rootNom = nombre del sistema raíz (se usa como categoría del repuesto).
+    // En modo "basico" se omiten los componentes avanzados (basico:false) y los
+    // subsistemas que queden sin descendientes incluidos.
     async function insertarNodo(nodo, parentId, rootNom) {
+      if (!nodoIncluido(nodo, modo)) return;
       const idVis = `${emb.codigo}-${nodo.cod}`;
       let nodeId = existentesNave.get(idVis);
       if (!nodeId) {
@@ -366,7 +370,7 @@ export default function Equipos() {
     try {
       for (const sis of PLANTILLA_PESQUERA) await insertarNodo(sis, null, sis.nom);
       setEquipos((p) => [...p, ...creados]); sincOriginal();
-      logActivity(profile, "Precargar plantilla pesquera", `${emb.nombre} · ${creados.length} nodos · ${itemsCreados.length} repuestos · ${planesCreados.length} planes PM`);
+      logActivity(profile, "Precargar plantilla pesquera", `${emb.nombre} · modo ${modo} · ${creados.length} nodos · ${itemsCreados.length} repuestos · ${planesCreados.length} planes PM`);
     } catch (e) {
       setError("Se interrumpió la precarga: " + e.message + ". Recarga la página para ver lo que sí se creó.");
       setEquipos((p) => [...p, ...creados]); sincOriginal();
@@ -503,13 +507,21 @@ export default function Equipos() {
               <div style={{ fontSize: 12, color: C.slate, marginTop: 2 }}>
                 {lista
                   ? <>Selecciona una <strong>nave</strong> en los filtros de arriba para precargar su jerarquía.</>
-                  : <>Genera el árbol estándar de hasta {contarNodosPlantilla()} nodos (sistemas → Motor Principal y Generador desglosados → componentes → sensores) y {contarRepuestosPlantilla()} repuestos en el Inventario para <strong>{embName(navePrecarga)}</strong>. No duplica lo que ya exista; borra después lo que no aplique.</>}
+                  : <>Genera el árbol estándar (motores diésel marinos desglosados en 10 subsistemas ISO 14224) con repuestos OEM/Alt./Genérico y planes PM para <strong>{embName(navePrecarga)}</strong>. <strong>Esencial</strong> ≈ {contarNodosPlantilla("basico")} nodos (lo del día a día); <strong>Completa</strong> ≈ {contarNodosPlantilla("completo")} nodos (incluye overhaul y mecánica profunda). No duplica lo que ya exista; puedes pasar de Esencial a Completa cuando quieras.</>}
               </div>
             </div>
-            <button onClick={precargarPlantilla} disabled={precargando || lista}
-              style={{ ...primaryBtn, background: C.cyan, borderColor: C.cyan, flexShrink: 0, opacity: lista ? 0.5 : 1 }}>
-              {precargando ? "Precargando…" : <><Layers size={15} /> Precargar plantilla</>}
-            </button>
+            <div style={{ display: "flex", gap: 8, flexShrink: 0, flexWrap: "wrap" }}>
+              <button onClick={() => precargarPlantilla("basico")} disabled={precargando || lista}
+                title="Carga solo los componentes esenciales (filtros, aceite, impeller, ánodos, inyectores, baterías…), ideal para empezar rápido sin abrumar."
+                style={{ ...ghostBtn, fontSize: 12.5, padding: "8px 14px", opacity: lista ? 0.5 : 1 }}>
+                {precargando ? "Precargando…" : <><Layers size={14} /> Precargar esencial</>}
+              </button>
+              <button onClick={() => precargarPlantilla("completo")} disabled={precargando || lista}
+                title="Carga la jerarquía completa, incluyendo ítems de overhaul y mecánica profunda (cigüeñal, cojinetes, camisas, turbo…)."
+                style={{ ...primaryBtn, background: C.cyan, borderColor: C.cyan, opacity: lista ? 0.5 : 1 }}>
+                {precargando ? "Precargando…" : <><Layers size={15} /> Precargar completa</>}
+              </button>
+            </div>
           </Card>
         );
       })()}

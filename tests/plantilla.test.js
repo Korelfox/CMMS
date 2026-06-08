@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
-  PLANTILLA_PESQUERA, contarNodosPlantilla, contarRepuestosPlantilla, contarPlanesPMPlantilla,
+  PLANTILLA_PESQUERA, nodoIncluido, contarNodosPlantilla, contarRepuestosPlantilla, contarPlanesPMPlantilla,
 } from "../src/lib/plantillaPesquera.js";
 
 // Cuenta componentes (hojas tipo componente/instrumento) bajo un nodo.
@@ -14,16 +14,37 @@ describe("Plantilla pesquera ISO 14224", () => {
     expect(contarRepuestosPlantilla()).toBeGreaterThan(100);
   });
 
-  it("Motor Principal: 7 subsistemas y 58 componentes (clase mundial)", () => {
+  it("Motor Principal: taxonomía marina de 10 subsistemas ISO 14224", () => {
     const mtr = find(find(PLANTILLA_PESQUERA, "PROP").hijos, "PROP-MTR");
-    expect(mtr.hijos).toHaveLength(7);
-    expect(countComp(mtr)).toBe(58);
+    expect(mtr.hijos).toHaveLength(10);
+    expect(countComp(mtr)).toBeGreaterThanOrEqual(55);
+    // Subsistemas marinos clave que antes faltaban:
+    expect(find(mtr.hijos, "PROP-MTR-BLK")).toBeTruthy(); // tren alternativo (cigüeñal, cojinetes)
+    expect(find(mtr.hijos, "PROP-MTR-SW")).toBeTruthy();  // refrigeración agua de mar
+    expect(find(mtr.hijos, "PROP-MTR-EXH")).toBeTruthy(); // escape (codo húmedo)
+    expect(find(mtr.hijos, "PROP-MTR-AIR")).toBeTruthy(); // admisión + aftercooler
   });
 
-  it("Motor Generador: 7 subsistemas", () => {
+  it("Motor Generador: taxonomía marina (versión liviana) + alternador", () => {
     const gmtr = find(find(PLANTILLA_PESQUERA, "GEN").hijos, "GEN-MTR");
-    expect(gmtr.hijos).toHaveLength(7);
+    expect(gmtr.hijos).toHaveLength(10);
+    expect(find(gmtr.hijos, "GEN-MTR-SW")).toBeTruthy();  // agua de mar
+    expect(find(gmtr.hijos, "GEN-MTR-ALT")).toBeTruthy(); // alternador eléctrico
     expect(countComp(gmtr)).toBeGreaterThan(0);
+  });
+
+  it("modo Básico carga menos nodos que Completo y poda subsistemas de overhaul", () => {
+    const basico = contarNodosPlantilla("basico");
+    const completo = contarNodosPlantilla("completo");
+    expect(basico).toBeGreaterThan(0);
+    expect(basico).toBeLessThan(completo);
+    // El Bloque y Tren Alternativo es 100% avanzado → se poda entero en Básico.
+    const mtr = find(find(PLANTILLA_PESQUERA, "PROP").hijos, "PROP-MTR");
+    const blk = find(mtr.hijos, "PROP-MTR-BLK");
+    expect(nodoIncluido(blk, "basico")).toBe(false);
+    expect(nodoIncluido(blk, "completo")).toBe(true);
+    // El Agua de Mar tiene ítems esenciales (impeller, ánodos) → se incluye en Básico.
+    expect(nodoIncluido(find(mtr.hijos, "PROP-MTR-SW"), "basico")).toBe(true);
   });
 
   it("los códigos no llevan sufijo -001 (IDs limpios)", () => {
