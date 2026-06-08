@@ -1,11 +1,68 @@
 import React, { useState, useMemo, useEffect } from "react";
-import { Fish, Plus, Trash2, Settings, BookOpen, ChevronDown, ChevronRight, Check, LayoutDashboard, Download, ExternalLink, Fuel } from "lucide-react";
+import { Fish, Plus, Trash2, Settings, BookOpen, ChevronDown, ChevronRight, Check, LayoutDashboard, Download, ExternalLink, Fuel, Printer } from "lucide-react";
 import { ComposedChart, Bar, Line, PieChart, Pie, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, ReferenceLine, Legend } from "recharts";
 import { insertRow, updateRow, deleteRow, upsertRow, logActivity } from "../../lib/db";
 import { supabase } from "../../lib/supabase";
 import { C, archivo, clp, num, isAdmin, canOperate, tint } from "../../theme";
 import { Card, Pill, FilterBtn, primaryBtn, ghostBtn, inputStyle, bluInput, thStyle, tdStyle, Field, Empty, GuiaColapsable } from "../../ui";
 import { calcPL } from "./calc";
+
+// Liquidación de marea: abre una ventana con la hoja imprimible (reparto a la
+// parte + monto por tripulante) para entregar a la tripulación.
+function imprimirLiquidacion(m, pl, nave) {
+  const w = window.open("", "_blank", "width=820,height=920");
+  if (!w) return;
+  const fdate = (s) => s ? new Date(s).toLocaleDateString("es-CL") : "—";
+  const row = (lbl, val, opts = {}) => `<tr><td style="${opts.bold ? "font-weight:700;" : ""}${opts.indent ? "padding-left:18px;color:#5A7184;" : ""}">${lbl}</td><td class=r style="${opts.bold ? "font-weight:700;" : ""}${opts.color ? `color:${opts.color};` : ""}">${val}</td></tr>`;
+  const caps = pl.lineas.map((l) => `<tr><td>${l.especie_nombre || "—"}</td><td class=r>${num(l.kg, 0)} kg</td><td class=r>${clp(l.precio_kg)}</td><td class=r>${clp((l.kg || 0) * (l.precio_kg || 0))}</td></tr>`).join("");
+  const html = `<!doctype html><html lang=es><head><meta charset=utf-8>
+<title>Liquidación ${m.folio || ""}</title>
+<style>
+  body{font-family:Arial,Helvetica,sans-serif;color:#0A1A2A;margin:32px;font-size:13px}
+  h1{font-size:18px;margin:0 0 2px} .sub{color:#5A7184;font-size:12px;margin-bottom:16px}
+  table{width:100%;border-collapse:collapse;margin:10px 0}
+  th,td{padding:6px 8px;border-bottom:1px solid #E2E8F0;text-align:left}
+  th{font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:#5A7184}
+  .r{text-align:right;font-variant-numeric:tabular-nums}
+  .box{border:1px solid #D6E2EC;border-radius:10px;padding:6px 14px;margin-top:8px}
+  .tot{font-size:16px;font-weight:800}
+  .pos{color:#1E9E6A}.neg{color:#D8443C}.gold{color:#B8860B}
+  .firma{margin-top:42px;display:flex;justify-content:space-between;color:#5A7184;font-size:12px}
+  .firma div{border-top:1px solid #94A3B8;padding-top:6px;width:42%}
+  @media print{body{margin:14px}}
+</style></head><body>
+  <h1>Liquidación de Marea — ${nave}</h1>
+  <div class=sub>Folio ${m.folio || "—"} · ${fdate(m.zarpe_at)} → ${fdate(m.recalada_at)}${pl.dias ? ` · ${num(pl.dias, 1)} días` : ""} · ${pl.numTrip || 0} tripulante(s) · Generado ${new Date().toLocaleDateString("es-CL")}</div>
+
+  <table><thead><tr><th>Especie</th><th class=r>Kg</th><th class=r>$/kg</th><th class=r>Subtotal</th></tr></thead>
+  <tbody>${caps}<tr><td style="font-weight:700">Total captura</td><td class=r style="font-weight:700">${num(pl.kgTotal, 0)} kg</td><td></td><td class=r style="font-weight:700">${clp(pl.valorBruto)}</td></tr></tbody></table>
+
+  <div class=box><table>
+    ${row("Valor bruto de la captura", clp(pl.valorBruto), { bold: true })}
+    ${row("Combustible", "− " + clp(pl.costoComb), { indent: true })}
+    ${row("Víveres", "− " + clp(pl.costoViveres), { indent: true })}
+    ${row("Hielo", "− " + clp(pl.costoHielo), { indent: true })}
+    ${row("Carnada", "− " + clp(pl.costoCarnada), { indent: true })}
+    ${row("Gastos del pozo", "− " + clp(pl.gastosPozo), { bold: true })}
+    ${row("Líquido a repartir", clp(pl.liquido), { bold: true })}
+    ${row(`Parte tripulación (${num(pl.pct, 0)}%)`, clp(pl.parteTrip), { bold: true, color: "#1E9E6A" })}
+    ${pl.porTripulante != null ? row(`→ Por tripulante (÷ ${pl.numTrip})`, clp(pl.porTripulante), { indent: true, color: "#1E9E6A" }) : ""}
+  </table></div>
+
+  <div class=box><table>
+    ${row("Ingreso del armador (líquido − parte trip.)", clp(pl.ingresoArmador), { bold: true })}
+    ${row("Aceite", "− " + clp(pl.costoAceite), { indent: true })}
+    ${row("Mantención (OT)", "− " + clp(pl.costoOTs), { indent: true })}
+    ${row("Otros", "− " + clp(pl.costoOtros), { indent: true })}
+    <tr><td class=tot>Margen del armador</td><td class="r tot ${pl.margen >= 0 ? "pos" : "neg"}">${clp(pl.margen)}</td></tr>
+  </table></div>
+
+  <div class=firma><div>Armador</div><div>Recibí conforme (tripulación)</div></div>
+  <script>window.onload=function(){setTimeout(function(){window.print();},150);}</script>
+</body></html>`;
+  w.document.write(html);
+  w.document.close();
+}
 
 export default function TabMareas({ profile, embarcaciones, mareas, allOts, especies, capturas: allCapturas, setCapturas, economias: allEconomias, setEconomias, conf, embName, setError, onNavigate, navMareaId, onNavUsed }) {
   const [open,      setOpen]      = useState(null);
@@ -124,6 +181,13 @@ export default function TabMareas({ profile, embarcaciones, mareas, allOts, espe
                   title="Ver consumos de la flota"
                   style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11.5, padding: "3px 9px", borderRadius: 5, border: `1px solid ${C.line}`, background: "none", color: C.slate, cursor: "pointer" }}>
                   <Fuel size={11} /> Consumos
+                </button>
+              )}
+              {pl?.tieneCaptura && (
+                <button onClick={(e) => { e.stopPropagation(); imprimirLiquidacion(m, pl, embName(m.embarcacion_id)); }}
+                  title="Imprimir liquidación de la marea (PDF)"
+                  style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11.5, padding: "3px 9px", borderRadius: 5, border: `1px solid ${C.line}`, background: "none", color: C.slate, cursor: "pointer" }}>
+                  <Printer size={11} /> Liquidación
                 </button>
               )}
               {pl?.tieneCaptura ? (

@@ -111,8 +111,50 @@ export default function TabDashboard({ mareas, capturas, economias, ots, embarca
     }).filter(Boolean).slice(-12),
     [plList, embName]);
 
+  // Rentabilidad por especie (agrega las líneas de captura del período)
+  const porEspecie = useMemo(() => {
+    const map = new Map();
+    plList.forEach(({ pl }) => (pl.lineas || []).forEach((l) => {
+      const key = l.especie_nombre || "(sin especie)";
+      const cur = map.get(key) || { especie: key, kg: 0, bruto: 0 };
+      cur.kg += (l.kg || 0); cur.bruto += (l.kg || 0) * (l.precio_kg || 0);
+      map.set(key, cur);
+    }));
+    const tot = [...map.values()].reduce((s, e) => s + e.bruto, 0);
+    return [...map.values()]
+      .map((e) => ({ ...e, precioProm: e.kg > 0 ? e.bruto / e.kg : 0, pct: tot > 0 ? (e.bruto / tot) * 100 : 0 }))
+      .sort((a, b) => b.bruto - a.bruto);
+  }, [plList]);
+
+  // Eficiencia operacional ($/día, kg/día, combustible $/kg) y mejor/peor marea.
+  const efic = useMemo(() => {
+    let dias = 0, comb = 0;
+    plList.forEach(({ pl }) => { dias += pl.dias || 0; comb += pl.costoComb; });
+    const conDia = plList.filter(({ pl }) => pl.dias > 0)
+      .map(({ m, pl }) => ({ folio: m.folio || "—", nave: embName(m.embarcacion_id), md: pl.margen / pl.dias }));
+    const sorted = [...conDia].sort((a, b) => b.md - a.md);
+    return {
+      margenDia: dias > 0 ? kpis.margen / dias : null,
+      kgDia:     dias > 0 ? kpis.kgTotal / dias : null,
+      combPorKg: kpis.kgTotal > 0 ? comb / kpis.kgTotal : null,
+      mejor: sorted[0] || null, peor: sorted.length > 1 ? sorted[sorted.length - 1] : null,
+    };
+  }, [plList, kpis, embName]);
+
+  // Completitud: mareas cerradas (del filtro) sin captura cargada.
+  const sinCaptura = useMemo(() =>
+    mareas.filter((m) => m.estado === "cerrada" && !capturas.some((c) => c.marea_id === m.id)),
+    [mareas, capturas]);
+
   if (plList.length === 0) return (
-    <Card><Empty>Aún no hay mareas con captura registrada. Ve a <strong>Registro por Marea</strong> para ingresar la primera.</Empty></Card>
+    <Card>
+      <Empty>Aún no hay mareas con captura registrada. Ve a <strong>Registro por Marea</strong> para ingresar la primera.</Empty>
+      {sinCaptura.length > 0 && (
+        <div style={{ marginTop: 12, fontSize: 12.5, color: "#7a5b00", background: tint(C.amber, 14), border: `1px solid ${C.amber}`, borderRadius: 8, padding: "8px 12px" }}>
+          Hay <strong>{sinCaptura.length}</strong> marea(s) cerrada(s) sin captura cargada.
+        </div>
+      )}
+    </Card>
   );
 
   const kpiCard = (label, value, tone, sub) => (
@@ -174,6 +216,25 @@ export default function TabDashboard({ mareas, capturas, economias, ots, embarca
         {kpiCard("Margen del armador",   clp(kpis.margen),                    kpis.margen >= 0 ? C.green : C.red, kpis.margenPct !== null ? `${num(kpis.margenPct, 1)}% sobre bruto` : "—")}
         {kpiCard("Parte tripulación",    clp(kpis.parteTrip),                 C.steel,  `${kpis.valorBruto > 0 ? num((kpis.parteTrip / kpis.valorBruto) * 100, 1) : "—"}% del bruto`)}
         {kpiCard("Captura total",        `${num(kpis.kgTotal, 0)} kg`,        C.cyan,   kpis.kgTotal > 0 && kpis.valorBruto > 0 ? `${clp(kpis.valorBruto / kpis.kgTotal)}/kg promedio` : "")}
+      </div>
+
+      {/* ── Aviso de completitud de datos ── */}
+      {sinCaptura.length > 0 && (
+        <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12.5, color: "#7a5b00", background: tint(C.amber, 14), border: `1px solid ${C.amber}`, borderRadius: 9, padding: "9px 14px", marginBottom: 16 }}>
+          <span><strong>{sinCaptura.length}</strong> marea(s) cerrada(s) sin captura cargada</span>
+          <span style={{ color: C.slate }}>· {sinCaptura.slice(0, 5).map((m) => m.folio || "—").join(", ")}{sinCaptura.length > 5 ? "…" : ""} — cárgalas en <strong>Registro por Marea</strong> para que entren al análisis.</span>
+        </div>
+      )}
+
+      {/* ── KPIs de eficiencia operacional ── */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12, marginBottom: 20 }}>
+        {kpiCard("Margen por día", efic.margenDia != null ? clp(efic.margenDia) : "—", efic.margenDia >= 0 ? C.green : C.red, "rendimiento del armador")}
+        {kpiCard("Captura por día", efic.kgDia != null ? `${num(efic.kgDia, 0)} kg` : "—", C.cyan, "productividad")}
+        {kpiCard("Combustible $/kg", efic.combPorKg != null ? clp(efic.combPorKg) : "—", C.gold, "costo de combustible por kilo")}
+        {kpiCard("Mejor / peor marea",
+          efic.mejor ? `${clp(efic.mejor.md)}/d` : "—",
+          efic.mejor && efic.mejor.md >= 0 ? C.green : C.red,
+          efic.mejor ? `▲ ${efic.mejor.folio}${efic.peor ? ` · ▼ ${efic.peor.folio} (${clp(efic.peor.md)}/d)` : ""}` : "")}
       </div>
 
       {/* ── Gráfico por marea ── */}
@@ -267,6 +328,43 @@ export default function TabDashboard({ mareas, capturas, economias, ots, embarca
           )}
         </Card>
       </div>
+
+      {/* ── Rentabilidad por especie ── */}
+      <Card style={{ padding: 0, overflow: "hidden", marginBottom: 20 }}>
+        <div style={{ padding: "16px 20px 12px", borderBottom: `1px solid ${C.foam}` }}>
+          <div style={{ ...archivo, fontWeight: 800, fontSize: 15, color: C.abyss }}>Rentabilidad por especie</div>
+          <div style={{ fontSize: 12, color: C.slate, marginTop: 3 }}>Qué especie aporta más valor bruto en el período (Σ kg × precio)</div>
+        </div>
+        <div style={{ overflowX: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 620 }}>
+            <thead><tr>
+              <th style={thStyle}>Especie</th>
+              <th style={{ ...thStyle, textAlign: "right" }}>Kg</th>
+              <th style={{ ...thStyle, textAlign: "right" }}>$/kg prom.</th>
+              <th style={{ ...thStyle, textAlign: "right" }}>Valor bruto</th>
+              <th style={{ ...thStyle, minWidth: 180 }}>% del bruto</th>
+            </tr></thead>
+            <tbody>
+              {porEspecie.map((e) => (
+                <tr key={e.especie}>
+                  <td style={{ ...tdStyle, fontWeight: 600 }}>{e.especie}</td>
+                  <td style={{ ...tdStyle, textAlign: "right", fontFamily: "'IBM Plex Mono', monospace" }}>{num(e.kg, 0)}</td>
+                  <td style={{ ...tdStyle, textAlign: "right", fontFamily: "'IBM Plex Mono', monospace", color: C.slate }}>{clp(e.precioProm)}</td>
+                  <td style={{ ...tdStyle, textAlign: "right", fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, color: C.steel }}>{clp(e.bruto)}</td>
+                  <td style={tdStyle}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <div style={{ flex: 1, height: 7, background: tint(C.slate, 14), borderRadius: 4, overflow: "hidden" }}>
+                        <div style={{ height: "100%", width: `${Math.min(100, e.pct)}%`, background: C.cyan, borderRadius: 4 }} />
+                      </div>
+                      <span style={{ fontSize: 11.5, color: C.slate, minWidth: 42, textAlign: "right", fontFamily: "'IBM Plex Mono', monospace" }}>{num(e.pct, 1)}%</span>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Card>
 
       {/* ── Punto de equilibrio ── */}
       <Card style={{ padding: 0, overflow: "hidden" }}>
