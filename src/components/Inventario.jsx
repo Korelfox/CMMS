@@ -492,7 +492,7 @@ export default function Inventario() {
       ) : (
         <Card style={{ padding: 0, overflow: "hidden" }}>
           <div style={{ overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 1200 }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 1320 }}>
               <thead><tr>
                 <th style={thStyle}>Código</th>
                 <th style={{ ...thStyle, textAlign: "center" }}>ABC</th>
@@ -552,11 +552,12 @@ export default function Inventario() {
                         )}
                       </td>
                       <td style={{ ...tdStyle, textAlign: "center" }}><Pill tone={abcTone}>{i.abc}</Pill></td>
-                      <td style={tdStyle}>
+                      <td style={{ ...tdStyle, minWidth: 340, width: "30%" }}>
                         <input value={i.descripcion} disabled={!puedeOperar}
+                          title={i.descripcion}
                           onChange={(e) => onChangeLocal(i.id, "descripcion", e.target.value)}
                           onBlur={(e) => commit(i.id, "descripcion", e.target.value)}
-                          style={inputStyle(220)} />
+                          style={{ ...inputStyle(), width: "100%", minWidth: 300 }} />
                       </td>
                       <td style={tdStyle}>
                         <input value={i.categoria || ""} list="inv-categorias" disabled={!puedeOperar}
