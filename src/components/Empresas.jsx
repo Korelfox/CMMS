@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useMemo } from "react";
-import { Building2, Plus, Ship, Users, Copy, Check, Power, AlertCircle } from "lucide-react";
+import { Building2, Plus, Ship, Users, Copy, Check, Power, AlertCircle, AlertTriangle, Trash2 } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { fetchAll, logActivity } from "../lib/db";
 import { supabase } from "../lib/supabase";
@@ -39,6 +39,11 @@ export default function Empresas() {
   const [showForm, setShowForm]   = useState(false);
   const [form, setForm]           = useState(blank());
   const [copiado, setCopiado]     = useState(null);
+  // Zona peligrosa — limpiar datos de una flota
+  const [limpScope, setLimpScope]     = useState("");
+  const [limpConfirm, setLimpConfirm] = useState("");
+  const [limpiando, setLimpiando]     = useState(false);
+  const [limpMsg, setLimpMsg]         = useState(null);
   const soyseuper = isSuperAdmin(profile?.rol);
 
   const cargar = useCallback(async () => {
@@ -108,6 +113,33 @@ export default function Empresas() {
       setCopiado(emp.id);
       setTimeout(() => setCopiado((c) => (c === emp.id ? null : c)), 1800);
     } catch { /* clipboard no disponible */ }
+  }
+
+  const empresaLimp = empresas.find((e) => e.id === limpScope);
+  const limpHabilitado = !!empresaLimp && limpConfirm.trim() === empresaLimp.nombre;
+
+  // Borra los datos operativos de una flota (vía función SECURITY DEFINER que
+  // exige rol super_admin en el servidor). Conserva empresa, usuarios, naves,
+  // bodegas, catálogos y bitácora.
+  async function limpiarFlota() {
+    if (!limpHabilitado) {
+      setError(`Para confirmar, escribe exactamente el nombre de la empresa: "${empresaLimp?.nombre || ""}".`);
+      return;
+    }
+    if (!window.confirm(`ÚLTIMA CONFIRMACIÓN\n\nVas a BORRAR todos los datos operativos de mantención de "${empresaLimp.nombre}":\nequipos, OTs, inventario, planes PM e historial, compras, criticidad/CGM/Weibull, mareas, fallas, documentos, prezarpes, solicitudes, programación y auditorías.\n\nSe conservan: la empresa, sus usuarios, embarcaciones, bodegas, catálogos y la bitácora.\n\nEsta acción NO se puede deshacer. ¿Continuar?`)) return;
+    setLimpiando(true); setError(null); setLimpMsg(null);
+    try {
+      const { data, error: e } = await supabase.rpc("app_limpiar_flota", { p_empresa: empresaLimp.id });
+      if (e) throw e;
+      const borr = data?.borrados || {};
+      const total = Object.values(borr).reduce((s, n) => s + Number(n), 0);
+      const detalle = Object.entries(borr).map(([k, v]) => `${k}: ${v}`).join(" · ");
+      setLimpMsg(`Flota "${data?.empresa || empresaLimp.nombre}" limpiada — ${total} registro(s) borrado(s).${detalle ? " " + detalle : ""}`);
+      setLimpConfirm(""); setLimpScope("");
+      cargar();
+    } catch (e) {
+      setError("No se pudo limpiar la flota: " + e.message);
+    } finally { setLimpiando(false); }
   }
 
   if (loading) return <div><PageHead kicker="Administración · Super Admin" title="Empresas & Flotas" /><Card><InlineSpinner label="Cargando empresas…" /></Card></div>;
@@ -250,6 +282,43 @@ export default function Empresas() {
           </div>
         </Card>
       )}
+
+      {/* ── Zona peligrosa: Limpiar CMMS de una flota (solo super admin) ── */}
+      <Card style={{ marginTop: 24, border: `1px solid ${tint(C.red, 45)}`, background: tint(C.red, 6) }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+          <AlertTriangle size={20} color={C.red} />
+          <div style={{ fontWeight: 800, fontSize: 15, color: C.red }}>Zona peligrosa · Limpiar CMMS</div>
+        </div>
+        <div style={{ fontSize: 12.5, color: C.slate, marginBottom: 14, lineHeight: 1.55 }}>
+          Borra <strong>todos los datos operativos de mantención</strong> de una flota: equipos, órdenes de trabajo,
+          inventario y stock, compras, planes PM e historial, criticidad/CGM/Weibull, mareas y capturas, fallas,
+          documentos, prezarpes, solicitudes, programación y auditorías.
+          <br />Se <strong>conservan</strong>: la empresa, sus usuarios, embarcaciones, bodegas, especies, tipos de
+          documento y la bitácora. <strong style={{ color: C.red }}>Esta acción no se puede deshacer.</strong>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto", gap: 10, alignItems: "end" }}>
+          <Field label="Flota a limpiar">
+            <select value={limpScope} onChange={(e) => { setLimpScope(e.target.value); setLimpConfirm(""); setLimpMsg(null); }} style={inputStyle()}>
+              <option value="">— Selecciona empresa —</option>
+              {empresas.map((e) => <option key={e.id} value={e.id}>{e.nombre} ({navesDe(e.id)} naves)</option>)}
+            </select>
+          </Field>
+          <Field label={empresaLimp ? `Escribe «${empresaLimp.nombre}» para confirmar` : "Confirmación"}>
+            <input value={limpConfirm} onChange={(e) => setLimpConfirm(e.target.value)} disabled={!empresaLimp}
+              placeholder={empresaLimp ? empresaLimp.nombre : "selecciona una flota primero"}
+              style={{ ...inputStyle(), borderColor: empresaLimp && !limpHabilitado ? tint(C.red, 50) : undefined }} />
+          </Field>
+          <button onClick={limpiarFlota} disabled={limpiando || !limpHabilitado}
+            style={{ ...primaryBtn, background: C.red, borderColor: C.red, opacity: limpHabilitado ? 1 : 0.5, cursor: limpHabilitado ? "pointer" : "not-allowed" }}>
+            <Trash2 size={15} /> {limpiando ? "Limpiando…" : "Limpiar CMMS"}
+          </button>
+        </div>
+        {limpMsg && (
+          <div style={{ marginTop: 12, fontSize: 12.5, color: C.green, fontWeight: 600, display: "flex", alignItems: "center", gap: 6 }}>
+            <Check size={15} /> {limpMsg}
+          </div>
+        )}
+      </Card>
     </div>
   );
 }
