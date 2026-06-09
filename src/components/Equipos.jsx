@@ -8,7 +8,7 @@ import { fondoTipo } from "../lib/arbolColapsable";
 import { PLANTILLA_PESQUERA, nodoIncluido, contarNodosPlantilla, contarRepuestosPlantilla, contarPlanesPMPlantilla, TIPO_NODO_META, CRITICIDAD_TONE } from "../lib/plantillaPesquera";
 
 import {
-  Card, PageHead, Pill, primaryBtn, ghostBtn, exportBtn, inputStyle, bluInput,
+  Card, PageHead, Pill, primaryBtn, ghostBtn, exportBtn, inputStyle,
   FilterBtn, Field, Empty, ErrorBanner, InlineSpinner, GuiaColapsable,
 } from "../ui";
 import NotaJerarquia from "./equipos/NotaJerarquia";
@@ -32,8 +32,12 @@ const ICONO_TIPO = { sistema: Layers, subsistema: GitBranch, componente: Wrench,
 // Estilos de tabla compactos para Equipos: menos padding lateral que el global
 // (18px → 9px) para recuperar espacio horizontal y que el texto de los nodos
 // (nombres largos de la taxonomía ISO 14224) respire sin truncarse.
-const thE = { textAlign: "left", padding: "11px 9px", fontSize: 11.5, letterSpacing: 0.5, textTransform: "uppercase", color: C.slate, fontWeight: 600, borderBottom: `2px solid ${C.line}`, whiteSpace: "nowrap" };
-const tdE = { padding: "8px 9px", fontSize: 13.5, borderBottom: `1px solid ${C.foam}`, color: C.ink };
+const thE = { textAlign: "left", padding: "7px 7px", fontSize: 10.5, letterSpacing: 0.4, textTransform: "uppercase", color: C.slate, fontWeight: 600, borderBottom: `2px solid ${C.line}`, whiteSpace: "nowrap" };
+const tdE = { padding: "3px 7px", fontSize: 13, borderBottom: `1px solid ${C.foam}`, color: C.ink };
+// Inputs compactos: altura de fila reducida para densificar la tabla y ver más
+// equipos de un vistazo (sin recurrir al global, que afecta todo el CMMS).
+const bluC = { width: "100%", border: `1px solid ${tint(C.sky, 28)}`, borderRadius: 7, background: tint(C.sky, 9), outline: "none", padding: "3px 8px", fontSize: 12.5, color: C.steel, fontWeight: 600, fontFamily: "'IBM Plex Mono', monospace" };
+const inC = (w) => ({ width: w || "100%", border: `1px solid ${C.line}`, borderRadius: 7, background: C.surface, outline: "none", padding: "4px 8px", fontSize: 12.5, color: C.ink });
 
 // Tipo de niveles que se revisan en el prezarpe para este equipo
 const NIVEL_TIPOS = [
@@ -613,7 +617,7 @@ export default function Equipos() {
 
       <Card style={{ padding: 0, overflow: "hidden" }}>
         <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 1500 }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 1280 }}>
             <thead><tr>
               {puedeOperar && <th style={{ ...thE, textAlign: "center" }} title="Reordenar por prioridad">Orden</th>}
               <th style={thE}>ID</th>
@@ -668,14 +672,14 @@ export default function Equipos() {
                         <input value={e.id_visible} disabled={!puedeOperar} title={e.id_visible}
                           onChange={(ev) => onChangeLocal(e.id, "id_visible", ev.target.value)}
                           onBlur={(ev) => commit(e.id, "id_visible", ev.target.value)}
-                          style={{ ...bluInput, width: 178 }} />
+                          style={{ ...bluC, width: 150 }} />
                       </td>
 
                       {/* Nave */}
                       <td style={tdE}>
                         <select value={e.embarcacion_id} disabled={!puedeOperar}
                           onChange={(ev) => commit(e.id, "embarcacion_id", ev.target.value)}
-                          style={{ ...inputStyle(165), fontWeight: 600, color: embColor(e.embarcacion_id) }}>
+                          style={{ ...inC(130), fontWeight: 600, color: embColor(e.embarcacion_id) }}>
                           {embarcaciones.map((v) => <option key={v.id} value={v.id}>{v.nombre}</option>)}
                         </select>
                       </td>
@@ -699,7 +703,7 @@ export default function Equipos() {
                           <input value={e.sistema} disabled={!puedeOperar} title={e.sistema}
                             onChange={(ev) => onChangeLocal(e.id, "sistema", ev.target.value)}
                             onBlur={(ev) => commit(e.id, "sistema", ev.target.value)}
-                            style={{ ...bluInput, width: Math.max(210, 320 - e.depth * 12), fontFamily: "inherit", color: e.depth === 0 ? C.abyss : C.ink, fontWeight: e.depth === 0 ? 700 : 400 }} />
+                            style={{ ...bluC, width: Math.max(185, 285 - e.depth * 12), fontFamily: "inherit", color: e.depth === 0 ? C.abyss : C.ink, fontWeight: e.depth === 0 ? 700 : 400 }} />
                           {e.criticidad && <span style={{ marginLeft: 6, flexShrink: 0 }}><Pill tone={CRITICIDAD_TONE[e.criticidad]}>{e.criticidad}</Pill></span>}
                           {colapsado && nDesc > 0 && <span style={{ marginLeft: 8, fontSize: 11.5, color: C.steel, fontWeight: 600, flexShrink: 0 }} title={`${nDesc} elemento(s) ocultos`}>▸ {nDesc}</span>}
                         </div>
@@ -709,28 +713,28 @@ export default function Equipos() {
                       <td style={tdE}>
                         <select value={e.parent_id || ""} disabled={!puedeOperar}
                           onChange={(ev) => commit(e.id, "parent_id", ev.target.value || null)}
-                          style={{ ...inputStyle(210), fontSize: 12.5, color: e.parent_id ? C.steel : C.line }}>
+                          style={{ ...inC(160), color: e.parent_id ? C.steel : C.line }}>
                           <option value="">— Raíz —</option>
                           {padres.map((p) => <option key={p.id} value={p.id}>{p.id_visible} · {p.sistema}</option>)}
                         </select>
                       </td>
 
                       {/* Marca / Modelo */}
-                      <td style={tdE}><input value={e.marca || ""} disabled={!puedeOperar} title={e.marca || ""} onChange={(ev) => onChangeLocal(e.id, "marca", ev.target.value)} onBlur={(ev) => commit(e.id, "marca", ev.target.value)} style={inputStyle(135)} /></td>
-                      <td style={tdE}><input value={e.modelo || ""} disabled={!puedeOperar} title={e.modelo || ""} onChange={(ev) => onChangeLocal(e.id, "modelo", ev.target.value)} onBlur={(ev) => commit(e.id, "modelo", ev.target.value)} style={inputStyle(135)} /></td>
+                      <td style={tdE}><input value={e.marca || ""} disabled={!puedeOperar} title={e.marca || ""} onChange={(ev) => onChangeLocal(e.id, "marca", ev.target.value)} onBlur={(ev) => commit(e.id, "marca", ev.target.value)} style={inC(108)} /></td>
+                      <td style={tdE}><input value={e.modelo || ""} disabled={!puedeOperar} title={e.modelo || ""} onChange={(ev) => onChangeLocal(e.id, "modelo", ev.target.value)} onBlur={(ev) => commit(e.id, "modelo", ev.target.value)} style={inC(108)} /></td>
 
                       {/* Horas */}
                       <td style={{ ...tdE, textAlign: "right" }}>
                         <input type="number" value={e.horas_actual} disabled={!puedeOperar}
                           onChange={(ev) => onChangeLocal(e.id, "horas_actual", +ev.target.value)}
                           onBlur={(ev) => commit(e.id, "horas_actual", +ev.target.value)}
-                          style={{ ...bluInput, width: 80, textAlign: "right" }} />
+                          style={{ ...bluC, width: 62, textAlign: "right" }} />
                       </td>
                       <td style={{ ...tdE, textAlign: "right" }}>
                         <input type="number" value={e.horas_ult_pm} disabled={!puedeOperar}
                           onChange={(ev) => onChangeLocal(e.id, "horas_ult_pm", +ev.target.value)}
                           onBlur={(ev) => commit(e.id, "horas_ult_pm", +ev.target.value)}
-                          style={{ ...bluInput, width: 80, textAlign: "right" }} />
+                          style={{ ...bluC, width: 62, textAlign: "right" }} />
                       </td>
 
                       {/* MTBF objetivo (horas) */}
@@ -739,14 +743,14 @@ export default function Equipos() {
                           placeholder="—"
                           onChange={(ev) => onChangeLocal(e.id, "mtbf_objetivo", ev.target.value === "" ? null : +ev.target.value)}
                           onBlur={(ev) => commit(e.id, "mtbf_objetivo", ev.target.value === "" ? null : +ev.target.value)}
-                          style={{ ...bluInput, width: 80, textAlign: "right" }} />
+                          style={{ ...bluC, width: 62, textAlign: "right" }} />
                       </td>
 
                       {/* Estado */}
                       <td style={tdE}>
                         <select value={e.estado} disabled={!puedeOperar}
                           onChange={(ev) => commit(e.id, "estado", ev.target.value)}
-                          style={inputStyle(120)}>
+                          style={inC(104)}>
                           {ESTADOS_EQUIPO.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
                         </select>
                       </td>
@@ -763,7 +767,7 @@ export default function Equipos() {
                       <td style={tdE}>
                         <select value={e.nivel_tipo || "ninguno"} disabled={!puedeOperar}
                           onChange={(ev) => commit(e.id, "nivel_tipo", ev.target.value)}
-                          style={inputStyle(155)}>
+                          style={inC(124)}>
                           {NIVEL_TIPOS.map((n) => <option key={n.value} value={n.value}>{n.label}</option>)}
                         </select>
                       </td>
