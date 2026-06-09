@@ -66,6 +66,24 @@ describe("Plantilla pesquera ISO 14224", () => {
     expect(countComp(hpu)).toBeGreaterThan(0);
   });
 
+  it("incluye los sistemas de seguridad/ambientales/operativos de un pesquero", () => {
+    const cods = PLANTILLA_PESQUERA.map((s) => s.cod);
+    // Tier 1 (reglamentario): gobierno, contraincendios, achique, MARPOL
+    for (const c of ["STEER", "FIRE", "BILGE", "ENV"]) expect(cods).toContain(c);
+    // Tier 2 (operativo): fondeo, comunicaciones GMDSS, HVAC, viveros
+    for (const c of ["ANCH", "COMM", "HVAC", "CATCH"]) expect(cods).toContain(c);
+    // Tier 3 (habitabilidad)
+    expect(cods).toContain("HOTEL");
+  });
+
+  it("Equipo de Pesca está adaptado a trampas/centolla (virador, trampas, viveros)", () => {
+    const fish = find(PLANTILLA_PESQUERA, "FISH");
+    const fcods = fish.hijos.map((h) => h.cod);
+    expect(fcods).toContain("FISH-VIR"); // virador de trampas
+    expect(fcods).toContain("FISH-TRA"); // trampas / nasas
+    expect(find(PLANTILLA_PESQUERA, "CATCH").hijos.some((h) => h.cod === "CATCH-VIV")).toBe(true); // viveros
+  });
+
   it("la plantilla precarga planes PM válidos (descripción + intervalo > 0)", () => {
     expect(contarPlanesPMPlantilla()).toBeGreaterThan(0);
     const ok = (nodos) => (nodos || []).every(

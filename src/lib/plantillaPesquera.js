@@ -770,10 +770,67 @@ export const PLANTILLA_PESQUERA = [
     cod: "PROP", nom: "Propulsión Principal", crit: "A", tipo: "sistema",
     hijos: [
       MOTOR_PRINCIPAL,
-      { cod: "PROP-RED", nom: "Reductora",        crit: "A", tipo: "subsistema" },
-      { cod: "PROP-EJE", nom: "Eje y Bocina",     crit: "A", tipo: "subsistema" },
-      { cod: "PROP-HEL", nom: "Hélice",           crit: "A", tipo: "subsistema" },
-      { cod: "PROP-TIM", nom: "Timón y Gobierno", crit: "A", tipo: "subsistema" },
+      {
+        cod: "PROP-RED", nom: "Reductora", crit: "A", tipo: "subsistema",
+        hijos: [
+          comp("PROP-RED-ACE", "Aceite y Filtro de Reductora", {
+            rep: [["FLT-RED-OEM", "Filtro Reductora (OEM)", "oem"], ["ACE-RED-GEN", "Aceite Reductora (balde)", "generico"]],
+            pm: [["Cambio de aceite de reductora", 1000]] }),
+          comp("PROP-RED-CAJ", "Caja Reductora (engranajes)", { basico: false,
+            rep: [["RED-OEM", "Reductora completa (OEM)", "oem"], ["KIT-JD-RED", "Kit Juntas Reductora", "generico"]] }),
+          comp("PROP-RED-EMB", "Embrague (Clutch)", { basico: false,
+            rep: [["KIT-EMB-OEM", "Kit de Embrague (OEM)", "oem"]],
+            pm: [["Inspección visual / por condición", 4000]] }),
+          comp("PROP-RED-ENF", "Enfriador de Aceite de Reductora", { basico: false,
+            rep: [["ENF-RED-OEM", "Enfriador Reductora (OEM)", "oem"]],
+            pm: [["Limpieza de radiador / intercambiador de calor", 4000]] }),
+          inst("PROP-RED-SEN", "Sensor Presión/Temp Reductora", {
+            rep: [["SEN-PRE-RED", "Sensor Presión Reductora", "oem"]] }),
+        ],
+      },
+      {
+        cod: "PROP-EJE", nom: "Eje y Bocina", crit: "A", tipo: "subsistema",
+        hijos: [
+          comp("PROP-EJE-EJE", "Eje de Cola", { basico: false, rep: [["EJE-OEM", "Eje de Cola (OEM)", "oem"]] }),
+          comp("PROP-EJE-BOC", "Bocina (Stern Tube)", { basico: false, rep: [["BOC-OEM", "Bocina (OEM)", "oem"]] }),
+          comp("PROP-EJE-SEL", "Sello de Bocina", {
+            rep: [["SEL-BOC-OEM", "Sello de Bocina (OEM)", "oem"], ["KIT-SEL-BOC", "Kit Sellos Bocina", "generico"]],
+            pm: [["Inspección visual / por condición", 2000]] }),
+          comp("PROP-EJE-CHU", "Chumaceras de Apoyo", {
+            rep: [["CHU-OEM", "Chumacera de Apoyo (OEM)", "oem"]],
+            pm: [["Engrase / lubricación general", 1000]] }),
+          comp("PROP-EJE-ACO", "Acoplamiento / Brida", { basico: false,
+            rep: [["ACO-EJE-OEM", "Acoplamiento de Eje (OEM)", "oem"]] }),
+        ],
+      },
+      {
+        cod: "PROP-HEL", nom: "Hélice", crit: "A", tipo: "subsistema",
+        hijos: [
+          comp("PROP-HEL-HEL", "Hélice", { basico: false, rep: [["HEL-OEM", "Hélice (OEM)", "oem"]] }),
+          comp("PROP-HEL-ANO", "Ánodos de Eje / Hélice", {
+            rep: [["ANO-EJE-GEN", "Ánodo de Eje (genérico)", "generico"]],
+            pm: [["Inspección de ánodos de sacrificio", 1000]] }),
+        ],
+      },
+    ],
+  },
+  {
+    cod: "STEER", nom: "Gobierno / Servotimón", crit: "A", tipo: "sistema",
+    hijos: [
+      comp("STEER-PWR", "Servomotor / Power Pack del Timón", { basico: false,
+        rep: [["BMP-TIM-OEM", "Bomba Hidráulica del Timón (OEM)", "oem"], ["MOT-TIM-OEM", "Motor Eléctrico Servotimón", "oem"]],
+        pm: [["Engrase / lubricación general", 2000]] }),
+      comp("STEER-CIL", "Cilindros / Actuador del Timón", {
+        rep: [["KIT-SEL-TIM", "Kit Sellos Cilindro Timón", "generico"]],
+        pm: [["Inspección visual / por condición", 2000]] }),
+      comp("STEER-TIM", "Mecha y Pala del Timón", { basico: false,
+        rep: [["CASQ-TIM-OEM", "Casquillo/Bocina de Mecha (OEM)", "oem"]] }),
+      comp("STEER-EMG", "Gobierno de Emergencia", {
+        rep: [["BMB-MAN-TIM", "Bomba Manual de Emergencia", "oem"]],
+        pm: [["Prueba de alarmas y paradas de seguridad", 1000]] }),
+      inst("STEER-FBK", "Telemotor / Retroalimentación", {
+        rep: [["FBK-TIM-OEM", "Transmisor de Posición (feedback)", "oem"]],
+        pm: [["Calibración de sensores / instrumentos", 4000]] }),
     ],
   },
   {
@@ -798,21 +855,108 @@ export const PLANTILLA_PESQUERA = [
       { cod: "ELEC-INT", nom: "Interruptores",        crit: "B", tipo: "subsistema" },
       { cod: "ELEC-BAT", nom: "Banco de Baterías",    crit: "B", tipo: "subsistema" },
       { cod: "ELEC-CAB", nom: "Cables y Conductores", crit: "B", tipo: "subsistema" },
+      {
+        cod: "ELEC-ALU", nom: "Alumbrado y Luces de Navegación", crit: "A", tipo: "subsistema",
+        hijos: [
+          comp("ELEC-ALU-NAV", "Luces de Navegación (reglamentarias)", {
+            rep: [["LUZ-NAV-OEM", "Set Luces de Navegación (OEM)", "oem"], ["AMP-NAV-GEN", "Ampolletas/LED Náuticos", "generico"]],
+            pm: [["Inspección visual / por condición", 1000]] }),
+          comp("ELEC-ALU-CUB", "Proyectores de Cubierta", {
+            rep: [["PROY-CUB-OEM", "Proyector de Cubierta (OEM)", "oem"]],
+            pm: [["Inspección visual / por condición", 2000]] }),
+          comp("ELEC-ALU-EMG", "Alumbrado de Emergencia", {
+            rep: [["LUZ-EMG-OEM", "Luminaria de Emergencia (OEM)", "oem"]],
+            pm: [["Prueba de alarmas y paradas de seguridad", 1000]] }),
+        ],
+      },
+      {
+        cod: "ELEC-MON", nom: "Monitoreo y Alarmas de Máquinas", crit: "A", tipo: "subsistema",
+        hijos: [
+          comp("ELEC-MON-PNL", "Panel de Alarmas y Monitoreo", { basico: false,
+            rep: [["PNL-ALM-OEM", "Panel de Alarmas (OEM)", "oem"]],
+            pm: [["Prueba de alarmas y paradas de seguridad", 1000]] }),
+          inst("ELEC-MON-SEN", "Sensores de Alarma (nivel, temp, presión)", {
+            rep: [["SEN-ALM-GEN", "Sensores de Alarma (kit)", "generico"]],
+            pm: [["Calibración de sensores / instrumentos", 4000]] }),
+        ],
+      },
     ],
   },
   CENTRAL_HIDRAULICA,
   {
-    cod: "FISH", nom: "Equipo de Pesca", crit: "A", tipo: "sistema",
+    cod: "AIR", nom: "Aire Comprimido", crit: "B", tipo: "sistema",
     hijos: [
-      { cod: "FISH-WIN", nom: "Winche Principal",  crit: "A", tipo: "subsistema" },
-      { cod: "FISH-WAX", nom: "Winche Auxiliar",   crit: "A", tipo: "subsistema" },
-      { cod: "FISH-PWB", nom: "Power Block",       crit: "A", tipo: "subsistema" },
-      { cod: "FISH-GRU", nom: "Pluma / Grúa",      crit: "A", tipo: "subsistema" },
-      { cod: "FISH-NRD", nom: "Redes y Artes",     crit: "A", tipo: "subsistema" },
+      {
+        cod: "AIR-ARR", nom: "Aire de Arranque", crit: "B", tipo: "subsistema",
+        hijos: [
+          comp("AIR-ARR-CMP", "Compresor de Aire de Arranque", { basico: false,
+            rep: [["CMP-ARR-OEM", "Compresor Arranque (OEM)", "oem"], ["KIT-VLV-CMP", "Kit Válvulas Compresor", "generico"]],
+            pm: [["Inspección visual / por condición", 2000]] }),
+          comp("AIR-ARR-BOT", "Botellas de Aire de Arranque", {
+            rep: [["VLV-BOT-OEM", "Válvula Botella de Aire", "oem"]],
+            pm: [["Inspección visual / por condición", 2000]] }),
+        ],
+      },
+      {
+        cod: "AIR-SRV", nom: "Aire de Servicio / Control", crit: "B", tipo: "subsistema",
+        hijos: [
+          comp("AIR-SRV-CMP", "Compresor de Servicio", { basico: false,
+            rep: [["CMP-SRV-OEM", "Compresor de Servicio (OEM)", "oem"]],
+            pm: [["Inspección visual / por condición", 2000]] }),
+          comp("AIR-SRV-SEC", "Secador / Filtro de Aire", {
+            rep: [["FLT-AIRE-SRV", "Filtro/Secador de Aire", "generico"]],
+            pm: [["Inspección visual / por condición", 1000]] }),
+        ],
+      },
     ],
   },
   {
-    cod: "RSW", nom: "Refrigeración RSW", crit: "A", tipo: "sistema",
+    cod: "FISH", nom: "Equipo de Pesca (Trampas / Centolla)", crit: "A", tipo: "sistema",
+    hijos: [
+      comp("FISH-VIR", "Virador de Trampas (Pot Hauler)", {
+        rep: [["VIR-OEM", "Virador Hidráulico (OEM)", "oem"], ["MOT-VIR-OEM", "Motor Hidráulico Virador", "oem"], ["KIT-SEL-VIR", "Kit Sellos Virador", "generico"]],
+        pm: [["Revisión de winche / power block", 1000], ["Engrase / lubricación general", 500]] }),
+      comp("FISH-LAN", "Lanzador / Rampa de Lanzamiento", {
+        rep: [["ROD-LAN-GEN", "Rodillos de Lanzamiento", "generico"]],
+        pm: [["Inspección visual / por condición", 1000]] }),
+      comp("FISH-PAS", "Pasacabos / Enrollador de Línea", {
+        rep: [["PAS-OEM", "Pasacabos (OEM)", "oem"]],
+        pm: [["Engrase / lubricación general", 1000]] }),
+      comp("FISH-TRA", "Trampas / Nasas", { basico: false,
+        rep: [["TRA-CENT", "Trampa de Centolla (estándar)", "generico"], ["RED-TRA", "Paño/Red de Trampa (repuesto)", "generico"]] }),
+      comp("FISH-LIN", "Boyas, Líneas y Orinques", {
+        rep: [["BOYA-GEN", "Boya de Señalización", "generico"], ["LIN-GROUND", "Línea madre / orinque (rollo)", "generico"]],
+        pm: [["Inspección visual / por condición", 500]] }),
+      comp("FISH-CAR", "Pañol / Cámara de Carnada", { basico: false,
+        pm: [["Inspección visual / por condición", 2000]] }),
+      comp("FISH-GRU", "Pluma / Davit de Izado", { basico: false,
+        rep: [["KIT-SEL-GRU", "Kit Sellos Cilindro Pluma", "generico"]],
+        pm: [["Inspección visual / por condición", 2000]] }),
+    ],
+  },
+  {
+    cod: "CATCH", nom: "Viveros y Manejo de Captura", crit: "A", tipo: "sistema",
+    hijos: [
+      comp("CATCH-VIV", "Estanques / Viveros (centolla viva)", { basico: false,
+        rep: [["JD-VIV-GEN", "Juntas/Sellos de Estanque", "generico"]],
+        pm: [["Inspección visual / por condición", 1000]] }),
+      comp("CATCH-BMP", "Bombas de Circulación de Agua de Mar", {
+        rep: [["BMP-CIR-OEM", "Bomba de Circulación (OEM)", "oem"], ["BMP-CIR-ALT", "Bomba de Circulación Alternativa", "alternativo"], ["KIT-SEL-CIR", "Kit Sellos Bomba", "generico"]],
+        pm: [["Revisión de bomba de agua de mar (impeller)", 1000], ["Engrase / lubricación general", 500]] }),
+      comp("CATCH-OXI", "Sistema de Oxigenación / Aireación", {
+        rep: [["DIF-OXI-GEN", "Difusores de Oxígeno", "generico"], ["REG-OXI-OEM", "Regulador de Oxígeno", "oem"]],
+        pm: [["Inspección visual / por condición", 500]] }),
+      comp("CATCH-FIL", "Filtración / Recambio de Agua", {
+        rep: [["FLT-VIV-GEN", "Filtro de Vivero", "generico"]],
+        pm: [["Inspección visual / por condición", 250]] }),
+      comp("CATCH-CLA", "Mesa de Clasificación / Picking", { basico: false }),
+      inst("CATCH-SEN", "Sensores de Calidad de Agua (O₂, temp)", {
+        rep: [["SEN-OXI-OEM", "Sensor de Oxígeno Disuelto", "oem"], ["SEN-TEM-VIV", "Sensor de Temperatura Vivero", "oem"]],
+        pm: [["Calibración de sensores / instrumentos", 2000]] }),
+    ],
+  },
+  {
+    cod: "RSW", nom: "Refrigeración RSW / Carnada", crit: "A", tipo: "sistema",
     hijos: [
       { cod: "RSW-CMP", nom: "Compresor",        crit: "A", tipo: "subsistema" },
       { cod: "RSW-CND", nom: "Condensador",      crit: "A", tipo: "subsistema" },
@@ -823,32 +967,157 @@ export const PLANTILLA_PESQUERA = [
     ],
   },
   {
-    cod: "NAV", nom: "Navegación y Electrónica", crit: "A", tipo: "sistema",
+    cod: "NAV", nom: "Navegación", crit: "A", tipo: "sistema",
     hijos: [
       { cod: "NAV-GPS", nom: "GPS / Plotter",       crit: "A", tipo: "subsistema" },
-      { cod: "NAV-VMS", nom: "VMS Satelital",       crit: "A", tipo: "subsistema" },
       { cod: "NAV-RAD", nom: "Radar",               crit: "A", tipo: "subsistema" },
       { cod: "NAV-SON", nom: "Sonda / Ecosonda",    crit: "A", tipo: "subsistema" },
-      { cod: "NAV-VHF", nom: "VHF / Radio",         crit: "A", tipo: "subsistema" },
+      { cod: "NAV-GIR", nom: "Girocompás / Compás", crit: "A", tipo: "subsistema" },
+      { cod: "NAV-AIS", nom: "AIS",                 crit: "A", tipo: "subsistema" },
       { cod: "NAV-PIL", nom: "Piloto Automático",   crit: "B", tipo: "subsistema" },
     ],
   },
   {
-    cod: "SAF", nom: "Seguridad", crit: "A", tipo: "sistema",
+    cod: "COMM", nom: "Comunicaciones (GMDSS)", crit: "A", tipo: "sistema",
     hijos: [
-      { cod: "SAF-ACH", nom: "Bombas de Achique",   crit: "A", tipo: "subsistema" },
-      { cod: "SAF-EXT", nom: "Extintores",          crit: "A", tipo: "subsistema" },
-      { cod: "SAF-BAL", nom: "Balsa Salvavidas",    crit: "A", tipo: "subsistema" },
-      { cod: "SAF-EPI", nom: "EPIRB / Baliza",      crit: "A", tipo: "subsistema" },
-      { cod: "SAF-CHA", nom: "Chalecos y EPP",      crit: "A", tipo: "subsistema" },
+      { cod: "COMM-VHF",  nom: "VHF / DSC",                crit: "A", tipo: "subsistema" },
+      { cod: "COMM-MFHF", nom: "MF / HF",                  crit: "A", tipo: "subsistema" },
+      { cod: "COMM-SAT",  nom: "Inmarsat-C / Satelital",   crit: "A", tipo: "subsistema" },
+      { cod: "COMM-VMS",  nom: "VMS Satelital",            crit: "A", tipo: "subsistema" },
+      comp("COMM-EPI", "EPIRB / Baliza de Emergencia", {
+        rep: [["BAT-EPIRB-OEM", "Batería EPIRB (OEM)", "oem"]],
+        pm: [["Prueba de alarmas y paradas de seguridad", 2000]] }),
+      comp("COMM-SART", "SART / Radar Transponder", {
+        rep: [["BAT-SART-OEM", "Batería SART (OEM)", "oem"]],
+        pm: [["Prueba de alarmas y paradas de seguridad", 2000]] }),
+      { cod: "COMM-NTX",  nom: "NAVTEX",                   crit: "B", tipo: "subsistema" },
     ],
   },
   {
-    cod: "WAT", nom: "Agua y Lastre", crit: "B", tipo: "sistema",
+    cod: "FIRE", nom: "Contraincendios", crit: "A", tipo: "sistema",
     hijos: [
-      { cod: "WAT-TND", nom: "Tanques Agua Dulce", crit: "B", tipo: "subsistema" },
-      { cod: "WAT-BMP", nom: "Bombas de Agua",     crit: "B", tipo: "subsistema" },
-      { cod: "WAT-LST", nom: "Tanques de Lastre",  crit: "B", tipo: "subsistema" },
+      comp("FIRE-BMP", "Bomba Contraincendios Principal", { basico: false,
+        rep: [["BMP-CI-OEM", "Bomba CI (OEM)", "oem"], ["KIT-SEL-CI", "Kit Sellos Bomba CI", "generico"]],
+        pm: [["Prueba de alarmas y paradas de seguridad", 1000], ["Engrase / lubricación general", 2000]] }),
+      comp("FIRE-EMG", "Bomba CI de Emergencia", { basico: false,
+        rep: [["BMP-CI-EMG-OEM", "Bomba CI Emergencia (OEM)", "oem"]],
+        pm: [["Prueba de alarmas y paradas de seguridad", 1000]] }),
+      comp("FIRE-RED", "Colector, Hidrantes y Mangueras", {
+        rep: [["MNG-CI-GEN", "Manguera CI 1½\" (rollo)", "generico"], ["BOQ-CI-GEN", "Boquilla/Lanza CI", "generico"]],
+        pm: [["Inspección visual / por condición", 500]] }),
+      comp("FIRE-FIJ", "Sistema Fijo Sala de Máquinas (CO₂ / espuma)", { basico: false,
+        rep: [["KIT-CO2-OEM", "Botellón CO₂ / carga", "oem"]],
+        pm: [["Inspección visual / por condición", 2000]] }),
+      comp("FIRE-DET", "Detección (humo / calor) y Paro Remoto", {
+        rep: [["DET-HUM-OEM", "Detector de Humo", "oem"], ["DET-CAL-OEM", "Detector de Calor", "oem"]],
+        pm: [["Prueba de alarmas y paradas de seguridad", 1000]] }),
+      comp("FIRE-EXT", "Extintores Portátiles", {
+        rep: [["EXT-PQS-6", "Extintor PQS 6kg", "generico"], ["EXT-CO2-5", "Extintor CO₂ 5kg", "generico"]],
+        pm: [["Control de extintores", 1000]] }),
+    ],
+  },
+  {
+    cod: "BILGE", nom: "Achique y Sentinas", crit: "A", tipo: "sistema",
+    hijos: [
+      comp("BILGE-BMP", "Bombas de Achique", {
+        rep: [["BMP-ACH-OEM", "Bomba de Achique (OEM)", "oem"], ["BMP-ACH-ALT", "Bomba de Achique Alternativa", "alternativo"], ["KIT-SEL-ACH", "Kit Sellos Bomba Achique", "generico"]],
+        pm: [["Prueba de alarmas y paradas de seguridad", 1000], ["Engrase / lubricación general", 1000]] }),
+      comp("BILGE-COL", "Colector y Válvulas de Sentina", {
+        rep: [["VLV-SEN-OEM", "Válvula de Sentina (OEM)", "oem"]],
+        pm: [["Inspección visual / por condición", 1000]] }),
+      comp("BILGE-ALM", "Alarmas de Nivel de Sentina", {
+        rep: [["SEN-NIV-OEM", "Sensor de Nivel de Sentina", "oem"]],
+        pm: [["Prueba de alarmas y paradas de seguridad", 500]] }),
+      comp("BILGE-EDU", "Eductor / Achique de Emergencia", { basico: false,
+        rep: [["EDU-OEM", "Eductor (OEM)", "oem"]],
+        pm: [["Inspección visual / por condición", 2000]] }),
+    ],
+  },
+  {
+    cod: "ENV", nom: "Medio Ambiente (MARPOL)", crit: "A", tipo: "sistema",
+    hijos: [
+      comp("ENV-OWS", "Separador de Aguas Oleosas (OWS)", { basico: false,
+        rep: [["FLT-OWS-OEM", "Elemento Filtrante OWS (OEM)", "oem"], ["KIT-SEL-OWS", "Kit Sellos OWS", "generico"]],
+        pm: [["Inspección visual / por condición", 1000]] }),
+      comp("ENV-OCM", "Monitor de Contenido de Aceite (15 ppm)", {
+        rep: [["CEL-OCM-OEM", "Celda/Sensor OCM (OEM)", "oem"]],
+        pm: [["Calibración de sensores / instrumentos", 2000]] }),
+      comp("ENV-LOD", "Tanque de Lodos (Sludge)", { basico: false,
+        pm: [["Inspección visual / por condición", 4000]] }),
+      comp("ENV-AGS", "Tratamiento / Tanque de Aguas Servidas", { basico: false,
+        rep: [["KIT-AGS-OEM", "Kit Mantención Planta Aguas Servidas", "oem"]],
+        pm: [["Inspección visual / por condición", 2000]] }),
+    ],
+  },
+  {
+    cod: "SAF", nom: "Seguridad (Salvamento)", crit: "A", tipo: "sistema",
+    hijos: [
+      comp("SAF-BAL", "Balsa Salvavidas", {
+        rep: [["KIT-BAL-SRV", "Servicio Anual Balsa (kit)", "oem"]],
+        pm: [["Revisión de balsa salvavidas", 2000]] }),
+      comp("SAF-CHA", "Chalecos y Trajes de Inmersión", {
+        rep: [["CHA-SV-GEN", "Chaleco Salvavidas", "generico"], ["TRA-INM-GEN", "Traje de Inmersión", "generico"]],
+        pm: [["Inspección visual / por condición", 2000]] }),
+      comp("SAF-ARO", "Aros Salvavidas y Señales", {
+        rep: [["ARO-SV-GEN", "Aro Salvavidas", "generico"], ["LUZ-ARO-GEN", "Luz/Rabiza de Aro", "generico"]],
+        pm: [["Inspección visual / por condición", 2000]] }),
+      comp("SAF-PIR", "Señales Pirotécnicas", { basico: false,
+        rep: [["PIR-KIT", "Set Pirotécnico (bengalas/cohetes)", "generico"]],
+        pm: [["Inspección visual / por condición", 4000]] }),
+      comp("SAF-BOT", "Botiquín / Primeros Auxilios", {
+        rep: [["BOT-1AUX", "Botiquín Náutico (recarga)", "generico"]],
+        pm: [["Inspección visual / por condición", 4000]] }),
+    ],
+  },
+  {
+    cod: "HVAC", nom: "Ventilación y Climatización", crit: "B", tipo: "sistema",
+    hijos: [
+      comp("HVAC-SM", "Ventilación Sala de Máquinas", {
+        rep: [["VEN-SM-OEM", "Ventilador/Extractor Sala Máquinas", "oem"], ["COR-VEN-GEN", "Correa de Ventilador", "generico"]],
+        pm: [["Inspección visual / por condición", 1000]] }),
+      comp("HVAC-AC", "Aire Acondicionado de Acomodación", { basico: false,
+        rep: [["FLT-AC-GEN", "Filtros de A/C", "generico"], ["GAS-AC-GEN", "Carga de Refrigerante", "generico"]],
+        pm: [["Inspección visual / por condición", 2000]] }),
+      comp("HVAC-BOD", "Ventilación de Bodegas / Pañoles", {
+        rep: [["VEN-BOD-OEM", "Ventilador de Bodega", "oem"]],
+        pm: [["Inspección visual / por condición", 2000]] }),
+    ],
+  },
+  {
+    cod: "WAT", nom: "Agua, Lastre y Potable", crit: "B", tipo: "sistema",
+    hijos: [
+      { cod: "WAT-LST", nom: "Tanques y Bombas de Lastre", crit: "B", tipo: "subsistema" },
+      { cod: "WAT-TND", nom: "Tanques de Agua Dulce",      crit: "B", tipo: "subsistema" },
+      {
+        cod: "WAT-POT", nom: "Planta de Agua Potable", crit: "B", tipo: "subsistema",
+        hijos: [
+          comp("WAT-POT-GEN", "Generador de Agua Dulce (ósmosis/evaporador)", { basico: false,
+            rep: [["MEM-RO-OEM", "Membrana de Ósmosis (OEM)", "oem"], ["FLT-RO-GEN", "Prefiltros RO", "generico"]],
+            pm: [["Inspección visual / por condición", 2000]] }),
+          comp("WAT-POT-HID", "Grupo Hidróforo", {
+            rep: [["BMP-HID-OEM", "Bomba Hidróforo (OEM)", "oem"], ["MEM-HID-GEN", "Membrana/Diafragma Estanque", "generico"]],
+            pm: [["Engrase / lubricación general", 2000]] }),
+          comp("WAT-POT-CAL", "Calentador de Agua", { basico: false,
+            rep: [["RES-CAL-GEN", "Resistencia/Ánodo Calentador", "generico"]],
+            pm: [["Inspección visual / por condición", 2000]] }),
+          comp("WAT-POT-UV", "Esterilizador UV / Potabilización", {
+            rep: [["LAM-UV-GEN", "Lámpara UV", "generico"]],
+            pm: [["Inspección visual / por condición", 1000]] }),
+        ],
+      },
+    ],
+  },
+  {
+    cod: "HOTEL", nom: "Habitabilidad y Fonda", crit: "C", tipo: "sistema",
+    hijos: [
+      comp("HOTEL-COC", "Cocina / Equipos de Fonda", {
+        rep: [["RES-COC-GEN", "Resistencias/Quemadores Cocina", "generico"]],
+        pm: [["Inspección visual / por condición", 2000]] }),
+      comp("HOTEL-REF", "Refrigeración de Víveres (Provisión)", { basico: false,
+        rep: [["GAS-REF-GEN", "Carga Refrigerante Cámara Víveres", "generico"], ["FLT-REF-GEN", "Filtro Deshidratador", "generico"]],
+        pm: [["Inspección visual / por condición", 2000]] }),
+      comp("HOTEL-ACS", "Agua Caliente Sanitaria", { basico: false,
+        pm: [["Inspección visual / por condición", 4000]] }),
     ],
   },
   {
@@ -861,10 +1130,20 @@ export const PLANTILLA_PESQUERA = [
     ],
   },
   {
-    cod: "AIR", nom: "Aire de Arranque", crit: "B", tipo: "sistema",
+    cod: "ANCH", nom: "Fondeo y Amarre", crit: "B", tipo: "sistema",
     hijos: [
-      { cod: "AIR-CMP", nom: "Compresor de Aire",   crit: "B", tipo: "subsistema" },
-      { cod: "AIR-BOT", nom: "Botellas de Aire",    crit: "B", tipo: "subsistema" },
+      comp("ANCH-MOL", "Molinete (Windlass)", { basico: false,
+        rep: [["MOT-MOL-OEM", "Motor Molinete (OEM)", "oem"], ["KIT-FRE-MOL", "Kit de Freno/Embrague", "generico"]],
+        pm: [["Engrase / lubricación general", 1000], ["Inspección visual / por condición", 2000]] }),
+      comp("ANCH-CAB", "Cabrestantes de Amarre", {
+        rep: [["KIT-SEL-CAB", "Kit Sellos Cabrestante", "generico"]],
+        pm: [["Engrase / lubricación general", 1000]] }),
+      comp("ANCH-ANC", "Ancla y Cadena", { basico: false,
+        rep: [["GRIL-ANC-GEN", "Grilletes/Eslabón de Cadena", "generico"]],
+        pm: [["Inspección visual / por condición", 4000]] }),
+      comp("ANCH-BIT", "Bitas, Guías y Cabos", {
+        rep: [["CABO-AMA-GEN", "Cabo de Amarre", "generico"]],
+        pm: [["Inspección visual / por condición", 2000]] }),
     ],
   },
 ];
