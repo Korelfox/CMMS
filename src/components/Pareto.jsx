@@ -6,7 +6,8 @@ import {
 } from "recharts";
 import { useAuth } from "../lib/auth";
 import { fetchAll } from "../lib/db";
-import { C, archivo, clp, num, tint } from "../theme";
+import { C, archivo, clp, num, tint, lk } from "../theme";
+import { MODOS_FALLA_ISO } from "../lib/fallasISO";
 import { buildEquipoTree } from "../lib/equipTree";
 import { Card, PageHead, Pill, FilterBtn, thStyle, tdStyle, Empty, ErrorBanner, InlineSpinner } from "../ui";
 
@@ -21,7 +22,7 @@ export default function Pareto() {
   const [error, setError] = useState(null);
   const [filtro, setFiltro] = useState("all");
   const [metrica, setMetrica] = useState("costo");   // "costo" | "fallas"
-  const [dim, setDim] = useState("sistema");          // "sistema" | "equipo"
+  const [dim, setDim] = useState("sistema");          // "sistema" | "equipo" | "modo"
 
   const cargar = useCallback(async () => {
     setLoading(true); setError(null);
@@ -50,14 +51,18 @@ export default function Pareto() {
 
   const { grupos, total, vitales, pctVitales } = useMemo(() => {
     const base = ots.filter((o) => filtro === "all" || o.embarcacion_id === filtro);
-    // Para "fallas" contamos solo correctivas (eventos de falla reales).
-    const usar = metrica === "fallas" ? base.filter((o) => o.tipo === "correctivo") : base;
+    // Para "fallas" (y siempre al agrupar por modo de falla) contamos solo
+    // correctivas: son los eventos de falla reales.
+    const usar = (metrica === "fallas" || dim === "modo")
+      ? base.filter((o) => o.tipo === "correctivo") : base;
 
     const mapa = new Map();
     usar.forEach((o) => {
       const key = dim === "equipo"
         ? (eqLabel(o.equipo_id) || o.sistema || "Sin equipo")
-        : (o.sistema || "Sin sistema");
+        : dim === "modo"
+          ? (o.modo_falla ? lk(MODOS_FALLA_ISO, o.modo_falla) : "Sin codificar")
+          : (o.sistema || "Sin sistema");
       const val = metrica === "costo" ? (Number(o.costo_mo) || 0) + (Number(o.costo_mat) || 0) : 1;
       mapa.set(key, (mapa.get(key) || 0) + val);
     });
@@ -101,6 +106,7 @@ export default function Pareto() {
           <div style={{ display: "flex", gap: 8 }}>
             <FilterBtn active={dim === "sistema"} onClick={() => setDim("sistema")}>Sistema</FilterBtn>
             <FilterBtn active={dim === "equipo"} onClick={() => setDim("equipo")}>Equipo</FilterBtn>
+            <FilterBtn active={dim === "modo"} onClick={() => setDim("modo")}>Modo de falla (ISO 14224)</FilterBtn>
           </div>
         </div>
       </div>
@@ -115,7 +121,7 @@ export default function Pareto() {
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 14, marginBottom: 16 }}>
         <KPI label={metrica === "costo" ? "Costo total" : "Fallas totales"} value={fmt(total)} tone={C.gold} />
-        <KPI label="Pocos vitales" value={vitales} tone={C.red} sub={`${dim === "equipo" ? "equipos" : "sistemas"} concentran el 80%`} />
+        <KPI label="Pocos vitales" value={vitales} tone={C.red} sub={`${dim === "equipo" ? "equipos" : dim === "modo" ? "modos de falla" : "sistemas"} concentran el 80%`} />
         <KPI label="Concentración" value={`${pctVitales.toFixed(0)}%`} tone={C.steel} sub={`en ${vitales} de ${grupos.length}`} />
       </div>
 

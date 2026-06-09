@@ -11,7 +11,9 @@ import {
 } from "../ui";
 import { FotoInput, FotoGaleria } from "./Fotos";
 import { blankOT, folioOT, kpisOT, costoOT, filtrarOTs, validarNuevaOT } from "../lib/ot";
+import { MODOS_FALLA_ISO, requiereCodigoFalla } from "../lib/fallasISO";
 import EstadoSelect from "./ot/EstadoSelect";
+import CierreFallaModal from "./ot/CierreFallaModal";
 import EquipoPicker from "./EquipoPicker";
 
 const HOY = () => new Date().toISOString().slice(0, 10);
@@ -33,6 +35,7 @@ export default function OrdenesTrabajo({ navParams }) {
   const [form, setForm] = useState(blank());
   const [fotos, setFotos] = useState([]);          // fotos en memoria para la nueva OT
   const [fotosOT, setFotosOT] = useState(null);    // OT cuya galería de fotos está abierta
+  const [cierreOT, setCierreOT] = useState(null);  // OT correctiva en proceso de cierre/codificación
   const puedeOperar = canOperate(profile?.rol);
   const puedeBorrar = isAdmin(profile?.rol);
   const puedeCostos = isAdmin(profile?.rol);  // valorizar costos: Jefe Mantención y superiores
@@ -142,6 +145,12 @@ export default function OrdenesTrabajo({ navParams }) {
   // Avanza/cambia el estado de una OT (Solicitada → … → Cerrada).
   async function cambiarEstado(ot, nuevoEstado) {
     if (!nuevoEstado || nuevoEstado === ot.estado) return;
+    // Cierre de una correctiva sin código de falla → pedir codificación
+    // ISO 14224 (modo/causa/mecanismo) antes de cerrar.
+    if (nuevoEstado === "cerrada" && requiereCodigoFalla(ot) && !ot.modo_falla) {
+      setCierreOT(ot);
+      return;
+    }
     const anterior = ot.estado;
     // Actualización optimista: la UI cambia al instante.
     setOts((p) => p.map((o) => (o.id === ot.id ? { ...o, estado: nuevoEstado } : o)));
@@ -153,6 +162,23 @@ export default function OrdenesTrabajo({ navParams }) {
       // Si falla, revertimos al estado anterior.
       setOts((p) => p.map((o) => (o.id === ot.id ? { ...o, estado: anterior } : o)));
       setError("No se pudo cambiar el estado: " + e.message);
+    }
+  }
+
+  // Cierra (o re-codifica) una OT correctiva guardando los códigos de falla
+  // ISO 14224 junto con el estado. `codigos = null` → cerrar sin codificar.
+  async function cerrarConCodigos(ot, codigos) {
+    const previo = { estado: ot.estado, modo_falla: ot.modo_falla ?? null, causa_falla: ot.causa_falla ?? null, mecanismo_falla: ot.mecanismo_falla ?? null };
+    const cambios = { estado: "cerrada", ...(codigos || {}) };
+    setOts((p) => p.map((o) => (o.id === ot.id ? { ...o, ...cambios } : o)));
+    setCierreOT(null); setError(null);
+    try {
+      await updateRow("ordenes_trabajo", ot.id, cambios);
+      const modoLbl = codigos?.modo_falla ? lk(MODOS_FALLA_ISO, codigos.modo_falla) : "sin codificar";
+      logActivity(profile, "Cerrar OT correctiva", `${ot.folio} · falla: ${modoLbl}`);
+    } catch (e) {
+      setOts((p) => p.map((o) => (o.id === ot.id ? { ...o, ...previo } : o)));
+      setError("No se pudo cerrar la OT: " + e.message);
     }
   }
 
@@ -299,7 +325,14 @@ export default function OrdenesTrabajo({ navParams }) {
                     <td style={tdStyle}>{o.sistema}</td>
                     <td style={tdStyle}><Pill tone={tn(TIPOS_OT, o.tipo)}>{lk(TIPOS_OT, o.tipo)}</Pill></td>
                     <td style={tdStyle}><Pill tone={tn(PRIORIDADES, o.prioridad)}>{lk(PRIORIDADES, o.prioridad)}</Pill></td>
-                    <td style={{ ...tdStyle, maxWidth: 220 }}>{o.descripcion}</td>
+                    <td style={{ ...tdStyle, maxWidth: 220 }}>
+                      {o.descripcion}
+                      {o.modo_falla && (
+                        <div style={{ fontSize: 10.5, color: C.red, fontWeight: 600, marginTop: 3 }} title="Codificación de falla ISO 14224">
+                          ⚠ {lk(MODOS_FALLA_ISO, o.modo_falla)}
+                        </div>
+                      )}
+                    </td>
                     {modoCostos && puedeCostos && !o._pending && online ? (
                       <td style={tdStyle}>
                         <div style={{ display: "flex", flexDirection: "column", gap: 4, alignItems: "flex-end" }}>
@@ -324,6 +357,12 @@ export default function OrdenesTrabajo({ navParams }) {
                     </td>
                     <td style={tdStyle}>
                       <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                        {puedeOperar && !o._pending && online && o.estado === "cerrada" && requiereCodigoFalla(o) && !o.modo_falla && (
+                          <button onClick={() => setCierreOT(o)} title="Correctiva cerrada SIN codificar — registra el modo de falla (ISO 14224)"
+                            style={{ background: tint(C.amber, 16), border: `1px solid ${C.amber}`, borderRadius: 6, cursor: "pointer", color: "#7a5b00", padding: "2px 7px", fontSize: 10.5, fontWeight: 700 }}>
+                            Codificar falla
+                          </button>
+                        )}
                         {!o._pending && online && (
                           <button onClick={() => setFotosOT(fotosOT === o.id ? null : o.id)} title="Fotos" style={{ background: "none", border: "none", cursor: "pointer", color: fotosOT === o.id ? C.steel : C.slate }}><Camera size={15} /></button>
                         )}
@@ -344,6 +383,15 @@ export default function OrdenesTrabajo({ navParams }) {
           </table>
         </div>
       </Card>
+
+      {cierreOT && (
+        <CierreFallaModal
+          ot={cierreOT}
+          onGuardar={(codigos) => cerrarConCodigos(cierreOT, codigos)}
+          onCerrarSinCodificar={() => cerrarConCodigos(cierreOT, null)}
+          onClose={() => setCierreOT(null)}
+        />
+      )}
     </div>
   );
 }
