@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from "react";
-import { ClipboardList, Plus, Trash2, Download, CloudOff, Clock, DollarSign, Check, Camera } from "lucide-react";
+import { ClipboardList, Plus, Trash2, Download, CloudOff, Clock, DollarSign, Check, Camera, ListChecks } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { fetchAll, insertRow, updateRow, deleteRow, logActivity } from "../lib/db";
 import { useOnline, cacheTable, getCached, queueInsert, nuevoId } from "../lib/offline";
@@ -14,6 +14,7 @@ import { blankOT, folioOT, kpisOT, costoOT, filtrarOTs, validarNuevaOT } from ".
 import { MODOS_FALLA_ISO, requiereCodigoFalla } from "../lib/fallasISO";
 import EstadoSelect from "./ot/EstadoSelect";
 import CierreFallaModal from "./ot/CierreFallaModal";
+import ChecklistOT from "./ot/ChecklistOT";
 import EquipoPicker from "./EquipoPicker";
 
 const HOY = () => new Date().toISOString().slice(0, 10);
@@ -36,6 +37,7 @@ export default function OrdenesTrabajo({ navParams }) {
   const [fotos, setFotos] = useState([]);          // fotos en memoria para la nueva OT
   const [fotosOT, setFotosOT] = useState(null);    // OT cuya galería de fotos está abierta
   const [cierreOT, setCierreOT] = useState(null);  // OT correctiva en proceso de cierre/codificación
+  const [checklistOT, setChecklistOT] = useState(null); // OT con el panel de checklist abierto
   const puedeOperar = canOperate(profile?.rol);
   const puedeBorrar = isAdmin(profile?.rol);
   const puedeCostos = isAdmin(profile?.rol);  // valorizar costos: Jefe Mantención y superiores
@@ -142,25 +144,42 @@ export default function OrdenesTrabajo({ navParams }) {
     catch (e) { setOts(respaldo); setError("No se pudo eliminar: " + e.message); }
   }
 
+  // ¿El checklist tiene tareas sin completar? (para avisar antes de cerrar)
+  function checklistIncompleto(ot) {
+    const items = Array.isArray(ot.checklist) ? ot.checklist : [];
+    return items.length > 0 && items.some((i) => !i.ok);
+  }
+
+  // Firma de cierre: quién y cuándo cerró la OT (trazabilidad).
+  const firmaCierre = () => ({ cerrada_por: profile?.nombre || profile?.email || "", cerrada_fecha: new Date().toISOString() });
+
   // Avanza/cambia el estado de una OT (Solicitada → … → Cerrada).
   async function cambiarEstado(ot, nuevoEstado) {
     if (!nuevoEstado || nuevoEstado === ot.estado) return;
-    // Cierre de una correctiva sin código de falla → pedir codificación
-    // ISO 14224 (modo/causa/mecanismo) antes de cerrar.
-    if (nuevoEstado === "cerrada" && requiereCodigoFalla(ot) && !ot.modo_falla) {
-      setCierreOT(ot);
-      return;
+    if (nuevoEstado === "cerrada") {
+      // Aviso si quedan tareas del checklist sin completar.
+      if (checklistIncompleto(ot)) {
+        const pendientes = ot.checklist.filter((i) => !i.ok).length;
+        if (!window.confirm(`${ot.folio} tiene ${pendientes} tarea(s) del checklist sin completar.\n\n¿Cerrar la OT de todas formas?`)) return;
+      }
+      // Cierre de una correctiva sin código de falla → pedir codificación
+      // ISO 14224 (modo/causa/mecanismo) antes de cerrar.
+      if (requiereCodigoFalla(ot) && !ot.modo_falla) {
+        setCierreOT(ot);
+        return;
+      }
     }
     const anterior = ot.estado;
+    const cambios = nuevoEstado === "cerrada" ? { estado: nuevoEstado, ...firmaCierre() } : { estado: nuevoEstado };
     // Actualización optimista: la UI cambia al instante.
-    setOts((p) => p.map((o) => (o.id === ot.id ? { ...o, estado: nuevoEstado } : o)));
+    setOts((p) => p.map((o) => (o.id === ot.id ? { ...o, ...cambios } : o)));
     setError(null);
     try {
-      await updateRow("ordenes_trabajo", ot.id, { estado: nuevoEstado });
+      await updateRow("ordenes_trabajo", ot.id, cambios);
       logActivity(profile, "Cambiar estado OT", `${ot.folio}: ${lk(ESTADOS_OT, anterior)} → ${lk(ESTADOS_OT, nuevoEstado)}`);
     } catch (e) {
       // Si falla, revertimos al estado anterior.
-      setOts((p) => p.map((o) => (o.id === ot.id ? { ...o, estado: anterior } : o)));
+      setOts((p) => p.map((o) => (o.id === ot.id ? { ...o, estado: anterior, cerrada_por: ot.cerrada_por ?? null, cerrada_fecha: ot.cerrada_fecha ?? null } : o)));
       setError("No se pudo cambiar el estado: " + e.message);
     }
   }
@@ -168,8 +187,8 @@ export default function OrdenesTrabajo({ navParams }) {
   // Cierra (o re-codifica) una OT correctiva guardando los códigos de falla
   // ISO 14224 junto con el estado. `codigos = null` → cerrar sin codificar.
   async function cerrarConCodigos(ot, codigos) {
-    const previo = { estado: ot.estado, modo_falla: ot.modo_falla ?? null, causa_falla: ot.causa_falla ?? null, mecanismo_falla: ot.mecanismo_falla ?? null };
-    const cambios = { estado: "cerrada", ...(codigos || {}) };
+    const previo = { estado: ot.estado, modo_falla: ot.modo_falla ?? null, causa_falla: ot.causa_falla ?? null, mecanismo_falla: ot.mecanismo_falla ?? null, cerrada_por: ot.cerrada_por ?? null, cerrada_fecha: ot.cerrada_fecha ?? null };
+    const cambios = { estado: "cerrada", ...(ot.estado !== "cerrada" ? firmaCierre() : {}), ...(codigos || {}) };
     setOts((p) => p.map((o) => (o.id === ot.id ? { ...o, ...cambios } : o)));
     setCierreOT(null); setError(null);
     try {
@@ -179,6 +198,17 @@ export default function OrdenesTrabajo({ navParams }) {
     } catch (e) {
       setOts((p) => p.map((o) => (o.id === ot.id ? { ...o, ...previo } : o)));
       setError("No se pudo cerrar la OT: " + e.message);
+    }
+  }
+
+  // Guarda el checklist de una OT (optimista; revierte si falla la red).
+  async function guardarChecklist(ot, items) {
+    const previo = ot.checklist;
+    setOts((p) => p.map((o) => (o.id === ot.id ? { ...o, checklist: items } : o)));
+    try { await updateRow("ordenes_trabajo", ot.id, { checklist: items }); }
+    catch (e) {
+      setOts((p) => p.map((o) => (o.id === ot.id ? { ...o, checklist: previo } : o)));
+      setError("No se pudo guardar el checklist: " + e.message);
     }
   }
 
@@ -354,6 +384,11 @@ export default function OrdenesTrabajo({ navParams }) {
                       {puedeOperar && !o._pending && online
                         ? <EstadoSelect estado={o.estado} onChange={(nuevo) => cambiarEstado(o, nuevo)} />
                         : <Pill tone={tn(ESTADOS_OT, o.estado)}>{lk(ESTADOS_OT, o.estado)}</Pill>}
+                      {o.estado === "cerrada" && o.cerrada_por && (
+                        <div style={{ fontSize: 10, color: C.slate, marginTop: 3 }} title="Firma de cierre">
+                          ✍ {o.cerrada_por}{o.cerrada_fecha ? ` · ${new Date(o.cerrada_fecha).toLocaleDateString("es-CL")}` : ""}
+                        </div>
+                      )}
                     </td>
                     <td style={tdStyle}>
                       <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
@@ -363,6 +398,19 @@ export default function OrdenesTrabajo({ navParams }) {
                             Codificar falla
                           </button>
                         )}
+                        {!o._pending && online && (() => {
+                          const items = Array.isArray(o.checklist) ? o.checklist : [];
+                          const hechos = items.filter((i) => i.ok).length;
+                          const abierto = checklistOT === o.id;
+                          return (
+                            <button onClick={() => setChecklistOT(abierto ? null : o.id)}
+                              title={items.length ? `Checklist: ${hechos}/${items.length} tareas` : "Crear checklist de tareas"}
+                              style={{ background: abierto ? C.steel : "none", border: "none", cursor: "pointer", color: abierto ? "#fff" : (items.length ? (hechos === items.length ? C.green : C.steel) : C.slate), display: "inline-flex", alignItems: "center", gap: 3, borderRadius: 5, padding: "2px 4px" }}>
+                              <ListChecks size={15} />
+                              {items.length > 0 && <span style={{ fontSize: 10, fontWeight: 700 }}>{hechos}/{items.length}</span>}
+                            </button>
+                          );
+                        })()}
                         {!o._pending && online && (
                           <button onClick={() => setFotosOT(fotosOT === o.id ? null : o.id)} title="Fotos" style={{ background: "none", border: "none", cursor: "pointer", color: fotosOT === o.id ? C.steel : C.slate }}><Camera size={15} /></button>
                         )}
@@ -370,6 +418,14 @@ export default function OrdenesTrabajo({ navParams }) {
                       </div>
                     </td>
                   </tr>
+                  {checklistOT === o.id && (
+                    <tr>
+                      <td colSpan={10} style={{ ...tdStyle, background: C.mist }}>
+                        <ChecklistOT ot={o} puedeOperar={puedeOperar} usuario={profile?.nombre || ""}
+                          onSave={(items) => guardarChecklist(o, items)} />
+                      </td>
+                    </tr>
+                  )}
                   {fotosOT === o.id && (
                     <tr>
                       <td colSpan={10} style={{ ...tdStyle, background: C.mist }}>
