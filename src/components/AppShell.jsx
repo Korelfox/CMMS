@@ -4,7 +4,7 @@ import {
   Package, Warehouse, Gauge, Activity, AlertTriangle, ClipboardCheck, DollarSign,
   TrendingUp, FileText, History, Layers, Bell, LogOut, UserCircle, UserCog,
   Wifi, WifiOff, RefreshCw, CheckCircle2, BarChart3, ShipWheel, Fuel, ShieldCheck, Fish,
-  Menu, X, Sun, Moon, Building2,
+  Menu, X, Sun, Moon, Building2, Timer,
 } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { fetchAll } from "../lib/db";
@@ -21,6 +21,7 @@ const Equipos       = lazy(() => import("./Equipos"));
 const Prezarpe      = lazy(() => import("./Prezarpe"));
 const Cumplimiento  = lazy(() => import("./Cumplimiento"));
 const PlanPM        = lazy(() => import("./PlanPM"));
+const Horometros    = lazy(() => import("./Horometros"));
 const Programacion  = lazy(() => import("./Programacion"));
 const Solicitudes   = lazy(() => import("./Solicitudes"));
 const OrdenesTrabajo= lazy(() => import("./OrdenesTrabajo"));
@@ -50,6 +51,7 @@ const NAV = [
   { id: "prezarpe", label: "Prezarpe", icon: ShipWheel, group: "Flota" },
   { id: "cumplimiento", label: "Cumplimiento", icon: ShieldCheck, group: "Flota" },
   { id: "planpm", label: "Plan Preventivo", icon: CalendarClock, group: "Operación" },
+  { id: "horometros", label: "Horómetros", icon: Timer, group: "Operación" },
   { id: "programa", label: "Programación", icon: Calendar, group: "Operación" },
   { id: "solicitudes", label: "Solicitudes", icon: Inbox, group: "Operación" },
   { id: "ots", label: "Órdenes de Trabajo", icon: ClipboardList, group: "Operación" },
@@ -80,6 +82,7 @@ const MODULOS = {
   prezarpe: Prezarpe,
   cumplimiento: Cumplimiento,
   planpm: PlanPM,
+  horometros: Horometros,
   programa: Programacion,
   solicitudes: Solicitudes,
   ots: OrdenesTrabajo,
