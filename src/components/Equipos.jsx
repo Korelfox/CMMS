@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from "react";
-import { Ship, Plus, Trash2, Download, AlertCircle, GitBranch, Layers, Cpu, Wrench, Box, Hash, ChevronDown, ChevronRight, ChevronUp, Check, Package, X, Rows3 } from "lucide-react";
+import { Ship, Plus, Trash2, Download, AlertCircle, GitBranch, Layers, Cpu, Wrench, Box, Hash, ChevronDown, ChevronRight, ChevronUp, Check, Package, X, Rows3, FileText } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { fetchAll, insertRow, updateRow, deleteRow, logActivity } from "../lib/db";
 import { C, isAdmin, canOperate, ESTADOS_EQUIPO, estadoLabel, tint, shadow } from "../theme";
@@ -13,6 +13,7 @@ import {
 } from "../ui";
 import NotaJerarquia from "./equipos/NotaJerarquia";
 import RepuestoPanel from "./equipos/RepuestoPanel";
+import FichaEquipo, { fichaTieneDatos } from "./equipos/FichaEquipo";
 
 const TIPO_NODOS = [
   { value: "equipo",      label: "Equipo (genérico)" },
@@ -68,6 +69,7 @@ export default function Equipos() {
   const [items,       setItems]       = useState([]); // inventario_items (repuestos)
   const [destinos,    setDestinos]    = useState([]); // inventario_item_destinos (item↔equipo)
   const [repuestoPanel, setRepuestoPanel] = useState(null); // equipo id con panel de repuestos abierto
+  const [fichaNode, setFichaNode] = useState(null); // equipo con la ficha técnica abierta
   const [densidad, setDensidad] = useState(() => {
     try { return localStorage.getItem("equipos_densidad") || "media"; } catch { return "media"; }
   });
@@ -397,6 +399,16 @@ export default function Equipos() {
       setError("Se interrumpió la precarga: " + e.message + ". Recarga la página para ver lo que sí se creó.");
       setEquipos((p) => [...p, ...creados]); sincOriginal();
     } finally { setPrecargando(false); }
+  }
+
+  // Guarda la ficha técnica (JSONB) de un equipo de inmediato (no espera al
+  // botón "Guardar cambios", que es para los campos de la fila).
+  async function guardarFicha(id, ficha) {
+    const eq = equipos.find((x) => x.id === id);
+    await updateRow("equipos", id, { ficha });
+    setEquipos((p) => p.map((x) => x.id === id ? { ...x, ficha } : x));
+    setOriginal((o) => (o[id] ? { ...o, [id]: { ...o[id], ficha } } : o));
+    logActivity(profile, "Editar ficha técnica", `${eq?.id_visible} · ${eq?.sistema}`);
   }
 
   function onChangeLocal(id, campo, valor) { setEquipos((p) => p.map((e) => e.id === id ? { ...e, [campo]: valor } : e)); }
@@ -815,6 +827,16 @@ export default function Equipos() {
                       {hasActions && (
                         <td style={tdE}>
                           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+                            {(() => {
+                              const conFicha = fichaTieneDatos(e.ficha);
+                              return (
+                                <button onClick={() => setFichaNode(e)}
+                                  title={`Ficha técnica de "${e.sistema}"${conFicha ? " (con datos)" : ""}`}
+                                  style={{ background: conFicha ? tint(C.steel, 14) : "none", border: `1px solid ${conFicha ? C.steel : C.line}`, borderRadius: 6, cursor: "pointer", color: C.steel, padding: "2px 5px", display: "flex", alignItems: "center", flexShrink: 0 }}>
+                                  <FileText size={14} />
+                                </button>
+                              );
+                            })()}
                             {puedeOperar && esComponente && (
                               <button onClick={() => setRepuestoPanel(panelAbierto ? null : e.id)}
                                 title={`Repuestos de "${e.sistema}"${nReps ? ` (${nReps})` : ""}`}
@@ -855,6 +877,15 @@ export default function Equipos() {
           </table>
         </div>
       </Card>
+
+      {fichaNode && (
+        <FichaEquipo
+          node={fichaNode}
+          puedeOperar={puedeOperar}
+          onSave={(ficha) => guardarFicha(fichaNode.id, ficha)}
+          onClose={() => setFichaNode(null)}
+        />
+      )}
     </div>
   );
 }
