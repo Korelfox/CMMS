@@ -9,7 +9,7 @@ import { PLANTILLA_PESQUERA, nodoIncluido, contarNodosPlantilla, contarRepuestos
 
 import {
   Card, PageHead, Pill, primaryBtn, ghostBtn, exportBtn, inputStyle, bluInput,
-  thStyle, tdStyle, FilterBtn, Field, Empty, ErrorBanner, InlineSpinner, GuiaColapsable,
+  FilterBtn, Field, Empty, ErrorBanner, InlineSpinner, GuiaColapsable,
 } from "../ui";
 import NotaJerarquia from "./equipos/NotaJerarquia";
 import RepuestoPanel from "./equipos/RepuestoPanel";
@@ -28,6 +28,12 @@ const CRITICIDADES = [
   { value: "C", label: "C · Menor" },
 ];
 const ICONO_TIPO = { sistema: Layers, subsistema: GitBranch, componente: Wrench, instrumento: Cpu, equipo: Box };
+
+// Estilos de tabla compactos para Equipos: menos padding lateral que el global
+// (18px → 9px) para recuperar espacio horizontal y que el texto de los nodos
+// (nombres largos de la taxonomía ISO 14224) respire sin truncarse.
+const thE = { textAlign: "left", padding: "11px 9px", fontSize: 11.5, letterSpacing: 0.5, textTransform: "uppercase", color: C.slate, fontWeight: 600, borderBottom: `2px solid ${C.line}`, whiteSpace: "nowrap" };
+const tdE = { padding: "8px 9px", fontSize: 13.5, borderBottom: `1px solid ${C.foam}`, color: C.ink };
 
 // Tipo de niveles que se revisan en el prezarpe para este equipo
 const NIVEL_TIPOS = [
@@ -609,21 +615,21 @@ export default function Equipos() {
         <div style={{ overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 1500 }}>
             <thead><tr>
-              {puedeOperar && <th style={{ ...thStyle, textAlign: "center" }} title="Reordenar por prioridad">Orden</th>}
-              <th style={thStyle}>ID</th>
-              <th style={thStyle}>Nave</th>
-              <th style={thStyle}>Sistema / Equipo</th>
-              <th style={thStyle}>Subsistema de</th>
-              <th style={thStyle}>Marca</th>
-              <th style={thStyle}>Modelo</th>
-              <th style={{ ...thStyle, textAlign: "right" }}>Horas</th>
-              <th style={{ ...thStyle, textAlign: "right" }}>Hrs PM</th>
-              <th style={{ ...thStyle, textAlign: "right" }} title="MTBF objetivo (horas)">MTBF</th>
-              <th style={thStyle}>Estado</th>
-              <th style={{ ...thStyle, textAlign: "center" }}>Prezarpe</th>
-              <th style={thStyle}>Niveles</th>
-              <th style={{ ...thStyle, textAlign: "center" }}>Aceite</th>
-              {hasActions && <th style={{ ...thStyle, textAlign: "center" }}>Acción</th>}
+              {puedeOperar && <th style={{ ...thE, textAlign: "center" }} title="Reordenar por prioridad">Orden</th>}
+              <th style={thE}>ID</th>
+              <th style={thE}>Nave</th>
+              <th style={thE}>Sistema / Equipo</th>
+              <th style={thE}>Subsistema de</th>
+              <th style={thE}>Marca</th>
+              <th style={thE}>Modelo</th>
+              <th style={{ ...thE, textAlign: "right" }}>Horas</th>
+              <th style={{ ...thE, textAlign: "right" }}>Hrs PM</th>
+              <th style={{ ...thE, textAlign: "right" }} title="MTBF objetivo (horas)">MTBF</th>
+              <th style={thE}>Estado</th>
+              <th style={{ ...thE, textAlign: "center" }}>Prezarpe</th>
+              <th style={thE}>Niveles</th>
+              <th style={{ ...thE, textAlign: "center" }}>Aceite</th>
+              {hasActions && <th style={{ ...thE, textAlign: "center" }}>Acción</th>}
             </tr></thead>
             <tbody>
               {lista.length === 0
@@ -643,7 +649,7 @@ export default function Equipos() {
 
                       {/* Orden (reordenar entre hermanos) */}
                       {puedeOperar && (
-                        <td style={{ ...tdStyle, textAlign: "center", whiteSpace: "nowrap", padding: "4px 6px" }}>
+                        <td style={{ ...tdE, textAlign: "center", whiteSpace: "nowrap", padding: "4px 6px" }}>
                           <div style={{ display: "inline-flex", flexDirection: "column", gap: 1 }}>
                             <button onClick={() => moverNodo(e, "up")} disabled={pos.first} title="Subir (mayor prioridad)"
                               style={{ background: "none", border: "none", cursor: pos.first ? "default" : "pointer", color: pos.first ? C.line : C.steel, padding: 0, display: "flex", lineHeight: 1 }}>
@@ -658,15 +664,15 @@ export default function Equipos() {
                       )}
 
                       {/* ID */}
-                      <td style={tdStyle}>
-                        <input value={e.id_visible} disabled={!puedeOperar}
+                      <td style={tdE}>
+                        <input value={e.id_visible} disabled={!puedeOperar} title={e.id_visible}
                           onChange={(ev) => onChangeLocal(e.id, "id_visible", ev.target.value)}
                           onBlur={(ev) => commit(e.id, "id_visible", ev.target.value)}
-                          style={{ ...bluInput, width: 150 }} />
+                          style={{ ...bluInput, width: 178 }} />
                       </td>
 
                       {/* Nave */}
-                      <td style={tdStyle}>
+                      <td style={tdE}>
                         <select value={e.embarcacion_id} disabled={!puedeOperar}
                           onChange={(ev) => commit(e.id, "embarcacion_id", ev.target.value)}
                           style={{ ...inputStyle(165), fontWeight: 600, color: embColor(e.embarcacion_id) }}>
@@ -675,7 +681,7 @@ export default function Equipos() {
                       </td>
 
                       {/* Sistema — colapsable + indentación de árbol + tipo + criticidad */}
-                      <td style={tdStyle}>
+                      <td style={tdE}>
                         <div style={{ display: "flex", alignItems: "center" }}>
                           {tieneHijos ? (
                             <button onClick={() => toggleColapso(e.id)} title={colapsado ? "Expandir" : "Colapsar"}
@@ -690,17 +696,17 @@ export default function Equipos() {
                             const meta = TIPO_NODO_META[e.tipo_nodo] || TIPO_NODO_META.equipo;
                             return <Ico size={13} color={meta.color} style={{ marginRight: 5, flexShrink: 0 }} title={meta.label} />;
                           })()}
-                          <input value={e.sistema} disabled={!puedeOperar}
+                          <input value={e.sistema} disabled={!puedeOperar} title={e.sistema}
                             onChange={(ev) => onChangeLocal(e.id, "sistema", ev.target.value)}
                             onBlur={(ev) => commit(e.id, "sistema", ev.target.value)}
-                            style={{ ...bluInput, width: Math.max(150, 230 - e.depth * 14), color: e.depth === 0 ? C.abyss : C.ink, fontWeight: e.depth === 0 ? 700 : 400 }} />
+                            style={{ ...bluInput, width: Math.max(210, 320 - e.depth * 12), fontFamily: "inherit", color: e.depth === 0 ? C.abyss : C.ink, fontWeight: e.depth === 0 ? 700 : 400 }} />
                           {e.criticidad && <span style={{ marginLeft: 6, flexShrink: 0 }}><Pill tone={CRITICIDAD_TONE[e.criticidad]}>{e.criticidad}</Pill></span>}
                           {colapsado && nDesc > 0 && <span style={{ marginLeft: 8, fontSize: 11.5, color: C.steel, fontWeight: 600, flexShrink: 0 }} title={`${nDesc} elemento(s) ocultos`}>▸ {nDesc}</span>}
                         </div>
                       </td>
 
                       {/* Subsistema de (padre inline editable) */}
-                      <td style={tdStyle}>
+                      <td style={tdE}>
                         <select value={e.parent_id || ""} disabled={!puedeOperar}
                           onChange={(ev) => commit(e.id, "parent_id", ev.target.value || null)}
                           style={{ ...inputStyle(210), fontSize: 12.5, color: e.parent_id ? C.steel : C.line }}>
@@ -710,17 +716,17 @@ export default function Equipos() {
                       </td>
 
                       {/* Marca / Modelo */}
-                      <td style={tdStyle}><input value={e.marca || ""} disabled={!puedeOperar} onChange={(ev) => onChangeLocal(e.id, "marca", ev.target.value)} onBlur={(ev) => commit(e.id, "marca", ev.target.value)} style={inputStyle(120)} /></td>
-                      <td style={tdStyle}><input value={e.modelo || ""} disabled={!puedeOperar} onChange={(ev) => onChangeLocal(e.id, "modelo", ev.target.value)} onBlur={(ev) => commit(e.id, "modelo", ev.target.value)} style={inputStyle(120)} /></td>
+                      <td style={tdE}><input value={e.marca || ""} disabled={!puedeOperar} title={e.marca || ""} onChange={(ev) => onChangeLocal(e.id, "marca", ev.target.value)} onBlur={(ev) => commit(e.id, "marca", ev.target.value)} style={inputStyle(135)} /></td>
+                      <td style={tdE}><input value={e.modelo || ""} disabled={!puedeOperar} title={e.modelo || ""} onChange={(ev) => onChangeLocal(e.id, "modelo", ev.target.value)} onBlur={(ev) => commit(e.id, "modelo", ev.target.value)} style={inputStyle(135)} /></td>
 
                       {/* Horas */}
-                      <td style={{ ...tdStyle, textAlign: "right" }}>
+                      <td style={{ ...tdE, textAlign: "right" }}>
                         <input type="number" value={e.horas_actual} disabled={!puedeOperar}
                           onChange={(ev) => onChangeLocal(e.id, "horas_actual", +ev.target.value)}
                           onBlur={(ev) => commit(e.id, "horas_actual", +ev.target.value)}
                           style={{ ...bluInput, width: 80, textAlign: "right" }} />
                       </td>
-                      <td style={{ ...tdStyle, textAlign: "right" }}>
+                      <td style={{ ...tdE, textAlign: "right" }}>
                         <input type="number" value={e.horas_ult_pm} disabled={!puedeOperar}
                           onChange={(ev) => onChangeLocal(e.id, "horas_ult_pm", +ev.target.value)}
                           onBlur={(ev) => commit(e.id, "horas_ult_pm", +ev.target.value)}
@@ -728,7 +734,7 @@ export default function Equipos() {
                       </td>
 
                       {/* MTBF objetivo (horas) */}
-                      <td style={{ ...tdStyle, textAlign: "right" }}>
+                      <td style={{ ...tdE, textAlign: "right" }}>
                         <input type="number" value={e.mtbf_objetivo ?? ""} disabled={!puedeOperar}
                           placeholder="—"
                           onChange={(ev) => onChangeLocal(e.id, "mtbf_objetivo", ev.target.value === "" ? null : +ev.target.value)}
@@ -737,7 +743,7 @@ export default function Equipos() {
                       </td>
 
                       {/* Estado */}
-                      <td style={tdStyle}>
+                      <td style={tdE}>
                         <select value={e.estado} disabled={!puedeOperar}
                           onChange={(ev) => commit(e.id, "estado", ev.target.value)}
                           style={inputStyle(120)}>
@@ -746,7 +752,7 @@ export default function Equipos() {
                       </td>
 
                       {/* Prezarpe */}
-                      <td style={{ ...tdStyle, textAlign: "center" }}>
+                      <td style={{ ...tdE, textAlign: "center" }}>
                         <input type="checkbox" checked={!!e.prezarpe} disabled={!puedeOperar}
                           onChange={(ev) => commit(e.id, "prezarpe", ev.target.checked)}
                           title="Incluir en inspección de prezarpe"
@@ -754,7 +760,7 @@ export default function Equipos() {
                       </td>
 
                       {/* Niveles */}
-                      <td style={tdStyle}>
+                      <td style={tdE}>
                         <select value={e.nivel_tipo || "ninguno"} disabled={!puedeOperar}
                           onChange={(ev) => commit(e.id, "nivel_tipo", ev.target.value)}
                           style={inputStyle(155)}>
@@ -763,7 +769,7 @@ export default function Equipos() {
                       </td>
 
                       {/* Consume aceite */}
-                      <td style={{ ...tdStyle, textAlign: "center" }}>
+                      <td style={{ ...tdE, textAlign: "center" }}>
                         <input type="checkbox" checked={!!e.consume_aceite} disabled={!puedeOperar}
                           onChange={(ev) => commit(e.id, "consume_aceite", ev.target.checked)}
                           title="Consume aceite del motor (para repartir consumo por horas)"
@@ -771,7 +777,7 @@ export default function Equipos() {
                       </td>
 
                       {hasActions && (
-                        <td style={tdStyle}>
+                        <td style={tdE}>
                           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
                             {puedeOperar && (
                               <button onClick={() => agregarHijo(e)} title={`Agregar ${(TIPO_HIJO[e.tipo_nodo] || "componente")} dentro de "${e.sistema}"`}
