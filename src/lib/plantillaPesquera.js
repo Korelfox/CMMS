@@ -800,17 +800,6 @@ export const PLANTILLA_PESQUERA = [
       { cod: "ELEC-CAB", nom: "Cables y Conductores", crit: "B", tipo: "subsistema" },
     ],
   },
-  {
-    cod: "HYD", nom: "Hidráulico Pesquero", crit: "A", tipo: "sistema",
-    hijos: [
-      { cod: "HYD-PMP", nom: "Bomba Hidráulica",      crit: "A", tipo: "subsistema" },
-      { cod: "HYD-VLV", nom: "Válvulas de Control",   crit: "A", tipo: "subsistema" },
-      { cod: "HYD-MNG", nom: "Mangueras Hidráulicas", crit: "A", tipo: "subsistema" },
-      { cod: "HYD-CIL", nom: "Cilindros Hidráulicos", crit: "A", tipo: "subsistema" },
-      { cod: "HYD-ENF", nom: "Enfriador Hidráulico",  crit: "B", tipo: "subsistema" },
-      { cod: "HYD-SEN-P", nom: "Sensor Presión Hidráulica", crit: "A", tipo: "instrumento" },
-    ],
-  },
   CENTRAL_HIDRAULICA,
   {
     cod: "FISH", nom: "Equipo de Pesca", crit: "A", tipo: "sistema",
