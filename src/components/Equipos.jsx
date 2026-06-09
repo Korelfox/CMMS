@@ -729,7 +729,13 @@ export default function Equipos() {
                           <input value={e.sistema} disabled={!puedeOperar} title={e.sistema}
                             onChange={(ev) => onChangeLocal(e.id, "sistema", ev.target.value)}
                             onBlur={(ev) => commit(e.id, "sistema", ev.target.value)}
-                            style={{ ...bluC, width: Math.max(185, 285 - e.depth * 12), fontFamily: "inherit", color: e.depth === 0 ? C.abyss : C.ink, fontWeight: e.depth === 0 ? 700 : 400 }} />
+                            style={{ ...bluC, width: Math.max(172, 262 - e.depth * 12), fontFamily: "inherit", color: e.depth === 0 ? C.abyss : C.ink, fontWeight: e.depth === 0 ? 700 : 400 }} />
+                          {puedeOperar && (
+                            <button onClick={() => agregarHijo(e)} title={`Agregar ${(TIPO_HIJO[e.tipo_nodo] || "componente")} dentro de "${e.sistema}"`}
+                              style={{ marginLeft: 6, background: "none", border: `1px solid ${tint(C.cyan, 45)}`, borderRadius: 6, cursor: "pointer", color: C.cyan, padding: "1px 4px", display: "flex", alignItems: "center", flexShrink: 0 }}>
+                              <Plus size={13} strokeWidth={2.5} />
+                            </button>
+                          )}
                           {e.criticidad && <span style={{ marginLeft: 6, flexShrink: 0 }}><Pill tone={CRITICIDAD_TONE[e.criticidad]}>{e.criticidad}</Pill></span>}
                           {colapsado && nDesc > 0 && <span style={{ marginLeft: 8, fontSize: 11.5, color: C.steel, fontWeight: 600, flexShrink: 0 }} title={`${nDesc} elemento(s) ocultos`}>▸ {nDesc}</span>}
                         </div>
@@ -809,12 +815,6 @@ export default function Equipos() {
                       {hasActions && (
                         <td style={tdE}>
                           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
-                            {puedeOperar && (
-                              <button onClick={() => agregarHijo(e)} title={`Agregar ${(TIPO_HIJO[e.tipo_nodo] || "componente")} dentro de "${e.sistema}"`}
-                                style={{ background: "none", border: `1px solid ${C.cyan}`, borderRadius: 6, cursor: "pointer", color: C.cyan, padding: "2px 5px", display: "flex", alignItems: "center", flexShrink: 0 }}>
-                                <Plus size={14} strokeWidth={2.5} />
-                              </button>
-                            )}
                             {puedeOperar && esComponente && (
                               <button onClick={() => setRepuestoPanel(panelAbierto ? null : e.id)}
                                 title={`Repuestos de "${e.sistema}"${nReps ? ` (${nReps})` : ""}`}
