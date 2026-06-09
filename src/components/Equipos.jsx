@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from "react";
-import { Ship, Plus, Trash2, Download, AlertCircle, GitBranch, Layers, Cpu, Wrench, Box, Hash, ChevronDown, ChevronRight, ChevronUp, Check, Package, X } from "lucide-react";
+import { Ship, Plus, Trash2, Download, AlertCircle, GitBranch, Layers, Cpu, Wrench, Box, Hash, ChevronDown, ChevronRight, ChevronUp, Check, Package, X, Rows3 } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { fetchAll, insertRow, updateRow, deleteRow, logActivity } from "../lib/db";
 import { C, isAdmin, canOperate, ESTADOS_EQUIPO, estadoLabel, tint, shadow } from "../theme";
@@ -29,15 +29,15 @@ const CRITICIDADES = [
 ];
 const ICONO_TIPO = { sistema: Layers, subsistema: GitBranch, componente: Wrench, instrumento: Cpu, equipo: Box };
 
-// Estilos de tabla compactos para Equipos: menos padding lateral que el global
-// (18px → 9px) para recuperar espacio horizontal y que el texto de los nodos
-// (nombres largos de la taxonomía ISO 14224) respire sin truncarse.
+// Encabezado de tabla (compacto, estático).
 const thE = { textAlign: "left", padding: "7px 7px", fontSize: 10.5, letterSpacing: 0.4, textTransform: "uppercase", color: C.slate, fontWeight: 600, borderBottom: `2px solid ${C.line}`, whiteSpace: "nowrap" };
-const tdE = { padding: "3px 7px", fontSize: 13, borderBottom: `1px solid ${C.foam}`, color: C.ink };
-// Inputs compactos: altura de fila reducida para densificar la tabla y ver más
-// equipos de un vistazo (sin recurrir al global, que afecta todo el CMMS).
-const bluC = { width: "100%", border: `1px solid ${tint(C.sky, 28)}`, borderRadius: 7, background: tint(C.sky, 9), outline: "none", padding: "3px 8px", fontSize: 12.5, color: C.steel, fontWeight: 600, fontFamily: "'IBM Plex Mono', monospace" };
-const inC = (w) => ({ width: w || "100%", border: `1px solid ${C.line}`, borderRadius: 7, background: C.surface, outline: "none", padding: "4px 8px", fontSize: 12.5, color: C.ink });
+// Presets de densidad: la ALTURA DE FILA es ajustable por el usuario (se recuerda
+// en localStorage). cell = padding de celda; inp = padding de inputs; font = fuente.
+const DENSIDADES = {
+  compacta: { label: "Compacta", cell: "1px 7px", inp: "2px 8px",  font: 12 },
+  media:    { label: "Media",    cell: "3px 7px", inp: "4px 8px",  font: 12.5 },
+  amplia:   { label: "Amplia",   cell: "7px 8px", inp: "8px 10px", font: 13.5 },
+};
 
 // Tipo de niveles que se revisan en el prezarpe para este equipo
 const NIVEL_TIPOS = [
@@ -68,6 +68,18 @@ export default function Equipos() {
   const [items,       setItems]       = useState([]); // inventario_items (repuestos)
   const [destinos,    setDestinos]    = useState([]); // inventario_item_destinos (item↔equipo)
   const [repuestoPanel, setRepuestoPanel] = useState(null); // equipo id con panel de repuestos abierto
+  const [densidad, setDensidad] = useState(() => {
+    try { return localStorage.getItem("equipos_densidad") || "media"; } catch { return "media"; }
+  });
+  function cambiarDensidad(d) {
+    setDensidad(d);
+    try { localStorage.setItem("equipos_densidad", d); } catch { /* sin persistencia */ }
+  }
+  const D = DENSIDADES[densidad] || DENSIDADES.media;
+  // Estilos de celda/input dependientes de la densidad elegida (altura de fila).
+  const tdE  = { padding: D.cell, fontSize: D.font, borderBottom: `1px solid ${C.foam}`, color: C.ink };
+  const bluC = { width: "100%", border: `1px solid ${tint(C.sky, 28)}`, borderRadius: 7, background: tint(C.sky, 9), outline: "none", padding: D.inp, fontSize: D.font, color: C.steel, fontWeight: 600, fontFamily: "'IBM Plex Mono', monospace" };
+  const inC  = (w) => ({ width: w || "100%", border: `1px solid ${C.line}`, borderRadius: 7, background: C.surface, outline: "none", padding: D.inp, fontSize: D.font, color: C.ink });
   const puedeOperar = canOperate(profile?.rol);
   const puedeBorrar = isAdmin(profile?.rol);
   const hasActions  = puedeOperar || puedeBorrar;
@@ -502,6 +514,20 @@ export default function Equipos() {
             <button onClick={() => colapsarTodo(false)} style={{ ...ghostBtn, fontSize: 12, padding: "6px 12px" }}><ChevronDown size={13} /> Expandir todo</button>
           </>
         )}
+        {/* Altura de fila ajustable (se recuerda en el navegador) */}
+        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 4 }} title="Ajusta la altura de las filas de la tabla">
+          <Rows3 size={14} color={C.slate} style={{ marginRight: 2 }} />
+          <span style={{ fontSize: 11.5, color: C.slate, fontWeight: 600, marginRight: 4 }}>Altura de fila</span>
+          {Object.entries(DENSIDADES).map(([k, v]) => (
+            <button key={k} onClick={() => cambiarDensidad(k)} title={`Filas ${v.label.toLowerCase()}`}
+              style={{ fontSize: 11.5, padding: "5px 11px", borderRadius: 7, cursor: "pointer", fontWeight: 600,
+                border: `1px solid ${densidad === k ? C.steel : C.line}`,
+                background: densidad === k ? tint(C.steel, 14) : C.surface,
+                color: densidad === k ? C.steel : C.slate }}>
+              {v.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Precarga de plantilla ISO 14224. Visible al seleccionar una nave, o
@@ -679,7 +705,7 @@ export default function Equipos() {
                       <td style={tdE}>
                         <select value={e.embarcacion_id} disabled={!puedeOperar}
                           onChange={(ev) => commit(e.id, "embarcacion_id", ev.target.value)}
-                          style={{ ...inC(130), fontWeight: 600, color: embColor(e.embarcacion_id) }}>
+                          style={{ ...inC(125), fontWeight: 600, color: embColor(e.embarcacion_id) }}>
                           {embarcaciones.map((v) => <option key={v.id} value={v.id}>{v.nombre}</option>)}
                         </select>
                       </td>
@@ -713,15 +739,15 @@ export default function Equipos() {
                       <td style={tdE}>
                         <select value={e.parent_id || ""} disabled={!puedeOperar}
                           onChange={(ev) => commit(e.id, "parent_id", ev.target.value || null)}
-                          style={{ ...inC(160), color: e.parent_id ? C.steel : C.line }}>
+                          style={{ ...inC(205), color: e.parent_id ? C.steel : C.line }}>
                           <option value="">— Raíz —</option>
                           {padres.map((p) => <option key={p.id} value={p.id}>{p.id_visible} · {p.sistema}</option>)}
                         </select>
                       </td>
 
                       {/* Marca / Modelo */}
-                      <td style={tdE}><input value={e.marca || ""} disabled={!puedeOperar} title={e.marca || ""} onChange={(ev) => onChangeLocal(e.id, "marca", ev.target.value)} onBlur={(ev) => commit(e.id, "marca", ev.target.value)} style={inC(108)} /></td>
-                      <td style={tdE}><input value={e.modelo || ""} disabled={!puedeOperar} title={e.modelo || ""} onChange={(ev) => onChangeLocal(e.id, "modelo", ev.target.value)} onBlur={(ev) => commit(e.id, "modelo", ev.target.value)} style={inC(108)} /></td>
+                      <td style={tdE}><input value={e.marca || ""} disabled={!puedeOperar} title={e.marca || ""} onChange={(ev) => onChangeLocal(e.id, "marca", ev.target.value)} onBlur={(ev) => commit(e.id, "marca", ev.target.value)} style={inC(90)} /></td>
+                      <td style={tdE}><input value={e.modelo || ""} disabled={!puedeOperar} title={e.modelo || ""} onChange={(ev) => onChangeLocal(e.id, "modelo", ev.target.value)} onBlur={(ev) => commit(e.id, "modelo", ev.target.value)} style={inC(90)} /></td>
 
                       {/* Horas */}
                       <td style={{ ...tdE, textAlign: "right" }}>
