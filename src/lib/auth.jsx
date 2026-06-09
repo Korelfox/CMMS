@@ -11,6 +11,17 @@ import { supabase } from "./supabase";
 
 const AuthContext = createContext(null);
 
+// Corre una promesa con límite de tiempo. Evita que un getSession/consulta a
+// Supabase colgado (token expirado tras suspensión, red despertando) deje la app
+// atrapada para siempre en "Cargando tu perfil…". Las consultas de supabase-js
+// son thenables, así que Promise.race funciona con ellas.
+function conTimeout(promesa, ms, etiqueta) {
+  let t;
+  const limite = new Promise((_, rej) => { t = setTimeout(() => rej(new Error(`timeout:${etiqueta}`)), ms); });
+  return Promise.race([Promise.resolve(promesa).finally(() => clearTimeout(t)), limite]);
+}
+const PROFILE_TIMEOUT_MS = 7000;
+
 export function AuthProvider({ children }) {
   const [session, setSession] = useState(null);
   const [profile, setProfile] = useState(null);
@@ -21,38 +32,66 @@ export function AuthProvider({ children }) {
   const [authError, setAuthError] = useState(null);
   const [passwordRecovery, setPasswordRecovery] = useState(false);
   const loadedUserIdRef = useRef(undefined);  // último usuario cuyo perfil ya cargamos
+  const inflightRef = useRef(null);           // { uid, promise } carga de perfil en curso (dedupe)
 
   // Carga el perfil del usuario (empresa_id, rol, nombre) y su empresa.
+  // Robusto ante cuelgues: cada consulta tiene timeout y, si falla la primera
+  // vez (timeout/red), reintenta una vez tras refrescar el token. Solo marca
+  // profileError si el reintento también falla → pantalla "Reintentar", nunca
+  // spinner infinito. Deduplica cargas concurrentes para el mismo usuario
+  // (getSession + INITIAL_SESSION pueden dispararla a la vez al arrancar).
   const loadProfile = useCallback(async (userId) => {
     if (!userId) { setProfile(null); setEmpresa(null); setProfileLoaded(true); setProfileError(false); return; }
-    setProfileLoaded(false); setProfileError(false);  // empezamos a cargar
-    try {
-      const { data: prof, error } = await supabase
-        .from("profiles")
-        .select("id, empresa_id, nombre, email, rol, embarcacion_id, activo")
-        .eq("id", userId)
-        .single();
-      if (error) throw error;
-      setProfile(prof);
+    if (inflightRef.current && inflightRef.current.uid === userId) return inflightRef.current.promise;
 
+    setProfileLoaded(false); setProfileError(false);  // empezamos a cargar
+
+    const consultar = async () => {
+      const { data: prof, error } = await conTimeout(
+        supabase.from("profiles")
+          .select("id, empresa_id, nombre, email, rol, embarcacion_id, activo")
+          .eq("id", userId).single(),
+        PROFILE_TIMEOUT_MS, "profiles");
+      if (error) throw error;
+      let emp = null;
       if (prof?.empresa_id) {
-        const { data: emp } = await supabase
-          .from("empresas")
-          .select("id, nombre, puerto_base, plan, activa, codigo_invitacion")
-          .eq("id", prof.empresa_id)
-          .single();
-        setEmpresa(emp || null);
-      } else {
-        setEmpresa(null);
+        const { data } = await conTimeout(
+          supabase.from("empresas")
+            .select("id, nombre, puerto_base, plan, activa, codigo_invitacion")
+            .eq("id", prof.empresa_id).single(),
+          PROFILE_TIMEOUT_MS, "empresas");
+        emp = data || null;
       }
-    } catch (e) {
-      console.error("[CMMS] Error cargando perfil:", e.message);
-      setProfile(null);
-      setEmpresa(null);
-      setProfileError(true);   // hubo error: NO es "pendiente de asignación"
-    } finally {
-      setProfileLoaded(true);
-    }
+      return { prof, emp };
+    };
+
+    const promesa = (async () => {
+      try {
+        let res;
+        try {
+          res = await consultar();
+        } catch (e1) {
+          // Reintento único: si fue timeout/red, refrescar el token y reintentar
+          // suele resolver (la conexión ya está despierta).
+          console.warn("[CMMS] Reintentando carga de perfil tras:", e1?.message || e1);
+          try { await conTimeout(supabase.auth.refreshSession(), 6000, "refresh"); } catch { /* ignore */ }
+          res = await consultar();
+        }
+        setProfile(res.prof);
+        setEmpresa(res.emp);
+        setProfileError(false);
+      } catch (e) {
+        console.error("[CMMS] Error cargando perfil:", e?.message || e);
+        setProfile(null);
+        setEmpresa(null);
+        setProfileError(true);   // falló dos veces: NO es "pendiente de asignación"
+      } finally {
+        setProfileLoaded(true);
+      }
+    })();
+
+    inflightRef.current = { uid: userId, promise: promesa };
+    try { await promesa; } finally { if (inflightRef.current?.promise === promesa) inflightRef.current = null; }
   }, []);
 
   // Inicializa la sesión y se suscribe a los cambios de autenticación.
@@ -66,7 +105,7 @@ export function AuthProvider({ children }) {
 
     (async () => {
       try {
-        const { data, error } = await supabase.auth.getSession();
+        const { data, error } = await conTimeout(supabase.auth.getSession(), 6000, "getSession");
         if (error) throw error;
         if (!mounted) return;
         const uid = data.session?.user?.id ?? null;
