@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback, useMemo } from "react";
 import { Package, Plus, Trash2, Download, X, Pencil, Check, Tag, Search, ChevronDown, ChevronRight, List, FolderTree, Layers } from "lucide-react";
 import { useAuth } from "../lib/auth";
-import { fetchAll, insertRow, updateRow, deleteRow, logActivity } from "../lib/db";
+import { fetchAll, insertRow, updateRow, deleteRow, upsertRow, logActivity } from "../lib/db";
 import { C, clp, isAdmin, canOperate, tint } from "../theme";
 import { buildEquipoTree } from "../lib/equipTree";
 import { useArbolColapsable, EquipoNodoLabel, fondoTipo } from "../lib/arbolColapsable";
@@ -52,6 +52,8 @@ const CATEGORIAS_MATERIAL = [
   "Pintura y Anticorrosivo",
 ];
 
+const skey = (item_id, bodega_id) => `${item_id}::${bodega_id}`;
+
 export default function Inventario() {
   const { profile } = useAuth();
   const [items, setItems] = useState([]);
@@ -72,6 +74,8 @@ export default function Inventario() {
   const [filtroStock, setFiltroStock] = useState("all"); // all | bajo | revisar | ok
   const [gruposCol, setGruposCol] = useState(() => new Set()); // grupos colapsados
   const [filasEditando, setFilasEditando] = useState(new Map()); // id → snapshot campos editables
+  const [bodegas, setBodegas] = useState([]);
+  const [stockPanel, setStockPanel] = useState(null); // item_id | null
   const puedeOperar = canOperate(profile?.rol);
   const puedeBorrar = isAdmin(profile?.rol);
   const NCOLS = 12 + (puedeOperar ? 1 : 0) + (puedeBorrar ? 1 : 0);
@@ -83,14 +87,15 @@ export default function Inventario() {
   const cargar = useCallback(async () => {
     setLoading(true); setError(null);
     try {
-      const [its, stk, embs, eqs, dests] = await Promise.all([
+      const [its, stk, embs, eqs, dests, bods] = await Promise.all([
         fetchAll("inventario_items", { order: { col: "codigo", asc: true } }),
         fetchAll("stock"),
         fetchAll("embarcaciones", { order: { col: "codigo", asc: true } }),
         fetchAll("equipos", { order: { col: "id_visible", asc: true } }),
         fetchAll("inventario_item_destinos"),
+        fetchAll("bodegas", { order: { col: "nombre", asc: true } }),
       ]);
-      setItems(its); setStockEntries(stk); setEmbarcaciones(embs); setEquipos(eqs); setDestinos(dests);
+      setItems(its); setStockEntries(stk); setEmbarcaciones(embs); setEquipos(eqs); setDestinos(dests); setBodegas(bods);
     } catch (e) { setError("No se pudo cargar el inventario. " + e.message); }
     finally { setLoading(false); }
   }, []);
@@ -98,6 +103,33 @@ export default function Inventario() {
 
   function totalStock(itemId) {
     return stockEntries.filter((s) => s.item_id === itemId).reduce((sum, s) => sum + (Number(s.cantidad) || 0), 0);
+  }
+
+  const stockMap = useMemo(() => {
+    const m = new Map();
+    stockEntries.forEach((s) => { if (s.bodega_id) m.set(skey(s.item_id, s.bodega_id), Number(s.cantidad) || 0); });
+    return m;
+  }, [stockEntries]);
+
+  async function setCantidadInv(item_id, bodega_id, rawVal) {
+    const v = Math.max(0, +rawVal || 0);
+    const previo = stockMap.has(skey(item_id, bodega_id)) ? stockMap.get(skey(item_id, bodega_id)) : null;
+    setStockEntries((prev) => {
+      const idx = prev.findIndex((s) => s.item_id === item_id && s.bodega_id === bodega_id);
+      if (idx >= 0) { const c = [...prev]; c[idx] = { ...c[idx], cantidad: v }; return c; }
+      return [...prev, { item_id, bodega_id, cantidad: v, empresa_id: profile.empresa_id }];
+    });
+    try {
+      await upsertRow("stock", profile.empresa_id, { item_id, bodega_id, cantidad: v }, "item_id,bodega_id");
+    } catch (e) {
+      setStockEntries((prev) => {
+        if (previo === null) return prev.filter((s) => !(s.item_id === item_id && s.bodega_id === bodega_id));
+        const idx = prev.findIndex((s) => s.item_id === item_id && s.bodega_id === bodega_id);
+        if (idx >= 0) { const c = [...prev]; c[idx] = { ...c[idx], cantidad: previo }; return c; }
+        return prev;
+      });
+      setError("No se pudo guardar el stock: " + e.message);
+    }
   }
 
   // Cálculo ABC: 80% valor acumulado = A, 80-95% = B, 95-100% = C
@@ -515,6 +547,53 @@ export default function Inventario() {
         </Card>
       )}
 
+      {/* ── Panel ajuste de stock ── */}
+      {stockPanel && (() => {
+        const panelItem = items.find((i) => i.id === stockPanel);
+        if (!panelItem) return null;
+        const panelTotal = stockEntries.filter((s) => s.item_id === stockPanel).reduce((s, x) => s + (Number(x.cantidad) || 0), 0);
+        return (
+          <Card style={{ marginBottom: 16, borderLeft: `4px solid ${C.gold}`, background: tint(C.gold, 6) }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 14 }}>
+              <div>
+                <div style={{ fontSize: 10, letterSpacing: 2, textTransform: "uppercase", color: C.slate, fontWeight: 700 }}>Ajustar stock</div>
+                <div style={{ fontWeight: 800, fontSize: 15, color: C.abyss, marginTop: 2 }}>
+                  <span style={{ fontFamily: "'IBM Plex Mono', monospace", color: C.steel }}>{panelItem.codigo}</span>
+                  {" · "}{panelItem.descripcion}
+                  <span style={{ fontWeight: 400, fontSize: 12.5, color: C.slate, marginLeft: 10 }}>Total: <strong style={{ color: C.abyss }}>{panelTotal}</strong> {panelItem.unidad}</span>
+                </div>
+              </div>
+              <button onClick={() => setStockPanel(null)} style={{ background: "none", border: "none", cursor: "pointer", color: C.slate, padding: 4 }}><X size={18} /></button>
+            </div>
+            {bodegas.length === 0 ? (
+              <div style={{ fontSize: 13, color: C.amber, padding: "8px 0" }}>
+                No hay bodegas configuradas. Crea bodegas en <strong>Almacén & Compras → Bodegas</strong> antes de registrar stock.
+              </div>
+            ) : (
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                {bodegas.map((b) => {
+                  const cant = stockMap.get(skey(panelItem.id, b.id)) || 0;
+                  return (
+                    <div key={b.id} style={{ display: "flex", alignItems: "center", gap: 8, background: "#fff", borderRadius: 8, padding: "10px 14px", border: `1px solid ${C.line}`, minWidth: 170 }}>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: C.ink }}>{b.nombre}</div>
+                        <div style={{ fontSize: 10, color: b.tipo === "a_bordo" ? C.cyan : C.steel, marginTop: 1 }}>{b.tipo === "a_bordo" ? "a bordo" : "tierra"}</div>
+                      </div>
+                      <input key={`${panelItem.id}-${b.id}-${cant}`} type="number" min="0"
+                        defaultValue={cant}
+                        onBlur={(e) => setCantidadInv(panelItem.id, b.id, e.target.value)}
+                        onKeyDown={(e) => { if (e.key === "Enter") e.target.blur(); }}
+                        style={{ ...bluInput, width: 68, textAlign: "right" }} />
+                      <span style={{ fontSize: 11, color: C.slate, minWidth: 20 }}>{panelItem.unidad}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </Card>
+        );
+      })()}
+
       {/* ── Tabla principal ── */}
       {items.length === 0 ? (
         <Card><Empty>
@@ -623,7 +702,17 @@ export default function Inventario() {
                         })()}
                       </td>
 
-                      <td style={{ ...tdStyle, textAlign: "right", fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700 }}>{i.total}</td>
+                      <td style={{ ...tdStyle, textAlign: "right" }}>
+                        <div style={{ display: "inline-flex", alignItems: "center", justifyContent: "flex-end", gap: 5, width: "100%" }}>
+                          <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, color: i.total === 0 ? C.slate : C.ink }}>{i.total}</span>
+                          {puedeOperar && (
+                            <button onClick={() => setStockPanel(stockPanel === i.id ? null : i.id)} title="Ajustar stock por bodega"
+                              style={{ background: "none", border: "none", cursor: "pointer", color: C.slate, padding: 2, opacity: 0.45, lineHeight: 1 }}>
+                              <Pencil size={11} />
+                            </button>
+                          )}
+                        </div>
+                      </td>
                       <td style={{ ...tdStyle, textAlign: "right" }}>
                         <input type="number" value={i.stock_min} disabled={!puedeOperar}
                           onChange={(e) => { marcarDirty(i); onChangeLocal(i.id, "stock_min", +e.target.value); }}
