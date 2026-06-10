@@ -40,13 +40,6 @@ const DENSIDADES = {
   amplia:   { label: "Amplia",   cell: "7px 8px", inp: "8px 10px", font: 13.5 },
 };
 
-// Tipo de niveles que se revisan en el prezarpe para este equipo
-const NIVEL_TIPOS = [
-  { value: "ninguno", label: "— No aplica" },
-  { value: "aceite",  label: "Solo aceite" },
-  { value: "aceite_agua", label: "Aceite + agua chaqueta" },
-];
-
 
 function blankForm(embId = "") {
   return { embarcacion_id: embId, id_visible: "", sistema: "", subsistema: "", marca: "", modelo: "", parent_id: "", tipo_nodo: "equipo", criticidad: "" };
@@ -88,7 +81,7 @@ export default function Equipos() {
   const hasActions  = puedeOperar || puedeBorrar;
   // Nº de columnas (para colSpan de filas vacías y del panel de repuestos):
   // 13 base + Orden (si puede operar) + Acción (si hay acciones).
-  const NCOLS = 12 + (puedeOperar ? 1 : 0) + (hasActions ? 1 : 0);
+  const NCOLS = 11 + (puedeOperar ? 1 : 0) + (hasActions ? 1 : 0);
 
   const cargar = useCallback(async () => {
     setLoading(true); setError(null);
@@ -673,7 +666,6 @@ export default function Equipos() {
               <th style={{ ...thE, textAlign: "right" }} title="MTBF objetivo (horas)">MTBF</th>
               <th style={thE}>Estado</th>
               <th style={{ ...thE, textAlign: "center" }}>Prezarpe</th>
-              <th style={thE}>Niveles</th>
               {hasActions && <th style={{ ...thE, textAlign: "center" }}>Acción</th>}
             </tr></thead>
             <tbody>
@@ -827,16 +819,6 @@ export default function Equipos() {
                           title="Incluir en inspección de prezarpe"
                           style={{ width: 16, height: 16, cursor: puedeOperar ? "pointer" : "default", accentColor: C.steel }} />
                       </td>
-
-                      {/* Niveles */}
-                      <td style={tdE}>
-                        <select value={e.nivel_tipo || "ninguno"} disabled={!puedeOperar}
-                          onChange={(ev) => commit(e.id, "nivel_tipo", ev.target.value)}
-                          style={inC(124)}>
-                          {NIVEL_TIPOS.map((n) => <option key={n.value} value={n.value}>{n.label}</option>)}
-                        </select>
-                      </td>
-
 
                       {hasActions && (
                         <td style={tdE}>

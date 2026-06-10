@@ -122,6 +122,14 @@ export const ESTADOS_EQUIPO = [
 export function estadoLabel(v) { return ESTADOS_EQUIPO.find((e) => e.value === v)?.label || v; }
 export function estadoTone(v) { return ESTADOS_EQUIPO.find((e) => e.value === v)?.tone || "slate"; }
 
+// Tipo de niveles que se revisan en el prezarpe para un equipo (aceite/agua).
+// Se configura en Horómetros (junto a las máquinas) y se usa en Prezarpe.
+export const NIVEL_TIPOS = [
+  { value: "ninguno", label: "— No aplica" },
+  { value: "aceite",  label: "Solo aceite" },
+  { value: "aceite_agua", label: "Aceite + agua chaqueta" },
+];
+
 // Intervalos de mantenimiento preventivo (horas)
 export const PM_INTERVALS = [50, 100, 250, 500];
 

@@ -6,7 +6,7 @@ import { supabase } from "../lib/supabase";
 import { validarLectura, tendenciaHorasDia, diasDesde, modoHorometro, puntoHorometro, idsBajoPunto } from "../lib/horometro";
 import { buildEquipoTree } from "../lib/equipTree";
 import { useArbolColapsable, BotonesColapsar, colorTipo, fondoTipo } from "../lib/arbolColapsable";
-import { C, num, canOperate, tint } from "../theme";
+import { C, num, canOperate, tint, NIVEL_TIPOS } from "../theme";
 import {
   Card, PageHead, Pill, FilterBtn, primaryBtn, inputStyle,
   thStyle, tdStyle, Empty, ErrorBanner, InlineSpinner, GuiaColapsable,
@@ -111,6 +111,21 @@ export default function Horometros() {
       logActivity(profile, "Horómetro: consume aceite", `${eq.id_visible} · ${nuevo ? "sí" : "no"}`);
     } catch (e) {
       setEquipos((p) => p.map((x) => x.id === eq.id ? { ...x, consume_aceite: !nuevo } : x));
+      setError("No se pudo guardar: " + e.message);
+    }
+  }
+
+  // Cambia el tipo de nivel que se revisa en el prezarpe (aceite / aceite+agua /
+  // ninguno). Vive aquí porque aplica a las máquinas y sus componentes con
+  // niveles; lo consume el módulo Prezarpe.
+  async function cambiarNivel(eq, valor) {
+    const previo = eq.nivel_tipo;
+    setEquipos((p) => p.map((x) => x.id === eq.id ? { ...x, nivel_tipo: valor } : x));
+    try {
+      await supabase.from("equipos").update({ nivel_tipo: valor }).eq("id", eq.id);
+      logActivity(profile, "Horómetro: nivel prezarpe", `${eq.id_visible} · ${valor}`);
+    } catch (e) {
+      setEquipos((p) => p.map((x) => x.id === eq.id ? { ...x, nivel_tipo: previo } : x));
       setError("No se pudo guardar: " + e.message);
     }
   }
@@ -222,6 +237,7 @@ export default function Horometros() {
                 <th style={thStyle}>Última lectura</th>
                 <th style={{ ...thStyle, textAlign: "right" }}>Tendencia</th>
                 <th style={{ ...thStyle, textAlign: "center" }} title="Reparte el aceite consumido entre motores (Consumos & Eficiencia)">Consume aceite</th>
+                <th style={{ ...thStyle, textAlign: "center" }} title="Niveles que se revisan al zarpar (módulo Prezarpe)">Niveles (prezarpe)</th>
                 {puedeOperar && <th style={{ ...thStyle, textAlign: "right" }}>Nueva lectura (h)</th>}
                 <th style={{ ...thStyle, textAlign: "center" }}>Hist.</th>
               </tr></thead>
@@ -301,6 +317,16 @@ export default function Horometros() {
                           </label>
                         ) : <span style={{ color: C.line }}>—</span>}
                       </td>
+                      {/* Niveles de prezarpe: en máquinas y componentes (no en estructura) */}
+                      <td style={{ ...tdStyle, textAlign: "center" }}>
+                        {esNo ? <span style={{ color: C.line }}>—</span> : (
+                          <select value={eq.nivel_tipo || "ninguno"} disabled={!puedeOperar}
+                            onChange={(e) => cambiarNivel(eq, e.target.value)}
+                            style={{ ...inputStyle(150), padding: "4px 8px", fontSize: 11.5, color: (eq.nivel_tipo && eq.nivel_tipo !== "ninguno") ? C.steel : C.slate }}>
+                            {NIVEL_TIPOS.map((n) => <option key={n.value} value={n.value}>{n.label}</option>)}
+                          </select>
+                        )}
+                      </td>
                       {/* Nueva lectura: solo en puntos propios */}
                       {puedeOperar && (
                         <td style={{ ...tdStyle, textAlign: "right" }}>
@@ -326,7 +352,7 @@ export default function Horometros() {
                     </tr>,
                     abierto && (
                       <tr key={eq.id + "-h"}>
-                        <td colSpan={puedeOperar ? 8 : 7} style={{ padding: "10px 18px 14px", background: tint(C.steel, 6), borderBottom: `1px solid ${C.line}` }}>
+                        <td colSpan={puedeOperar ? 9 : 8} style={{ padding: "10px 18px 14px", background: tint(C.steel, 6), borderBottom: `1px solid ${C.line}` }}>
                           <table style={{ width: "100%", borderCollapse: "collapse" }}>
                             <thead><tr>
                               {["Fecha", "Horas", "Δ desde anterior", "Registrada por", "Nota"].map((h) => (
