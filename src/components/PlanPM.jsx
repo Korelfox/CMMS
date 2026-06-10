@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useMemo } from "react";
-import { CalendarClock, Check, AlertCircle, Plus, Trash2, Download, History, ClipboardList, X, ChevronDown, ChevronRight, Edit3 } from "lucide-react";
+import { CalendarClock, Check, AlertCircle, Plus, Trash2, Download, Printer, History, ClipboardList, X, ChevronDown, ChevronRight, Edit3 } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { fetchAll, insertRow, updateRow, deleteRow, logActivity } from "../lib/db";
 import { buildEquipoTree } from "../lib/equipTree";
@@ -358,6 +358,86 @@ function TabPlan({ lista, equipos, setEquipos, planes, setPlanes, setHistorial, 
     const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "plan_pm.csv"; a.click();
   }
 
+  // ── Imprimir / Guardar como PDF ──────────────────────────────────
+  function imprimirPlan() {
+    const fechaHoy = new Date().toLocaleDateString("es-CL", { day: "2-digit", month: "long", year: "numeric" });
+    const SC = { red: "#ef4444", yellow: "#f59e0b", green: "#22c55e" };
+    const SB = { red: "#fef2f2", yellow: "#fffbeb", green: "#f0fdf4" };
+
+    const planActivos = planes.filter((p) => p.activo);
+    let nVenc = 0, nProx = 0;
+
+    const filasPDF = planActivos.map((p) => {
+      const eq      = equipos.find((e) => e.id === p.equipo_id);
+      const esCal   = p.tipo_disparador === "calendario";
+      const elapsed = esCal ? diasDesde(p.fecha_ult_pm) : (eq?.horas_actual || 0) - (p.horas_ult_pm || 0);
+      const [tone, label] = esCal
+        ? statusPlanCalendario(elapsed, p.unidad_calendario, p.intervalo_calendario ?? 1)
+        : statusPlan(elapsed, p.intervalo_horas);
+      if (tone === "red")    nVenc++;
+      if (tone === "yellow") nProx++;
+      const intervalo = esCal
+        ? labelIntervaloCalendario(p.unidad_calendario, p.intervalo_calendario ?? 1)
+        : `${p.intervalo_horas}h`;
+      const ultimoPM = p.fecha_ult_pm
+        ? new Date(p.fecha_ult_pm + "T00:00:00").toLocaleDateString("es-CL")
+        : "Nunca";
+      return `<tr style="background:${SB[tone]};border-bottom:1px solid #e2e8f0">
+        <td>${eq?.id_visible || "—"}</td>
+        <td style="font-weight:600">${eq?.sistema || "—"}</td>
+        <td>${p.descripcion}</td>
+        <td style="text-align:center;color:#64748b">${esCal ? "Cal" : "H"}</td>
+        <td style="text-align:right;font-family:monospace">${intervalo}</td>
+        <td style="text-align:center">${ultimoPM}</td>
+        <td style="text-align:center"><span style="display:inline-block;padding:2px 8px;border-radius:4px;background:${SC[tone]}22;color:${SC[tone]};font-weight:700;font-size:10px">${label}</span></td>
+      </tr>`;
+    }).join("");
+
+    const kpiBar = [
+      ["Planes activos", planActivos.length, "#0369a1"],
+      ["Vencidos",       nVenc,              "#ef4444"],
+      ["Próximos",       nProx,              "#f59e0b"],
+      ["Al día",         planActivos.length - nVenc - nProx, "#22c55e"],
+    ].map(([l, v, c]) =>
+      `<div style="margin-right:32px"><div style="font-size:22px;font-weight:800;color:${c}">${v}</div><div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#64748b">${l}</div></div>`
+    ).join("");
+
+    const html = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
+<title>Plan PM · ${fechaHoy}</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#0f172a;background:#fff;padding:0}
+@media print{@page{size:A4 landscape;margin:14mm 12mm}body{print-color-adjust:exact;-webkit-print-color-adjust:exact}}
+.hdr{padding:14px 0 10px;border-bottom:2.5px solid #0f172a;margin-bottom:14px}
+.hdr h1{font-size:17px;font-weight:800;letter-spacing:-.3px}
+.hdr .sub{font-size:11px;color:#64748b;margin-top:3px}
+.kpis{display:flex;margin-bottom:14px}
+table{width:100%;border-collapse:collapse;font-size:11px}
+thead tr{background:#0f172a;color:#fff}
+thead th{padding:6px 8px;font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;text-align:left}
+thead th:nth-child(4),thead th:nth-child(5),thead th:nth-child(6),thead th:nth-child(7){text-align:center}
+tbody td{padding:5px 8px;vertical-align:middle}
+.ftr{margin-top:14px;font-size:10px;color:#94a3b8;display:flex;justify-content:space-between;border-top:1px solid #e2e8f0;padding-top:6px}
+</style></head><body>
+<div class="hdr">
+  <h1>Plan de Mantenimiento Preventivo</h1>
+  <div class="sub">Generado el ${fechaHoy}${profile?.nombre ? " · " + profile.nombre : ""}</div>
+</div>
+<div class="kpis">${kpiBar}</div>
+<table>
+  <thead><tr><th>ID visible</th><th>Equipo / Componente</th><th>Tarea PM</th><th>Tipo</th><th>Intervalo</th><th>Último PM</th><th>Estado</th></tr></thead>
+  <tbody>${filasPDF}</tbody>
+</table>
+<div class="ftr"><span>Korelfox CMMS · Plan Preventivo</span><span>${fechaHoy}</span></div>
+<script>window.onload=function(){window.print()}<\/script>
+</body></html>`;
+
+    const w = window.open("", "_blank", "width=1200,height=800");
+    if (!w) { setError("El navegador bloqueó la ventana emergente. Permite pop-ups para esta página."); return; }
+    w.document.write(html);
+    w.document.close();
+  }
+
   return (
     <div>
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12, flexWrap: "wrap" }}>
@@ -373,7 +453,8 @@ function TabPlan({ lista, equipos, setEquipos, planes, setPlanes, setHistorial, 
           </button>
         )}
         <div style={{ flex: 1 }} />
-        <button onClick={exportarPlan} style={exportBtn}><Download size={14} /> Exportar plan</button>
+        <button onClick={exportarPlan} style={exportBtn}><Download size={14} /> Exportar CSV</button>
+        <button onClick={imprimirPlan} style={{ ...exportBtn, marginLeft: 6 }}><Printer size={14} /> Imprimir / PDF</button>
       </div>
       {listaVisible.map((eq) => {
         const planesEq = planes.filter((p) =>
