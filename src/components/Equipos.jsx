@@ -88,7 +88,7 @@ export default function Equipos() {
   const hasActions  = puedeOperar || puedeBorrar;
   // Nº de columnas (para colSpan de filas vacías y del panel de repuestos):
   // 13 base + Orden (si puede operar) + Acción (si hay acciones).
-  const NCOLS = 13 + (puedeOperar ? 1 : 0) + (hasActions ? 1 : 0);
+  const NCOLS = 12 + (puedeOperar ? 1 : 0) + (hasActions ? 1 : 0);
 
   const cargar = useCallback(async () => {
     setLoading(true); setError(null);
@@ -419,7 +419,7 @@ export default function Equipos() {
   // Edición LOCAL — no persiste hasta pulsar "Guardar cambios"
   const commit = onChangeLocal;
 
-  const CAMPOS_EDIT = ["id_visible", "sistema", "marca", "modelo", "horas_actual", "horas_ult_pm", "mtbf_objetivo", "estado", "embarcacion_id", "parent_id", "tipo_nodo", "criticidad", "prezarpe", "nivel_tipo", "consume_aceite"];
+  const CAMPOS_EDIT = ["id_visible", "sistema", "marca", "modelo", "horas_actual", "horas_ult_pm", "mtbf_objetivo", "estado", "embarcacion_id", "parent_id", "tipo_nodo", "criticidad", "prezarpe", "nivel_tipo"];
   const eqDirty = (e) => { const o = original[e.id]; return o && CAMPOS_EDIT.some((c) => (e[c] ?? null) !== (o[c] ?? null)); };
   const dirtyIds = equipos.filter(eqDirty).map((e) => e.id);
 
@@ -674,7 +674,6 @@ export default function Equipos() {
               <th style={thE}>Estado</th>
               <th style={{ ...thE, textAlign: "center" }}>Prezarpe</th>
               <th style={thE}>Niveles</th>
-              <th style={{ ...thE, textAlign: "center" }}>Aceite</th>
               {hasActions && <th style={{ ...thE, textAlign: "center" }}>Acción</th>}
             </tr></thead>
             <tbody>
@@ -838,13 +837,6 @@ export default function Equipos() {
                         </select>
                       </td>
 
-                      {/* Consume aceite */}
-                      <td style={{ ...tdE, textAlign: "center" }}>
-                        <input type="checkbox" checked={!!e.consume_aceite} disabled={!puedeOperar}
-                          onChange={(ev) => commit(e.id, "consume_aceite", ev.target.checked)}
-                          title="Consume aceite del motor (para repartir consumo por horas)"
-                          style={{ width: 16, height: 16, cursor: puedeOperar ? "pointer" : "default", accentColor: C.steel }} />
-                      </td>
 
                       {hasActions && (
                         <td style={tdE}>

@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useMemo } from "react";
-import { Timer, Save, ChevronDown, ChevronRight, History, AlertCircle, CheckCircle2, CornerDownRight, Ban } from "lucide-react";
+import { Timer, Save, ChevronDown, ChevronRight, History, AlertCircle, CheckCircle2, CornerDownRight, Ban, Droplet } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { fetchAll, insertRow, logActivity } from "../lib/db";
 import { supabase } from "../lib/supabase";
@@ -97,6 +97,21 @@ export default function Horometros() {
     } catch (e) {
       setEquipos((p) => p.map((x) => x.id === eq.id ? { ...x, horometro: previo } : x));
       setError("No se pudo cambiar el modo: " + e.message);
+    }
+  }
+
+  // Marca/desmarca "consume aceite" en un punto de horómetro (la máquina). Este
+  // flag reparte el aceite consumido entre los motores en Consumos & Eficiencia
+  // (proporcional a sus horas). Solo aplica a máquinas con horómetro propio.
+  async function toggleConsumeAceite(eq) {
+    const nuevo = !eq.consume_aceite;
+    setEquipos((p) => p.map((x) => x.id === eq.id ? { ...x, consume_aceite: nuevo } : x));
+    try {
+      await supabase.from("equipos").update({ consume_aceite: nuevo }).eq("id", eq.id);
+      logActivity(profile, "Horómetro: consume aceite", `${eq.id_visible} · ${nuevo ? "sí" : "no"}`);
+    } catch (e) {
+      setEquipos((p) => p.map((x) => x.id === eq.id ? { ...x, consume_aceite: !nuevo } : x));
+      setError("No se pudo guardar: " + e.message);
     }
   }
 
@@ -206,6 +221,7 @@ export default function Horometros() {
                 <th style={{ ...thStyle, textAlign: "right" }}>Horas</th>
                 <th style={thStyle}>Última lectura</th>
                 <th style={{ ...thStyle, textAlign: "right" }}>Tendencia</th>
+                <th style={{ ...thStyle, textAlign: "center" }} title="Reparte el aceite consumido entre motores (Consumos & Eficiencia)">Consume aceite</th>
                 {puedeOperar && <th style={{ ...thStyle, textAlign: "right" }}>Nueva lectura (h)</th>}
                 <th style={{ ...thStyle, textAlign: "center" }}>Hist.</th>
               </tr></thead>
@@ -274,6 +290,17 @@ export default function Horometros() {
                       <td style={{ ...tdStyle, textAlign: "right" }}>
                         {hxd != null ? <span style={{ fontWeight: 700, color: C.cyan, fontFamily: "'IBM Plex Mono', monospace" }}>{num(hxd, 1)} h/día</span> : <span style={{ color: C.line }}>—</span>}
                       </td>
+                      {/* Consume aceite: solo aplica a las máquinas (punto propio) */}
+                      <td style={{ ...tdStyle, textAlign: "center" }}>
+                        {esPropio ? (
+                          <label title="Reparte el aceite consumido entre los motores (Consumos & Eficiencia)" style={{ display: "inline-flex", alignItems: "center", gap: 5, cursor: puedeOperar ? "pointer" : "default", color: eq.consume_aceite ? C.gold : C.slate, fontSize: 11.5, fontWeight: 600 }}>
+                            <input type="checkbox" checked={!!eq.consume_aceite} disabled={!puedeOperar}
+                              onChange={() => toggleConsumeAceite(eq)}
+                              style={{ width: 15, height: 15, accentColor: C.gold, cursor: puedeOperar ? "pointer" : "default" }} />
+                            <Droplet size={13} />
+                          </label>
+                        ) : <span style={{ color: C.line }}>—</span>}
+                      </td>
                       {/* Nueva lectura: solo en puntos propios */}
                       {puedeOperar && (
                         <td style={{ ...tdStyle, textAlign: "right" }}>
@@ -299,7 +326,7 @@ export default function Horometros() {
                     </tr>,
                     abierto && (
                       <tr key={eq.id + "-h"}>
-                        <td colSpan={puedeOperar ? 7 : 6} style={{ padding: "10px 18px 14px", background: tint(C.steel, 6), borderBottom: `1px solid ${C.line}` }}>
+                        <td colSpan={puedeOperar ? 8 : 7} style={{ padding: "10px 18px 14px", background: tint(C.steel, 6), borderBottom: `1px solid ${C.line}` }}>
                           <table style={{ width: "100%", borderCollapse: "collapse" }}>
                             <thead><tr>
                               {["Fecha", "Horas", "Δ desde anterior", "Registrada por", "Nota"].map((h) => (
