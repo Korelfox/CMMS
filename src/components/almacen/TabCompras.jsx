@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo, useRef } from "react";
 import { Plus, Trash2, Check, X, ShoppingCart, PackagePlus, Search, ChevronRight, Download, AlertCircle } from "lucide-react";
 import { insertRow, updateRow, deleteRow, upsertRow, logActivity } from "../../lib/db";
 import { C, archivo, clp, num, isAdmin, tint } from "../../theme";
@@ -236,10 +236,9 @@ export default function TabCompras({ profile, items, bodegas, compras, comprasIt
             <Field label="Notas u observaciones"><input value={form.notas} onChange={(e) => setForm({ ...form, notas: e.target.value })} style={{ ...inputStyle(), width: "100%" }} placeholder="Instrucciones de entrega, contacto, urgencia…" /></Field>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "3fr 1fr auto", gap: 12, alignItems: "flex-end", marginBottom: 12 }}>
-            <Field label="Ítem"><select value={line.item_id} onChange={(e) => setLine({ ...line, item_id: e.target.value })} style={inputStyle()}>
-              <option value="">— Selecciona —</option>
-              {items.map((i) => <option key={i.id} value={i.id}>{i.codigo} · {i.descripcion}</option>)}
-            </select></Field>
+            <Field label="Ítem">
+              <ItemPicker items={items} value={line.item_id} onChange={(id) => setLine({ ...line, item_id: id })} />
+            </Field>
             <Field label="Cantidad"><input type="number" value={line.cantidad} onChange={(e) => setLine({ ...line, cantidad: +e.target.value })} style={bluInput} /></Field>
             <button onClick={addLine} style={ghostBtn}><Plus size={15} /> Agregar</button>
           </div>
@@ -415,6 +414,96 @@ export default function TabCompras({ profile, items, bodegas, compras, comprasIt
           </table>
         </div>
       </Card>
+    </div>
+  );
+}
+
+/* ── Buscador de ítems por código / descripción / categoría ──── */
+function ItemPicker({ items, value, onChange, placeholder = "Buscar por código, descripción o categoría…" }) {
+  const [query, setQuery] = useState("");
+  const [open,  setOpen]  = useState(false);
+  const [hi,    setHi]    = useState(0);
+  const blurT = useRef(null);
+  const selected = items.find((i) => i.id === value);
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    const src = q
+      ? items.filter((i) =>
+          (i.codigo       || "").toLowerCase().includes(q) ||
+          (i.descripcion  || "").toLowerCase().includes(q) ||
+          (i.categoria    || "").toLowerCase().includes(q))
+      : items;
+    return src.slice(0, 50);
+  }, [query, items]);
+
+  function pick(item) { onChange(item.id); setQuery(""); setOpen(false); }
+  function clear()    { onChange(""); setQuery(""); }
+
+  function onKey(e) {
+    if      (e.key === "ArrowDown") { e.preventDefault(); setOpen(true); setHi((h) => Math.min(h + 1, filtered.length - 1)); }
+    else if (e.key === "ArrowUp")   { e.preventDefault(); setHi((h) => Math.max(h - 1, 0)); }
+    else if (e.key === "Enter")     { if (open && filtered[hi]) { e.preventDefault(); pick(filtered[hi]); } }
+    else if (e.key === "Escape")    { setOpen(false); }
+  }
+
+  // Texto visible: ítem seleccionado cuando está cerrado; query mientras busca
+  const displayVal = open || !selected ? query : `${selected.codigo} · ${selected.descripcion}`;
+
+  return (
+    <div style={{ position: "relative" }}>
+      <Search size={14} color={C.slate}
+        style={{ position: "absolute", left: 9, top: "50%", transform: "translateY(-50%)", pointerEvents: "none", zIndex: 1 }} />
+      {selected && !open && (
+        <button onClick={clear} title="Quitar ítem"
+          style={{ position: "absolute", right: 7, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: C.slate, padding: 0, zIndex: 1, display: "flex" }}>
+          <X size={13} />
+        </button>
+      )}
+      <input
+        value={displayVal}
+        placeholder={placeholder}
+        onChange={(e) => { setQuery(e.target.value); onChange(""); setOpen(true); setHi(0); }}
+        onFocus={() => { setOpen(true); if (selected) setQuery(""); }}
+        onKeyDown={onKey}
+        onBlur={() => { blurT.current = setTimeout(() => { setOpen(false); if (!selected) setQuery(""); }, 150); }}
+        style={{
+          ...inputStyle(),
+          paddingLeft: 30,
+          paddingRight: selected && !open ? 26 : 10,
+          width: "100%",
+          fontWeight: selected && !open ? 600 : 400,
+          color: selected && !open ? C.steel : C.ink,
+        }}
+      />
+      {open && filtered.length > 0 && (
+        <div onMouseDown={(e) => e.preventDefault()}
+          style={{ position: "absolute", zIndex: 50, top: "100%", left: 0, right: 0, marginTop: 3,
+            maxHeight: 320, overflowY: "auto", background: C.surface,
+            border: `1px solid ${C.line}`, borderRadius: 8,
+            boxShadow: "0 10px 28px rgba(8,20,32,.18)" }}>
+          {filtered.map((item, i) => (
+            <div key={item.id} onClick={() => pick(item)} onMouseEnter={() => setHi(i)}
+              style={{ padding: "7px 11px", cursor: "pointer",
+                background: i === hi ? tint(C.steel, 12) : "transparent",
+                borderBottom: `1px solid ${C.foam}` }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, fontSize: 11, color: C.steel, minWidth: 90, flexShrink: 0 }}>
+                  {item.codigo}
+                </span>
+                <span style={{ fontSize: 12.5, color: C.ink, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {item.descripcion}
+                </span>
+                {item.categoria && (
+                  <span style={{ fontSize: 11, color: C.slate, background: tint(C.steel, 14), borderRadius: 4, padding: "1px 6px", flexShrink: 0 }}>
+                    {item.categoria}
+                  </span>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
