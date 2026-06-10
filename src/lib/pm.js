@@ -71,6 +71,21 @@ export const LABEL_UNIDAD = {
   anual:       "año",
 };
 
+export const LABEL_UNIDAD_PLURAL = {
+  diario:      "días",
+  semanal:     "semanas",
+  mensual:     "meses",
+  trimestral:  "trimestres",
+  semestral:   "semestres",
+  anual:       "años",
+};
+
+// "1 mes", "3 meses", "2 semanas", etc.
+export function labelIntervaloCalendario(unidad, intervalo = 1) {
+  const n = intervalo || 1;
+  return `${n} ${n === 1 ? (LABEL_UNIDAD[unidad] || unidad) : (LABEL_UNIDAD_PLURAL[unidad] || unidad)}`;
+}
+
 // Días transcurridos desde una fecha ISO "YYYY-MM-DD" hasta hoy.
 // Si no hay fecha base devuelve Infinity (nunca realizado → siempre vencido).
 export function diasDesde(fechaISO) {
@@ -82,6 +97,54 @@ export function diasDesde(fechaISO) {
 // Retorna el total de días que representa un intervalo calendario.
 export function totalDiasCalendario(unidad, intervalo = 1) {
   return (intervalo || 1) * (DIAS_POR_UNIDAD[unidad] || 1);
+}
+
+// Schedule compliance para planes de tipo CALENDARIO.
+// Evalúa si la brecha entre ejecuciones consecutivas (por fecha) estuvo
+// dentro del intervalo + tolerancia, igual que scheduleCompliance para horas.
+export function scheduleComplianceCalendario(historial = [], planes = [], tolerancia = TOLERANCIA_PM) {
+  const planDe = new Map(
+    (planes || []).filter((p) => p?.tipo_disparador === "calendario" && p?.unidad_calendario)
+      .map((p) => [p.id, p])
+  );
+
+  const porPlanEjec = new Map();
+  for (const h of historial || []) {
+    if (!h?.fecha_realizacion || !h?.plan_pm_id) continue;
+    if (!planDe.has(h.plan_pm_id)) continue;
+    if (!porPlanEjec.has(h.plan_pm_id)) porPlanEjec.set(h.plan_pm_id, []);
+    porPlanEjec.get(h.plan_pm_id).push(h.fecha_realizacion);
+  }
+
+  let evaluadas = 0, aTiempo = 0;
+  const porPlan = new Map();
+  for (const [planId, fechas] of porPlanEjec) {
+    const plan = planDe.get(planId);
+    const totalDias = totalDiasCalendario(plan.unidad_calendario, plan.intervalo_calendario ?? 1);
+    const limite = totalDias * (1 + tolerancia);
+    const orden = fechas.slice().sort();
+    let ev = 0, ok = 0;
+    for (let i = 1; i < orden.length; i++) {
+      const gap = Math.floor(
+        (new Date(orden[i] + "T00:00:00") - new Date(orden[i - 1] + "T00:00:00")) / 86_400_000
+      );
+      ev++;
+      if (gap <= limite) ok++;
+    }
+    if (ev > 0) porPlan.set(planId, { evaluadas: ev, aTiempo: ok });
+    evaluadas += ev; aTiempo += ok;
+  }
+
+  return { evaluadas, aTiempo, pct: evaluadas > 0 ? (aTiempo / evaluadas) * 100 : null, porPlan };
+}
+
+// Combina compliance de horas y calendario en un único indicador.
+export function scheduleComplianceCombinado(historial = [], planes = [], tolerancia = TOLERANCIA_PM) {
+  const h = scheduleCompliance(historial, planes, tolerancia);
+  const c = scheduleComplianceCalendario(historial, planes, tolerancia);
+  const ev = h.evaluadas + c.evaluadas;
+  const ok = h.aTiempo + c.aTiempo;
+  return { evaluadas: ev, aTiempo: ok, pct: ev > 0 ? (ok / ev) * 100 : null };
 }
 
 // Semáforo para planes de tipo calendario.

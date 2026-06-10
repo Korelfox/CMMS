@@ -11,7 +11,7 @@ import {
 } from "../ui";
 import ComboInput from "./ComboInput";
 import { TAREAS_PM } from "../lib/tareasPM";
-import { statusPlanCalendario, diasDesde, DIAS_POR_UNIDAD, LABEL_UNIDAD } from "../lib/pm";
+import { statusPlanCalendario, diasDesde, DIAS_POR_UNIDAD, LABEL_UNIDAD, labelIntervaloCalendario, scheduleComplianceCombinado } from "../lib/pm";
 
 const HOY = () => new Date().toISOString().slice(0, 10);
 const INTERVALOS_COMUNES = [50, 100, 250, 500, 1000, 2000, 4000, 8000];
@@ -80,7 +80,7 @@ export default function PlanPM({ onNavigate }) {
       const [embs, eqs, pls, hist] = await Promise.all([
         fetchAll("embarcaciones",  { order: { col: "codigo",      asc: true  } }),
         fetchAll("equipos",        { order: { col: "id_visible",  asc: true  } }),
-        fetchAll("planes_pm",      { order: { col: "intervalo_horas", asc: true } }),
+        fetchAll("planes_pm",      { order: { col: "descripcion",     asc: true } }),
         fetchAll("historial_pm",   { order: { col: "created_at",  asc: false } }),
       ]);
       setEmbarcaciones(embs); setEquipos(eqs); setPlanes(pls); setHistorial(hist);
@@ -108,8 +108,9 @@ export default function PlanPM({ onNavigate }) {
       if (tone === "red")    vencidos++;
       if (tone === "yellow") proximos++;
     });
-    return { total, vencidos, proximos, ok: total - vencidos - proximos };
-  }, [planes, equipos]);
+    const cumpl = scheduleComplianceCombinado(historial, planes);
+    return { total, vencidos, proximos, ok: total - vencidos - proximos, cumplPct: cumpl.pct };
+  }, [planes, equipos, historial]);
 
   if (loading) return <div><PageHead kicker="Mantenimiento Preventivo" title="Plan Preventivo" /><Card><InlineSpinner label="Cargando plan preventivo…" /></Card></div>;
 
@@ -136,12 +137,12 @@ export default function PlanPM({ onNavigate }) {
 
       {/* KPIs */}
       {tab === "plan" && kpis.total > 0 && (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12, marginBottom: 18 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 12, marginBottom: 18 }}>
           {[
-            ["Planes activos",  kpis.total,    C.steel],
-            ["Vencidos",        kpis.vencidos, C.red,   "requieren atención inmediata"],
-            ["Próximos",        kpis.proximos, C.amber, "≥ 90% del intervalo"],
-            ["Al día",          kpis.ok,       C.green],
+            ["Planes activos",  kpis.total,    C.steel,  null],
+            ["Vencidos",        kpis.vencidos, C.red,    "requieren atención inmediata"],
+            ["Próximos",        kpis.proximos, C.amber,  "≥ 90% del intervalo"],
+            ["Al día",          kpis.ok,       C.green,  null],
           ].map(([lbl, val, tone, sub]) => (
             <Card key={lbl} style={{ padding: 14 }}>
               <div style={{ fontSize: 10.5, letterSpacing: 1.5, textTransform: "uppercase", color: C.slate, fontWeight: 700 }}>{lbl}</div>
@@ -149,6 +150,13 @@ export default function PlanPM({ onNavigate }) {
               {sub && <div style={{ fontSize: 11, color: C.slate, marginTop: 4 }}>{sub}</div>}
             </Card>
           ))}
+          <Card style={{ padding: 14 }}>
+            <div style={{ fontSize: 10.5, letterSpacing: 1.5, textTransform: "uppercase", color: C.slate, fontWeight: 700 }}>Cumplimiento</div>
+            <div style={{ ...archivo, fontSize: 26, fontWeight: 800, color: kpis.cumplPct == null ? C.slate : kpis.cumplPct >= 90 ? C.green : kpis.cumplPct >= 70 ? C.amber : C.red, marginTop: 6 }}>
+              {kpis.cumplPct == null ? "—" : `${Math.round(kpis.cumplPct)}%`}
+            </div>
+            <div style={{ fontSize: 11, color: C.slate, marginTop: 4 }}>PMs a tiempo (SMRP)</div>
+          </Card>
         </div>
       )}
 
@@ -178,9 +186,18 @@ function TabPlan({ lista, equipos, setEquipos, planes, setPlanes, setHistorial, 
   const [regForm,     setRegForm]     = useState({ realizado_por: "", notas: "", crearOT: false });
   const [editHitoId,  setEditHitoId]  = useState(null); // plan_pm_id en edición de hito
   const [hitoForm,    setHitoForm]    = useState({ horas: "", fecha: "" });
+  const [busqueda,    setBusqueda]    = useState("");
   // Colapso por nodo a cualquier nivel (helper compartido en todo el CMMS).
   const arbol = useArbolColapsable(lista);
-  const listaVisible = lista.filter((eq) => arbol.visible(eq));
+  const busq  = busqueda.trim().toLowerCase();
+  const listaVisible = lista.filter((eq) => {
+    if (!arbol.visible(eq)) return false;
+    if (!busq) return true;
+    // Mostrar nodo si él mismo, su id_visible, o alguno de sus planes coincide
+    if (eq.sistema?.toLowerCase().includes(busq)) return true;
+    if (eq.id_visible?.toLowerCase().includes(busq)) return true;
+    return planes.some((p) => p.equipo_id === eq.id && p.activo && p.descripcion?.toLowerCase().includes(busq));
+  });
 
   if (lista.length === 0) return (
     <Card><Empty>
@@ -226,14 +243,19 @@ function TabPlan({ lista, equipos, setEquipos, planes, setPlanes, setHistorial, 
   }
 
   async function guardarHito(plan) {
-    const horas = hitoForm.horas !== "" ? +hitoForm.horas : 0;
-    const fecha = hitoForm.fecha || null;
-    const prev  = { horas_ult_pm: plan.horas_ult_pm, fecha_ult_pm: plan.fecha_ult_pm };
-    setPlanes((p) => p.map((x) => x.id === plan.id ? { ...x, horas_ult_pm: horas, fecha_ult_pm: fecha } : x));
+    const esCalendario = plan.tipo_disparador === "calendario";
+    const horas  = !esCalendario ? (hitoForm.horas !== "" ? +hitoForm.horas : 0) : null;
+    const fecha  = hitoForm.fecha || null;
+    const prev   = { horas_ult_pm: plan.horas_ult_pm, fecha_ult_pm: plan.fecha_ult_pm };
+    const update = esCalendario ? { fecha_ult_pm: fecha } : { horas_ult_pm: horas, fecha_ult_pm: fecha };
+    setPlanes((p) => p.map((x) => x.id === plan.id ? { ...x, ...update } : x));
     setEditHitoId(null);
     try {
-      await updateRow("planes_pm", plan.id, { horas_ult_pm: horas, fecha_ult_pm: fecha });
-      logActivity(profile, "Ajustar hito PM", `${plan.descripcion} · ${horas}h · ${fecha || "sin fecha"}`);
+      await updateRow("planes_pm", plan.id, update);
+      const logLabel = esCalendario
+        ? `${plan.descripcion} · ${fecha || "sin fecha"}`
+        : `${plan.descripcion} · ${horas}h · ${fecha || "sin fecha"}`;
+      logActivity(profile, "Ajustar hito PM", logLabel);
     } catch (e) {
       setPlanes((p) => p.map((x) => x.id === plan.id ? { ...x, ...prev } : x));
       setEditHitoId(plan.id);
@@ -303,11 +325,61 @@ function TabPlan({ lista, equipos, setEquipos, planes, setPlanes, setHistorial, 
     } catch (e) { setError("No se pudo registrar el PM: " + e.message); }
   }
 
+  // ── Exportar plan PM completo a CSV ─────────────────────────────
+  function exportarPlan() {
+    const filas = [
+      ["Equipo", "ID visible", "Disparador", "Tarea PM", "Intervalo", "Último PM (h)", "Última fecha PM", "Estado"],
+      ...planes.filter((p) => p.activo).map((p) => {
+        const eq  = equipos.find((e) => e.id === p.equipo_id);
+        const esCal = p.tipo_disparador === "calendario";
+        let estado = "";
+        if (esCal) {
+          const [tone, label] = statusPlanCalendario(diasDesde(p.fecha_ult_pm), p.unidad_calendario, p.intervalo_calendario ?? 1);
+          estado = label;
+        } else {
+          const elapsed = (eq?.horas_actual || 0) - (p.horas_ult_pm || 0);
+          const [, label] = statusPlan(elapsed, p.intervalo_horas);
+          estado = label;
+        }
+        return [
+          eq?.sistema || "—",
+          eq?.id_visible || "—",
+          esCal ? "Calendario" : "Horas",
+          p.descripcion,
+          esCal ? labelIntervaloCalendario(p.unidad_calendario, p.intervalo_calendario ?? 1) : `${p.intervalo_horas}h`,
+          esCal ? "" : (p.horas_ult_pm || 0),
+          p.fecha_ult_pm || "Nunca",
+          estado,
+        ];
+      }),
+    ];
+    const csv = filas.map((r) => r.map((c) => { const s = String(c ?? ""); return /[",;\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; }).join(";")).join("\n");
+    const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
+    const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "plan_pm.csv"; a.click();
+  }
+
   return (
     <div>
-      <BotonesColapsar conHijos={arbol.conHijos} colapsarTodo={arbol.colapsarTodo} />
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12, flexWrap: "wrap" }}>
+        <BotonesColapsar conHijos={arbol.conHijos} colapsarTodo={arbol.colapsarTodo} />
+        <input
+          value={busqueda}
+          onChange={(e) => setBusqueda(e.target.value)}
+          placeholder="Buscar equipo o tarea…"
+          style={{ ...inputStyle(), minWidth: 220, flex: 1, maxWidth: 340 }} />
+        {busqueda && (
+          <button onClick={() => setBusqueda("")} style={{ background: "none", border: "none", cursor: "pointer", color: C.slate, padding: "0 4px", fontSize: 13 }}>
+            <X size={14} />
+          </button>
+        )}
+        <div style={{ flex: 1 }} />
+        <button onClick={exportarPlan} style={exportBtn}><Download size={14} /> Exportar plan</button>
+      </div>
       {listaVisible.map((eq) => {
-        const planesEq = planes.filter((p) => p.equipo_id === eq.id && p.activo);
+        const planesEq = planes.filter((p) =>
+          p.equipo_id === eq.id && p.activo &&
+          (!busq || p.descripcion?.toLowerCase().includes(busq) || eq.sistema?.toLowerCase().includes(busq) || eq.id_visible?.toLowerCase().includes(busq))
+        );
         const vencidosEq = planesEq.filter((p) => {
           if (p.tipo_disparador === "calendario")
             return statusPlanCalendario(diasDesde(p.fecha_ult_pm), p.unidad_calendario, p.intervalo_calendario ?? 1)[0] === "red";
@@ -371,7 +443,7 @@ function TabPlan({ lista, equipos, setEquipos, planes, setPlanes, setHistorial, 
                       <div style={{ fontSize: 13, fontWeight: 600, color: C.abyss }}>{plan.descripcion}</div>
                       <div style={{ fontSize: 11, color: C.slate, marginTop: 1 }}>
                         {esCalendario
-                          ? <span>Cada <strong>{plan.intervalo_calendario ?? 1} {LABEL_UNIDAD[plan.unidad_calendario] || plan.unidad_calendario}</strong></span>
+                          ? <span>Cada <strong>{labelIntervaloCalendario(plan.unidad_calendario, plan.intervalo_calendario ?? 1)}</strong></span>
                           : <span>Cada <strong>{plan.intervalo_horas}h</strong></span>}
                         {plan.fecha_ult_pm
                           ? <span> · Último: {new Date(plan.fecha_ult_pm + "T00:00:00").toLocaleDateString("es-CL")}{!esCalendario && ` (${num(plan.horas_ult_pm || 0)}h)`}</span>
@@ -424,13 +496,15 @@ function TabPlan({ lista, equipos, setEquipos, planes, setPlanes, setHistorial, 
                       <div style={{ fontSize: 11.5, color: C.slate, marginBottom: 10, lineHeight: 1.5 }}>
                         Corrige cuándo se realizó el último servicio. <strong>No registra un PM nuevo</strong> — solo ajusta el punto de partida del semáforo y la barra de progreso.
                       </div>
-                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                        <Field label="Último servicio a (h)">
-                          <input type="number" value={hitoForm.horas}
-                            onChange={(ev) => setHitoForm((p) => ({ ...p, horas: ev.target.value }))}
-                            placeholder="0 — nunca realizado"
-                            style={{ ...inputStyle(), fontFamily: "'IBM Plex Mono', monospace" }} />
-                        </Field>
+                      <div style={{ display: "grid", gridTemplateColumns: plan.tipo_disparador === "calendario" ? "1fr" : "1fr 1fr", gap: 10 }}>
+                        {plan.tipo_disparador !== "calendario" && (
+                          <Field label="Último servicio a (h)">
+                            <input type="number" value={hitoForm.horas}
+                              onChange={(ev) => setHitoForm((p) => ({ ...p, horas: ev.target.value }))}
+                              placeholder="0 — nunca realizado"
+                              style={{ ...inputStyle(), fontFamily: "'IBM Plex Mono', monospace" }} />
+                          </Field>
+                        )}
                         <Field label="Fecha del último servicio">
                           <input type="date" value={hitoForm.fecha}
                             onChange={(ev) => setHitoForm((p) => ({ ...p, fecha: ev.target.value }))}
@@ -566,8 +640,8 @@ function TabPlan({ lista, equipos, setEquipos, planes, setPlanes, setHistorial, 
                   </table>
                   <div style={{ color: C.slate }}>
                     <strong style={{ color: C.abyss }}>Regla práctica:</strong> a mayor criticidad y uso, menor intervalo.
-                    Para PM por <strong>tiempo</strong> (ánodos, inspección de casco, certificados) que no dependen de horas,
-                    usa un intervalo alto y registra el PM por fecha — o gestiónalo desde <strong>Cumplimiento</strong>.
+                    Para PM que dependen del <strong>calendario</strong> (ánodos, inspección de tablero, certificados, gobierno)
+                    usa el toggle <em>Calendario</em> y elige la unidad: Semanal, Mensual, etc.
                   </div>
                 </GuiaColapsable>
               </div>
@@ -584,12 +658,22 @@ function TabPlan({ lista, equipos, setEquipos, planes, setPlanes, setHistorial, 
 // ─────────────────────────────────────────────────────────────────
 function TabHistorial({ historial, planes, equipos }) {
   function eqNombre(id) { const e = equipos.find((x) => x.id === id); return e ? `${e.sistema} (${e.id_visible})` : "—"; }
-  function planDesc(id) { const p = planes.find((x) => x.id === id); return p ? `${p.intervalo_horas}h · ${p.descripcion}` : "—"; }
+  function planDesc(id) {
+    const p = planes.find((x) => x.id === id);
+    if (!p) return "—";
+    const intervalo = p.tipo_disparador === "calendario"
+      ? labelIntervaloCalendario(p.unidad_calendario, p.intervalo_calendario ?? 1)
+      : `${p.intervalo_horas}h`;
+    return `${intervalo} · ${p.descripcion}`;
+  }
 
   function exportar() {
     const filas = [
-      ["Fecha", "Equipo", "Plan PM", "Horas realización", "Realizado por", "Notas", "OT vinculada"],
-      ...historial.map((h) => [h.fecha_realizacion, eqNombre(h.equipo_id), planDesc(h.plan_pm_id), h.horas_realizacion, h.realizado_por || "", h.notas || "", h.ot_id ? "Sí" : "No"]),
+      ["Fecha", "Equipo", "Plan PM", "Tipo", "Horas realización", "Realizado por", "Notas", "OT vinculada"],
+      ...historial.map((h) => {
+        const p = planes.find((x) => x.id === h.plan_pm_id);
+        return [h.fecha_realizacion, eqNombre(h.equipo_id), planDesc(h.plan_pm_id), p?.tipo_disparador || "horas", h.horas_realizacion ?? "", h.realizado_por || "", h.notas || "", h.ot_id ? "Sí" : "No"];
+      }),
     ];
     const csv = filas.map((r) => r.map((c) => { const s = String(c ?? ""); return /[",;\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; }).join(";")).join("\n");
     const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
