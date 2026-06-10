@@ -70,3 +70,30 @@ export function diasDesde(fecha, hoy = new Date()) {
   if (!fecha) return null;
   return Math.max((hoy - new Date(fecha)) / MS_DIA, 0);
 }
+
+// ── Herencia de horómetro ────────────────────────────────────────────────
+// El horómetro vive en la MÁQUINA (modo 'propio'); sus componentes 'hereda'
+// usan esas horas. Los nodos 'no' (estructura) quedan fuera.
+export const modoHorometro = (eq) => eq?.horometro || "hereda";
+
+// Devuelve el id del nodo que TIENE el horómetro para `equipo`:
+//  - él mismo si es 'propio'
+//  - el ancestro 'propio' más cercano si 'hereda'
+//  - null si es 'no', o si no hay ningún ancestro 'propio' (sin horómetro)
+export function puntoHorometro(equipo, byId) {
+  if (!equipo || modoHorometro(equipo) === "no") return null;
+  let cur = equipo;
+  const seen = new Set();
+  while (cur && !seen.has(cur.id)) {
+    seen.add(cur.id);
+    if (modoHorometro(cur) === "propio") return cur.id;
+    cur = cur.parent_id ? byId.get(cur.parent_id) : null;
+  }
+  return null;
+}
+
+// ids de los equipos cuyo punto de horómetro es `propioId` (el propio + sus
+// descendientes que heredan). Sirve para propagar una lectura a todo el subárbol.
+export function idsBajoPunto(propioId, equipos, byId) {
+  return equipos.filter((e) => puntoHorometro(e, byId) === propioId).map((e) => e.id);
+}

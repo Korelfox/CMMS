@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { validarLectura, tendenciaHorasDia, diasHasta, diasDesde } from "../src/lib/horometro.js";
+import { validarLectura, tendenciaHorasDia, diasHasta, diasDesde, puntoHorometro, idsBajoPunto } from "../src/lib/horometro.js";
 
 const dia = (n) => new Date(Date.UTC(2026, 5, n)); // junio 2026
 
@@ -65,6 +65,36 @@ describe("tendenciaHorasDia", () => {
       { fecha: dia(20), horas: 1000 }, // últimas 2: 100 h en 10 días
     ];
     expect(tendenciaHorasDia(lecturas, 2)).toBeCloseTo(10, 5);
+  });
+});
+
+describe("herencia de horómetro (puntoHorometro / idsBajoPunto)", () => {
+  // Motor (propio) → Lubricación (hereda) → Filtro (hereda); Mampáro (no)
+  const eqs = [
+    { id: "mtr", parent_id: null,  horometro: "propio" },
+    { id: "lub", parent_id: "mtr", horometro: "hereda" },
+    { id: "flt", parent_id: "lub", horometro: "hereda" },
+    { id: "gen", parent_id: null,  horometro: "propio" },
+    { id: "mam", parent_id: null,  horometro: "no" },
+    { id: "nav", parent_id: null,  horometro: "hereda" }, // sin ancestro propio
+  ];
+  const byId = new Map(eqs.map((e) => [e.id, e]));
+
+  it("un componente que hereda apunta a su máquina ('propio') más cercana", () => {
+    expect(puntoHorometro(byId.get("flt"), byId)).toBe("mtr");
+    expect(puntoHorometro(byId.get("lub"), byId)).toBe("mtr");
+    expect(puntoHorometro(byId.get("mtr"), byId)).toBe("mtr"); // el propio es su propio punto
+  });
+
+  it("'no' y 'hereda' sin ancestro propio no tienen horómetro", () => {
+    expect(puntoHorometro(byId.get("mam"), byId)).toBeNull();
+    expect(puntoHorometro(byId.get("nav"), byId)).toBeNull();
+  });
+
+  it("idsBajoPunto = el propio + sus descendientes que heredan (sin tocar otra máquina ni 'no')", () => {
+    const ids = idsBajoPunto("mtr", eqs, byId);
+    expect(ids.sort()).toEqual(["flt", "lub", "mtr"]);
+    expect(idsBajoPunto("gen", eqs, byId)).toEqual(["gen"]);
   });
 });
 
