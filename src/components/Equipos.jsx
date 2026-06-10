@@ -4,7 +4,7 @@ import { useAuth } from "../lib/auth";
 import { fetchAll, insertRow, updateRow, deleteRow, logActivity } from "../lib/db";
 import { C, isAdmin, canOperate, ESTADOS_EQUIPO, estadoLabel, tint, shadow } from "../theme";
 import { buildEquipoTree } from "../lib/equipTree";
-import { fondoTipo } from "../lib/arbolColapsable";
+import { fondoTipo, colorTipo } from "../lib/arbolColapsable";
 import { PLANTILLA_PESQUERA, nodoIncluido, contarNodosPlantilla, contarRepuestosPlantilla, contarPlanesPMPlantilla, TIPO_NODO_META, CRITICIDAD_TONE } from "../lib/plantillaPesquera";
 
 import {
@@ -70,6 +70,7 @@ export default function Equipos() {
   const [destinos,    setDestinos]    = useState([]); // inventario_item_destinos (item↔equipo)
   const [repuestoPanel, setRepuestoPanel] = useState(null); // equipo id con panel de repuestos abierto
   const [fichaNode, setFichaNode] = useState(null); // equipo con la ficha técnica abierta
+  const [menuHijo, setMenuHijo] = useState(null);   // equipo id con el menú "agregar (tipo)" abierto
   const [densidad, setDensidad] = useState(() => {
     try { return localStorage.getItem("equipos_densidad") || "media"; } catch { return "media"; }
   });
@@ -211,8 +212,11 @@ export default function Equipos() {
 
   // Agrega un hijo directamente desde el árbol (ej. un filtro extra bajo "Combustible").
   // Crea el nodo al instante (con id y padre) y queda editable inline; expande el padre.
-  async function agregarHijo(parent) {
-    const childTipo = TIPO_HIJO[parent.tipo_nodo] || "componente";
+  async function agregarHijo(parent, tipoElegido) {
+    setMenuHijo(null);
+    // Tipo del hijo: el elegido por el usuario, o el sugerido según el padre.
+    const childTipo = tipoElegido || TIPO_HIJO[parent.tipo_nodo] || "componente";
+    const nombreNuevo = { subsistema: "Nuevo subsistema", componente: "Nuevo componente", instrumento: "Nuevo instrumento" }[childTipo] || "Nuevo componente";
     // Código auto: ruta del padre (sin la secuencia final) + correlativo único.
     const base   = String(parent.id_visible || "EQ").replace(/-\d+$/, "");
     const usados = new Set(equipos.map((e) => e.id_visible));
@@ -222,7 +226,7 @@ export default function Equipos() {
       const nuevo = await insertRow("equipos", profile.empresa_id, {
         embarcacion_id: parent.embarcacion_id,
         id_visible:     idVis,
-        sistema:        childTipo === "subsistema" ? "Nuevo subsistema" : "Nuevo componente",
+        sistema:        nombreNuevo,
         parent_id:      parent.id,
         tipo_nodo:      childTipo,
         criticidad:     parent.criticidad || null,
@@ -743,10 +747,28 @@ export default function Equipos() {
                             onBlur={(ev) => commit(e.id, "sistema", ev.target.value)}
                             style={{ ...bluC, width: Math.max(172, 262 - e.depth * 12), fontFamily: "inherit", color: e.depth === 0 ? C.abyss : C.ink, fontWeight: e.depth === 0 ? 700 : 400 }} />
                           {puedeOperar && (
-                            <button onClick={() => agregarHijo(e)} title={`Agregar ${(TIPO_HIJO[e.tipo_nodo] || "componente")} dentro de "${e.sistema}"`}
-                              style={{ marginLeft: 6, background: "none", border: `1px solid ${tint(C.cyan, 45)}`, borderRadius: 6, cursor: "pointer", color: C.cyan, padding: "1px 4px", display: "flex", alignItems: "center", flexShrink: 0 }}>
-                              <Plus size={13} strokeWidth={2.5} />
-                            </button>
+                            <span style={{ position: "relative", display: "inline-flex", flexShrink: 0 }}>
+                              <button onClick={() => setMenuHijo(menuHijo === e.id ? null : e.id)} title={`Agregar dentro de "${e.sistema}"`}
+                                style={{ marginLeft: 6, background: menuHijo === e.id ? C.cyan : "none", border: `1px solid ${tint(C.cyan, 45)}`, borderRadius: 6, cursor: "pointer", color: menuHijo === e.id ? "#fff" : C.cyan, padding: "1px 4px", display: "flex", alignItems: "center" }}>
+                                <Plus size={13} strokeWidth={2.5} />
+                              </button>
+                              {menuHijo === e.id && (
+                                <>
+                                  <div onClick={() => setMenuHijo(null)} style={{ position: "fixed", inset: 0, zIndex: 30 }} />
+                                  <div style={{ position: "absolute", top: "100%", left: 6, marginTop: 4, zIndex: 31, background: C.surface, border: `1px solid ${C.line}`, borderRadius: 8, boxShadow: "0 8px 24px rgba(8,20,32,.18)", overflow: "hidden", minWidth: 150 }}>
+                                    <div style={{ padding: "6px 10px", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, color: C.slate, fontWeight: 700, borderBottom: `1px solid ${C.foam}` }}>Agregar dentro</div>
+                                    {[["subsistema", "Subsistema", GitBranch], ["componente", "Componente", Wrench], ["instrumento", "Instrumento / sensor", Cpu]].map(([tipo, label, Ico]) => (
+                                      <button key={tipo} onClick={() => agregarHijo(e, tipo)}
+                                        style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", textAlign: "left", background: "none", border: "none", cursor: "pointer", padding: "8px 11px", fontSize: 12.5, color: C.ink }}
+                                        onMouseEnter={(ev) => (ev.currentTarget.style.background = tint(C.cyan, 10))}
+                                        onMouseLeave={(ev) => (ev.currentTarget.style.background = "none")}>
+                                        <Ico size={14} color={colorTipo({ tipo_nodo: tipo })} /> {label}
+                                      </button>
+                                    ))}
+                                  </div>
+                                </>
+                              )}
+                            </span>
                           )}
                           {e.criticidad && <span style={{ marginLeft: 6, flexShrink: 0 }}><Pill tone={CRITICIDAD_TONE[e.criticidad]}>{e.criticidad}</Pill></span>}
                           {colapsado && nDesc > 0 && <span style={{ marginLeft: 8, fontSize: 11.5, color: C.steel, fontWeight: 600, flexShrink: 0 }} title={`${nDesc} elemento(s) ocultos`}>▸ {nDesc}</span>}
