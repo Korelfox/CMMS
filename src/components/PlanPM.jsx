@@ -11,9 +11,11 @@ import {
 } from "../ui";
 import ComboInput from "./ComboInput";
 import { TAREAS_PM } from "../lib/tareasPM";
+import { statusPlanCalendario, diasDesde, DIAS_POR_UNIDAD, LABEL_UNIDAD } from "../lib/pm";
 
 const HOY = () => new Date().toISOString().slice(0, 10);
-const INTERVALOS_COMUNES = [50, 100, 250, 500, 1000, 2000, 4000];
+const INTERVALOS_COMUNES = [50, 100, 250, 500, 1000, 2000, 4000, 8000];
+const UNIDADES_CAL = ["diario", "semanal", "mensual", "trimestral", "semestral", "anual"];
 
 // ── Semáforo por plan ──────────────────────────────────────────
 function statusPlan(elapsed, intervalo) {
@@ -35,6 +37,25 @@ function PMBar({ elapsed, intervalo }) {
       </div>
       <span style={{ fontSize: 11.5, color, fontWeight: 700, fontFamily: "'IBM Plex Mono', monospace", minWidth: 90, textAlign: "right" }}>
         {num(elapsed, 0)}h / {intervalo}h
+      </span>
+    </div>
+  );
+}
+
+function PMBarCalendario({ diasElapsed, unidad, intervalo = 1 }) {
+  const total = (DIAS_POR_UNIDAD[unidad] || 1) * (intervalo || 1);
+  const safe  = Number.isFinite(diasElapsed) ? diasElapsed : total;
+  const pct   = Math.min(100, total > 0 ? (safe / total) * 100 : 0);
+  const [tone] = statusPlanCalendario(safe, unidad, intervalo);
+  const color  = tone === "red" ? C.red : tone === "yellow" ? C.amber : C.green;
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 220 }}>
+      <div style={{ flex: 1, height: 7, background: tint(C.slate, 14), borderRadius: 4, position: "relative" }}>
+        <div style={{ height: "100%", width: `${pct}%`, background: color, borderRadius: 4, transition: "width .3s" }} />
+        <div title="90% del intervalo" style={{ position: "absolute", top: -2, left: "90%", width: 2, height: 11, background: C.slate, opacity: 0.35, borderRadius: 1 }} />
+      </div>
+      <span style={{ fontSize: 11.5, color, fontWeight: 700, fontFamily: "'IBM Plex Mono', monospace", minWidth: 90, textAlign: "right" }}>
+        {Number.isFinite(diasElapsed) ? diasElapsed : "—"}d / {total}d
       </span>
     </div>
   );
@@ -77,8 +98,12 @@ export default function PlanPM({ onNavigate }) {
     planes.filter((p) => p.activo).forEach((p) => {
       const eq = equipos.find((e) => e.id === p.equipo_id);
       if (!eq) return;
-      const elapsed = (eq.horas_actual || 0) - (p.horas_ult_pm || 0);
-      const [tone]  = statusPlan(elapsed, p.intervalo_horas);
+      let tone;
+      if (p.tipo_disparador === "calendario") {
+        [tone] = statusPlanCalendario(diasDesde(p.fecha_ult_pm), p.unidad_calendario, p.intervalo_calendario ?? 1);
+      } else {
+        [tone] = statusPlan((eq.horas_actual || 0) - (p.horas_ult_pm || 0), p.intervalo_horas);
+      }
       total++;
       if (tone === "red")    vencidos++;
       if (tone === "yellow") proximos++;
@@ -148,7 +173,7 @@ export default function PlanPM({ onNavigate }) {
 // ─────────────────────────────────────────────────────────────────
 function TabPlan({ lista, equipos, setEquipos, planes, setPlanes, setHistorial, embName, profile, puedeOperar, puedeBorrar, setError, onNavigate }) {
   const [addingFor,   setAddingFor]   = useState(null); // equipo_id
-  const [newPlan,     setNewPlan]     = useState({ descripcion: "", intervalo_horas: 250, horas_ult_pm: "", fecha_ult_pm: "" });
+  const [newPlan,     setNewPlan]     = useState({ descripcion: "", tipo_disparador: "horas", intervalo_horas: 250, unidad_calendario: "mensual", intervalo_calendario: 1, horas_ult_pm: "", fecha_ult_pm: "" });
   const [registrando, setRegistrando] = useState(null); // plan_pm_id
   const [regForm,     setRegForm]     = useState({ realizado_por: "", notas: "", crearOT: false });
   const [editHitoId,  setEditHitoId]  = useState(null); // plan_pm_id en edición de hito
@@ -167,18 +192,25 @@ function TabPlan({ lista, equipos, setEquipos, planes, setPlanes, setHistorial, 
   async function agregarPlan(equipoId) {
     if (!newPlan.descripcion.trim()) return;
     const eq = equipos.find((e) => e.id === equipoId);
+    const esCalendario = newPlan.tipo_disparador === "calendario";
     try {
       const nuevo = await insertRow("planes_pm", profile.empresa_id, {
-        equipo_id:       equipoId,
-        descripcion:     newPlan.descripcion.trim(),
-        intervalo_horas: +newPlan.intervalo_horas,
-        activo:          true,
-        horas_ult_pm:    newPlan.horas_ult_pm !== "" ? +newPlan.horas_ult_pm : 0,
-        fecha_ult_pm:    newPlan.fecha_ult_pm || null,
+        equipo_id:            equipoId,
+        descripcion:          newPlan.descripcion.trim(),
+        tipo_disparador:      newPlan.tipo_disparador,
+        intervalo_horas:      esCalendario ? null : +newPlan.intervalo_horas,
+        unidad_calendario:    esCalendario ? newPlan.unidad_calendario : null,
+        intervalo_calendario: esCalendario ? +newPlan.intervalo_calendario : null,
+        activo:               true,
+        horas_ult_pm:         esCalendario ? null : (newPlan.horas_ult_pm !== "" ? +newPlan.horas_ult_pm : 0),
+        fecha_ult_pm:         newPlan.fecha_ult_pm || null,
       });
       setPlanes((p) => [...p, nuevo]);
-      logActivity(profile, "Crear plan PM", `${eq?.sistema} · cada ${nuevo.intervalo_horas}h`);
-      setNewPlan({ descripcion: "", intervalo_horas: 250, horas_ult_pm: "", fecha_ult_pm: "" });
+      const cadaLabel = esCalendario
+        ? `cada ${nuevo.intervalo_calendario} ${LABEL_UNIDAD[nuevo.unidad_calendario] || nuevo.unidad_calendario}`
+        : `cada ${nuevo.intervalo_horas}h`;
+      logActivity(profile, "Crear plan PM", `${eq?.sistema} · ${cadaLabel}`);
+      setNewPlan({ descripcion: "", tipo_disparador: "horas", intervalo_horas: 250, unidad_calendario: "mensual", intervalo_calendario: 1, horas_ult_pm: "", fecha_ult_pm: "" });
       setAddingFor(null);
     } catch (e) { setError("No se pudo crear el plan: " + e.message); }
   }
@@ -218,29 +250,37 @@ function TabPlan({ lista, equipos, setEquipos, planes, setPlanes, setHistorial, 
   }
 
   async function registrarPM(plan) {
-    const eq      = equipos.find((e) => e.id === plan.equipo_id);
-    const horas   = eq?.horas_actual || 0;
-    const fecha   = HOY();
-    const elapsed = horas - (plan.horas_ult_pm || 0);
+    const eq           = equipos.find((e) => e.id === plan.equipo_id);
+    const horas        = eq?.horas_actual || 0;
+    const fecha        = HOY();
+    const esCalendario = plan.tipo_disparador === "calendario";
+    const elapsed      = esCalendario
+      ? diasDesde(plan.fecha_ult_pm)
+      : horas - (plan.horas_ult_pm || 0);
     let otId = null;
 
     try {
       // 1) Generar OT si se pidió
       if (regForm.crearOT && eq) {
-        const [tone] = statusPlan(elapsed, plan.intervalo_horas);
+        const [tone] = esCalendario
+          ? statusPlanCalendario(elapsed, plan.unidad_calendario, plan.intervalo_calendario ?? 1)
+          : statusPlan(elapsed, plan.intervalo_horas);
         const prio = tone === "red" ? "alta" : tone === "yellow" ? "media" : "baja";
         const folio = `PM-${Date.now().toString().slice(-6)}`;
         const ot = await insertRow("ordenes_trabajo", profile.empresa_id, {
           folio, embarcacion_id: eq.embarcacion_id, equipo_id: eq.id,
           sistema: eq.sistema, tipo: "preventivo",
-          descripcion: `PM ${plan.intervalo_horas}h · ${plan.descripcion}`,
+          descripcion: esCalendario
+            ? `PM Cal · ${plan.descripcion}`
+            : `PM ${plan.intervalo_horas}h · ${plan.descripcion}`,
           prioridad: prio, fecha, estado: "abierta", created_by: profile.id,
         });
         otId = ot.id;
       }
-      // 2) Actualizar contador del plan
-      await updateRow("planes_pm", plan.id, { horas_ult_pm: horas, fecha_ult_pm: fecha });
-      setPlanes((p) => p.map((x) => x.id === plan.id ? { ...x, horas_ult_pm: horas, fecha_ult_pm: fecha } : x));
+      // 2) Actualizar contador del plan (calendario: solo fecha; horas: horas + fecha)
+      const pmUpdate = esCalendario ? { fecha_ult_pm: fecha } : { horas_ult_pm: horas, fecha_ult_pm: fecha };
+      await updateRow("planes_pm", plan.id, pmUpdate);
+      setPlanes((p) => p.map((x) => x.id === plan.id ? { ...x, ...pmUpdate } : x));
       // 3) Actualizar horas_ult_pm del equipo (resumen global)
       if (eq) {
         await updateRow("equipos", eq.id, { horas_ult_pm: horas, fecha_ult_pm: fecha });
@@ -269,8 +309,9 @@ function TabPlan({ lista, equipos, setEquipos, planes, setPlanes, setHistorial, 
       {listaVisible.map((eq) => {
         const planesEq = planes.filter((p) => p.equipo_id === eq.id && p.activo);
         const vencidosEq = planesEq.filter((p) => {
-          const elapsed = (eq.horas_actual || 0) - (p.horas_ult_pm || 0);
-          return statusPlan(elapsed, p.intervalo_horas)[0] === "red";
+          if (p.tipo_disparador === "calendario")
+            return statusPlanCalendario(diasDesde(p.fecha_ult_pm), p.unidad_calendario, p.intervalo_calendario ?? 1)[0] === "red";
+          return statusPlan((eq.horas_actual || 0) - (p.horas_ult_pm || 0), p.intervalo_horas)[0] === "red";
         }).length;
         const tieneHijos = arbol.tieneHijos(eq);
         const colapsado = arbol.estaColapsado(eq);
@@ -313,8 +354,13 @@ function TabPlan({ lista, equipos, setEquipos, planes, setPlanes, setHistorial, 
             )}
 
             {planesEq.map((plan) => {
-              const elapsed = (eq.horas_actual || 0) - (plan.horas_ult_pm || 0);
-              const [tone, label] = statusPlan(elapsed, plan.intervalo_horas);
+              const esCalendario = plan.tipo_disparador === "calendario";
+              const elapsed = esCalendario
+                ? diasDesde(plan.fecha_ult_pm)
+                : (eq.horas_actual || 0) - (plan.horas_ult_pm || 0);
+              const [tone, label] = esCalendario
+                ? statusPlanCalendario(elapsed, plan.unidad_calendario, plan.intervalo_calendario ?? 1)
+                : statusPlan(elapsed, plan.intervalo_horas);
               const isReg = registrando === plan.id;
 
               return (
@@ -324,10 +370,12 @@ function TabPlan({ lista, equipos, setEquipos, planes, setPlanes, setHistorial, 
                     <div style={{ flex: 1 }}>
                       <div style={{ fontSize: 13, fontWeight: 600, color: C.abyss }}>{plan.descripcion}</div>
                       <div style={{ fontSize: 11, color: C.slate, marginTop: 1 }}>
-                        Cada <strong>{plan.intervalo_horas}h</strong>
+                        {esCalendario
+                          ? <span>Cada <strong>{plan.intervalo_calendario ?? 1} {LABEL_UNIDAD[plan.unidad_calendario] || plan.unidad_calendario}</strong></span>
+                          : <span>Cada <strong>{plan.intervalo_horas}h</strong></span>}
                         {plan.fecha_ult_pm
-                          ? <span> · Último: {new Date(plan.fecha_ult_pm + "T00:00:00").toLocaleDateString("es-CL")} ({num(plan.horas_ult_pm || 0)}h)</span>
-                          : plan.horas_ult_pm > 0
+                          ? <span> · Último: {new Date(plan.fecha_ult_pm + "T00:00:00").toLocaleDateString("es-CL")}{!esCalendario && ` (${num(plan.horas_ult_pm || 0)}h)`}</span>
+                          : !esCalendario && plan.horas_ult_pm > 0
                             ? <span> · Base: {num(plan.horas_ult_pm)}h</span>
                             : <span style={{ color: C.amber }}> · Nunca realizado</span>}
                         {puedeOperar && (
@@ -340,7 +388,9 @@ function TabPlan({ lista, equipos, setEquipos, planes, setPlanes, setHistorial, 
                       </div>
                     </div>
                     <div style={{ minWidth: 240 }}>
-                      <PMBar elapsed={elapsed} intervalo={plan.intervalo_horas} />
+                      {esCalendario
+                        ? <PMBarCalendario diasElapsed={elapsed} unidad={plan.unidad_calendario} intervalo={plan.intervalo_calendario ?? 1} />
+                        : <PMBar elapsed={elapsed} intervalo={plan.intervalo_horas} />}
                     </div>
                     {puedeOperar && (
                       <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
@@ -436,6 +486,16 @@ function TabPlan({ lista, equipos, setEquipos, planes, setPlanes, setHistorial, 
             {/* ── Formulario nuevo plan ── */}
             {addingFor === eq.id && (
               <div style={{ marginLeft: eq.depth * 16 + 8, marginTop: 8, padding: "12px 14px", background: C.mist, borderRadius: 8, border: `1px solid ${C.line}` }}>
+                {/* ── Tipo de disparador ── */}
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+                  <span style={{ fontSize: 11.5, color: C.slate, fontWeight: 600 }}>Disparador:</span>
+                  {[["horas", "Por Horas"], ["calendario", "Calendario"]].map(([val, lbl]) => (
+                    <button key={val} onClick={() => setNewPlan((p) => ({ ...p, tipo_disparador: val }))}
+                      style={{ padding: "4px 12px", borderRadius: 6, border: `1px solid ${newPlan.tipo_disparador === val ? C.steel : C.line}`, background: newPlan.tipo_disparador === val ? C.steel : "transparent", color: newPlan.tipo_disparador === val ? "#fff" : C.slate, fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+                      {lbl}
+                    </button>
+                  ))}
+                </div>
                 <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr auto auto", gap: 10, alignItems: "flex-end" }}>
                   <Field label="Tarea de mantenimiento">
                     <ComboInput value={newPlan.descripcion}
@@ -444,23 +504,41 @@ function TabPlan({ lista, equipos, setEquipos, planes, setPlanes, setHistorial, 
                       placeholder="Buscar tarea… (Cambio de aceite, Análisis de aceite…)"
                       autoFocus />
                   </Field>
-                  <Field label="Intervalo (horas)">
-                    <input type="number" value={newPlan.intervalo_horas} list="intervalosnums"
-                      onChange={(e) => setNewPlan((p) => ({ ...p, intervalo_horas: +e.target.value }))}
-                      style={{ ...bluInput, width: "100%" }} />
-                    <datalist id="intervalosnums">{INTERVALOS_COMUNES.map((v) => <option key={v} value={v} />)}</datalist>
-                  </Field>
+                  {newPlan.tipo_disparador === "horas" ? (
+                    <Field label="Intervalo (horas)">
+                      <input type="number" value={newPlan.intervalo_horas} list="intervalosnums"
+                        onChange={(e) => setNewPlan((p) => ({ ...p, intervalo_horas: +e.target.value }))}
+                        style={{ ...bluInput, width: "100%" }} />
+                      <datalist id="intervalosnums">{INTERVALOS_COMUNES.map((v) => <option key={v} value={v} />)}</datalist>
+                    </Field>
+                  ) : (
+                    <div>
+                      <div style={{ fontSize: 11.5, color: C.slate, fontWeight: 600, marginBottom: 4 }}>Intervalo calendario</div>
+                      <div style={{ display: "flex", gap: 6 }}>
+                        <input type="number" min={1} value={newPlan.intervalo_calendario}
+                          onChange={(e) => setNewPlan((p) => ({ ...p, intervalo_calendario: +e.target.value }))}
+                          style={{ ...bluInput, width: 56 }} />
+                        <select value={newPlan.unidad_calendario}
+                          onChange={(e) => setNewPlan((p) => ({ ...p, unidad_calendario: e.target.value }))}
+                          style={{ ...inputStyle(), flex: 1 }}>
+                          {UNIDADES_CAL.map((u) => <option key={u} value={u}>{u.charAt(0).toUpperCase() + u.slice(1)}</option>)}
+                        </select>
+                      </div>
+                    </div>
+                  )}
                   <button onClick={() => agregarPlan(eq.id)} style={{ ...primaryBtn, marginTop: 22 }}>Guardar</button>
                   <button onClick={() => setAddingFor(null)} style={{ ...ghostBtn, marginTop: 22 }}><X size={13} /></button>
                 </div>
                 {/* ── Hito inicial (opcional) ── */}
                 <div style={{ marginTop: 10, paddingTop: 10, borderTop: `1px dashed ${C.line}`, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                  <Field label="Último servicio a (h) · opcional">
-                    <input type="number" value={newPlan.horas_ult_pm}
-                      onChange={(e) => setNewPlan((p) => ({ ...p, horas_ult_pm: e.target.value }))}
-                      placeholder="0 — nunca realizado"
-                      style={{ ...bluInput, width: "100%" }} />
-                  </Field>
+                  {newPlan.tipo_disparador === "horas" && (
+                    <Field label="Último servicio a (h) · opcional">
+                      <input type="number" value={newPlan.horas_ult_pm}
+                        onChange={(e) => setNewPlan((p) => ({ ...p, horas_ult_pm: e.target.value }))}
+                        placeholder="0 — nunca realizado"
+                        style={{ ...bluInput, width: "100%" }} />
+                    </Field>
+                  )}
                   <Field label="Fecha del último servicio · opcional">
                     <input type="date" value={newPlan.fecha_ult_pm}
                       onChange={(e) => setNewPlan((p) => ({ ...p, fecha_ult_pm: e.target.value }))}

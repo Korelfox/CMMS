@@ -47,3 +47,49 @@ export function scheduleCompliance(historial = [], planes = [], tolerancia = TOL
 
   return { evaluadas, aTiempo, pct: evaluadas > 0 ? (aTiempo / evaluadas) * 100 : null, porPlan };
 }
+
+// ============================================================
+//  Disparadores de tipo CALENDARIO
+// ============================================================
+
+// Días naturales por unidad de calendario
+export const DIAS_POR_UNIDAD = {
+  diario:      1,
+  semanal:     7,
+  mensual:     30,
+  trimestral:  90,
+  semestral:   182,
+  anual:       365,
+};
+
+export const LABEL_UNIDAD = {
+  diario:      "día",
+  semanal:     "semana",
+  mensual:     "mes",
+  trimestral:  "trimestre",
+  semestral:   "semestre",
+  anual:       "año",
+};
+
+// Días transcurridos desde una fecha ISO "YYYY-MM-DD" hasta hoy.
+// Si no hay fecha base devuelve Infinity (nunca realizado → siempre vencido).
+export function diasDesde(fechaISO) {
+  if (!fechaISO) return Infinity;
+  const base = new Date(fechaISO + "T00:00:00").getTime();
+  return Math.floor((Date.now() - base) / 86_400_000);
+}
+
+// Retorna el total de días que representa un intervalo calendario.
+export function totalDiasCalendario(unidad, intervalo = 1) {
+  return (intervalo || 1) * (DIAS_POR_UNIDAD[unidad] || 1);
+}
+
+// Semáforo para planes de tipo calendario.
+// diasElapsed: días desde el último PM. unidad: clave de DIAS_POR_UNIDAD.
+// → ["red"|"yellow"|"green", "Vencido"|"Próximo"|"OK"]
+export function statusPlanCalendario(diasElapsed, unidad, intervalo = 1) {
+  const total = totalDiasCalendario(unidad, intervalo);
+  if (diasElapsed >= total)         return ["red",    "Vencido"];
+  if (diasElapsed >= total * 0.9)   return ["yellow", "Próximo"];
+  return                                   ["green",  "OK"];
+}

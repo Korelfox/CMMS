@@ -1,7 +1,7 @@
 // Catálogo de tareas de mantenimiento preventivo de clase mundial (pesca/marino,
-// ISO 14224 / RCM). Son sugerencias: el usuario puede escribir una tarea propia.
+// ISO 14224 / RCM / SFI). Son sugerencias: el usuario puede escribir una tarea propia.
 export const TAREAS_PM = [
-  // Motor principal / generador
+  // ── Motor principal / generador ─────────────────────────────────────────────
   "Cambio de aceite de motor",
   "Cambio de filtro de aceite",
   "Cambio de filtros de combustible",
@@ -18,30 +18,109 @@ export const TAREAS_PM = [
   "Prueba de alarmas y paradas de seguridad",
   "Revisión general del motor (mayor)",
   "Overhaul / reacondicionamiento",
-  // Transmisión / propulsión
+  // ── Inspecciones diarias / ronda de máquinas ────────────────────────────────
+  "Verificar presión y temperatura de operación (ronda)",
+  "Verificar nivel de aceite en cárter",
+  "Verificar fugas (combustible, aceite, refrigerante)",
+  "Verificar temperatura de refrigerante",
+  // ── Inspecciones semanales ───────────────────────────────────────────────────
+  "Inspección visual de soportes y montajes",
+  "Inspección de líneas y mangueras de combustible",
+  "Inspección de sistema de escape",
+  "Inspección de aislación térmica",
+  // ── Turboalimentador ────────────────────────────────────────────────────────
+  "Limpieza de compresor del turboalimentador",
+  "Medición de holguras axiales del turbo",
+  "Inspección de cojinetes del turboalimentador",
+  "Balanceo dinámico del turboalimentador",
+  "Overhaul completo de turboalimentador",
+  // ── Sistema de combustible ───────────────────────────────────────────────────
+  "Prueba de retorno de inyectores",
+  "Limpieza de tanque diario de combustible",
+  "Banco de pruebas de inyectores",
+  // ── Refrigeración ────────────────────────────────────────────────────────────
+  "Verificar concentración de refrigerante (glicol)",
+  "Muestreo de refrigerante / análisis de laboratorio",
+  "Limpieza de circuito de agua dulce",
+  "Cambio de refrigerante de agua dulce",
+  "Limpieza de serpentines del condensador",
+  "Desincrustación química de intercambiadores",
+  "Overhaul de bomba de agua de mar",
+  // ── Medición y diagnóstico ───────────────────────────────────────────────────
+  "Medición de compresión de cilindros",
+  "Boroscopía de cilindros",
+  "Inspección de árbol de levas",
+  "Termografía de alternador / generador",
+  "Inspección de aislamiento de devanados",
+  "Muestreo de aceite hidráulico",
+  // ── Overhaul por horas ───────────────────────────────────────────────────────
+  "Overhaul parcial (sellos y juntas críticas)",
+  "Overhaul mayor de pistones y anillos",
+  "Overhaul completo de generador",
+  // ── Compresor de aire / arranque ─────────────────────────────────────────────
+  "Drenar condensados del compresor de arranque",
+  "Cambio de aceite de compresor de arranque",
+  "Inspección de válvulas de descarga del compresor",
+  "Cambio de segmentos del compresor de arranque",
+  "Overhaul completo de compresor de arranque",
+  // ── Refrigeración frigorífica (RSW) ──────────────────────────────────────────
+  "Verificar presión alta, baja y temperaturas frigoríficas",
+  "Verificar nivel de aceite del compresor frigorífico",
+  "Verificar estado de filtros del compresor RSW",
+  "Cambio de filtros de aceite de compresor RSW",
+  "Análisis de aceite de compresor frigorífico",
+  "Cambio de válvulas del compresor frigorífico",
+  "Overhaul completo de compresor frigorífico",
+  "Limpieza visual del condensador RSW",
+  "Limpieza profunda de condensador RSW",
+  "Prueba de fugas de refrigerante",
+  "Limpieza de evaporador RSW",
+  "Verificación de ventiladores de evaporador",
+  "Deshielo completo de evaporador RSW",
+  "Prueba de eficiencia frigorífica",
+  // ── Tablero eléctrico ────────────────────────────────────────────────────────
+  "Limpieza interior de tablero eléctrico",
+  "Torque de conexiones del tablero",
+  "Termografía del tablero principal",
+  "Prueba de disparo de protecciones",
+  // ── Transmisión / propulsión ─────────────────────────────────────────────────
   "Cambio de aceite de reductora",
   "Inspección de eje, bocina y sello",
   "Inspección de hélice",
-  // Hidráulico / pesca
+  // ── Hidráulico / pesca ───────────────────────────────────────────────────────
   "Cambio de aceite hidráulico",
   "Cambio de filtro hidráulico",
   "Revisión de mangueras y presión hidráulica",
   "Revisión de winche / power block",
+  "Cambio de aceite en reductores de winche",
+  "Inspección de engranajes del winche",
+  "Overhaul de frenos hidráulicos del winche",
+  "Lubricación de cables de pesca",
+  "Inspección de frenos de winches",
+  "Overhaul de bombas hidráulicas",
+  "Inspección estructural de grúas y plumas",
+  "Inspección de cables y eslingas de grúas",
+  "Ensayo de discontinuidades (END) en soldaduras",
+  "Certificación de carga de grúas",
   "Engrase / lubricación general",
-  // Eléctrico
+  // ── Eléctrico ────────────────────────────────────────────────────────────────
   "Revisión de banco de baterías",
   "Revisión de tablero y conexiones eléctricas",
   "Calibración de sensores / instrumentos",
-  // RSW / refrigeración
+  // ── Gobierno ─────────────────────────────────────────────────────────────────
+  "Prueba operacional del sistema de gobierno",
+  "Cambio de bomba activa del timón",
+  "Prueba de emergencia del gobierno",
+  // ── RSW / refrigeración ───────────────────────────────────────────────────────
   "Revisión de compresor RSW",
   "Control de carga de refrigerante",
-  // Casco / seguridad / normativa
+  // ── Casco / seguridad / normativa ─────────────────────────────────────────────
   "Inspección de ánodos de sacrificio",
   "Inspección de casco y obra viva",
   "Revisión de bombas de achique",
   "Control de extintores",
   "Revisión de balsa salvavidas",
-  // Predictivo
+  // ── Predictivo ────────────────────────────────────────────────────────────────
   "Análisis de vibraciones",
   "Termografía",
   "Inspección visual / por condición",

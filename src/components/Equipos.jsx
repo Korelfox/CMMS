@@ -354,12 +354,21 @@ export default function Equipos() {
     }
 
     // Crea los planes preventivos precargados del componente (campo `pm`).
+    // Formato: [descripcion, horas]  →  disparador horas
+    //          [descripcion, null, unidad_cal]  →  disparador calendario
     async function crearPlanes(nodo, equipoId) {
-      for (const [descripcion, intervalo] of nodo.pm || []) {
+      for (const [descripcion, intervalo, unidad] of nodo.pm || []) {
+        const esCalendario = unidad != null;
         try {
           const plan = await insertRow("planes_pm", profile.empresa_id, {
-            equipo_id: equipoId, descripcion, intervalo_horas: intervalo,
-            activo: true, horas_ult_pm: 0,
+            equipo_id:            equipoId,
+            descripcion,
+            tipo_disparador:      esCalendario ? "calendario" : "horas",
+            intervalo_horas:      esCalendario ? null : (intervalo || 0),
+            intervalo_calendario: esCalendario ? 1 : null,
+            unidad_calendario:    esCalendario ? unidad : null,
+            activo:               true,
+            horas_ult_pm:         esCalendario ? null : 0,
           });
           planesCreados.push(plan);
         } catch { /* plan duplicado u otra carrera: ignorar */ }
