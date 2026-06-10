@@ -7,6 +7,7 @@ import { buildEquipoTree } from "../lib/equipTree";
 import { useArbolColapsable, EquipoNodoLabel, fondoTipo } from "../lib/arbolColapsable";
 import { estadoStock as estadoStockOf } from "../lib/stock";
 import EquipoPicker from "./EquipoPicker";
+import ComboInput from "./ComboInput";
 import { PLANTILLA_PESQUERA, TIPO_REPUESTO_META } from "../lib/plantillaPesquera";
 
 const TIPOS_REPUESTO = [
@@ -351,7 +352,7 @@ export default function Inventario() {
             <Field label="Código"><input value={form.codigo} onChange={(e) => setForm({ ...form, codigo: e.target.value })} style={inputStyle()} placeholder="INS-001" /></Field>
             <Field label="Descripción" span={2}><input value={form.descripcion} onChange={(e) => setForm({ ...form, descripcion: e.target.value })} style={inputStyle()} /></Field>
             <Field label="Categoría">
-              <input value={form.categoria} list="inv-categorias" onChange={(e) => setForm({ ...form, categoria: e.target.value })} style={inputStyle()} placeholder="Seleccionar o escribir…" />
+              <ComboInput value={form.categoria} onChange={(v) => setForm({ ...form, categoria: v })} options={categoriasSugeridas} placeholder="Buscar o escribir categoría…" />
             </Field>
             <Field label="Unidad"><input value={form.unidad} onChange={(e) => setForm({ ...form, unidad: e.target.value })} style={inputStyle()} /></Field>
             <Field label="Stock mín"><input type="number" value={form.stock_min} onChange={(e) => setForm({ ...form, stock_min: +e.target.value })} style={bluInput} /></Field>
