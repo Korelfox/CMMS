@@ -72,6 +72,7 @@ export default function Inventario() {
   const [busqueda, setBusqueda] = useState("");
   const [filtroABC, setFiltroABC] = useState("all");   // all | A | B | C
   const [filtroStock, setFiltroStock] = useState("all"); // all | bajo | revisar | ok
+  const [soloConStock, setSoloConStock] = useState(true); // false = ver catálogo completo
   const [gruposCol, setGruposCol] = useState(() => new Set()); // grupos colapsados
   const [filasEditando, setFilasEditando] = useState(new Map()); // id → snapshot campos editables
   const [bodegas, setBodegas] = useState([]);
@@ -159,7 +160,9 @@ export default function Inventario() {
   const estadoStock = (i) => estadoStockOf(i.total, i.stock_min, i.stock_max);
   const stockStatus = (i) => estadoStock(i).key;
   const q = busqueda.trim().toLowerCase();
+  const itemsConStock = conABC.filter((x) => x.total > 0).length;
   const lista = conABC.filter((i) =>
+    (!soloConStock || i.total > 0) &&
     (filtroCat === "all" || i.categoria === filtroCat) &&
     (filtroABC === "all" || i.abc === filtroABC) &&
     (filtroStock === "all" || stockStatus(i) === filtroStock) &&
@@ -360,7 +363,10 @@ export default function Inventario() {
                 </button>
               ))}
             </div>
-            <span style={{ marginLeft: "auto", fontSize: 12, color: C.slate }}>{lista.length} de {items.length} ítems</span>
+            <span style={{ marginLeft: "auto", fontSize: 12, color: C.slate }}>
+              {lista.length} de {soloConStock ? itemsConStock : items.length} {soloConStock ? "en stock" : "en catálogo"}
+              {soloConStock && items.length > itemsConStock && <span style={{ color: C.slate, opacity: 0.6, marginLeft: 4 }}>({items.length - itemsConStock} sin stock ocultos)</span>}
+            </span>
             {hayFiltro && (
               <button onClick={limpiarFiltros} style={{ padding: "6px 10px", borderRadius: 7, border: `1px solid ${C.line}`, background: "none", color: C.slate, fontSize: 12, cursor: "pointer" }}>
                 <X size={13} style={{ display: "inline", verticalAlign: "middle" }} /> Limpiar
@@ -368,8 +374,13 @@ export default function Inventario() {
             )}
           </div>
 
-          {/* Fila 2: ABC + estado de stock */}
+          {/* Fila 2: toggle catálogo + ABC + estado de stock */}
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+            <button onClick={() => setSoloConStock((v) => !v)} style={{ padding: "5px 13px", borderRadius: 7, border: `1px solid ${soloConStock ? C.cyan : C.line}`, background: soloConStock ? tint(C.cyan, 14) : "#fff", color: soloConStock ? C.cyan : C.slate, fontSize: 12.5, fontWeight: 700, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 5 }}>
+              <span style={{ width: 7, height: 7, borderRadius: "50%", background: soloConStock ? C.cyan : C.line, display: "inline-block" }} />
+              {soloConStock ? "En stock" : "Catálogo completo"}
+            </button>
+            <div style={{ width: 1, alignSelf: "stretch", background: C.line, margin: "0 2px" }} />
             <span style={{ fontSize: 11, color: C.slate, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5 }}>ABC</span>
             {[["all", "Todos", C.slate], ["A", "A", C.red], ["B", "B", C.amber], ["C", "C", C.green]].map(([v, lbl, tone]) => {
               const active = filtroABC === v;
