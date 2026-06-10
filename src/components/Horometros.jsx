@@ -1,12 +1,12 @@
 import React, { useEffect, useState, useCallback, useMemo } from "react";
-import { Timer, Save, ChevronDown, ChevronRight, History, AlertCircle, CheckCircle2, CornerDownRight, Ban, Droplet } from "lucide-react";
+import { Timer, Save, ChevronDown, ChevronRight, History, AlertCircle, CheckCircle2, CornerDownRight } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { fetchAll, insertRow, logActivity } from "../lib/db";
 import { supabase } from "../lib/supabase";
 import { validarLectura, tendenciaHorasDia, diasDesde, modoHorometro, puntoHorometro, idsBajoPunto } from "../lib/horometro";
 import { buildEquipoTree } from "../lib/equipTree";
 import { useArbolColapsable, BotonesColapsar, colorTipo, fondoTipo } from "../lib/arbolColapsable";
-import { C, num, canOperate, tint, NIVEL_TIPOS } from "../theme";
+import { C, num, canOperate, tint } from "../theme";
 import {
   Card, PageHead, Pill, FilterBtn, primaryBtn, inputStyle,
   thStyle, tdStyle, Empty, ErrorBanner, InlineSpinner, GuiaColapsable,
@@ -20,12 +20,6 @@ function toneAntiguedad(dias) {
   return ["red", `hace ${Math.round(dias)} d`];
 }
 
-const MODOS = [
-  { value: "propio", label: "Propio" },
-  { value: "hereda", label: "Hereda" },
-  { value: "no", label: "No aplica" },
-];
-
 export default function Horometros() {
   const { profile } = useAuth();
   const [embarcaciones, setEmbarcaciones] = useState([]);
@@ -34,9 +28,8 @@ export default function Horometros() {
   const [loading, setLoading]   = useState(true);
   const [error, setError]       = useState(null);
   const [okMsg, setOkMsg]       = useState(null);
-  const [filtro, setFiltro]     = useState("all");
-  const [verTodos, setVerTodos] = useState(false);   // configurar modos vs solo con horómetro
-  const [valores, setValores]   = useState({});      // puntoId → texto ingresado
+  const [filtro, setFiltro]   = useState("all");
+  const [valores, setValores] = useState({});      // puntoId → texto ingresado
   const [histAbierto, setHistAbierto] = useState(null);
   const [guardando, setGuardando]     = useState(false);
   const puedeOperar = canOperate(profile?.rol);
@@ -57,18 +50,16 @@ export default function Horometros() {
 
   const byId = useMemo(() => new Map(equipos.map((e) => [e.id, e])), [equipos]);
   const lecturasDe = useCallback((id) => lecturas.filter((l) => l.equipo_id === id), [lecturas]);
-  const embName = (id) => embarcaciones.find((v) => v.id === id)?.nombre || "—";
 
   const equiposNave = useMemo(
     () => (filtro === "all" ? equipos : equipos.filter((e) => e.embarcacion_id === filtro)),
     [equipos, filtro]);
 
-  // "Solo con horómetro": el subárbol de cada punto propio (propio + lo que hereda),
-  // excluyendo los 'no'. "Todos": el árbol completo para configurar los modos.
+  // Solo equipos con horómetro configurado (propio o hereda con ascendiente propio).
+  // La configuración se hace en Equipos → botón ⚙ Config. operacional.
   const lista = useMemo(() => {
-    const base = verTodos ? equiposNave : equiposNave.filter((e) => puntoHorometro(e, byId) !== null);
-    return buildEquipoTree(base);
-  }, [equiposNave, verTodos, byId]);
+    return buildEquipoTree(equiposNave.filter((e) => puntoHorometro(e, byId) !== null));
+  }, [equiposNave, byId]);
 
   const arbol = useArbolColapsable(lista);
   const listaVisible = lista.filter((eq) => arbol.visible(eq));
@@ -85,50 +76,6 @@ export default function Horometros() {
   }, [equiposNave, lecturasDe]);
 
   const pendientes = Object.entries(valores).filter(([, v]) => String(v).trim() !== "");
-
-  // Cambia el modo de horómetro de un nodo (propio / hereda / no).
-  async function cambiarModo(eq, modo) {
-    if (modo === modoHorometro(eq)) return;
-    const previo = eq.horometro;
-    setEquipos((p) => p.map((x) => x.id === eq.id ? { ...x, horometro: modo } : x));
-    try {
-      await supabase.from("equipos").update({ horometro: modo }).eq("id", eq.id);
-      logActivity(profile, "Horómetro: cambiar modo", `${eq.id_visible} · ${modo}`);
-    } catch (e) {
-      setEquipos((p) => p.map((x) => x.id === eq.id ? { ...x, horometro: previo } : x));
-      setError("No se pudo cambiar el modo: " + e.message);
-    }
-  }
-
-  // Marca/desmarca "consume aceite" en un punto de horómetro (la máquina). Este
-  // flag reparte el aceite consumido entre los motores en Consumos & Eficiencia
-  // (proporcional a sus horas). Solo aplica a máquinas con horómetro propio.
-  async function toggleConsumeAceite(eq) {
-    const nuevo = !eq.consume_aceite;
-    setEquipos((p) => p.map((x) => x.id === eq.id ? { ...x, consume_aceite: nuevo } : x));
-    try {
-      await supabase.from("equipos").update({ consume_aceite: nuevo }).eq("id", eq.id);
-      logActivity(profile, "Horómetro: consume aceite", `${eq.id_visible} · ${nuevo ? "sí" : "no"}`);
-    } catch (e) {
-      setEquipos((p) => p.map((x) => x.id === eq.id ? { ...x, consume_aceite: !nuevo } : x));
-      setError("No se pudo guardar: " + e.message);
-    }
-  }
-
-  // Cambia el tipo de nivel que se revisa en el prezarpe (aceite / aceite+agua /
-  // ninguno). Vive aquí porque aplica a las máquinas y sus componentes con
-  // niveles; lo consume el módulo Prezarpe.
-  async function cambiarNivel(eq, valor) {
-    const previo = eq.nivel_tipo;
-    setEquipos((p) => p.map((x) => x.id === eq.id ? { ...x, nivel_tipo: valor } : x));
-    try {
-      await supabase.from("equipos").update({ nivel_tipo: valor }).eq("id", eq.id);
-      logActivity(profile, "Horómetro: nivel prezarpe", `${eq.id_visible} · ${valor}`);
-    } catch (e) {
-      setEquipos((p) => p.map((x) => x.id === eq.id ? { ...x, nivel_tipo: previo } : x));
-      setError("No se pudo guardar: " + e.message);
-    }
-  }
 
   // Guarda las lecturas pendientes (cada una en su punto propio) y PROPAGA las
   // horas a todo el subárbol que hereda, para que el PM por intervalo de cada
@@ -213,10 +160,6 @@ export default function Horometros() {
         {embarcaciones.map((v) => (
           <FilterBtn key={v.id} active={filtro === v.id} onClick={() => setFiltro(v.id)} color={v.color}>{v.nombre}</FilterBtn>
         ))}
-        <label style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: C.slate, fontWeight: 600, cursor: "pointer" }}>
-          <input type="checkbox" checked={verTodos} onChange={(e) => setVerTodos(e.target.checked)} style={{ accentColor: C.steel }} />
-          Ver todos los equipos (configurar horómetros)
-        </label>
       </div>
 
       <BotonesColapsar conHijos={arbol.conHijos} colapsarTodo={arbol.colapsarTodo} />
@@ -224,20 +167,17 @@ export default function Horometros() {
       {listaVisible.length === 0 ? (
         <Card><Empty>
           <Timer size={30} color={C.line} style={{ marginBottom: 10 }} /><br />
-          No hay puntos de horómetro para este filtro. Activa "Ver todos los equipos" y marca como <strong>Propio</strong> las máquinas que tengan horómetro.
+          Sin equipos con horómetro para este filtro. Ve a <strong>Equipos</strong> → botón <strong>⚙</strong> por equipo y asigna <em>Punto propio</em> a los motores y generadores.
         </Empty></Card>
       ) : (
         <Card style={{ padding: 0, overflow: "hidden" }}>
           <div style={{ overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 1080 }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 760 }}>
               <thead><tr>
                 <th style={thStyle}>Sistema / Equipo</th>
-                <th style={{ ...thStyle, textAlign: "center" }}>Horómetro</th>
                 <th style={{ ...thStyle, textAlign: "right" }}>Horas</th>
                 <th style={thStyle}>Última lectura</th>
                 <th style={{ ...thStyle, textAlign: "right" }}>Tendencia</th>
-                <th style={{ ...thStyle, textAlign: "center" }} title="Reparte el aceite consumido entre motores (Consumos & Eficiencia)">Consume aceite</th>
-                <th style={{ ...thStyle, textAlign: "center" }} title="Niveles que se revisan al zarpar (módulo Prezarpe)">Niveles (prezarpe)</th>
                 {puedeOperar && <th style={{ ...thStyle, textAlign: "right" }}>Nueva lectura (h)</th>}
                 <th style={{ ...thStyle, textAlign: "center" }}>Hist.</th>
               </tr></thead>
@@ -246,7 +186,6 @@ export default function Horometros() {
                   const modo = modoHorometro(eq);
                   const puntoId = puntoHorometro(eq, byId);
                   const esPropio = modo === "propio";
-                  const esNo = modo === "no" || puntoId === null;
                   const punto = puntoId ? byId.get(puntoId) : null;
                   const horas = punto?.horas_actual ?? null;
                   const tieneHijos = arbol.tieneHijos(eq);
@@ -259,7 +198,7 @@ export default function Horometros() {
                   const hxd = esPropio ? tendenciaHorasDia(lecs) : null;
                   const abierto = histAbierto === eq.id;
                   return ([
-                    <tr key={eq.id} style={{ background: esNo ? tint(C.slate, 4) : fondoTipo(eq), opacity: esNo ? 0.6 : 1 }}>
+                    <tr key={eq.id} style={{ background: fondoTipo(eq) }}>
                       {/* Árbol */}
                       <td style={tdStyle}>
                         <div style={{ display: "flex", alignItems: "center", gap: 6, paddingLeft: eq.depth * 16 }}>
@@ -277,20 +216,9 @@ export default function Horometros() {
                           </div>
                         </div>
                       </td>
-                      {/* Modo */}
-                      <td style={{ ...tdStyle, textAlign: "center" }}>
-                        {puedeOperar
-                          ? <select value={modo} onChange={(e) => cambiarModo(eq, e.target.value)}
-                              style={{ ...inputStyle(108), padding: "4px 8px", fontSize: 11.5, fontWeight: 600,
-                                color: esPropio ? C.steel : esNo ? C.slate : C.cyan }}>
-                              {MODOS.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
-                            </select>
-                          : <Pill tone={esPropio ? "steel" : esNo ? "slate" : "cyan"}>{esPropio ? "Propio" : esNo ? "No aplica" : "Hereda"}</Pill>}
-                      </td>
                       {/* Horas */}
-                      <td style={{ ...tdStyle, textAlign: "right", fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, color: esNo ? C.line : C.steel }}>
-                        {esNo ? <span style={{ display: "inline-flex", alignItems: "center", gap: 4, color: C.slate, fontWeight: 500, fontFamily: "inherit" }}><Ban size={12} /> No aplica</span>
-                          : horas != null ? `${num(horas)} h` : "—"}
+                      <td style={{ ...tdStyle, textAlign: "right", fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, color: C.steel }}>
+                        {horas != null ? `${num(horas)} h` : "—"}
                       </td>
                       {/* Última lectura / herencia */}
                       <td style={tdStyle}>
@@ -299,33 +227,11 @@ export default function Horometros() {
                             <Pill tone={tone}>{label}</Pill>
                             {ultima && <span style={{ marginLeft: 8, fontSize: 11, color: C.slate }}>{new Date(ultima.fecha).toLocaleDateString("es-CL")} · {ultima.usuario_nombre || "—"}</span>}
                           </>
-                        ) : esNo ? <span style={{ color: C.line }}>—</span>
-                          : <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11.5, color: C.cyan }}><CornerDownRight size={12} /> de {punto?.sistema || "—"}</span>}
+                        ) : <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11.5, color: C.cyan }}><CornerDownRight size={12} /> de {punto?.sistema || "—"}</span>}
                       </td>
                       {/* Tendencia */}
                       <td style={{ ...tdStyle, textAlign: "right" }}>
                         {hxd != null ? <span style={{ fontWeight: 700, color: C.cyan, fontFamily: "'IBM Plex Mono', monospace" }}>{num(hxd, 1)} h/día</span> : <span style={{ color: C.line }}>—</span>}
-                      </td>
-                      {/* Consume aceite: solo aplica a las máquinas (punto propio) */}
-                      <td style={{ ...tdStyle, textAlign: "center" }}>
-                        {esPropio ? (
-                          <label title="Reparte el aceite consumido entre los motores (Consumos & Eficiencia)" style={{ display: "inline-flex", alignItems: "center", gap: 5, cursor: puedeOperar ? "pointer" : "default", color: eq.consume_aceite ? C.gold : C.slate, fontSize: 11.5, fontWeight: 600 }}>
-                            <input type="checkbox" checked={!!eq.consume_aceite} disabled={!puedeOperar}
-                              onChange={() => toggleConsumeAceite(eq)}
-                              style={{ width: 15, height: 15, accentColor: C.gold, cursor: puedeOperar ? "pointer" : "default" }} />
-                            <Droplet size={13} />
-                          </label>
-                        ) : <span style={{ color: C.line }}>—</span>}
-                      </td>
-                      {/* Niveles de prezarpe: en máquinas y componentes (no en estructura) */}
-                      <td style={{ ...tdStyle, textAlign: "center" }}>
-                        {esNo ? <span style={{ color: C.line }}>—</span> : (
-                          <select value={eq.nivel_tipo || "ninguno"} disabled={!puedeOperar}
-                            onChange={(e) => cambiarNivel(eq, e.target.value)}
-                            style={{ ...inputStyle(150), padding: "4px 8px", fontSize: 11.5, color: (eq.nivel_tipo && eq.nivel_tipo !== "ninguno") ? C.steel : C.slate }}>
-                            {NIVEL_TIPOS.map((n) => <option key={n.value} value={n.value}>{n.label}</option>)}
-                          </select>
-                        )}
                       </td>
                       {/* Nueva lectura: solo en puntos propios */}
                       {puedeOperar && (
@@ -352,7 +258,7 @@ export default function Horometros() {
                     </tr>,
                     abierto && (
                       <tr key={eq.id + "-h"}>
-                        <td colSpan={puedeOperar ? 9 : 8} style={{ padding: "10px 18px 14px", background: tint(C.steel, 6), borderBottom: `1px solid ${C.line}` }}>
+                        <td colSpan={puedeOperar ? 6 : 5} style={{ padding: "10px 18px 14px", background: tint(C.steel, 6), borderBottom: `1px solid ${C.line}` }}>
                           <table style={{ width: "100%", borderCollapse: "collapse" }}>
                             <thead><tr>
                               {["Fecha", "Horas", "Δ desde anterior", "Registrada por", "Nota"].map((h) => (
@@ -384,10 +290,10 @@ export default function Horometros() {
 
       <GuiaColapsable titulo="¿Cómo funciona la herencia de horómetro?" icon={Timer}>
         <ul style={{ margin: 0, paddingLeft: 18, color: C.slate }}>
-          <li><strong>Propio</strong>: la máquina con horómetro real (Motor Principal, Generador). Aquí ingresas la lectura.</li>
-          <li><strong>Hereda</strong>: los componentes del equipo usan las horas de su máquina. Ingresas una vez y se propaga a todo el subárbol — no registras horas pieza por pieza.</li>
-          <li><strong>No aplica</strong>: sistemas donde el horómetro no tiene sentido (mamparos, casco, estructura). Quedan fuera del registro.</li>
-          <li>Los <strong>filtros y consumibles</strong> también heredan las horas del motor; cambian más seguido porque su plan PM reinicia su contador al cambiarlos (no porque tengan otro horómetro).</li>
+          <li><strong>Configurar equipos</strong>: ve a <strong>Equipos</strong> → botón <strong>⚙ Config. operacional</strong> por fila. Ahí defines Propio / Hereda / No aplica, si consume aceite y los niveles de prezarpe.</li>
+          <li><strong>Propio</strong>: máquina con horómetro real (Motor Principal, Generador). Aquí ingresas las lecturas periódicas.</li>
+          <li><strong>Hereda</strong>: filtros, enfriadores y demás componentes usan las horas de su motor ascendiente. Ingresas la lectura una vez y se propaga a todo el subárbol.</li>
+          <li><strong>No aplica</strong>: mamparos, casco, estructura — sin registro de horas; no aparecen en esta vista.</li>
           <li>El sistema <strong>rechaza lecturas decrecientes</strong> y advierte saltos imposibles (&gt;24 h/día). Registra al menos una lectura semanal por máquina.</li>
         </ul>
       </GuiaColapsable>

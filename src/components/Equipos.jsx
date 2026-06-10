@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from "react";
-import { Ship, Plus, Trash2, Download, AlertCircle, GitBranch, Layers, Cpu, Wrench, Box, Hash, ChevronDown, ChevronRight, ChevronUp, Check, Package, X, Rows3, FileText } from "lucide-react";
+import { Ship, Plus, Trash2, Download, AlertCircle, GitBranch, Layers, Cpu, Wrench, Box, Hash, ChevronDown, ChevronRight, ChevronUp, Check, Package, X, Rows3, FileText, Settings2 } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { fetchAll, insertRow, updateRow, deleteRow, logActivity } from "../lib/db";
 import { C, isAdmin, canOperate, ESTADOS_EQUIPO, estadoLabel, tint, shadow } from "../theme";
@@ -14,6 +14,7 @@ import {
 import NotaJerarquia from "./equipos/NotaJerarquia";
 import RepuestoPanel from "./equipos/RepuestoPanel";
 import FichaEquipo, { fichaTieneDatos } from "./equipos/FichaEquipo";
+import PropOpModal from "./equipos/PropOpModal";
 
 const TIPO_NODOS = [
   { value: "equipo",      label: "Equipo (genérico)" },
@@ -62,8 +63,9 @@ export default function Equipos() {
   const [items,       setItems]       = useState([]); // inventario_items (repuestos)
   const [destinos,    setDestinos]    = useState([]); // inventario_item_destinos (item↔equipo)
   const [repuestoPanel, setRepuestoPanel] = useState(null); // equipo id con panel de repuestos abierto
-  const [fichaNode, setFichaNode] = useState(null); // equipo con la ficha técnica abierta
-  const [menuHijo, setMenuHijo] = useState(null);   // equipo id con el menú "agregar (tipo)" abierto
+  const [fichaNode, setFichaNode] = useState(null);   // equipo con la ficha técnica abierta
+  const [propOpNode, setPropOpNode] = useState(null); // equipo con config. operacional abierta
+  const [menuHijo, setMenuHijo] = useState(null);     // equipo id con el menú "agregar (tipo)" abierto
   const [densidad, setDensidad] = useState(() => {
     try { return localStorage.getItem("equipos_densidad") || "media"; } catch { return "media"; }
   });
@@ -408,11 +410,46 @@ export default function Equipos() {
     logActivity(profile, "Editar ficha técnica", `${eq?.id_visible} · ${eq?.sistema}`);
   }
 
+  // Guarda inmediatamente los atributos operacionales (horómetro / consume aceite / nivel).
+  // PropOpModal llama directamente aquí; los cambios NO pasan por la barra "Guardar cambios".
+  async function guardarPropOp(id, cambios) {
+    const eq = equipos.find((x) => x.id === id);
+    // Avisa si se quita el horómetro propio de una máquina que tiene componentes heredando.
+    if (eq?.horometro === "propio" && cambios.horometro !== "propio") {
+      const heredando = equipos.filter((x) => {
+        if (x.id === id || x.horometro !== "hereda") return false;
+        let cur = x;
+        while (cur?.parent_id) {
+          const p = equipos.find((e) => e.id === cur.parent_id);
+          if (!p) break;
+          if (p.id === id) return true;
+          if (p.horometro === "propio") return false;
+          cur = p;
+        }
+        return false;
+      });
+      if (heredando.length > 0 && !window.confirm(
+        `⚠️ "${eq.sistema}" tiene ${heredando.length} componente(s) que heredan sus horas.\n\nAl cambiar el modo quedarán sin horómetro hasta que se reconfiguren individualmente.\n\n¿Continuar?`
+      )) return;
+    }
+    setEquipos((p) => p.map((x) => x.id === id ? { ...x, ...cambios } : x));
+    setOriginal((o) => o[id] ? { ...o, [id]: { ...o[id], ...cambios } } : o);
+    try {
+      await updateRow("equipos", id, cambios);
+      logActivity(profile, "Config. operacional", `${eq?.id_visible} · hor:${cambios.horometro}`);
+    } catch (e) {
+      setEquipos((p) => p.map((x) => x.id === id ? { ...x, ...eq } : x));
+      setOriginal((o) => o[id] ? { ...o, [id]: { ...o[id], ...eq } } : o);
+      setError("No se pudo guardar la configuración: " + e.message);
+      throw e;
+    }
+  }
+
   function onChangeLocal(id, campo, valor) { setEquipos((p) => p.map((e) => e.id === id ? { ...e, [campo]: valor } : e)); }
   // Edición LOCAL — no persiste hasta pulsar "Guardar cambios"
   const commit = onChangeLocal;
 
-  const CAMPOS_EDIT = ["id_visible", "sistema", "marca", "modelo", "horas_actual", "horas_ult_pm", "mtbf_objetivo", "estado", "embarcacion_id", "parent_id", "tipo_nodo", "criticidad", "prezarpe", "nivel_tipo"];
+  const CAMPOS_EDIT = ["id_visible", "sistema", "marca", "modelo", "horas_actual", "horas_ult_pm", "mtbf_objetivo", "estado", "embarcacion_id", "parent_id", "tipo_nodo", "criticidad", "prezarpe"];
   const eqDirty = (e) => { const o = original[e.id]; return o && CAMPOS_EDIT.some((c) => (e[c] ?? null) !== (o[c] ?? null)); };
   const dirtyIds = equipos.filter(eqDirty).map((e) => e.id);
 
@@ -763,6 +800,15 @@ export default function Equipos() {
                           )}
                           {e.criticidad && <span style={{ marginLeft: 6, flexShrink: 0 }}><Pill tone={CRITICIDAD_TONE[e.criticidad]}>{e.criticidad}</Pill></span>}
                           {colapsado && nDesc > 0 && <span style={{ marginLeft: 8, fontSize: 11.5, color: C.steel, fontWeight: 600, flexShrink: 0 }} title={`${nDesc} elemento(s) ocultos`}>▸ {nDesc}</span>}
+                          {/* Indicadores operacionales: punto propio (azul), sin horómetro (gris), aceite (dorado), nivel (verde) */}
+                          {(e.horometro === "propio" || e.horometro === "no" || e.consume_aceite || (e.nivel_tipo && e.nivel_tipo !== "ninguno")) && (
+                            <span style={{ display: "inline-flex", gap: 2, marginLeft: 5, flexShrink: 0, alignItems: "center" }}>
+                              {e.horometro === "propio" && <span title="Horómetro propio"    style={{ width: 6, height: 6, borderRadius: "50%", background: C.steel, display: "inline-block" }} />}
+                              {e.horometro === "no"     && <span title="Sin horómetro"       style={{ width: 6, height: 6, borderRadius: "50%", background: C.slate, display: "inline-block" }} />}
+                              {e.consume_aceite         && <span title="Consume aceite"      style={{ width: 6, height: 6, borderRadius: "50%", background: C.gold,  display: "inline-block" }} />}
+                              {e.nivel_tipo && e.nivel_tipo !== "ninguno" && <span title={`Nivel prezarpe: ${e.nivel_tipo === "aceite" ? "Solo aceite" : "Aceite + agua"}`} style={{ width: 6, height: 6, borderRadius: "50%", background: C.green, display: "inline-block" }} />}
+                            </span>
+                          )}
                         </div>
                       </td>
 
@@ -823,6 +869,13 @@ export default function Equipos() {
                       {hasActions && (
                         <td style={tdE}>
                           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+                            {puedeOperar && (
+                              <button onClick={() => setPropOpNode(e)}
+                                title={`Config. operacional de "${e.sistema}"`}
+                                style={{ background: "none", border: `1px solid ${C.line}`, borderRadius: 6, cursor: "pointer", color: C.slate, padding: "2px 5px", display: "flex", alignItems: "center", flexShrink: 0 }}>
+                                <Settings2 size={14} />
+                              </button>
+                            )}
                             {(() => {
                               const conFicha = fichaTieneDatos(e.ficha);
                               return (
@@ -880,6 +933,13 @@ export default function Equipos() {
           puedeOperar={puedeOperar}
           onSave={(ficha) => guardarFicha(fichaNode.id, ficha)}
           onClose={() => setFichaNode(null)}
+        />
+      )}
+      {propOpNode && (
+        <PropOpModal
+          node={propOpNode}
+          onSave={guardarPropOp}
+          onClose={() => setPropOpNode(null)}
         />
       )}
     </div>
