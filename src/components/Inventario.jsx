@@ -71,9 +71,10 @@ export default function Inventario() {
   const [filtroABC, setFiltroABC] = useState("all");   // all | A | B | C
   const [filtroStock, setFiltroStock] = useState("all"); // all | bajo | revisar | ok
   const [gruposCol, setGruposCol] = useState(() => new Set()); // grupos colapsados
+  const [filasEditando, setFilasEditando] = useState(new Map()); // id → snapshot campos editables
   const puedeOperar = canOperate(profile?.rol);
   const puedeBorrar = isAdmin(profile?.rol);
-  const NCOLS = 12 + (puedeBorrar ? 1 : 0);
+  const NCOLS = 12 + (puedeOperar ? 1 : 0) + (puedeBorrar ? 1 : 0);
 
   function blank() {
     return { codigo: "", descripcion: "", categoria: "", unidad: "Un", stock_min: 0, stock_max: 0, precio: 0, proveedor: "", lead_dias: 7, tipo_repuesto: "oem", grupo_intercambio: "", equipoIds: [] };
@@ -203,11 +204,41 @@ export default function Inventario() {
   }
 
   function onChangeLocal(id, c, v) { setItems((p) => p.map((i) => i.id === id ? { ...i, [c]: v } : i)); }
-  async function commit(id, c, v) {
-    const previo = items.find((i) => i.id === id)?.[c]; if (previo === v) return;
-    onChangeLocal(id, c, v);
-    try { await updateRow("inventario_items", id, { [c]: v }); }
-    catch (e) { onChangeLocal(id, c, previo); setError("No se pudo guardar: " + e.message); }
+
+  // ── Edición explícita (sin auto-commit) ───────────────────────
+  function snapCampos(item) {
+    return { descripcion: item.descripcion, categoria: item.categoria, tipo_repuesto: item.tipo_repuesto, stock_min: item.stock_min, stock_max: item.stock_max, precio: item.precio };
+  }
+  function marcarDirty(item) {
+    setFilasEditando((prev) => prev.has(item.id) ? prev : new Map(prev).set(item.id, snapCampos(item)));
+  }
+  async function guardarFila(id) {
+    const item = items.find((i) => i.id === id);
+    if (!item) return;
+    try {
+      await updateRow("inventario_items", id, snapCampos(item));
+      setFilasEditando((prev) => { const n = new Map(prev); n.delete(id); return n; });
+    } catch (e) {
+      const snap = filasEditando.get(id);
+      if (snap) setItems((prev) => prev.map((i) => i.id === id ? { ...i, ...snap } : i));
+      setFilasEditando((prev) => { const n = new Map(prev); n.delete(id); return n; });
+      setError("No se pudo guardar: " + e.message);
+    }
+  }
+  function cancelarFila(id) {
+    const snap = filasEditando.get(id);
+    if (snap) setItems((prev) => prev.map((i) => i.id === id ? { ...i, ...snap } : i));
+    setFilasEditando((prev) => { const n = new Map(prev); n.delete(id); return n; });
+  }
+  async function guardarTodo() {
+    await Promise.all([...filasEditando.keys()].map((id) => guardarFila(id)));
+  }
+  function descartarTodo() {
+    setItems((prev) => prev.map((i) => {
+      const snap = filasEditando.get(i.id);
+      return snap ? { ...i, ...snap } : i;
+    }));
+    setFilasEditando(new Map());
   }
 
   function iniciarEditCodigo(id, valorActual) {
@@ -507,6 +538,7 @@ export default function Inventario() {
                 <th style={{ ...thStyle, textAlign: "right" }}>Valor</th>
                 <th style={thStyle}>Estado</th>
                 <th style={thStyle}>Destino</th>
+                {puedeOperar && <th style={thStyle}></th>}
                 {puedeBorrar && <th style={thStyle}></th>}
               </tr></thead>
               <tbody>
@@ -516,9 +548,10 @@ export default function Inventario() {
                   const st = estadoStock(i);
                   const itemDests = destinosDeItem(i.id);
                   const isOpen = destinoPanel === i.id;
+                  const isDirty = filasEditando.has(i.id);
                   return (
-                    <tr key={i.id} style={{ background: isOpen ? tint(C.sky, 12) : undefined }}>
-                      <td style={{ ...tdStyle, paddingLeft: 12 + indent }}>
+                    <tr key={i.id} style={{ background: isOpen ? tint(C.sky, 12) : isDirty ? tint(C.cyan, 6) : undefined }}>
+                      <td style={{ ...tdStyle, paddingLeft: 12 + indent, borderLeft: isDirty ? `3px solid ${C.cyan}` : "3px solid transparent" }}>
                         {codigoEdit.id === i.id ? (
                           <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
                             <input
@@ -556,15 +589,13 @@ export default function Inventario() {
                       <td style={{ ...tdStyle, minWidth: 280, width: "22%" }}>
                         <input value={i.descripcion} disabled={!puedeOperar}
                           title={i.descripcion}
-                          onChange={(e) => onChangeLocal(i.id, "descripcion", e.target.value)}
-                          onBlur={(e) => commit(i.id, "descripcion", e.target.value)}
+                          onChange={(e) => { marcarDirty(i); onChangeLocal(i.id, "descripcion", e.target.value); }}
                           style={{ ...inputStyle(), width: "100%", minWidth: 240 }} />
                       </td>
                       <td style={{ ...tdStyle, minWidth: 220, width: "18%" }}>
                         <input value={i.categoria || ""} list="inv-categorias" disabled={!puedeOperar}
                           title={i.categoria || ""}
-                          onChange={(e) => onChangeLocal(i.id, "categoria", e.target.value)}
-                          onBlur={(e) => commit(i.id, "categoria", e.target.value)}
+                          onChange={(e) => { marcarDirty(i); onChangeLocal(i.id, "categoria", e.target.value); }}
                           style={{ ...inputStyle(), width: "100%", minWidth: 180 }} />
                       </td>
 
@@ -577,7 +608,7 @@ export default function Inventario() {
                           return (
                             <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
                               {puedeOperar ? (
-                                <select value={tr} onChange={(e) => commit(i.id, "tipo_repuesto", e.target.value)} style={inputStyle(105)}>
+                                <select value={tr} onChange={(e) => { marcarDirty(i); onChangeLocal(i.id, "tipo_repuesto", e.target.value); }} style={inputStyle(105)}>
                                   {TIPOS_REPUESTO.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
                                 </select>
                               ) : <Pill tone={meta.tone}>{meta.label}</Pill>}
@@ -595,20 +626,17 @@ export default function Inventario() {
                       <td style={{ ...tdStyle, textAlign: "right", fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700 }}>{i.total}</td>
                       <td style={{ ...tdStyle, textAlign: "right" }}>
                         <input type="number" value={i.stock_min} disabled={!puedeOperar}
-                          onChange={(e) => onChangeLocal(i.id, "stock_min", +e.target.value)}
-                          onBlur={(e) => commit(i.id, "stock_min", +e.target.value)}
+                          onChange={(e) => { marcarDirty(i); onChangeLocal(i.id, "stock_min", +e.target.value); }}
                           style={{ ...bluInput, width: 60, textAlign: "right" }} />
                       </td>
                       <td style={{ ...tdStyle, textAlign: "right" }}>
                         <input type="number" value={i.stock_max} disabled={!puedeOperar}
-                          onChange={(e) => onChangeLocal(i.id, "stock_max", +e.target.value)}
-                          onBlur={(e) => commit(i.id, "stock_max", +e.target.value)}
+                          onChange={(e) => { marcarDirty(i); onChangeLocal(i.id, "stock_max", +e.target.value); }}
                           style={{ ...bluInput, width: 60, textAlign: "right" }} />
                       </td>
                       <td style={{ ...tdStyle, textAlign: "right" }}>
                         <input type="number" value={i.precio} disabled={!puedeOperar}
-                          onChange={(e) => onChangeLocal(i.id, "precio", +e.target.value)}
-                          onBlur={(e) => commit(i.id, "precio", +e.target.value)}
+                          onChange={(e) => { marcarDirty(i); onChangeLocal(i.id, "precio", +e.target.value); }}
                           style={{ ...bluInput, width: 90, textAlign: "right" }} />
                       </td>
                       <td style={{ ...tdStyle, textAlign: "right", fontFamily: "'IBM Plex Mono', monospace", fontWeight: 600 }}>{clp(i.valor)}</td>
@@ -651,6 +679,22 @@ export default function Inventario() {
                         </div>
                       </td>
 
+                      {puedeOperar && (
+                        <td style={{ ...tdStyle, whiteSpace: "nowrap" }}>
+                          {isDirty && (
+                            <div style={{ display: "flex", gap: 4 }}>
+                              <button onClick={() => guardarFila(i.id)} title="Guardar cambios"
+                                style={{ display: "inline-flex", alignItems: "center", gap: 4, background: C.green, border: "none", borderRadius: 6, cursor: "pointer", color: "#fff", padding: "4px 10px", fontSize: 11.5, fontWeight: 700 }}>
+                                <Check size={12} strokeWidth={2.5} /> Guardar
+                              </button>
+                              <button onClick={() => cancelarFila(i.id)} title="Descartar cambios"
+                                style={{ display: "inline-flex", alignItems: "center", gap: 3, background: "none", border: `1px solid ${C.line}`, borderRadius: 6, cursor: "pointer", color: C.slate, padding: "4px 8px", fontSize: 11.5 }}>
+                                <X size={12} />
+                              </button>
+                            </div>
+                          )}
+                        </td>
+                      )}
                       {puedeBorrar && (
                         <td style={tdStyle}>
                           <button onClick={() => eliminar(i.id)} style={{ background: "none", border: "none", cursor: "pointer", color: C.slate }}>
@@ -745,6 +789,30 @@ export default function Inventario() {
       <datalist id="inv-categorias">
         {categoriasSugeridas.map((c) => <option key={c} value={c} />)}
       </datalist>
+
+      {/* ── Barra flotante de cambios pendientes ── */}
+      {filasEditando.size > 0 && (
+        <div style={{
+          position: "fixed", bottom: 28, left: "50%", transform: "translateX(-50%)",
+          display: "flex", alignItems: "center", gap: 10,
+          background: C.abyss, color: "#fff", borderRadius: 14,
+          padding: "10px 18px", boxShadow: "0 8px 32px rgba(0,0,0,.35)",
+          zIndex: 200, fontSize: 13, fontWeight: 600, whiteSpace: "nowrap",
+          border: `1px solid rgba(255,255,255,.1)`,
+        }}>
+          <span style={{ width: 8, height: 8, borderRadius: "50%", background: C.amber, display: "inline-block", flexShrink: 0 }} />
+          {filasEditando.size} {filasEditando.size === 1 ? "cambio pendiente" : "cambios pendientes"}
+          <div style={{ width: 1, height: 18, background: "rgba(255,255,255,.15)", margin: "0 2px" }} />
+          <button onClick={descartarTodo}
+            style={{ background: "rgba(255,255,255,.1)", border: "none", borderRadius: 8, cursor: "pointer", color: "#fff", padding: "5px 14px", fontSize: 12.5, fontWeight: 600 }}>
+            Descartar
+          </button>
+          <button onClick={guardarTodo}
+            style={{ display: "inline-flex", alignItems: "center", gap: 5, background: C.green, border: "none", borderRadius: 8, cursor: "pointer", color: "#fff", padding: "5px 16px", fontSize: 12.5, fontWeight: 700 }}>
+            <Check size={13} strokeWidth={2.5} /> Guardar todo
+          </button>
+        </div>
+      )}
     </div>
   );
 }
