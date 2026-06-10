@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useMemo } from "react";
-import { CalendarClock, Check, AlertCircle, Plus, Trash2, Download, History, ClipboardList, X, ChevronDown, ChevronRight } from "lucide-react";
+import { CalendarClock, Check, AlertCircle, Plus, Trash2, Download, History, ClipboardList, X, ChevronDown, ChevronRight, Edit3 } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { fetchAll, insertRow, updateRow, deleteRow, logActivity } from "../lib/db";
 import { buildEquipoTree } from "../lib/equipTree";
@@ -146,11 +146,13 @@ export default function PlanPM({ onNavigate }) {
 // ─────────────────────────────────────────────────────────────────
 // TAB PLAN
 // ─────────────────────────────────────────────────────────────────
-function TabPlan({ lista, equipos, setEquipos, planes, setPlanes, historial, setHistorial, embarcaciones, embName, profile, puedeOperar, puedeBorrar, setError, onNavigate }) {
+function TabPlan({ lista, equipos, setEquipos, planes, setPlanes, setHistorial, embName, profile, puedeOperar, puedeBorrar, setError, onNavigate }) {
   const [addingFor,   setAddingFor]   = useState(null); // equipo_id
-  const [newPlan,     setNewPlan]     = useState({ descripcion: "", intervalo_horas: 250 });
+  const [newPlan,     setNewPlan]     = useState({ descripcion: "", intervalo_horas: 250, horas_ult_pm: "", fecha_ult_pm: "" });
   const [registrando, setRegistrando] = useState(null); // plan_pm_id
   const [regForm,     setRegForm]     = useState({ realizado_por: "", notas: "", crearOT: false });
+  const [editHitoId,  setEditHitoId]  = useState(null); // plan_pm_id en edición de hito
+  const [hitoForm,    setHitoForm]    = useState({ horas: "", fecha: "" });
   // Colapso por nodo a cualquier nivel (helper compartido en todo el CMMS).
   const arbol = useArbolColapsable(lista);
   const listaVisible = lista.filter((eq) => arbol.visible(eq));
@@ -171,13 +173,40 @@ function TabPlan({ lista, equipos, setEquipos, planes, setPlanes, historial, set
         descripcion:     newPlan.descripcion.trim(),
         intervalo_horas: +newPlan.intervalo_horas,
         activo:          true,
-        horas_ult_pm:    0,
+        horas_ult_pm:    newPlan.horas_ult_pm !== "" ? +newPlan.horas_ult_pm : 0,
+        fecha_ult_pm:    newPlan.fecha_ult_pm || null,
       });
       setPlanes((p) => [...p, nuevo]);
       logActivity(profile, "Crear plan PM", `${eq?.sistema} · cada ${nuevo.intervalo_horas}h`);
-      setNewPlan({ descripcion: "", intervalo_horas: 250 });
+      setNewPlan({ descripcion: "", intervalo_horas: 250, horas_ult_pm: "", fecha_ult_pm: "" });
       setAddingFor(null);
     } catch (e) { setError("No se pudo crear el plan: " + e.message); }
+  }
+
+  // Ajusta el hito (último servicio) de un plan existente sin crear un PM nuevo.
+  // Se usa para corregir datos históricos o inicializar planes en onboarding de flota.
+  function abrirEditHito(plan) {
+    setEditHitoId(plan.id);
+    setHitoForm({
+      horas: plan.horas_ult_pm != null && plan.horas_ult_pm > 0 ? String(plan.horas_ult_pm) : "",
+      fecha: plan.fecha_ult_pm || "",
+    });
+  }
+
+  async function guardarHito(plan) {
+    const horas = hitoForm.horas !== "" ? +hitoForm.horas : 0;
+    const fecha = hitoForm.fecha || null;
+    const prev  = { horas_ult_pm: plan.horas_ult_pm, fecha_ult_pm: plan.fecha_ult_pm };
+    setPlanes((p) => p.map((x) => x.id === plan.id ? { ...x, horas_ult_pm: horas, fecha_ult_pm: fecha } : x));
+    setEditHitoId(null);
+    try {
+      await updateRow("planes_pm", plan.id, { horas_ult_pm: horas, fecha_ult_pm: fecha });
+      logActivity(profile, "Ajustar hito PM", `${plan.descripcion} · ${horas}h · ${fecha || "sin fecha"}`);
+    } catch (e) {
+      setPlanes((p) => p.map((x) => x.id === plan.id ? { ...x, ...prev } : x));
+      setEditHitoId(plan.id);
+      setError("No se pudo guardar el hito: " + e.message);
+    }
   }
 
   async function eliminarPlan(planId) {
@@ -296,8 +325,18 @@ function TabPlan({ lista, equipos, setEquipos, planes, setPlanes, historial, set
                       <div style={{ fontSize: 13, fontWeight: 600, color: C.abyss }}>{plan.descripcion}</div>
                       <div style={{ fontSize: 11, color: C.slate, marginTop: 1 }}>
                         Cada <strong>{plan.intervalo_horas}h</strong>
-                        {plan.fecha_ult_pm && <span> · Último: {new Date(plan.fecha_ult_pm + "T00:00:00").toLocaleDateString("es-CL")}</span>}
-                        {!plan.fecha_ult_pm && <span style={{ color: C.amber }}> · Nunca realizado</span>}
+                        {plan.fecha_ult_pm
+                          ? <span> · Último: {new Date(plan.fecha_ult_pm + "T00:00:00").toLocaleDateString("es-CL")} ({num(plan.horas_ult_pm || 0)}h)</span>
+                          : plan.horas_ult_pm > 0
+                            ? <span> · Base: {num(plan.horas_ult_pm)}h</span>
+                            : <span style={{ color: C.amber }}> · Nunca realizado</span>}
+                        {puedeOperar && (
+                          <button onClick={() => editHitoId === plan.id ? setEditHitoId(null) : abrirEditHito(plan)}
+                            title="Ajustar hito inicial (último servicio)"
+                            style={{ marginLeft: 7, background: "none", border: "none", cursor: "pointer", color: editHitoId === plan.id ? C.steel : C.slate, padding: "0 2px", display: "inline-flex", verticalAlign: "middle", lineHeight: 1 }}>
+                            <Edit3 size={11} />
+                          </button>
+                        )}
                       </div>
                     </div>
                     <div style={{ minWidth: 240 }}>
@@ -325,6 +364,37 @@ function TabPlan({ lista, equipos, setEquipos, planes, setPlanes, historial, set
                       </div>
                     )}
                   </div>
+
+                  {/* ── Ajuste de hito inicial ── */}
+                  {editHitoId === plan.id && (
+                    <div style={{ margin: "6px 0 4px 12px", padding: "12px 14px", background: tint(C.steel, 7), border: `1px solid ${C.steel}30`, borderRadius: 8 }}>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: C.abyss, marginBottom: 4 }}>
+                        Ajustar hito · <em style={{ fontWeight: 400 }}>{plan.descripcion}</em>
+                      </div>
+                      <div style={{ fontSize: 11.5, color: C.slate, marginBottom: 10, lineHeight: 1.5 }}>
+                        Corrige cuándo se realizó el último servicio. <strong>No registra un PM nuevo</strong> — solo ajusta el punto de partida del semáforo y la barra de progreso.
+                      </div>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                        <Field label="Último servicio a (h)">
+                          <input type="number" value={hitoForm.horas}
+                            onChange={(ev) => setHitoForm((p) => ({ ...p, horas: ev.target.value }))}
+                            placeholder="0 — nunca realizado"
+                            style={{ ...inputStyle(), fontFamily: "'IBM Plex Mono', monospace" }} />
+                        </Field>
+                        <Field label="Fecha del último servicio">
+                          <input type="date" value={hitoForm.fecha}
+                            onChange={(ev) => setHitoForm((p) => ({ ...p, fecha: ev.target.value }))}
+                            style={inputStyle()} />
+                        </Field>
+                      </div>
+                      <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+                        <button onClick={() => guardarHito(plan)} style={primaryBtn}>
+                          <Check size={14} /> Guardar hito
+                        </button>
+                        <button onClick={() => setEditHitoId(null)} style={ghostBtn}><X size={13} /> Cancelar</button>
+                      </div>
+                    </div>
+                  )}
 
                   {/* ── Formulario de registro ── */}
                   {isReg && (
@@ -383,6 +453,23 @@ function TabPlan({ lista, equipos, setEquipos, planes, setPlanes, historial, set
                   <button onClick={() => agregarPlan(eq.id)} style={{ ...primaryBtn, marginTop: 22 }}>Guardar</button>
                   <button onClick={() => setAddingFor(null)} style={{ ...ghostBtn, marginTop: 22 }}><X size={13} /></button>
                 </div>
+                {/* ── Hito inicial (opcional) ── */}
+                <div style={{ marginTop: 10, paddingTop: 10, borderTop: `1px dashed ${C.line}`, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                  <Field label="Último servicio a (h) · opcional">
+                    <input type="number" value={newPlan.horas_ult_pm}
+                      onChange={(e) => setNewPlan((p) => ({ ...p, horas_ult_pm: e.target.value }))}
+                      placeholder="0 — nunca realizado"
+                      style={{ ...bluInput, width: "100%" }} />
+                  </Field>
+                  <Field label="Fecha del último servicio · opcional">
+                    <input type="date" value={newPlan.fecha_ult_pm}
+                      onChange={(e) => setNewPlan((p) => ({ ...p, fecha_ult_pm: e.target.value }))}
+                      style={inputStyle()} />
+                  </Field>
+                </div>
+                <div style={{ fontSize: 11, color: C.slate, marginTop: 4, lineHeight: 1.5 }}>
+                  Rellena si el componente ya fue serviciado antes de crear este plan — el semáforo y la barra partirán del valor correcto desde el primer día.
+                </div>
                 <GuiaColapsable titulo="¿Cómo elegir el intervalo?" icon={CalendarClock}>
                   <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 8 }}>
                     <tbody>
@@ -417,7 +504,7 @@ function TabPlan({ lista, equipos, setEquipos, planes, setPlanes, historial, set
 // ─────────────────────────────────────────────────────────────────
 // TAB HISTORIAL
 // ─────────────────────────────────────────────────────────────────
-function TabHistorial({ historial, planes, equipos, embName }) {
+function TabHistorial({ historial, planes, equipos }) {
   function eqNombre(id) { const e = equipos.find((x) => x.id === id); return e ? `${e.sistema} (${e.id_visible})` : "—"; }
   function planDesc(id) { const p = planes.find((x) => x.id === id); return p ? `${p.intervalo_horas}h · ${p.descripcion}` : "—"; }
 
