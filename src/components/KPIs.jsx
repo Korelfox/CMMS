@@ -4,6 +4,7 @@ import { BarChart, Bar, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer, Cartes
 import { useAuth } from "../lib/auth";
 import { fetchAll } from "../lib/db";
 import { C, archivo, clp, num, TIPOS_OT, lk } from "../theme";
+import { scheduleCompliance } from "../lib/pm";
 import { Card, PageHead, Pill, exportBtn, thStyle, tdStyle, Empty, ErrorBanner, InlineSpinner } from "../ui";
 
 const TIPO_COLOR = { preventivo: "#1E9E6A", correctivo: "#D8443C", modificativo: "#6C4FA3", predictivo: "#127C8A" };
@@ -13,18 +14,22 @@ export default function KPIs() {
   const [embarcaciones, setEmbarcaciones] = useState([]);
   const [equipos, setEquipos] = useState([]);
   const [ots, setOts] = useState([]);
+  const [planes, setPlanes] = useState([]);
+  const [historial, setHistorial] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   const cargar = useCallback(async () => {
     setLoading(true); setError(null);
     try {
-      const [embs, eqs, otsAll] = await Promise.all([
+      const [embs, eqs, otsAll, pls, hist] = await Promise.all([
         fetchAll("embarcaciones", { order: { col: "codigo", asc: true } }),
         fetchAll("equipos"),
         fetchAll("ordenes_trabajo", { order: { col: "fecha", asc: false } }),
+        fetchAll("planes_pm"),
+        fetchAll("historial_pm"),
       ]);
-      setEmbarcaciones(embs); setEquipos(eqs); setOts(otsAll);
+      setEmbarcaciones(embs); setEquipos(eqs); setOts(otsAll); setPlanes(pls); setHistorial(hist);
     } catch (e) { setError("No se pudieron cargar los KPIs. " + e.message); }
     finally { setLoading(false); }
   }, []);
@@ -50,8 +55,11 @@ export default function KPIs() {
   const disp = (mtbf + mttr) > 0 ? (mtbf / (mtbf + mttr)) * 100 : 100;
   // Proactividad = OTs proactivas / total
   const propProactivo = ots.length ? (proactivas.length / ots.length) * 100 : 0;
-  // Cumplimiento de cierre
+  // Cumplimiento de cierre (OTs cerradas sobre el total)
   const cumplimiento = ots.length ? (cerradas.length / ots.length) * 100 : 0;
+  // Schedule Compliance (SMRP): % de PMs ejecutados antes de vencer su intervalo
+  // (+10% de tolerancia), reconstruido desde el historial de ejecuciones.
+  const sc = scheduleCompliance(historial, planes);
   // Costos
   const costoMO = ots.reduce((s, o) => s + (Number(o.costo_mo) || 0), 0);
   const costoMat = ots.reduce((s, o) => s + (Number(o.costo_mat) || 0), 0);
@@ -124,11 +132,14 @@ export default function KPIs() {
         <BigKPI label="Proactividad" value={`${propProactivo.toFixed(0)}%`} tone={proTone} icon={TrendingUp} sub={`${proactivas.length} de ${ots.length} OTs`} />
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 14, marginBottom: 18 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(6,1fr)", gap: 14, marginBottom: 18 }}>
         <MiniKPI label="OTs Totales" value={ots.length} />
         <MiniKPI label="Backlog (abiertas)" value={abiertas.length} tone={abiertas.length ? C.amber : C.green} sub={backlogDias > 0 ? `más antigua: ${backlogDias} d` : "al día"} />
         <MiniKPI label="Antigüedad máx" value={`${backlogDias} d`} tone={backlogDias > 30 ? C.red : backlogDias > 14 ? C.amber : C.green} sub="OT abierta más vieja" />
-        <MiniKPI label="% Cumplimiento" value={`${cumplimiento.toFixed(0)}%`} />
+        <MiniKPI label="% Cierre de OTs" value={`${cumplimiento.toFixed(0)}%`} sub={`${cerradas.length} de ${ots.length} cerradas`} />
+        <MiniKPI label="Cumplimiento PM" value={sc.pct == null ? "—" : `${sc.pct.toFixed(0)}%`}
+          tone={sc.pct == null ? C.slate : sc.pct >= 90 ? C.green : sc.pct >= 70 ? C.amber : C.red}
+          sub={sc.pct == null ? "se mide desde la 2ª ejecución de cada plan" : `${sc.aTiempo} de ${sc.evaluadas} PM a tiempo`} />
         <MiniKPI label="Costo Total" value={clp(costoMO + costoMat)} tone={C.gold} sub={`MO ${clp(costoMO)} · Mat ${clp(costoMat)}`} />
       </div>
 
@@ -210,7 +221,8 @@ export default function KPIs() {
           <strong>MTBF</strong> (Mean Time Between Failures) = horas promedio de operación entre fallas correctivas.{" "}
           <strong>MTTR</strong> (Mean Time To Repair) = horas promedio para reparar una OT cerrada.{" "}
           <strong>Disponibilidad</strong> = MTBF ÷ (MTBF + MTTR), objetivo ≥ 90%.{" "}
-          <strong>Proactividad</strong> = OTs preventivas + predictivas + modificativas sobre el total. Objetivo de clase mundial: ≥ 70%.
+          <strong>Proactividad</strong> = OTs preventivas + predictivas + modificativas sobre el total. Objetivo de clase mundial: ≥ 70%.{" "}
+          <strong>Cumplimiento PM</strong> (schedule compliance, SMRP) = % de mantenciones preventivas ejecutadas antes de vencer su intervalo de horas (+10% de tolerancia). Objetivo: ≥ 90%.
         </div>
       </Card>
     </div>
