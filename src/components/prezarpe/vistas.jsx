@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Ship, Anchor, Fuel, Droplet, Gauge, Check, X, AlertTriangle, ArrowLeft, Camera, ClipboardCheck, Waves, CloudOff, Clock, Trash2 } from "lucide-react";
+import { Ship, Anchor, Fuel, Droplet, Gauge, Check, X, AlertTriangle, ArrowLeft, Camera, ClipboardCheck, Waves, CloudOff, Clock, Trash2, Pencil, Plus, RotateCcw } from "lucide-react";
 import { insertRow, updateRow, deleteRow, logActivity } from "../../lib/db";
 import { useOnline, cacheTable, getCached, queueInsert, nuevoId } from "../../lib/offline";
 import { subirFotos, listarFotos, borrarFoto } from "../../lib/fotos";
@@ -66,9 +66,8 @@ export function VistaFlota({ embarcaciones, mareaAbierta, docsVencidos, puedeOpe
 }
 
 // ---------- Pantalla 2: checklist ----------
-export function VistaChecklist({ nave, equipos, online, onVolver, onGuardar }) {
+export function VistaChecklist({ nave, equipos, online, onVolver, onGuardar, onSaveConfig }) {
   const visualEquipos = equipos.filter((e) => e.prezarpe).map((e) => ({ item: e.sistema || e.id_visible, origen: "equipo" }));
-  const visualItems = [...visualEquipos, ...SEGURIDAD_FIJA.map((s) => ({ item: s, origen: "fijo" }))];
   const nivelEquipos = equipos.filter((e) => (e.nivel_tipo || "ninguno") !== "ninguno");
 
   const [visual, setVisual] = useState({});
@@ -77,6 +76,37 @@ export function VistaChecklist({ nave, equipos, online, onVolver, onGuardar }) {
   const [horom, setHorom] = useState({});
   const [fotos, setFotos] = useState([]);
   const [guardando, setGuardando] = useState(false);
+  const [config, setConfig] = useState(() => {
+    const c = nave?.prezarpe_config || {};
+    return { extra: c.extra || [], excluidos: c.excluidos || [] };
+  });
+  const [modoEdicion, setModoEdicion] = useState(false);
+  const [nuevoItem, setNuevoItem] = useState("");
+
+  const excluidos = new Set(config.excluidos);
+  const visualItems = [
+    ...SEGURIDAD_FIJA.filter((s) => !excluidos.has(s)).map((s) => ({ item: s, origen: "fijo" })),
+    ...visualEquipos.filter((e) => !excluidos.has(e.item)),
+    ...(config.extra || []).map((e) => ({ item: e, origen: "extra" })),
+  ];
+
+  function saveConfig(c) { setConfig(c); onSaveConfig?.(c); }
+  function quitarItem({ item, origen }) {
+    const c = origen === "extra"
+      ? { ...config, extra: config.extra.filter((x) => x !== item) }
+      : { ...config, excluidos: [...config.excluidos, item] };
+    saveConfig(c);
+    setVisual((v) => { const next = { ...v }; delete next[item]; return next; });
+  }
+  function restaurarItem(item) {
+    saveConfig({ ...config, excluidos: config.excluidos.filter((x) => x !== item) });
+  }
+  function agregarItem() {
+    const t = nuevoItem.trim();
+    if (!t || config.extra.includes(t)) return;
+    saveConfig({ ...config, extra: [...config.extra, t] });
+    setNuevoItem("");
+  }
 
   const setVis = (it, v) => setVisual((p) => ({ ...p, [it]: p[it] === v ? null : v }));
   const setNiv = (id, campo, v) => setNiveles((p) => ({ ...p, [id]: { ...p[id], [campo]: (p[id]?.[campo] === v ? null : v) } }));
@@ -113,21 +143,74 @@ export function VistaChecklist({ nave, equipos, online, onVolver, onGuardar }) {
         <div style={{ ...archivo, fontSize: 18, fontWeight: 800, color: C.abyss }}>Prezarpe · {nave?.nombre}</div>
       </div>
 
-      <Bloque titulo="A · Inspección visual" icon={Ship} extra={<span style={{ fontSize: 11.5, color: C.slate }}>{hechosVisual}/{visualItems.length}</span>}>
+      <Bloque titulo="A · Inspección visual" icon={Ship} extra={
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          {!modoEdicion && <span style={{ fontSize: 11.5, color: C.slate }}>{hechosVisual}/{visualItems.length}</span>}
+          <button onClick={() => setModoEdicion(!modoEdicion)}
+            style={{ padding: "4px 10px", borderRadius: 7,
+              border: `1px solid ${modoEdicion ? C.green : C.line}`,
+              background: modoEdicion ? tint(C.green, 10) : C.surface,
+              color: modoEdicion ? C.green : C.slate,
+              fontSize: 12, fontWeight: 700, cursor: "pointer",
+              display: "flex", alignItems: "center", gap: 5 }}>
+            {modoEdicion ? <><Check size={12}/> Listo</> : <><Pencil size={12}/> Editar lista</>}
+          </button>
+        </div>
+      }>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px,1fr))", gap: 10 }}>
           {visualItems.map(({ item, origen }) => (
-            <div key={item} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "10px 12px", border: `1px solid ${C.line}`, borderRadius: 10, background: C.surface }}>
-              <span style={{ fontSize: 13, fontWeight: 600, color: C.ink, display: "inline-flex", alignItems: "center", gap: 6 }}>
-                {item}
-                {origen === "equipo" && <span style={{ fontSize: 9, fontWeight: 700, color: C.steel, background: tint(C.steel, 14), padding: "1px 6px", borderRadius: 20 }}>EQUIPO</span>}
+            <div key={item} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "10px 12px", border: `1px solid ${modoEdicion ? C.line : C.line}`, borderRadius: 10, background: C.surface }}>
+              <span style={{ fontSize: 13, fontWeight: 600, color: C.ink, display: "inline-flex", alignItems: "center", gap: 6, flex: 1, minWidth: 0 }}>
+                <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item}</span>
+                {origen === "equipo" && <span style={{ fontSize: 9, fontWeight: 700, color: C.steel, background: tint(C.steel, 14), padding: "1px 6px", borderRadius: 20, flexShrink: 0 }}>EQUIPO</span>}
+                {origen === "extra" && <span style={{ fontSize: 9, fontWeight: 700, color: C.purple, background: tint(C.purple, 14), padding: "1px 6px", borderRadius: 20, flexShrink: 0 }}>CUSTOM</span>}
               </span>
-              <div style={{ display: "flex", gap: 6 }}>
-                <Semaforo activo={visual[item] === "ok"} tone="green" onClick={() => setVis(item, "ok")}><Check size={16} /></Semaforo>
-                <Semaforo activo={visual[item] === "falla"} tone="red" onClick={() => setVis(item, "falla")}><X size={16} /></Semaforo>
-              </div>
+              {modoEdicion ? (
+                <button onClick={() => quitarItem({ item, origen })}
+                  style={{ width: 30, height: 30, borderRadius: 8, border: `1px solid ${C.red}`, background: C.redBg, color: C.red, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                  <X size={14}/>
+                </button>
+              ) : (
+                <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                  <Semaforo activo={visual[item] === "ok"} tone="green" onClick={() => setVis(item, "ok")}><Check size={16} /></Semaforo>
+                  <Semaforo activo={visual[item] === "falla"} tone="red" onClick={() => setVis(item, "falla")}><X size={16} /></Semaforo>
+                </div>
+              )}
             </div>
           ))}
         </div>
+
+        {/* ── Modo edición: agregar y restaurar ── */}
+        {modoEdicion && (
+          <div style={{ marginTop: 14 }}>
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <input value={nuevoItem} onChange={(e) => setNuevoItem(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") agregarItem(); }}
+                placeholder="Agregar ítem personalizado…"
+                style={{ ...inputStyle(), flex: 1 }}/>
+              <button onClick={agregarItem}
+                style={{ padding: "7px 14px", borderRadius: 8, border: "none", background: C.steel, color: "#fff", fontWeight: 700, fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", gap: 5 }}>
+                <Plus size={14}/> Agregar
+              </button>
+            </div>
+            {config.excluidos.length > 0 && (
+              <div style={{ marginTop: 12 }}>
+                <div style={{ fontSize: 10.5, color: C.slate, fontWeight: 700, letterSpacing: 0.6, textTransform: "uppercase", marginBottom: 7 }}>Ítems ocultos</div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                  {config.excluidos.map((exc) => (
+                    <div key={exc} style={{ display: "flex", alignItems: "center", gap: 6, padding: "5px 10px", borderRadius: 20, border: `1px solid ${C.line}`, background: C.mist, fontSize: 12.5, color: C.slate }}>
+                      <span>{exc}</span>
+                      <button onClick={() => restaurarItem(exc)} title="Restaurar"
+                        style={{ background: "none", border: "none", cursor: "pointer", color: C.steel, padding: 0, display: "flex", alignItems: "center" }}>
+                        <RotateCcw size={12}/>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </Bloque>
 
       {nivelEquipos.length > 0 && (

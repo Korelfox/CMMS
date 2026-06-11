@@ -177,6 +177,16 @@ export default function Prezarpe() {
     } catch (e) { setError("No se pudo guardar el prezarpe: " + e.message); }
   }
 
+  // Persiste la configuración del prezarpe (ítems extra / excluidos) en la embarcación.
+  async function guardarConfigPrezarpe(config) {
+    if (!nave) return;
+    try {
+      await updateRow("embarcaciones", nave.id, { prezarpe_config: config });
+      setEmbarcaciones((prev) => prev.map((e) => e.id === nave.id ? { ...e, prezarpe_config: config } : e));
+      setNave((prev) => prev ? { ...prev, prezarpe_config: config } : prev);
+    } catch (e) { setError("No se pudo guardar la configuración del checklist: " + e.message); }
+  }
+
   // Abre el modal de eliminación (pide motivo). Solo administración.
   function pedirEliminarPrezarpe(p) {
     setConfirmar({ prezId: p.id, mareaId: p.marea_id, nombre: embName(p.embarcacion_id), fecha: p.fecha });
@@ -234,7 +244,7 @@ export default function Prezarpe() {
       )}
       {vista === "checklist" && (
         <VistaChecklist nave={nave} equipos={buildEquipoTree(equipos.filter((e) => e.embarcacion_id === nave.id))} online={online}
-          onVolver={() => { setVista("flota"); setNave(null); }} onGuardar={guardarPrezarpe} />
+          onVolver={() => { setVista("flota"); setNave(null); }} onGuardar={guardarPrezarpe} onSaveConfig={guardarConfigPrezarpe} />
       )}
       {vista === "recalada" && (
         <VistaRecalada marea={mareaRec} nave={embarcaciones.find((e) => e.id === mareaRec?.embarcacion_id)}
