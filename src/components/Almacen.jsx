@@ -94,7 +94,7 @@ export default function Almacen() {
           equipos={equipos} destinos={destinos} embarcaciones={embarcaciones} />
       )}
       {tab === "movs" && (
-        <TabMovimientos profile={profile} items={items} bodegas={bodegas} ots={ots}
+        <TabMovimientos profile={profile} items={items} bodegas={bodegas} embarcaciones={embarcaciones} ots={ots}
           movimientos={movimientos} stockMap={stockMap} itemDesc={itemDesc} whName={whName}
           recargar={cargar} setError={setError} />
       )}
