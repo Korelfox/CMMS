@@ -952,6 +952,8 @@ tbody td { padding: 7px 9px; font-size: 11px; border-bottom: 1px solid #EEF3F7; 
                             oc={o} its={its}
                             itemCodigo={itemCodigo} itemDesc={itemDesc} itemUnidad={itemUnidad}
                             whName={whName}
+                            puedeOperar={puedeOperar} profile={profile}
+                            items={items} recargar={recargar} setError={setError}
                           />
                         </td>
                       </tr>
@@ -968,13 +970,67 @@ tbody td { padding: 7px 9px; font-size: 11px; border-bottom: 1px solid #EEF3F7; 
 }
 
 // ── Panel de detalle expandible ───────────────────────────────
-function OCDetallePanel({ oc, its, itemCodigo, itemDesc, itemUnidad, whName }) {
-  const subtotal = its.reduce((s, it) => s + lineNeto(it), 0);
-  const ivaPct   = oc.iva_pct ?? 19;
-  const iva      = subtotal * (ivaPct / 100);
-  const total    = subtotal + iva;
-  const etaStr   = oc.fecha_entrega_esperada || calcETA(oc.fecha, oc.lead_dias) || "—";
-  const hasDcto  = its.some((it) => (it.descuento_pct || 0) > 0);
+function OCDetallePanel({ oc, its, itemCodigo, itemDesc, itemUnidad, whName,
+                          puedeOperar, profile, items, recargar, setError }) {
+  const [modoEdicion, setModoEdicion] = useState(false);
+  const [lineEdits,   setLineEdits]   = useState({});
+  const [linesToDel,  setLinesToDel]  = useState(new Set());
+  const [newLine,     setNewLine]     = useState({ item_id: "", cantidad: 1, precio: 0, descuento_pct: 0 });
+  const [guardando,   setGuardando]   = useState(false);
+
+  const canEdit = puedeOperar && ["solicitada", "aprobada"].includes(oc.estado);
+
+  function iniciarEdicion() {
+    const edits = {};
+    its.forEach((it) => { edits[it.id] = { cantidad: it.cantidad, precio: it.precio || 0, descuento_pct: it.descuento_pct || 0 }; });
+    setLineEdits(edits); setLinesToDel(new Set());
+    setNewLine({ item_id: "", cantidad: 1, precio: 0, descuento_pct: 0 });
+    setModoEdicion(true);
+  }
+  function cancelarEdicion() { setModoEdicion(false); setLineEdits({}); setLinesToDel(new Set()); }
+  function setEdit(id, field, val) { setLineEdits((p) => ({ ...p, [id]: { ...p[id], [field]: val } })); }
+  function toggleDel(id) { setLinesToDel((prev) => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s; }); }
+
+  async function guardarLineas() {
+    setGuardando(true);
+    try {
+      for (const it of its) {
+        if (linesToDel.has(it.id)) {
+          await deleteRow("compras_items", it.id);
+        } else {
+          const e = lineEdits[it.id];
+          if (e) await updateRow("compras_items", it.id, { cantidad: e.cantidad, precio: e.precio, descuento_pct: e.descuento_pct });
+        }
+      }
+      if (newLine.item_id) {
+        await insertRow("compras_items", profile.empresa_id, {
+          compra_id: oc.id, item_id: newLine.item_id,
+          cantidad: newLine.cantidad, precio: newLine.precio, descuento_pct: newLine.descuento_pct || 0,
+        });
+      }
+      logActivity(profile, "Editar líneas OC", `${oc.folio} — cantidades actualizadas`);
+      setModoEdicion(false); setLineEdits({}); setLinesToDel(new Set()); recargar();
+    } catch (e) { setError("No se pudo guardar: " + e.message); }
+    finally { setGuardando(false); }
+  }
+
+  // Valores a mostrar (edits en modo edición, originales si no)
+  const displayIts = its.map((it) => {
+    if (!modoEdicion) return it;
+    const e = lineEdits[it.id] || {};
+    return { ...it, cantidad: e.cantidad ?? it.cantidad, precio: e.precio ?? it.precio || 0, descuento_pct: e.descuento_pct ?? it.descuento_pct || 0 };
+  });
+  const activeIts   = modoEdicion ? displayIts.filter((it) => !linesToDel.has(it.id)) : displayIts;
+  const newLineNeto = newLine.item_id ? newLine.cantidad * (newLine.precio || 0) * (1 - (newLine.descuento_pct || 0) / 100) : 0;
+  const subtotal    = activeIts.reduce((s, it) => s + lineNeto(it), 0) + newLineNeto;
+  const ivaPct      = oc.iva_pct ?? 19;
+  const iva         = subtotal * (ivaPct / 100);
+  const total       = subtotal + iva;
+  const etaStr      = oc.fecha_entrega_esperada || calcETA(oc.fecha, oc.lead_dias) || "—";
+  const hasDcto     = activeIts.some((it) => (it.descuento_pct || 0) > 0) || (newLine.descuento_pct || 0) > 0;
+
+  // Ítems ya incluidos en la OC (para excluir del picker)
+  const itemIdsEnOc = new Set(its.map((it) => it.item_id));
 
   return (
     <div style={{ padding: "16px 20px" }}>
@@ -1011,6 +1067,30 @@ function OCDetallePanel({ oc, its, itemCodigo, itemDesc, itemUnidad, whName }) {
         </div>
       )}
 
+      {/* Cabecera de tabla con botón editar */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: C.slate, textTransform: "uppercase", letterSpacing: 0.6 }}>
+          Líneas de la orden
+        </div>
+        {canEdit && !modoEdicion && (
+          <button onClick={iniciarEdicion}
+            style={{ ...ghostBtn, padding: "4px 10px", fontSize: 12, display: "inline-flex", alignItems: "center", gap: 5 }}>
+            <Edit2 size={12} /> Editar cantidades
+          </button>
+        )}
+        {modoEdicion && (
+          <div style={{ display: "flex", gap: 6 }}>
+            <button onClick={guardarLineas} disabled={guardando}
+              style={{ ...primaryBtn, padding: "5px 12px", fontSize: 12, display: "inline-flex", alignItems: "center", gap: 5 }}>
+              <Check size={12} /> {guardando ? "Guardando…" : "Guardar"}
+            </button>
+            <button onClick={cancelarEdicion} disabled={guardando} style={{ ...ghostBtn, padding: "5px 10px", fontSize: 12 }}>
+              Cancelar
+            </button>
+          </div>
+        )}
+      </div>
+
       <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 12 }}>
         <thead>
           <tr style={{ background: C.abyss }}>
@@ -1023,31 +1103,132 @@ function OCDetallePanel({ oc, its, itemCodigo, itemDesc, itemUnidad, whName }) {
               ...(hasDcto ? [["Desc. %", "right", 62]] : []),
               ["Total neto", "right", 96],
               ["Recibido",   "right", 88],
+              ...(modoEdicion ? [["", "center", 36]] : []),
             ].map(([h, al, w], i) => (
               <th key={i} style={{ ...thStyle, background: "transparent", color: "#fff", textAlign: al, width: w || undefined, fontSize: 11 }}>{h}</th>
             ))}
           </tr>
         </thead>
         <tbody>
-          {its.map((it) => {
-            const neto     = lineNeto(it);
-            const recibido = it.cantidad_recibida || 0;
-            const completo = recibido >= it.cantidad;
+          {activeIts.map((it) => {
+            const neto      = lineNeto(it);
+            const recibido  = it.cantidad_recibida || 0;
+            const completo  = recibido >= it.cantidad;
+            const marcado   = linesToDel.has(it.id);
             return (
-              <tr key={it.id} style={{ borderBottom: `1px solid ${C.foam}` }}>
+              <tr key={it.id} style={{ borderBottom: `1px solid ${C.foam}`, opacity: marcado ? 0.35 : 1 }}>
                 <td style={{ ...tdStyle, fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, color: C.steel, fontSize: 11 }}>{itemCodigo(it.item_id)}</td>
                 <td style={{ ...tdStyle, fontSize: 12.5 }}>{itemDesc(it.item_id)}</td>
                 <td style={{ ...tdStyle, textAlign: "right", fontSize: 11, color: C.slate }}>{itemUnidad(it.item_id)}</td>
-                <td style={{ ...tdStyle, textAlign: "right", fontFamily: "'IBM Plex Mono', monospace" }}>{it.cantidad}</td>
-                <td style={{ ...tdStyle, textAlign: "right", fontFamily: "'IBM Plex Mono', monospace" }}>{clp(it.precio || 0)}</td>
-                {hasDcto && <td style={{ ...tdStyle, textAlign: "right", color: (it.descuento_pct || 0) > 0 ? C.amber : C.line }}>{(it.descuento_pct || 0) > 0 ? `${it.descuento_pct}%` : "—"}</td>}
+
+                {/* Cantidad */}
+                <td style={{ ...tdStyle, textAlign: "right" }}>
+                  {modoEdicion && !marcado ? (
+                    <input type="number" min={0.01} step="any" value={lineEdits[it.id]?.cantidad ?? it.cantidad}
+                      onFocus={(e) => e.target.select()}
+                      onChange={(e) => setEdit(it.id, "cantidad", +e.target.value)}
+                      style={{ ...bluInput, width: 68, textAlign: "right", padding: "4px 6px", fontSize: 12 }} />
+                  ) : (
+                    <span style={{ fontFamily: "'IBM Plex Mono', monospace" }}>{it.cantidad}</span>
+                  )}
+                </td>
+
+                {/* Precio unit. */}
+                <td style={{ ...tdStyle, textAlign: "right" }}>
+                  {modoEdicion && !marcado ? (
+                    <input type="number" min={0} step="any" value={lineEdits[it.id]?.precio ?? it.precio || 0}
+                      onFocus={(e) => e.target.select()}
+                      onChange={(e) => setEdit(it.id, "precio", +e.target.value)}
+                      style={{ ...bluInput, width: 90, textAlign: "right", padding: "4px 6px", fontSize: 12 }} />
+                  ) : (
+                    <span style={{ fontFamily: "'IBM Plex Mono', monospace" }}>{clp(it.precio || 0)}</span>
+                  )}
+                </td>
+
+                {/* Descuento */}
+                {hasDcto && (
+                  <td style={{ ...tdStyle, textAlign: "right" }}>
+                    {modoEdicion && !marcado ? (
+                      <input type="number" min={0} max={100} step={0.5} value={lineEdits[it.id]?.descuento_pct ?? it.descuento_pct || 0}
+                        onFocus={(e) => e.target.select()}
+                        onChange={(e) => setEdit(it.id, "descuento_pct", +e.target.value)}
+                        style={{ ...bluInput, width: 56, textAlign: "right", padding: "4px 6px", fontSize: 12 }} />
+                    ) : (
+                      <span style={{ color: (it.descuento_pct || 0) > 0 ? C.amber : C.line }}>
+                        {(it.descuento_pct || 0) > 0 ? `${it.descuento_pct}%` : "—"}
+                      </span>
+                    )}
+                  </td>
+                )}
+
                 <td style={{ ...tdStyle, textAlign: "right", fontFamily: "'IBM Plex Mono', monospace", fontWeight: 600 }}>{clp(neto)}</td>
                 <td style={{ ...tdStyle, textAlign: "right", fontFamily: "'IBM Plex Mono', monospace", color: completo ? C.green : recibido > 0 ? C.amber : C.slate, fontWeight: completo ? 700 : 400 }}>
                   {recibido}/{it.cantidad}
                 </td>
+
+                {/* Quitar línea */}
+                {modoEdicion && (
+                  <td style={{ ...tdStyle, width: 36 }}>
+                    {recibido === 0 && (
+                      <button onClick={() => toggleDel(it.id)} title={marcado ? "Restaurar" : "Quitar"}
+                        style={{ background: "none", border: "none", cursor: "pointer",
+                          color: marcado ? C.green : C.red, padding: 2, display: "flex", alignItems: "center" }}>
+                        {marcado ? <Check size={13} /> : <X size={13} />}
+                      </button>
+                    )}
+                  </td>
+                )}
               </tr>
             );
           })}
+
+          {/* Fila para agregar nueva línea en modo edición */}
+          {modoEdicion && (
+            <tr style={{ borderBottom: `1px solid ${C.foam}`, background: tint(C.sky, 6) }}>
+              <td colSpan={2} style={{ ...tdStyle }}>
+                <select value={newLine.item_id}
+                  onChange={(e) => {
+                    const id = e.target.value;
+                    const precio = items.find((i) => i.id === id)?.precio || 0;
+                    setNewLine((p) => ({ ...p, item_id: id, precio }));
+                  }}
+                  style={{ ...inputStyle(), fontSize: 12, width: "100%" }}>
+                  <option value="">+ Agregar ítem…</option>
+                  {items.filter((i) => !itemIdsEnOc.has(i.id)).map((i) => (
+                    <option key={i.id} value={i.id}>{i.codigo} — {i.descripcion}</option>
+                  ))}
+                </select>
+              </td>
+              <td style={{ ...tdStyle, textAlign: "right", fontSize: 11, color: C.slate }}>
+                {newLine.item_id ? items.find((i) => i.id === newLine.item_id)?.unidad || "u" : ""}
+              </td>
+              <td style={{ ...tdStyle, textAlign: "right" }}>
+                <input type="number" min={0.01} step="any" value={newLine.cantidad}
+                  onFocus={(e) => e.target.select()}
+                  onChange={(e) => setNewLine((p) => ({ ...p, cantidad: +e.target.value }))}
+                  style={{ ...bluInput, width: 68, textAlign: "right", padding: "4px 6px", fontSize: 12 }} />
+              </td>
+              <td style={{ ...tdStyle, textAlign: "right" }}>
+                <input type="number" min={0} step="any" value={newLine.precio}
+                  onFocus={(e) => e.target.select()}
+                  onChange={(e) => setNewLine((p) => ({ ...p, precio: +e.target.value }))}
+                  style={{ ...bluInput, width: 90, textAlign: "right", padding: "4px 6px", fontSize: 12 }} />
+              </td>
+              {hasDcto && (
+                <td style={{ ...tdStyle, textAlign: "right" }}>
+                  <input type="number" min={0} max={100} step={0.5} value={newLine.descuento_pct}
+                    onFocus={(e) => e.target.select()}
+                    onChange={(e) => setNewLine((p) => ({ ...p, descuento_pct: +e.target.value }))}
+                    style={{ ...bluInput, width: 56, textAlign: "right", padding: "4px 6px", fontSize: 12 }} />
+                </td>
+              )}
+              <td style={{ ...tdStyle, textAlign: "right", fontFamily: "'IBM Plex Mono', monospace", color: C.sky, fontWeight: 600 }}>
+                {newLine.item_id ? clp(newLineNeto) : "—"}
+              </td>
+              <td style={tdStyle} />
+              <td style={tdStyle} />
+            </tr>
+          )}
         </tbody>
       </table>
 
