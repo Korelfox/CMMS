@@ -414,11 +414,11 @@ export default function Inventario() {
               <ComboInput value={form.categoria} onChange={(v) => setForm({ ...form, categoria: v })} options={categoriasSugeridas} placeholder="Buscar o escribir categoría…" />
             </Field>
             <Field label="Unidad"><input value={form.unidad} onChange={(e) => setForm({ ...form, unidad: e.target.value })} style={inputStyle()} /></Field>
-            <Field label="Stock mín"><input type="number" value={form.stock_min} onChange={(e) => setForm({ ...form, stock_min: +e.target.value })} style={bluInput} /></Field>
-            <Field label="Stock máx"><input type="number" value={form.stock_max} onChange={(e) => setForm({ ...form, stock_max: +e.target.value })} style={bluInput} /></Field>
-            <Field label="Precio"><input type="number" value={form.precio} onChange={(e) => setForm({ ...form, precio: +e.target.value })} style={bluInput} /></Field>
+            <Field label="Stock mín"><input type="number" value={form.stock_min} onFocus={(e) => e.target.select()} onChange={(e) => setForm({ ...form, stock_min: +e.target.value })} style={bluInput} /></Field>
+            <Field label="Stock máx"><input type="number" value={form.stock_max} onFocus={(e) => e.target.select()} onChange={(e) => setForm({ ...form, stock_max: +e.target.value })} style={bluInput} /></Field>
+            <Field label="Precio"><input type="number" value={form.precio} onFocus={(e) => e.target.select()} onChange={(e) => setForm({ ...form, precio: +e.target.value })} style={bluInput} /></Field>
             <Field label="Proveedor"><input value={form.proveedor} onChange={(e) => setForm({ ...form, proveedor: e.target.value })} style={inputStyle()} /></Field>
-            <Field label="Lead días"><input type="number" value={form.lead_dias} onChange={(e) => setForm({ ...form, lead_dias: +e.target.value })} style={bluInput} /></Field>
+            <Field label="Lead días"><input type="number" value={form.lead_dias} onFocus={(e) => e.target.select()} onChange={(e) => setForm({ ...form, lead_dias: +e.target.value })} style={bluInput} /></Field>
             <Field label="Tipo (intercambiabilidad)">
               <select value={form.tipo_repuesto} onChange={(e) => setForm({ ...form, tipo_repuesto: e.target.value })} style={inputStyle()}>
                 {TIPOS_REPUESTO.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
