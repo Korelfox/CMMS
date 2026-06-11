@@ -238,10 +238,10 @@ export default function TabMareas({ profile, embarcaciones, mareas, allOts, espe
                             </div>
                           </td>
                           <td style={{ ...tdStyle, textAlign: "right" }}>
-                            <input type="number" value={l.kg} onChange={(e) => updLine(l._key, "kg", e.target.value)} style={{ ...bluInput, width: 90, textAlign: "right" }} />
+                            <input type="number" value={l.kg} onFocus={(e) => e.target.select()} onChange={(e) => updLine(l._key, "kg", e.target.value)} style={{ ...bluInput, width: 90, textAlign: "right" }} />
                           </td>
                           <td style={{ ...tdStyle, textAlign: "right" }}>
-                            <input type="number" value={l.precio_kg} onChange={(e) => updLine(l._key, "precio_kg", e.target.value)} style={{ ...bluInput, width: 120, textAlign: "right" }} />
+                            <input type="number" value={l.precio_kg} onFocus={(e) => e.target.select()} onChange={(e) => updLine(l._key, "precio_kg", e.target.value)} style={{ ...bluInput, width: 120, textAlign: "right" }} />
                           </td>
                           <td style={{ ...tdStyle, textAlign: "right", fontFamily: "'IBM Plex Mono', monospace", fontWeight: 600 }}>
                             {clp((l.kg || 0) * (l.precio_kg || 0))}
@@ -270,20 +270,20 @@ export default function TabMareas({ profile, embarcaciones, mareas, allOts, espe
                 <div style={{ marginBottom: 20 }}>
                   <div style={{ fontWeight: 700, fontSize: 13, color: C.abyss, marginBottom: 12 }}>⛽ Costos y reparto</div>
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12 }}>
-                    <Field label="Precio combustible ($/L)"><input type="number" value={editEco.precio_combustible_l} onChange={(e) => setEditEco((p) => ({ ...p, precio_combustible_l: +e.target.value }))} style={bluInput} /></Field>
-                    <Field label="Precio aceite ($/L)"><input type="number" value={editEco.precio_aceite_l} onChange={(e) => setEditEco((p) => ({ ...p, precio_aceite_l: +e.target.value }))} style={bluInput} /></Field>
-                    <Field label="Víveres ($)"><input type="number" value={editEco.costo_viveres} onChange={(e) => setEditEco((p) => ({ ...p, costo_viveres: +e.target.value }))} style={bluInput} /></Field>
-                    <Field label="Hielo ($)"><input type="number" value={editEco.costo_hielo} onChange={(e) => setEditEco((p) => ({ ...p, costo_hielo: +e.target.value }))} style={bluInput} /></Field>
-                    <Field label="Carnada ($)"><input type="number" value={editEco.costo_carnada} onChange={(e) => setEditEco((p) => ({ ...p, costo_carnada: +e.target.value }))} style={bluInput} /></Field>
-                    <Field label="Otros costos armador ($)"><input type="number" value={editEco.costo_otros} onChange={(e) => setEditEco((p) => ({ ...p, costo_otros: +e.target.value }))} style={bluInput} /></Field>
+                    <Field label="Precio combustible ($/L)"><input type="number" value={editEco.precio_combustible_l} onFocus={(e) => e.target.select()} onChange={(e) => setEditEco((p) => ({ ...p, precio_combustible_l: +e.target.value }))} style={bluInput} /></Field>
+                    <Field label="Precio aceite ($/L)"><input type="number" value={editEco.precio_aceite_l} onFocus={(e) => e.target.select()} onChange={(e) => setEditEco((p) => ({ ...p, precio_aceite_l: +e.target.value }))} style={bluInput} /></Field>
+                    <Field label="Víveres ($)"><input type="number" value={editEco.costo_viveres} onFocus={(e) => e.target.select()} onChange={(e) => setEditEco((p) => ({ ...p, costo_viveres: +e.target.value }))} style={bluInput} /></Field>
+                    <Field label="Hielo ($)"><input type="number" value={editEco.costo_hielo} onFocus={(e) => e.target.select()} onChange={(e) => setEditEco((p) => ({ ...p, costo_hielo: +e.target.value }))} style={bluInput} /></Field>
+                    <Field label="Carnada ($)"><input type="number" value={editEco.costo_carnada} onFocus={(e) => e.target.select()} onChange={(e) => setEditEco((p) => ({ ...p, costo_carnada: +e.target.value }))} style={bluInput} /></Field>
+                    <Field label="Otros costos armador ($)"><input type="number" value={editEco.costo_otros} onFocus={(e) => e.target.select()} onChange={(e) => setEditEco((p) => ({ ...p, costo_otros: +e.target.value }))} style={bluInput} /></Field>
                     <Field label="Parte tripulación (%)">
                       <input type="number" min={0} max={100} value={editEco.parte_tripulacion_pct}
-                        onChange={(e) => setEditEco((p) => ({ ...p, parte_tripulacion_pct: +e.target.value }))}
+                        onFocus={(e) => e.target.select()} onChange={(e) => setEditEco((p) => ({ ...p, parte_tripulacion_pct: +e.target.value }))}
                         style={{ ...bluInput, borderColor: C.cyan }} />
                     </Field>
                     <Field label="N° tripulantes (partes iguales)">
                       <input type="number" min={0} value={editEco.num_tripulantes}
-                        onChange={(e) => setEditEco((p) => ({ ...p, num_tripulantes: +e.target.value }))}
+                        onFocus={(e) => e.target.select()} onChange={(e) => setEditEco((p) => ({ ...p, num_tripulantes: +e.target.value }))}
                         style={{ ...bluInput, borderColor: C.steel }} />
                     </Field>
                     <Field label="Notas"><input value={editEco.notas} onChange={(e) => setEditEco((p) => ({ ...p, notas: e.target.value }))} style={inputStyle()} placeholder="Observaciones…" /></Field>

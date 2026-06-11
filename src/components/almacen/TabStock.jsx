@@ -273,7 +273,7 @@ export default function TabStock({ profile, items, setItems, bodegas, stockMap, 
                           {puedeOperar && editando ? (
                             <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 3 }}>
                               <input type="number" value={stockEdit.valor} autoFocus
-                                onChange={(e) => setStockEdit((p) => ({ ...p, valor: e.target.value }))}
+                                onFocus={(e) => e.target.select()} onChange={(e) => setStockEdit((p) => ({ ...p, valor: e.target.value }))}
                                 onKeyDown={(e) => { if (e.key === "Enter") confirmarStock(); if (e.key === "Escape") cancelarStock(); }}
                                 style={{ ...bluInput, width: 54, textAlign: "center" }} />
                               <button onClick={confirmarStock} title="Confirmar" style={btnConfirm}><Check size={12} strokeWidth={2.5} /></button>

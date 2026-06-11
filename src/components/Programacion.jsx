@@ -116,7 +116,7 @@ export default function Programacion() {
                 {TIPOS.map((t) => <option key={t} value={t}>{t}</option>)}
               </select>
             </Field>
-            <Field label="HH"><input type="number" step={0.5} value={form.hh} onChange={(e) => setForm({ ...form, hh: +e.target.value })} style={bluInput} /></Field>
+            <Field label="HH"><input type="number" step={0.5} value={form.hh} onFocus={(e) => e.target.select()} onChange={(e) => setForm({ ...form, hh: +e.target.value })} style={bluInput} /></Field>
             <Field label="OT (opcional)" span={6}><input value={form.ot_folio} onChange={(e) => setForm({ ...form, ot_folio: e.target.value })} style={inputStyle()} placeholder="OT-005" /></Field>
           </div>
           <div style={{ display: "flex", gap: 8, marginTop: 14 }}>

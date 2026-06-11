@@ -587,7 +587,7 @@ tbody td { padding: 7px 9px; font-size: 11px; border-bottom: 1px solid #EEF3F7; 
               <input type="date" value={form.fecha_entrega_esperada} onChange={(e) => setForm({ ...form, fecha_entrega_esperada: e.target.value })} style={inputStyle()} />
             </Field>
             <Field label="Lead días">
-              <input type="number" value={form.lead_dias} onChange={(e) => setForm({ ...form, lead_dias: +e.target.value })} style={bluInput} min={0} />
+              <input type="number" value={form.lead_dias} onFocus={(e) => e.target.select()} onChange={(e) => setForm({ ...form, lead_dias: +e.target.value })} style={bluInput} min={0} />
             </Field>
             <Field label="Urgencia">
               <select value={form.urgencia} onChange={(e) => setForm({ ...form, urgencia: e.target.value })}
@@ -613,7 +613,7 @@ tbody td { padding: 7px 9px; font-size: 11px; border-bottom: 1px solid #EEF3F7; 
               </select>
             </Field>
             <Field label="IVA %">
-              <input type="number" value={form.iva_pct} onChange={(e) => setForm({ ...form, iva_pct: +e.target.value })} style={bluInput} min={0} max={100} />
+              <input type="number" value={form.iva_pct} onFocus={(e) => e.target.select()} onChange={(e) => setForm({ ...form, iva_pct: +e.target.value })} style={bluInput} min={0} max={100} />
             </Field>
             <Field label="Notas y condiciones especiales">
               <input value={form.notas} onChange={(e) => setForm({ ...form, notas: e.target.value })} style={{ ...inputStyle(), width: "100%" }} placeholder="Instrucciones de entrega, urgencia, condiciones…" />
@@ -630,13 +630,13 @@ tbody td { padding: 7px 9px; font-size: 11px; border-bottom: 1px solid #EEF3F7; 
                     onChange={(id) => setLine({ ...line, item_id: id, precio: id ? (itemPrecio(id) || 0) : 0 })} />
                 </Field>
                 <Field label="Cantidad">
-                  <input type="number" value={line.cantidad} onChange={(e) => setLine({ ...line, cantidad: +e.target.value })} style={bluInput} min={0.01} step="any" />
+                  <input type="number" value={line.cantidad} onFocus={(e) => e.target.select()} onChange={(e) => setLine({ ...line, cantidad: +e.target.value })} style={bluInput} min={0.01} step="any" />
                 </Field>
                 <Field label="Precio unit.">
-                  <input type="number" value={line.precio || ""} onChange={(e) => setLine({ ...line, precio: +e.target.value })} style={bluInput} min={0} placeholder="$" />
+                  <input type="number" value={line.precio || ""} onFocus={(e) => e.target.select()} onChange={(e) => setLine({ ...line, precio: +e.target.value })} style={bluInput} min={0} placeholder="$" />
                 </Field>
                 <Field label="Desc. %">
-                  <input type="number" value={line.descuento_pct || 0} onChange={(e) => setLine({ ...line, descuento_pct: +e.target.value })} style={bluInput} min={0} max={100} step={0.5} />
+                  <input type="number" value={line.descuento_pct || 0} onFocus={(e) => e.target.select()} onChange={(e) => setLine({ ...line, descuento_pct: +e.target.value })} style={bluInput} min={0} max={100} step={0.5} />
                 </Field>
                 <button onClick={addLine} style={{ ...ghostBtn, alignSelf: "flex-end" }}><Plus size={15} /> Agregar</button>
               </div>
@@ -742,7 +742,7 @@ tbody td { padding: 7px 9px; font-size: 11px; border-bottom: 1px solid #EEF3F7; 
                       <td style={{ ...tdStyle, textAlign: "center" }}>
                         {pend > 0 ? (
                           <input type="number" min={0} max={pend} value={recepCants[it.id] ?? pend}
-                            onChange={(e) => setRecepCants((p) => ({ ...p, [it.id]: Math.min(+e.target.value, pend) }))}
+                            onFocus={(e) => e.target.select()} onChange={(e) => setRecepCants((p) => ({ ...p, [it.id]: Math.min(+e.target.value, pend) }))}
                             style={{ ...bluInput, width: 70, textAlign: "center" }} />
                         ) : <span style={{ fontSize: 12, color: C.green }}>✓ Completo</span>}
                       </td>

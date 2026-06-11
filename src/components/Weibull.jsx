@@ -325,7 +325,7 @@ function CellEdit({ label, value, disabled, onChange, step = 1 }) {
     <div>
       <div style={{ fontSize: 11, color: C.slate, marginBottom: 4 }}>{label}</div>
       <input type="number" step={step} value={value || 0} disabled={disabled}
-        onChange={(e) => onChange(+e.target.value)} style={bluInput} />
+        onFocus={(e) => e.target.select()} onChange={(e) => onChange(+e.target.value)} style={bluInput} />
     </div>
   );
 }

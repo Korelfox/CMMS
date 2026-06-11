@@ -581,7 +581,7 @@ tbody td{padding:5px 8px;vertical-align:middle}
                         {plan.tipo_disparador !== "calendario" && (
                           <Field label="Último servicio a (h)">
                             <input type="number" value={hitoForm.horas}
-                              onChange={(ev) => setHitoForm((p) => ({ ...p, horas: ev.target.value }))}
+                              onFocus={(e) => e.target.select()} onChange={(ev) => setHitoForm((p) => ({ ...p, horas: ev.target.value }))}
                               placeholder="0 — nunca realizado"
                               style={{ ...inputStyle(), fontFamily: "'IBM Plex Mono', monospace" }} />
                           </Field>
@@ -662,7 +662,7 @@ tbody td{padding:5px 8px;vertical-align:middle}
                   {newPlan.tipo_disparador === "horas" ? (
                     <Field label="Intervalo (horas)">
                       <input type="number" value={newPlan.intervalo_horas} list="intervalosnums"
-                        onChange={(e) => setNewPlan((p) => ({ ...p, intervalo_horas: +e.target.value }))}
+                        onFocus={(e) => e.target.select()} onChange={(e) => setNewPlan((p) => ({ ...p, intervalo_horas: +e.target.value }))}
                         style={{ ...bluInput, width: "100%" }} />
                       <datalist id="intervalosnums">{INTERVALOS_COMUNES.map((v) => <option key={v} value={v} />)}</datalist>
                     </Field>
@@ -671,7 +671,7 @@ tbody td{padding:5px 8px;vertical-align:middle}
                       <div style={{ fontSize: 11.5, color: C.slate, fontWeight: 600, marginBottom: 4 }}>Intervalo calendario</div>
                       <div style={{ display: "flex", gap: 6 }}>
                         <input type="number" min={1} value={newPlan.intervalo_calendario}
-                          onChange={(e) => setNewPlan((p) => ({ ...p, intervalo_calendario: +e.target.value }))}
+                          onFocus={(e) => e.target.select()} onChange={(e) => setNewPlan((p) => ({ ...p, intervalo_calendario: +e.target.value }))}
                           style={{ ...bluInput, width: 56 }} />
                         <select value={newPlan.unidad_calendario}
                           onChange={(e) => setNewPlan((p) => ({ ...p, unidad_calendario: e.target.value }))}
@@ -689,7 +689,7 @@ tbody td{padding:5px 8px;vertical-align:middle}
                   {newPlan.tipo_disparador === "horas" && (
                     <Field label="Último servicio a (h) · opcional">
                       <input type="number" value={newPlan.horas_ult_pm}
-                        onChange={(e) => setNewPlan((p) => ({ ...p, horas_ult_pm: e.target.value }))}
+                        onFocus={(e) => e.target.select()} onChange={(e) => setNewPlan((p) => ({ ...p, horas_ult_pm: e.target.value }))}
                         placeholder="0 — nunca realizado"
                         style={{ ...bluInput, width: "100%" }} />
                     </Field>

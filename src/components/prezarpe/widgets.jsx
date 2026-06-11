@@ -58,7 +58,7 @@ export function Stepper({ label, unidad, icon: Icon, value, onChange, step = 1 }
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
         <button onClick={() => onChange(Math.max(0, value - step))} style={stepBtn}>−</button>
         <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 4, background: tint(C.sky, 9), border: "1px solid #CFE3F2", borderRadius: 8, padding: "4px 8px" }}>
-          <input type="number" value={value} onChange={(e) => onChange(Math.max(0, Number(e.target.value) || 0))}
+          <input type="number" value={value} onFocus={(e) => e.target.select()} onChange={(e) => onChange(Math.max(0, Number(e.target.value) || 0))}
             style={{ width: "100%", border: "none", background: "transparent", textAlign: "center", fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, fontSize: 16, color: C.steel, outline: "none" }} />
           <span style={{ fontSize: 11, color: C.slate }}>{unidad}</span>
         </div>

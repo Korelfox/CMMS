@@ -838,13 +838,13 @@ export default function Equipos() {
                       {/* Horas */}
                       <td style={{ ...tdE, textAlign: "right" }}>
                         <input type="number" value={e.horas_actual} disabled={!puedeOperar}
-                          onChange={(ev) => onChangeLocal(e.id, "horas_actual", +ev.target.value)}
+                          onFocus={(ev) => ev.target.select()} onChange={(ev) => onChangeLocal(e.id, "horas_actual", +ev.target.value)}
                           onBlur={(ev) => commit(e.id, "horas_actual", +ev.target.value)}
                           style={{ ...bluC, width: 62, textAlign: "right" }} />
                       </td>
                       <td style={{ ...tdE, textAlign: "right" }}>
                         <input type="number" value={e.horas_ult_pm} disabled={!puedeOperar}
-                          onChange={(ev) => onChangeLocal(e.id, "horas_ult_pm", +ev.target.value)}
+                          onFocus={(ev) => ev.target.select()} onChange={(ev) => onChangeLocal(e.id, "horas_ult_pm", +ev.target.value)}
                           onBlur={(ev) => commit(e.id, "horas_ult_pm", +ev.target.value)}
                           style={{ ...bluC, width: 62, textAlign: "right" }} />
                       </td>
@@ -853,7 +853,7 @@ export default function Equipos() {
                       <td style={{ ...tdE, textAlign: "right" }}>
                         <input type="number" value={e.mtbf_objetivo ?? ""} disabled={!puedeOperar}
                           placeholder="—"
-                          onChange={(ev) => onChangeLocal(e.id, "mtbf_objetivo", ev.target.value === "" ? null : +ev.target.value)}
+                          onFocus={(ev) => ev.target.select()} onChange={(ev) => onChangeLocal(e.id, "mtbf_objetivo", ev.target.value === "" ? null : +ev.target.value)}
                           onBlur={(ev) => commit(e.id, "mtbf_objetivo", ev.target.value === "" ? null : +ev.target.value)}
                           style={{ ...bluC, width: 62, textAlign: "right" }} />
                       </td>

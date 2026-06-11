@@ -711,17 +711,17 @@ export default function Inventario() {
                       </td>
                       <td style={{ ...tdStyle, textAlign: "right" }}>
                         <input type="number" value={i.stock_min} disabled={!puedeOperar}
-                          onChange={(e) => { marcarDirty(i); onChangeLocal(i.id, "stock_min", +e.target.value); }}
+                          onFocus={(e) => e.target.select()} onChange={(e) => { marcarDirty(i); onChangeLocal(i.id, "stock_min", +e.target.value); }}
                           style={{ ...bluInput, width: 60, textAlign: "right" }} />
                       </td>
                       <td style={{ ...tdStyle, textAlign: "right" }}>
                         <input type="number" value={i.stock_max} disabled={!puedeOperar}
-                          onChange={(e) => { marcarDirty(i); onChangeLocal(i.id, "stock_max", +e.target.value); }}
+                          onFocus={(e) => e.target.select()} onChange={(e) => { marcarDirty(i); onChangeLocal(i.id, "stock_max", +e.target.value); }}
                           style={{ ...bluInput, width: 60, textAlign: "right" }} />
                       </td>
                       <td style={{ ...tdStyle, textAlign: "right" }}>
                         <input type="number" value={i.precio} disabled={!puedeOperar}
-                          onChange={(e) => { marcarDirty(i); onChangeLocal(i.id, "precio", +e.target.value); }}
+                          onFocus={(e) => e.target.select()} onChange={(e) => { marcarDirty(i); onChangeLocal(i.id, "precio", +e.target.value); }}
                           style={{ ...bluInput, width: 90, textAlign: "right" }} />
                       </td>
                       <td style={{ ...tdStyle, textAlign: "right", fontFamily: "'IBM Plex Mono', monospace", fontWeight: 600 }}>{clp(i.valor)}</td>

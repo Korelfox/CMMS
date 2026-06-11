@@ -261,7 +261,7 @@ export default function TabMovimientos({
                   <ItemSearch items={items} value={form.item_id} onChange={(id) => setForm({...form, item_id:id})}/>
                 </Field>
                 <Field label={form.item_id && needFrom(tipoActivo) ? `Cantidad (disp: ${stockDisp(form.item_id, form.bodega_from)})` : "Cantidad"}>
-                  <input type="number" value={form.cantidad} onChange={(e) => setForm({...form, cantidad:+e.target.value})} style={bluInput} min={0.01} step="any"/>
+                  <input type="number" value={form.cantidad} onFocus={(e) => e.target.select()} onChange={(e) => setForm({...form, cantidad:+e.target.value})} style={bluInput} min={0.01} step="any"/>
                 </Field>
               </div>
               <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:12 }}>
@@ -361,7 +361,7 @@ export default function TabMovimientos({
                 <Field label={bLine.item_id
                   ? `Cant. (disp: ${stockDisp(bLine.item_id, tipoActivo==="despacho"?batch.bodega_tierra:batch.bodega_nave)})`
                   : "Cantidad"}>
-                  <input type="number" value={bLine.cantidad} onChange={(e) => setBLine({...bLine, cantidad:+e.target.value})} style={bluInput} min={0.01} step="any"/>
+                  <input type="number" value={bLine.cantidad} onFocus={(e) => e.target.select()} onChange={(e) => setBLine({...bLine, cantidad:+e.target.value})} style={bluInput} min={0.01} step="any"/>
                 </Field>
                 <button onClick={addBLine}
                   style={{ padding:"7px 14px", borderRadius:7, border:`1px solid ${C.line}`,

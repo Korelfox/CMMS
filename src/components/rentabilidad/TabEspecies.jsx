@@ -69,7 +69,7 @@ export default function TabEspecies({ profile, especies, setEspecies, setError }
             </Field>
             <Field label="Precio $/kg referencial">
               <input type="number" value={form.precio_kg_default}
-                onChange={(e) => setForm({ ...form, precio_kg_default: e.target.value })}
+                onFocus={(e) => e.target.select()} onChange={(e) => setForm({ ...form, precio_kg_default: e.target.value })}
                 style={bluInput} />
             </Field>
             <button onClick={crear} style={{ ...primaryBtn, marginTop: 22 }}>Guardar</button>
@@ -100,7 +100,7 @@ export default function TabEspecies({ profile, especies, setEspecies, setError }
                   </td>
                   <td style={{ ...tdStyle, textAlign: "right" }}>
                     <input type="number" value={esp.precio_kg_default} disabled={!puedeOperar}
-                      onChange={(e) => setEspecies((p) => p.map((x) => x.id === esp.id ? { ...x, precio_kg_default: +e.target.value } : x))}
+                      onFocus={(e) => e.target.select()} onChange={(e) => setEspecies((p) => p.map((x) => x.id === esp.id ? { ...x, precio_kg_default: +e.target.value } : x))}
                       onBlur={(e) => commitEsp(esp.id, "precio_kg_default", +e.target.value)}
                       style={{ ...bluInput, width: 130, textAlign: "right" }} />
                   </td>

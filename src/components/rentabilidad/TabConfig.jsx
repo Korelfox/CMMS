@@ -35,17 +35,17 @@ export default function TabConfig({ profile, conf, setConf, setError }) {
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 20 }}>
         <Field label="Precio combustible ($/L)">
           <input type="number" value={form.precio_combustible_l || 0}
-            onChange={(e) => setForm((p) => ({ ...p, precio_combustible_l: +e.target.value }))}
+            onFocus={(e) => e.target.select()} onChange={(e) => setForm((p) => ({ ...p, precio_combustible_l: +e.target.value }))}
             style={{ ...bluInput, width: "100%" }} />
         </Field>
         <Field label="Precio aceite ($/L)">
           <input type="number" value={form.precio_aceite_l || 0}
-            onChange={(e) => setForm((p) => ({ ...p, precio_aceite_l: +e.target.value }))}
+            onFocus={(e) => e.target.select()} onChange={(e) => setForm((p) => ({ ...p, precio_aceite_l: +e.target.value }))}
             style={{ ...bluInput, width: "100%" }} />
         </Field>
         <Field label="Parte de la tripulación (% del líquido)">
           <input type="number" min={0} max={100} value={form.parte_tripulacion_pct || 50}
-            onChange={(e) => setForm((p) => ({ ...p, parte_tripulacion_pct: +e.target.value }))}
+            onFocus={(e) => e.target.select()} onChange={(e) => setForm((p) => ({ ...p, parte_tripulacion_pct: +e.target.value }))}
             style={{ ...bluInput, width: "100%", borderColor: C.cyan }} />
         </Field>
       </div>

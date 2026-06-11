@@ -161,11 +161,11 @@ export default function Pdm() {
                 options={(PARAMETROS_PDM[form.tipo] || []).map(([n]) => n)}
                 placeholder="Hierro (Fe), Velocidad RMS, Temperatura…" />
             </Field>
-            <Field label="Valor medido"><input type="number" step="any" value={form.valor} onChange={(e) => setForm({ ...form, valor: e.target.value })} style={inputStyle()} /></Field>
+            <Field label="Valor medido"><input type="number" step="any" value={form.valor} onFocus={(e) => e.target.select()} onChange={(e) => setForm({ ...form, valor: e.target.value })} style={inputStyle()} /></Field>
             <Field label="Unidad"><input value={form.unidad} onChange={(e) => setForm({ ...form, unidad: e.target.value })} style={inputStyle()} placeholder="ppm, mm/s, °C" /></Field>
 
-            <Field label="Límite alerta (amarillo)"><input type="number" step="any" value={form.limite_alerta} onChange={(e) => setForm({ ...form, limite_alerta: e.target.value })} style={inputStyle()} /></Field>
-            <Field label="Límite crítico (rojo)"><input type="number" step="any" value={form.limite_critico} onChange={(e) => setForm({ ...form, limite_critico: e.target.value })} style={inputStyle()} /></Field>
+            <Field label="Límite alerta (amarillo)"><input type="number" step="any" value={form.limite_alerta} onFocus={(e) => e.target.select()} onChange={(e) => setForm({ ...form, limite_alerta: e.target.value })} style={inputStyle()} /></Field>
+            <Field label="Límite crítico (rojo)"><input type="number" step="any" value={form.limite_critico} onFocus={(e) => e.target.select()} onChange={(e) => setForm({ ...form, limite_critico: e.target.value })} style={inputStyle()} /></Field>
             <Field label="Nota (laboratorio, punto de medición…)" span={2}>
               <input value={form.nota} onChange={(e) => setForm({ ...form, nota: e.target.value })} style={inputStyle()} placeholder="Muestra N° / punto de medición / observación" />
             </Field>

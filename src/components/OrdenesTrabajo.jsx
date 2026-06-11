@@ -291,11 +291,11 @@ export default function OrdenesTrabajo({ navParams }) {
             <Field label="Tipo"><select value={form.tipo} onChange={(e) => setForm({ ...form, tipo: e.target.value })} style={inputStyle()}>{TIPOS_OT.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}</select></Field>
             <Field label="Prioridad"><select value={form.prioridad} onChange={(e) => setForm({ ...form, prioridad: e.target.value })} style={inputStyle()}>{PRIORIDADES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}</select></Field>
             <Field label="Estado"><select value={form.estado} onChange={(e) => setForm({ ...form, estado: e.target.value })} style={inputStyle()}>{ESTADOS_OT.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}</select></Field>
-            <Field label="MTTR (hrs paro)"><input type="number" value={form.mttr_horas} onChange={(e) => setForm({ ...form, mttr_horas: +e.target.value })} style={bluInput} /></Field>
+            <Field label="MTTR (hrs paro)"><input type="number" value={form.mttr_horas} onFocus={(e) => e.target.select()} onChange={(e) => setForm({ ...form, mttr_horas: +e.target.value })} style={bluInput} /></Field>
 
             <Field label="Descripción" span={2}><input data-testid="ot-form-descripcion" value={form.descripcion} onChange={(e) => setForm({ ...form, descripcion: e.target.value })} style={inputStyle()} placeholder="Trabajo a realizar" /></Field>
-            <Field label="Costo MO ($)"><input type="number" value={form.costo_mo} onChange={(e) => setForm({ ...form, costo_mo: +e.target.value })} style={bluInput} /></Field>
-            <Field label="Costo Mat. ($)"><input type="number" value={form.costo_mat} onChange={(e) => setForm({ ...form, costo_mat: +e.target.value })} style={bluInput} /></Field>
+            <Field label="Costo MO ($)"><input type="number" value={form.costo_mo} onFocus={(e) => e.target.select()} onChange={(e) => setForm({ ...form, costo_mo: +e.target.value })} style={bluInput} /></Field>
+            <Field label="Costo Mat. ($)"><input type="number" value={form.costo_mat} onFocus={(e) => e.target.select()} onChange={(e) => setForm({ ...form, costo_mat: +e.target.value })} style={bluInput} /></Field>
           </div>
           <div style={{ marginTop: 14 }}>
             <div style={{ fontSize: 11, color: C.slate, marginBottom: 6, fontWeight: 600 }}>Fotos (opcional)</div>
@@ -368,11 +368,11 @@ export default function OrdenesTrabajo({ navParams }) {
                         <div style={{ display: "flex", flexDirection: "column", gap: 4, alignItems: "flex-end" }}>
                           <label style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 10, color: C.slate, fontWeight: 600 }}>
                             MO <input type="number" step={1000} value={o.costo_mo || 0}
-                              onChange={(e) => editarCosto(o.id, "costo_mo", +e.target.value)} onBlur={() => guardarCosto(o)}
+                              onFocus={(e) => e.target.select()} onChange={(e) => editarCosto(o.id, "costo_mo", +e.target.value)} onBlur={() => guardarCosto(o)}
                               style={{ ...bluInput, width: 96, padding: "4px 7px", fontSize: 12 }} /></label>
                           <label style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 10, color: C.slate, fontWeight: 600 }}>
                             Mat <input type="number" step={1000} value={o.costo_mat || 0}
-                              onChange={(e) => editarCosto(o.id, "costo_mat", +e.target.value)} onBlur={() => guardarCosto(o)}
+                              onFocus={(e) => e.target.select()} onChange={(e) => editarCosto(o.id, "costo_mat", +e.target.value)} onBlur={() => guardarCosto(o)}
                               style={{ ...bluInput, width: 96, padding: "4px 7px", fontSize: 12 }} /></label>
                           {costoOk === o.id && <span style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: 10, color: C.green, fontWeight: 600 }}><Check size={11} /> guardado</span>}
                         </div>
