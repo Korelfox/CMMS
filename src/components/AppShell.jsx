@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, lazy, Suspense } from "react";
+import React, { useState, useEffect, useCallback, useRef, lazy, Suspense } from "react";
 import {
   Anchor, LayoutDashboard, Ship, Sailboat, CalendarClock, Calendar, Inbox, ClipboardList,
   Package, Warehouse, Gauge, Activity, AlertTriangle, ClipboardCheck, DollarSign,
@@ -41,6 +41,20 @@ const Bitacora      = lazy(() => import("./Bitacora"));
 const Rentabilidad  = lazy(() => import("./Rentabilidad"));
 const Empresas      = lazy(() => import("./Empresas"));
 const Usuarios      = lazy(() => import("./Usuarios"));
+
+const INTERVALOS_REFRESH = [
+  { label: "5 min",       s: 300  },
+  { label: "10 min",      s: 600  },
+  { label: "15 min",      s: 900  },
+  { label: "30 min",      s: 1800 },
+  { label: "1 hora",      s: 3600 },
+  { label: "Desactivado", s: 0    },
+];
+function fmtTimer(s) {
+  if (s <= 0) return "--:--";
+  const m = Math.floor(s / 60).toString().padStart(2, "0");
+  return `${m}:${(s % 60).toString().padStart(2, "0")}`;
+}
 
 // Estructura de navegación (los módulos se conectan a la base de datos uno a uno)
 const NAV = [
@@ -114,6 +128,15 @@ export default function AppShell() {
   const [armador, setArmador] = useState(null);      // usuario Armador (admin_empresa) de la organización
   const [pendientes, setPendientes] = useState(0);
   const [sidebarOpen, setSidebarOpen] = useState(false); // drawer móvil
+  const [refreshInterval, setRefreshInterval] = useState(() => {
+    try { return parseInt(localStorage.getItem("cmms-refresh-interval") || "1800", 10); } catch { return 1800; }
+  });
+  const [timeLeft, setTimeLeft]     = useState(() => {
+    try { return parseInt(localStorage.getItem("cmms-refresh-interval") || "1800", 10); } catch { return 1800; }
+  });
+  const [refreshTick, setRefreshTick]       = useState(0);
+  const [showRefreshCfg, setShowRefreshCfg] = useState(false);
+  const refreshCfgRef = useRef(null);
   const [dark, setDark] = useState(() => {
     try { return document.documentElement.dataset.theme === "dark"; } catch { return false; }
   });
@@ -161,6 +184,33 @@ export default function AppShell() {
     window.addEventListener("cmms-outbox", onChange);
     return () => window.removeEventListener("cmms-outbox", onChange);
   }, [refrescarPendientes]);
+
+  // ── Auto-refresh countdown ──────────────────────────────────────────────
+  useEffect(() => {
+    try { localStorage.setItem("cmms-refresh-interval", String(refreshInterval)); } catch {}
+    if (refreshInterval <= 0) return;
+    setTimeLeft(refreshInterval);
+    const t = setInterval(() => {
+      setTimeLeft((prev) => {
+        if (prev <= 1) { setRefreshTick((n) => n + 1); return refreshInterval; }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(t);
+  }, [refreshInterval]);
+
+  // Cierra popover al hacer clic fuera
+  useEffect(() => {
+    if (!showRefreshCfg) return;
+    const fn = (e) => { if (refreshCfgRef.current && !refreshCfgRef.current.contains(e.target)) setShowRefreshCfg(false); };
+    document.addEventListener("mousedown", fn);
+    return () => document.removeEventListener("mousedown", fn);
+  }, [showRefreshCfg]);
+
+  function forzarRefresh() {
+    setRefreshTick((n) => n + 1);
+    if (refreshInterval > 0) setTimeLeft(refreshInterval);
+  }
 
   // Al recuperar señal, intenta subir lo pendiente automáticamente
   useEffect(() => {
@@ -284,6 +334,54 @@ export default function AppShell() {
               {online ? <Wifi size={15} /> : <WifiOff size={15} />}
               {online ? "En línea" : "Sin conexión"}
             </span>
+
+            {/* ── Refresh timer ── */}
+            <div style={{ position: "relative" }} ref={refreshCfgRef}>
+              <button onClick={() => setShowRefreshCfg((v) => !v)} title="Configurar actualización automática"
+                style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 700,
+                  color: refreshInterval > 0 && timeLeft < 60 ? C.amber : C.slate,
+                  background: showRefreshCfg ? tint(C.sky, 12) : "none",
+                  border: `1px solid ${showRefreshCfg ? tint(C.sky, 30) : C.line}`,
+                  borderRadius: 20, padding: "4px 10px", cursor: "pointer",
+                  fontFamily: "'IBM Plex Mono', monospace", transition: "color .2s" }}>
+                <RefreshCw size={12} />
+                {refreshInterval > 0 ? fmtTimer(timeLeft) : "—"}
+              </button>
+
+              {showRefreshCfg && (
+                <div style={{ position: "absolute", right: 0, top: "calc(100% + 6px)", background: C.surface,
+                  border: `1px solid ${C.line}`, borderRadius: 12, padding: "8px 6px", zIndex: 200, minWidth: 180,
+                  boxShadow: "0 6px 24px rgba(0,0,0,.14)" }}>
+                  <div style={{ fontSize: 10.5, color: C.slate, fontWeight: 700, textTransform: "uppercase",
+                    letterSpacing: 0.6, padding: "4px 10px 8px" }}>
+                    Actualización automática
+                  </div>
+                  {INTERVALOS_REFRESH.map((op) => (
+                    <button key={op.s}
+                      onClick={() => { setRefreshInterval(op.s); setTimeLeft(op.s || 0); setShowRefreshCfg(false); }}
+                      style={{ display: "block", width: "100%", textAlign: "left", padding: "7px 12px", borderRadius: 8,
+                        border: "none", background: refreshInterval === op.s ? tint(C.sky, 14) : "none",
+                        color: refreshInterval === op.s ? C.sky : C.ink, fontWeight: refreshInterval === op.s ? 700 : 400,
+                        fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>
+                      {op.label}
+                      {refreshInterval === op.s && refreshInterval > 0 && (
+                        <span style={{ fontSize: 11, color: C.steel, marginLeft: 8, fontFamily: "'IBM Plex Mono', monospace" }}>
+                          {fmtTimer(timeLeft)}
+                        </span>
+                      )}
+                    </button>
+                  ))}
+                  <div style={{ borderTop: `1px solid ${C.line}`, marginTop: 6, paddingTop: 6 }}>
+                    <button onClick={() => { forzarRefresh(); setShowRefreshCfg(false); }}
+                      style={{ display: "flex", alignItems: "center", gap: 7, width: "100%", padding: "7px 12px",
+                        borderRadius: 8, border: "none", background: "none", color: C.sky,
+                        fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
+                      <RefreshCw size={13} /> Actualizar ahora
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
         <div className="cmms-work-area" style={{ maxWidth: "100%", margin: "0 auto" }}>
@@ -291,7 +389,7 @@ export default function AppShell() {
           <Suspense fallback={<InlineSpinner label="Cargando módulo…" />}>
           {(() => {
             const Modulo = MODULOS[view];
-            if (Modulo) return <Modulo onNavigate={navegar} navParams={navParams} />;
+            if (Modulo) return <Modulo key={`${view}-${refreshTick}`} onNavigate={navegar} navParams={navParams} />;
             return (
               <>
                 <PageHead
