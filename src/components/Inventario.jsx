@@ -66,7 +66,6 @@ export default function Inventario() {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(blank());
   const [destinoPanel, setDestinoPanel] = useState(null); // item_id | null
-  const [filtroCat, setFiltroCat] = useState("all");
   const [codigoEdit, setCodigoEdit] = useState({ id: null, valor: "" });
   const [vista, setVista] = useState("plano");        // plano | categoria | jerarquia
   const [busqueda, setBusqueda] = useState("");
@@ -163,13 +162,12 @@ export default function Inventario() {
   const itemsConStock = conABC.filter((x) => x.total > 0).length;
   const lista = conABC.filter((i) =>
     (!soloConStock || i.total > 0) &&
-    (filtroCat === "all" || i.categoria === filtroCat) &&
     (filtroABC === "all" || i.abc === filtroABC) &&
     (filtroStock === "all" || stockStatus(i) === filtroStock) &&
     (!q || i.codigo.toLowerCase().includes(q) || (i.descripcion || "").toLowerCase().includes(q) || (i.proveedor || "").toLowerCase().includes(q))
   );
-  const hayFiltro = filtroCat !== "all" || filtroABC !== "all" || filtroStock !== "all" || !!q;
-  const limpiarFiltros = () => { setFiltroCat("all"); setFiltroABC("all"); setFiltroStock("all"); setBusqueda(""); };
+  const hayFiltro = filtroABC !== "all" || filtroStock !== "all" || !!q;
+  const limpiarFiltros = () => { setFiltroABC("all"); setFiltroStock("all"); setBusqueda(""); };
   const toggleGrupo = (k) => setGruposCol((p) => { const n = new Set(p); n.has(k) ? n.delete(k) : n.add(k); return n; });
 
   // ── Destinos ─────────────────────────────────────────────────
@@ -394,19 +392,6 @@ export default function Inventario() {
               return <button key={v} onClick={() => setFiltroStock(v)} style={{ padding: "5px 12px", borderRadius: 7, border: `1px solid ${active ? tone : C.line}`, background: active ? tone : "#fff", color: active ? "#fff" : C.slate, fontSize: 12.5, fontWeight: 600, cursor: "pointer" }}>{lbl}{n != null && <span style={{ opacity: 0.7, marginLeft: 4, fontSize: 11 }}>({n})</span>}</button>;
             })}
           </div>
-
-          {/* Fila 3: categorías */}
-          {categoriasUsadas.length > 0 && (
-            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
-              <span style={{ fontSize: 11, color: C.slate, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, marginRight: 2 }}>Categoría</span>
-              <FilterBtn active={filtroCat === "all"} onClick={() => setFiltroCat("all")}>Todas</FilterBtn>
-              {categoriasUsadas.map((cat) => (
-                <FilterBtn key={cat} active={filtroCat === cat} onClick={() => setFiltroCat(cat)}>
-                  {cat} <span style={{ opacity: 0.6, fontSize: 10.5 }}>({conABC.filter((i) => i.categoria === cat).length})</span>
-                </FilterBtn>
-              ))}
-            </div>
-          )}
 
           {/* Colapsar / expandir todo (solo en vistas agrupadas) */}
           {vista !== "plano" && (
