@@ -78,7 +78,7 @@ export function VistaChecklist({ nave, equipos, online, onVolver, onGuardar, onS
   const [guardando, setGuardando] = useState(false);
   const [config, setConfig] = useState(() => {
     const c = nave?.prezarpe_config || {};
-    return { extra: c.extra || [], excluidos: c.excluidos || [] };
+    return { extra: c.extra || [], excluidos: c.excluidos || [], hor_excluidos: c.hor_excluidos || [], hor_extra: c.hor_extra || [] };
   });
   const [modoEdicion, setModoEdicion] = useState(false);
   const [nuevoItem, setNuevoItem] = useState("");
@@ -108,13 +108,41 @@ export function VistaChecklist({ nave, equipos, online, onVolver, onGuardar, onS
     setNuevoItem("");
   }
 
+  const [modoEdicionD, setModoEdicionD] = useState(false);
+
+  const horExcluidosSet = new Set(config.hor_excluidos || []);
+  const horExtraIds     = config.hor_extra || [];
+  const horomEquipos    = [
+    ...nivelEquipos.filter((e) => !horExcluidosSet.has(e.id)),
+    ...horExtraIds.map((id) => equipos.find((e) => e.id === id)).filter(Boolean),
+  ];
+  const equiposDisponibles = equipos.filter(
+    (e) => !nivelEquipos.some((x) => x.id === e.id) && !horExtraIds.includes(e.id)
+  );
+
+  function quitarHorom(eq) {
+    const isExtra = horExtraIds.includes(eq.id);
+    const c = isExtra
+      ? { ...config, hor_extra: horExtraIds.filter((id) => id !== eq.id) }
+      : { ...config, hor_excluidos: [...(config.hor_excluidos || []), eq.id] };
+    saveConfig(c);
+    setHorom((h) => { const next = { ...h }; delete next[eq.id]; return next; });
+  }
+  function restaurarHorom(eqId) {
+    saveConfig({ ...config, hor_excluidos: (config.hor_excluidos || []).filter((id) => id !== eqId) });
+  }
+  function agregarHorom(eqId) {
+    if (!eqId) return;
+    saveConfig({ ...config, hor_extra: [...horExtraIds, eqId] });
+  }
+
   const setVis = (it, v) => setVisual((p) => ({ ...p, [it]: p[it] === v ? null : v }));
   const setNiv = (id, campo, v) => setNiveles((p) => ({ ...p, [id]: { ...p[id], [campo]: (p[id]?.[campo] === v ? null : v) } }));
 
   const hechosVisual = Object.values(visual).filter(Boolean).length;
   const hayFalla = Object.values(visual).includes("falla");
   const hayBajo = Object.values(niveles).some((n) => n?.aceite === "bajo" || n?.agua === "bajo");
-  const horomInvalido = nivelEquipos.some((e) => { const v = horom[e.id]; return v !== undefined && v !== "" && Number(v) < (e.horas_actual || 0); });
+  const horomInvalido = horomEquipos.some((e) => { const v = horom[e.id]; return v !== undefined && v !== "" && Number(v) < (e.horas_actual || 0); });
   const sugerencia = hayFalla || hayBajo ? "no_apto" : "apto";
 
   async function guardar(apto) {
@@ -126,7 +154,7 @@ export function VistaChecklist({ nave, equipos, online, onVolver, onGuardar, onS
     setGuardando(true);
     // Solo horómetros con lectura ingresada
     const horometros = {};
-    nivelEquipos.forEach((e) => { if (horom[e.id] !== undefined && horom[e.id] !== "") horometros[e.id] = Number(horom[e.id]); });
+    horomEquipos.forEach((e) => { if (horom[e.id] !== undefined && horom[e.id] !== "") horometros[e.id] = Number(horom[e.id]); });
     await onGuardar({
       visual, niveles,
       combustible_l: litros.combustible, agua_l: litros.agua, aceite_l: litros.aceite,
@@ -240,25 +268,89 @@ export function VistaChecklist({ nave, equipos, online, onVolver, onGuardar, onS
         </div>
       </Bloque>
 
-      {nivelEquipos.length > 0 && (
-        <Bloque titulo="D · Lectura de horómetros" icon={Gauge}>
+      {(horomEquipos.length > 0 || modoEdicionD) && (
+        <Bloque titulo="D · Lectura de horómetros" icon={Gauge} extra={
+          <button onClick={() => setModoEdicionD(!modoEdicionD)}
+            style={{ padding: "4px 10px", borderRadius: 7,
+              border: `1px solid ${modoEdicionD ? C.green : C.line}`,
+              background: modoEdicionD ? tint(C.green, 10) : C.surface,
+              color: modoEdicionD ? C.green : C.slate,
+              fontSize: 12, fontWeight: 700, cursor: "pointer",
+              display: "flex", alignItems: "center", gap: 5 }}>
+            {modoEdicionD ? <><Check size={12}/> Listo</> : <><Pencil size={12}/> Editar lista</>}
+          </button>
+        }>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px,1fr))", gap: 12 }}>
-            {nivelEquipos.map((eq) => {
-              const val = horom[eq.id];
-              const ant = eq.horas_actual || 0;
+            {horomEquipos.map((eq) => {
+              const val      = horom[eq.id];
+              const ant      = eq.horas_actual || 0;
               const invalida = val !== undefined && val !== "" && Number(val) < ant;
+              const isExtra  = horExtraIds.includes(eq.id);
               return (
                 <div key={eq.id} style={{ padding: "12px 14px", border: `1px solid ${invalida ? C.red : C.line}`, borderRadius: 10, background: C.surface }}>
-                  <div style={{ fontSize: 12.5, fontWeight: 700, color: C.abyss }}>{eq.sistema || eq.id_visible}</div>
-                  <div style={{ fontSize: 11, color: C.slate, marginBottom: 6, fontFamily: "'IBM Plex Mono', monospace" }}>Anterior: {ant} h</div>
-                  <input type="number" placeholder={`≥ ${ant}`} value={val ?? ""}
-                    onChange={(e) => setHorom((p) => ({ ...p, [eq.id]: e.target.value }))}
-                    style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: `1px solid ${invalida ? C.red : tint(C.sky, 28)}`, fontFamily: "'IBM Plex Mono', monospace", fontSize: 14, fontWeight: 600, color: C.steel, background: tint(C.sky, 9) }} />
-                  {invalida && <div style={{ fontSize: 10.5, color: C.red, fontWeight: 600, marginTop: 4 }}>Debe ser ≥ {ant} h</div>}
+                  <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 6, marginBottom: 4 }}>
+                    <div>
+                      <div style={{ fontSize: 12.5, fontWeight: 700, color: C.abyss, display: "flex", alignItems: "center", gap: 5 }}>
+                        {eq.sistema || eq.id_visible}
+                        {isExtra && <span style={{ fontSize: 9, fontWeight: 700, color: C.purple, background: tint(C.purple, 14), padding: "1px 6px", borderRadius: 20 }}>EXTRA</span>}
+                      </div>
+                      <div style={{ fontSize: 11, color: C.slate, fontFamily: "'IBM Plex Mono', monospace" }}>Anterior: {ant} h</div>
+                    </div>
+                    {modoEdicionD && (
+                      <button onClick={() => quitarHorom(eq)}
+                        style={{ width: 28, height: 28, borderRadius: 7, border: `1px solid ${C.red}`, background: C.redBg, color: C.red, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                        <X size={13}/>
+                      </button>
+                    )}
+                  </div>
+                  {!modoEdicionD && (
+                    <>
+                      <input type="number" placeholder={`≥ ${ant}`} value={val ?? ""}
+                        onChange={(e) => setHorom((p) => ({ ...p, [eq.id]: e.target.value }))}
+                        style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: `1px solid ${invalida ? C.red : tint(C.sky, 28)}`, fontFamily: "'IBM Plex Mono', monospace", fontSize: 14, fontWeight: 600, color: C.steel, background: tint(C.sky, 9), boxSizing: "border-box" }} />
+                      {invalida && <div style={{ fontSize: 10.5, color: C.red, fontWeight: 600, marginTop: 4 }}>Debe ser ≥ {ant} h</div>}
+                    </>
+                  )}
                 </div>
               );
             })}
           </div>
+
+          {/* Modo edición: agregar + restaurar */}
+          {modoEdicionD && (
+            <div style={{ marginTop: 14 }}>
+              {equiposDisponibles.length > 0 && (
+                <select onChange={(e) => { agregarHorom(e.target.value); e.target.value = ""; }}
+                  style={{ ...inputStyle(), width: "100%", boxSizing: "border-box" }}>
+                  <option value="">+ Agregar equipo a horómetros…</option>
+                  {equiposDisponibles.map((e) => (
+                    <option key={e.id} value={e.id}>
+                      {e.sistema || e.id_visible} — actual: {e.horas_actual || 0} h
+                    </option>
+                  ))}
+                </select>
+              )}
+              {(config.hor_excluidos || []).length > 0 && (
+                <div style={{ marginTop: 10 }}>
+                  <div style={{ fontSize: 10.5, color: C.slate, fontWeight: 700, letterSpacing: 0.6, textTransform: "uppercase", marginBottom: 7 }}>Equipos ocultos</div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                    {(config.hor_excluidos || []).map((eqId) => {
+                      const eq = equipos.find((e) => e.id === eqId);
+                      return (
+                        <div key={eqId} style={{ display: "flex", alignItems: "center", gap: 6, padding: "5px 10px", borderRadius: 20, border: `1px solid ${C.line}`, background: C.mist, fontSize: 12.5, color: C.slate }}>
+                          <span>{eq?.sistema || eq?.id_visible || eqId}</span>
+                          <button onClick={() => restaurarHorom(eqId)} title="Restaurar"
+                            style={{ background: "none", border: "none", cursor: "pointer", color: C.steel, padding: 0, display: "flex", alignItems: "center" }}>
+                            <RotateCcw size={12}/>
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </Bloque>
       )}
 
