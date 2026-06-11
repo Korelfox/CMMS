@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useRef, useEffect } from "react";
 import { Download, Plus, X, ChevronRight, ChevronDown, AlertCircle, Ship, Search } from "lucide-react";
 import { insertRow, upsertRow, logActivity } from "../../lib/db";
 import { C, canOperate, tint } from "../../theme";
@@ -258,10 +258,7 @@ export default function TabMovimientos({
             <div>
               <div style={{ display:"grid", gridTemplateColumns:"3fr 3fr 1fr", gap:12, marginBottom:12 }}>
                 <Field label="Ítem" span={2}>
-                  <select value={form.item_id} onChange={(e) => setForm({...form, item_id:e.target.value})} style={inputStyle()}>
-                    <option value="">— Selecciona —</option>
-                    {items.map((i) => <option key={i.id} value={i.id}>{i.codigo} · {i.descripcion}</option>)}
-                  </select>
+                  <ItemSearch items={items} value={form.item_id} onChange={(id) => setForm({...form, item_id:id})}/>
                 </Field>
                 <Field label={form.item_id && needFrom(tipoActivo) ? `Cantidad (disp: ${stockDisp(form.item_id, form.bodega_from)})` : "Cantidad"}>
                   <input type="number" value={form.cantidad} onChange={(e) => setForm({...form, cantidad:+e.target.value})} style={bluInput} min={0.01} step="any"/>
@@ -359,10 +356,7 @@ export default function TabMovimientos({
               {/* Agregar ítem al lote */}
               <div style={{ display:"grid", gridTemplateColumns:"1fr 150px auto", gap:10, alignItems:"flex-end", marginBottom:10 }}>
                 <Field label="Ítem a agregar">
-                  <select value={bLine.item_id} onChange={(e) => setBLine({...bLine, item_id:e.target.value})} style={inputStyle()}>
-                    <option value="">— Selecciona ítem —</option>
-                    {items.map((i) => <option key={i.id} value={i.id}>{i.codigo} · {i.descripcion}</option>)}
-                  </select>
+                  <ItemSearch items={items} value={bLine.item_id} onChange={(id) => setBLine({...bLine, item_id:id})}/>
                 </Field>
                 <Field label={bLine.item_id
                   ? `Cant. (disp: ${stockDisp(bLine.item_id, tipoActivo==="despacho"?batch.bodega_tierra:batch.bodega_nave)})`
@@ -590,5 +584,97 @@ function KpiCard({ label, value, color, sub }) {
       <div style={{ fontFamily:"'Archivo',sans-serif", fontSize:26, fontWeight:800, color, lineHeight:1 }}>{value}</div>
       {sub && <div style={{ fontSize:11, color:C.slate, marginTop:3 }}>{sub}</div>}
     </Card>
+  );
+}
+
+/* ── ItemSearch: buscador de ítems con autocompletado ────────── */
+function ItemSearch({ items, value, onChange, placeholder = "Buscar código o descripción…" }) {
+  const [query, setQuery]   = useState("");
+  const [open, setOpen]     = useState(false);
+  const [cursor, setCursor] = useState(-1);
+  const containerRef        = useRef(null);
+
+  const selected = items.find((i) => i.id === value);
+  const inputVal = open ? query : (selected ? `${selected.codigo} · ${selected.descripcion}` : "");
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return items.slice(0, 60);
+    return items.filter((i) =>
+      (i.codigo || "").toLowerCase().includes(q) ||
+      (i.descripcion || "").toLowerCase().includes(q)
+    ).slice(0, 60);
+  }, [items, query]);
+
+  useEffect(() => {
+    if (!open) return;
+    function onDown(e) {
+      if (containerRef.current && !containerRef.current.contains(e.target)) {
+        setOpen(false); setQuery(""); setCursor(-1);
+      }
+    }
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [open]);
+
+  function handleFocus() { setOpen(true); setQuery(""); setCursor(-1); }
+
+  function handleChange(e) { setQuery(e.target.value); setOpen(true); setCursor(-1); }
+
+  function select(item) { onChange(item.id); setOpen(false); setQuery(""); setCursor(-1); }
+
+  function clear(e) { e.stopPropagation(); onChange(""); setQuery(""); setOpen(false); }
+
+  function handleKey(e) {
+    if (!open) { if (e.key === "ArrowDown") { setOpen(true); } return; }
+    if (e.key === "ArrowDown")  { setCursor((c) => Math.min(c + 1, filtered.length - 1)); e.preventDefault(); }
+    else if (e.key === "ArrowUp")   { setCursor((c) => Math.max(c - 1, -1)); e.preventDefault(); }
+    else if (e.key === "Enter")     { if (cursor >= 0 && filtered[cursor]) { select(filtered[cursor]); } e.preventDefault(); }
+    else if (e.key === "Escape")    { setOpen(false); setQuery(""); setCursor(-1); }
+  }
+
+  return (
+    <div ref={containerRef} style={{ position:"relative" }}>
+      <div style={{ position:"relative" }}>
+        <Search size={13} color={C.slate}
+          style={{ position:"absolute", left:9, top:"50%", transform:"translateY(-50%)", pointerEvents:"none" }}/>
+        <input
+          value={inputVal}
+          onChange={handleChange}
+          onFocus={handleFocus}
+          onKeyDown={handleKey}
+          placeholder={placeholder}
+          style={{ ...inputStyle(), paddingLeft:28, paddingRight: value ? 28 : 10,
+            width:"100%", boxSizing:"border-box" }}
+        />
+        {value && (
+          <button onClick={clear}
+            style={{ position:"absolute", right:6, top:"50%", transform:"translateY(-50%)",
+              background:"none", border:"none", cursor:"pointer", color:C.slate, padding:2, lineHeight:1 }}>
+            <X size={13}/>
+          </button>
+        )}
+      </div>
+      {open && (
+        <div style={{ position:"absolute", zIndex:999, top:"calc(100% + 3px)", left:0, right:0,
+          background:C.surface, border:`1px solid ${C.line}`, borderRadius:8,
+          boxShadow:"0 8px 24px rgba(10,26,42,.12)", maxHeight:220, overflowY:"auto" }}>
+          {filtered.length === 0 ? (
+            <div style={{ padding:"10px 12px", fontSize:12, color:C.slate }}>Sin resultados</div>
+          ) : filtered.map((item, idx) => (
+            <div key={item.id}
+              onMouseDown={(e) => { e.preventDefault(); select(item); }}
+              style={{ padding:"7px 12px", cursor:"pointer", fontSize:12.5,
+                background: cursor === idx ? tint(C.cyan,12) : (item.id === value ? tint(C.green,8) : undefined),
+                borderBottom:`1px solid ${C.foam}`,
+                display:"flex", alignItems:"center", gap:8 }}>
+              <span style={{ fontFamily:"'IBM Plex Mono',monospace", fontSize:11,
+                color:C.steel, fontWeight:700, flexShrink:0, minWidth:60 }}>{item.codigo}</span>
+              <span style={{ color:C.ink, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{item.descripcion}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
