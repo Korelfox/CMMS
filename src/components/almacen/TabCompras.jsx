@@ -1278,7 +1278,7 @@ function OCDetallePanel({ oc, its, itemCodigo, itemDesc, itemUnidad, whName,
             <span style={{ color: C.slate }}>IVA ({ivaPct}%)</span>
             <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontWeight: 600 }}>{clp(iva)}</span>
           </div>
-          <div style={{ display: "flex", justifyContent: "space-between", padding: "9px 14px", fontSize: 14, fontWeight: 700, background: C.abyss, color: "#fff" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", padding: "9px 14px", fontSize: 14, fontWeight: 700, background: C.navBg1, color: C.navFg }}>
             <span style={{ opacity: 0.8 }}>Total {oc.moneda || "CLP"}</span>
             <span style={{ fontFamily: "'IBM Plex Mono', monospace" }}>{clp(total)}</span>
           </div>
