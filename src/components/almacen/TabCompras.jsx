@@ -141,6 +141,9 @@ export default function TabCompras({
   function rmLine(idx) {
     setForm((f) => ({ ...f, items: f.items.filter((_, i) => i !== idx) }));
   }
+  function updLine(idx, field, val) {
+    setForm((f) => ({ ...f, items: f.items.map((it, i) => (i === idx ? { ...it, [field]: val } : it)) }));
+  }
 
   const formSubtotal = form.items.reduce(
     (s, it) => s + it.cantidad * (it.precio || 0) * (1 - (it.descuento_pct || 0) / 100),
@@ -659,9 +662,24 @@ tbody td { padding: 7px 9px; font-size: 11px; border-bottom: 1px solid #EEF3F7; 
                           <tr key={idx} style={{ borderBottom: `1px solid ${C.foam}` }}>
                             <td style={{ ...tdStyle, fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, color: C.steel, fontSize: 11 }}>{itemCodigo(it.item_id)}</td>
                             <td style={{ ...tdStyle, fontSize: 12.5 }}>{itemDesc(it.item_id)}</td>
-                            <td style={{ ...tdStyle, textAlign: "right", fontFamily: "'IBM Plex Mono', monospace" }}>{it.cantidad}</td>
-                            <td style={{ ...tdStyle, textAlign: "right", fontFamily: "'IBM Plex Mono', monospace" }}>{clp(it.precio || 0)}</td>
-                            <td style={{ ...tdStyle, textAlign: "right", color: (it.descuento_pct || 0) > 0 ? C.amber : C.line }}>{(it.descuento_pct || 0) > 0 ? `${it.descuento_pct}%` : "—"}</td>
+                            <td style={{ ...tdStyle, textAlign: "right" }}>
+                              <input type="number" min={0.01} step="any" value={it.cantidad}
+                                onFocus={(e) => e.target.select()}
+                                onChange={(e) => updLine(idx, "cantidad", +e.target.value)}
+                                style={{ ...bluInput, width: 68, textAlign: "right", padding: "4px 6px", fontSize: 12 }} />
+                            </td>
+                            <td style={{ ...tdStyle, textAlign: "right" }}>
+                              <input type="number" min={0} step="any" value={it.precio || 0}
+                                onFocus={(e) => e.target.select()}
+                                onChange={(e) => updLine(idx, "precio", +e.target.value)}
+                                style={{ ...bluInput, width: 90, textAlign: "right", padding: "4px 6px", fontSize: 12 }} />
+                            </td>
+                            <td style={{ ...tdStyle, textAlign: "right" }}>
+                              <input type="number" min={0} max={100} step={0.5} value={it.descuento_pct || 0}
+                                onFocus={(e) => e.target.select()}
+                                onChange={(e) => updLine(idx, "descuento_pct", +e.target.value)}
+                                style={{ ...bluInput, width: 56, textAlign: "right", padding: "4px 6px", fontSize: 12 }} />
+                            </td>
                             <td style={{ ...tdStyle, textAlign: "right", fontFamily: "'IBM Plex Mono', monospace", fontWeight: 600 }}>{clp(neto)}</td>
                             <td style={tdStyle}><button onClick={() => rmLine(idx)} style={{ background: "none", border: "none", cursor: "pointer", color: C.slate }}><X size={14} /></button></td>
                           </tr>
