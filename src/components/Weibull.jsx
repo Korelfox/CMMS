@@ -4,7 +4,7 @@ import { useAuth } from "../lib/auth";
 import { fetchAll, upsertRow, logActivity } from "../lib/db";
 import { buildEquipoTree } from "../lib/equipTree";
 import { useArbolColapsable, BotonesColapsar, EquipoNodoLabel, fondoTipo } from "../lib/arbolColapsable";
-import { calcMTBF, calcTsOpt, decidir } from "../lib/calculos";
+import { calcMTBF, calcTsOpt, decidir, muestrasTBF, ajustarWeibull } from "../lib/calculos";
 import { C, archivo, num, isAdmin } from "../theme";
 import { Card, PageHead, Pill, primaryBtn, bluInput, inputStyle, FilterBtn, Empty, ErrorBanner, InlineSpinner } from "../ui";
 
@@ -24,6 +24,7 @@ export default function Weibull() {
   const [embarcaciones, setEmbarcaciones] = useState([]);
   const [equipos, setEquipos] = useState([]);
   const [datos, setDatos] = useState([]);
+  const [ots, setOts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [filtro, setFiltro] = useState("all");
@@ -36,12 +37,13 @@ export default function Weibull() {
   const cargar = useCallback(async () => {
     setLoading(true); setError(null);
     try {
-      const [embs, eqs, ws] = await Promise.all([
+      const [embs, eqs, ws, otsAll] = await Promise.all([
         fetchAll("embarcaciones", { order: { col: "codigo", asc: true } }),
         fetchAll("equipos", { order: { col: "id_visible", asc: true } }),
         fetchAll("weibull"),
+        fetchAll("ordenes_trabajo"),
       ]);
-      setEmbarcaciones(embs); setEquipos(eqs); setDatos(ws);
+      setEmbarcaciones(embs); setEquipos(eqs); setDatos(ws); setOts(otsAll);
     } catch (e) {
       setError("No se pudo cargar la optimización Weibull. " +
         (e.message.includes("does not exist") ? "Recuerda correr el parche 04_parche_weibull.sql en Supabase." : e.message));
@@ -130,7 +132,6 @@ export default function Weibull() {
   const numDegradan = hojasAn.filter((eq) => info.get(eq.id).beta > 1).length;
   const conPM = hojasAn.filter((eq) => info.get(eq.id).dec.tipo === "PM Preventivo").length;
   const conReemp = hojasAn.filter((eq) => { const t = info.get(eq.id).dec.tipo; return t === "Reemplazo" || t === "Overhaul"; }).length;
-  const mtbfProm = hojasAn.length ? hojasAn.reduce((s, eq) => s + info.get(eq.id).mtbf, 0) / hojasAn.length : 0;
 
   if (loading) return <div><PageHead kicker="Optimización · Pascual" title="Optimización Weibull" /><Card><InlineSpinner label="Calculando óptimos…" /></Card></div>;
 
@@ -215,6 +216,9 @@ export default function Weibull() {
           const r = w.ci > 0 ? w.cf / w.ci : 0;
           const dec = decidir(w.beta, mtbf, tsOpt, r);
           const expanded = abierto === eq.id;
+          // Estimación desde historial real: TBF de OTs correctivas del equipo
+          const muestras = muestrasTBF(ots, eq.id);
+          const fit = ajustarWeibull(muestras);
           return (
             <Card key={eq.id} style={{ padding: 0, overflow: "hidden" }}>
               <div onClick={() => setAbierto(expanded ? null : eq.id)}
@@ -235,6 +239,33 @@ export default function Weibull() {
 
               {expanded && (
                 <div style={{ padding: 18, background: C.mist }}>
+                  {/* Estimación β/η desde el historial real de fallas (OTs correctivas) */}
+                  <div style={{ marginBottom: 14, padding: "10px 14px", background: C.surface, border: `1px solid ${fit ? C.cyan : C.line}`, borderRadius: 9, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                    <TrendingUp size={15} color={fit ? C.cyan : C.slate} style={{ flexShrink: 0 }} />
+                    {fit ? (
+                      <>
+                        <span style={{ fontSize: 12.5, color: C.ink }}>
+                          <strong>Historial real:</strong> {fit.n} fallas con TBF registrado ·
+                          β̂ = <strong>{fit.beta.toFixed(2)}</strong> ·
+                          η̂ = <strong>{num(fit.eta, 0)} h</strong> ·
+                          ajuste R² = {fit.r2.toFixed(2)}
+                        </span>
+                        {puedeOperar && (
+                          <button
+                            onClick={() => { setCampo(eq.id, "beta", +fit.beta.toFixed(2)); setCampo(eq.id, "eta", Math.round(fit.eta)); }}
+                            style={{ ...primaryBtn, padding: "5px 12px", fontSize: 12 }}>
+                            Usar estos parámetros
+                          </button>
+                        )}
+                      </>
+                    ) : (
+                      <span style={{ fontSize: 12, color: C.slate }}>
+                        {muestras.length === 0
+                          ? "Sin historial: ninguna OT correctiva de este equipo registra «horas desde última falla». Captúralas al crear la OT para estimar β/η con datos reales."
+                          : `Historial insuficiente: ${muestras.length} falla${muestras.length !== 1 ? "s" : ""} con TBF registrado — se necesitan ≥ 3 para estimar β/η.`}
+                      </span>
+                    )}
+                  </div>
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 14, marginBottom: 14 }}>
                     <Group title="Parámetros Weibull">
                       <CellEdit label="β · forma" step={0.1} value={w.beta} disabled={!puedeOperar} onChange={(v) => setCampo(eq.id, "beta", Math.max(0.1, v))} />

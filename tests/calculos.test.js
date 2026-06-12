@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   calcCT, catCT, cgmCalcular, TASA_INV,
   gammaFunc, calcMTBF, calcTsOpt, decidir,
+  muestrasTBF, ajustarWeibull,
 } from "../src/lib/calculos.js";
 
 describe("Criticidad · CT", () => {
@@ -67,5 +68,50 @@ describe("Weibull · confiabilidad", () => {
   });
   it("decisión: β>1 con óptimo válido → PM Preventivo", () => {
     expect(decidir(2, 1000, 400, 2).tipo).toBe("PM Preventivo");
+  });
+});
+
+describe("Weibull · muestras TBF desde OTs correctivas", () => {
+  const ots = [
+    { equipo_id: "e1", tipo: "correctivo", hrs_oper_desde: 800 },
+    { equipo_id: "e1", tipo: "correctivo", hrs_oper_desde: 1200 },
+    { equipo_id: "e1", tipo: "correctivo", hrs_oper_desde: 0 },     // sin TBF → fuera
+    { equipo_id: "e1", tipo: "preventivo", hrs_oper_desde: 500 },   // no es falla → fuera
+    { equipo_id: "e2", tipo: "correctivo", hrs_oper_desde: 300 },   // otro equipo → fuera
+  ];
+  it("filtra por equipo, tipo correctivo y TBF > 0", () => {
+    expect(muestrasTBF(ots, "e1")).toEqual([800, 1200]);
+  });
+  it("listas vacías o nulas → []", () => {
+    expect(muestrasTBF([], "e1")).toEqual([]);
+    expect(muestrasTBF(null, "e1")).toEqual([]);
+  });
+});
+
+describe("Weibull · ajuste β/η por rangos medianos", () => {
+  it("null con menos de 3 fallas", () => {
+    expect(ajustarWeibull([])).toBeNull();
+    expect(ajustarWeibull([500, 800])).toBeNull();
+  });
+  it("null si todas las muestras son iguales (sin varianza)", () => {
+    expect(ajustarWeibull([500, 500, 500])).toBeNull();
+  });
+  it("recupera β y η exactos con muestras sintéticas de la distribución", () => {
+    // t_i = η·(−ln(1−F_i))^(1/β) con los mismos rangos de Bernard:
+    // los puntos caen exactamente sobre la recta → recuperación exacta.
+    const BETA = 2, ETA = 1000, n = 10;
+    const t = Array.from({ length: n }, (_, i) => {
+      const F = (i + 1 - 0.3) / (n + 0.4);
+      return ETA * Math.pow(-Math.log(1 - F), 1 / BETA);
+    });
+    const fit = ajustarWeibull(t);
+    expect(fit.n).toBe(n);
+    expect(fit.beta).toBeCloseTo(BETA, 6);
+    expect(fit.eta).toBeCloseTo(ETA, 4);
+    expect(fit.r2).toBeCloseTo(1, 6);
+  });
+  it("ignora valores no positivos y no numéricos", () => {
+    const fit = ajustarWeibull([0, -5, null, 400, 900, 1500]);
+    expect(fit.n).toBe(3);
   });
 });

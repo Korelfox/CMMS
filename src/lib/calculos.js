@@ -58,6 +58,46 @@ export function calcTsOpt(beta, eta, gamma, cf, ci) {
   return eta * Math.pow(factor, 1 / beta) + (gamma || 0);
 }
 
+// ── Ajuste Weibull desde historial real de fallas ───────────
+// Muestras TBF (horas operadas entre fallas) de un equipo: cada OT
+// correctiva registra hrs_oper_desde = horas desde la falla anterior.
+export function muestrasTBF(ots = [], equipoId) {
+  return (ots || [])
+    .filter((o) => o?.equipo_id === equipoId && o?.tipo === "correctivo" && Number(o?.hrs_oper_desde) > 0)
+    .map((o) => Number(o.hrs_oper_desde));
+}
+
+// Estimación de β y η por regresión de rangos medianos (Bernard) —
+// método de papel probabilístico Weibull. Lineariza
+//   F(t) = 1 − exp(−(t/η)^β)  →  ln(−ln(1−F)) = β·ln(t) − β·ln(η)
+// y ajusta por mínimos cuadrados. Requiere ≥ 3 fallas.
+// → { beta, eta, n, r2 } | null si no hay datos suficientes
+export function ajustarWeibull(muestras = []) {
+  const t = (muestras || []).filter((x) => Number(x) > 0).map(Number).sort((a, b) => a - b);
+  const n = t.length;
+  if (n < 3) return null;
+  const xs = [], ys = [];
+  for (let i = 0; i < n; i++) {
+    const F = (i + 1 - 0.3) / (n + 0.4);          // rango mediano de Bernard
+    xs.push(Math.log(t[i]));
+    ys.push(Math.log(-Math.log(1 - F)));
+  }
+  const mx = xs.reduce((s, v) => s + v, 0) / n;
+  const my = ys.reduce((s, v) => s + v, 0) / n;
+  let sxy = 0, sxx = 0, syy = 0;
+  for (let i = 0; i < n; i++) {
+    sxy += (xs[i] - mx) * (ys[i] - my);
+    sxx += (xs[i] - mx) ** 2;
+    syy += (ys[i] - my) ** 2;
+  }
+  if (sxx === 0) return null;                      // todas las muestras iguales
+  const beta = sxy / sxx;
+  if (!(beta > 0)) return null;
+  const eta = Math.exp(-((my - beta * mx) / beta));
+  const r2 = syy > 0 ? (sxy * sxy) / (sxx * syy) : 1;
+  return { beta, eta, n, r2 };
+}
+
 // Decisión RCM: Inspección / Reemplazo / Overhaul / PM Preventivo / Reparar
 export function decidir(beta, mtbf, tsOpt, r) {
   if (beta <= 1) {
