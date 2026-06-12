@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback, useMemo } from "react";
 import {
-  Bell, AlertTriangle, Package, Wrench, Clock, Ship, ShoppingCart, ChevronRight, Check, Droplet, ShieldCheck, Activity, FileWarning,
+  Bell, AlertTriangle, Package, Wrench, Clock, Ship, ShoppingCart, ChevronRight, Check, Droplet, ShieldCheck, Activity, FileWarning, ShieldAlert,
 } from "lucide-react";
 import { fetchAll } from "../lib/db";
 import { C, archivo, num, SLA_HORAS, PRIORIDADES, lk } from "../theme";
@@ -20,6 +20,7 @@ const CATEGORIAS = [
   { id: "consumo",  label: "Consumo aceite",  icon: Droplet },
   { id: "documento", label: "Documentos",     icon: ShieldCheck },
   { id: "compra",   label: "Compras",         icon: ShoppingCart },
+  { id: "fmeca",    label: "Riesgo FMECA",    icon: ShieldAlert },
   { id: "datos",    label: "Datos ISO",       icon: FileWarning },
 ];
 
@@ -34,6 +35,7 @@ const NAV_POR_CAT = {
   consumo: "prezarpe",
   documento: "cumplimiento",
   compra: "almacen",
+  fmeca: "fallas",
   datos: "ots",
 };
 
@@ -56,6 +58,7 @@ export default function Alertas({ onNavigate }) {
   const [documentos, setDocumentos] = useState([]);
   const [planes, setPlanes] = useState([]);
   const [mediciones, setMediciones] = useState([]);
+  const [fallas, setFallas] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [filtro, setFiltro] = useState("all");
@@ -63,7 +66,7 @@ export default function Alertas({ onNavigate }) {
   const cargar = useCallback(async () => {
     setLoading(true); setError(null);
     try {
-      const [embs, eqs, its, stk, otsAll, sols, cps, pzs, docs, pls, meds] = await Promise.all([
+      const [embs, eqs, its, stk, otsAll, sols, cps, pzs, docs, pls, meds, fls] = await Promise.all([
         fetchAll("embarcaciones", { order: { col: "codigo", asc: true } }),
         fetchAll("equipos"),
         fetchAll("inventario_items"),
@@ -75,10 +78,11 @@ export default function Alertas({ onNavigate }) {
         fetchAll("documentos"),
         fetchAll("planes_pm"),
         fetchAll("mediciones_pdm"),
+        fetchAll("fallas"),
       ]);
       setEmbarcaciones(embs); setEquipos(eqs); setItems(its); setStock(stk);
       setOts(otsAll); setSolicitudes(sols); setCompras(cps); setPrezarpes(pzs); setDocumentos(docs);
-      setPlanes(pls); setMediciones(meds);
+      setPlanes(pls); setMediciones(meds); setFallas(fls);
     } catch (e) { setError("No se pudieron cargar las alertas. " + e.message); }
     finally { setLoading(false); }
   }, []);
@@ -223,6 +227,20 @@ export default function Alertas({ onNavigate }) {
       }
     });
 
+    // 8b) Riesgo FMECA sin mitigar (IEC 60812): RPN = S×O×D.
+    //     Crítico (≥200) exige acción inmediata; Alto (125–199) atención.
+    //     La alerta persiste hasta re-evaluar el riesgo tras la mitigación.
+    fallas.forEach((f) => {
+      const rpn = (f.severidad || 0) * (f.ocurrencia || 0) * (f.deteccion || 0);
+      if (rpn < 125) return;
+      all.push({
+        cat: "fmeca", sev: rpn >= 200 ? "red" : "amber",
+        titulo: `Riesgo ${rpn >= 200 ? "crítico" : "alto"} FMECA · ${f.modo} (RPN ${rpn})`,
+        detalle: `${embName(f.embarcacion_id)} · ${f.sistema} · ${f.accion ? `acción recomendada: ${f.accion}` : "sin acción de mitigación definida — define inspección, PM o rediseño"}`,
+        ts: f.fecha,
+      });
+    });
+
     // 9) Calidad de datos ISO 14224: deuda de codificación y valorización.
     //    Cerrar rápido en terreno está bien — pero la deuda queda visible
     //    hasta completarla, o Pareto/Weibull/costos pierden esos eventos.
@@ -249,7 +267,7 @@ export default function Alertas({ onNavigate }) {
       if (sevOrder[a.sev] !== sevOrder[b.sev]) return sevOrder[a.sev] - sevOrder[b.sev];
       return new Date(b.ts || 0).getTime() - new Date(a.ts || 0).getTime();
     });
-  }, [equipos, items, stock, ots, solicitudes, compras, prezarpes, documentos, embarcaciones, planes, mediciones]); // eslint-disable-line
+  }, [equipos, items, stock, ots, solicitudes, compras, prezarpes, documentos, embarcaciones, planes, mediciones, fallas]); // eslint-disable-line
 
   const conteoPorCat = (id) => alertas.filter((a) => a.cat === id).length;
   const listaFiltrada = filtro === "all" ? alertas : alertas.filter((a) => a.cat === filtro);
