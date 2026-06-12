@@ -104,10 +104,30 @@ export default function Programacion() {
 
   async function toggleDone(item) {
     const previo = item.done;
-    setItems((p) => p.map((x) => x.id === item.id ? { ...x, done: !previo } : x));
-    try { await updateRow("programacion", item.id, { done: !previo });
-      logActivity(profile, !previo ? "Cerrar tarea" : "Reabrir tarea", `${item.dia} · ${item.sistema}`); }
-    catch (e) { setItems((p) => p.map((x) => x.id === item.id ? { ...x, done: previo } : x)); setError("No se pudo actualizar: " + e.message); }
+    const ahora = !previo;
+    setItems((p) => p.map((x) => x.id === item.id ? { ...x, done: ahora } : x));
+    try {
+      await updateRow("programacion", item.id, { done: ahora });
+      logActivity(profile, ahora ? "Cerrar tarea" : "Reabrir tarea", `${item.dia} · ${item.sistema}`);
+    } catch (e) {
+      setItems((p) => p.map((x) => x.id === item.id ? { ...x, done: previo } : x));
+      setError("No se pudo actualizar: " + e.message);
+      return;
+    }
+    // Al marcar como hecha, cerrar también la OT asociada si no está ya cerrada
+    if (ahora && item.ot_folio) {
+      const ot = ots.find((o) => o.folio === item.ot_folio);
+      if (ot && ot.estado !== "cerrada") {
+        const cambios = { estado: "cerrada", cerrada_por: profile?.nombre || profile?.email || "", cerrada_fecha: new Date().toISOString() };
+        try {
+          await updateRow("ordenes_trabajo", ot.id, cambios);
+          setOts((p) => p.map((o) => o.id === ot.id ? { ...o, ...cambios } : o));
+          logActivity(profile, "Cerrar OT vía Programación", `${ot.folio} → cerrada`);
+        } catch (e) {
+          setError(`Tarea marcada, pero no se pudo cerrar la OT ${item.ot_folio}: ` + e.message);
+        }
+      }
+    }
   }
 
   async function eliminar(id) {
@@ -220,13 +240,21 @@ export default function Programacion() {
               <div style={{ flex: 1, padding: 8, display: "flex", flexDirection: "column", gap: 6 }}>
                 {dayItems.length === 0 ? (
                   <div style={{ fontSize: 11, color: C.line, textAlign: "center", padding: "20px 0" }}>Sin tareas</div>
-                ) : dayItems.map((i) => (
+                ) : dayItems.map((i) => {
+                  const otAsociada = i.ot_folio ? ots.find((o) => o.folio === i.ot_folio) : null;
+                  const otTono = otAsociada?.estado === "cerrada" ? C.green : C.amber;
+                  return (
                   <div key={i.id} style={{ background: i.done ? tint(C.green, 8) : C.foam, borderLeft: `3px solid ${embColor(i.embarcacion_id)}`, borderRadius: 6, padding: "7px 9px", fontSize: 11.5, opacity: i.done ? 0.65 : 1 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 6 }}>
                       <div style={{ flex: 1 }}>
                         <div style={{ fontWeight: 600, color: C.ink, textDecoration: i.done ? "line-through" : "none" }}>{i.sistema}</div>
                         <div style={{ fontSize: 10.5, color: C.slate, marginTop: 2 }}>{embName(i.embarcacion_id)}</div>
-                        {i.ot_folio && <div style={{ fontSize: 10, color: C.steel, fontFamily: "'IBM Plex Mono', monospace", marginTop: 2 }}>{i.ot_folio}</div>}
+                        {i.ot_folio && (
+                          <div style={{ fontSize: 10, fontFamily: "'IBM Plex Mono', monospace", marginTop: 2, color: C.steel }}>
+                            {i.ot_folio}
+                            {otAsociada && <span style={{ marginLeft: 4, color: otTono }}>· {estadoLabel(otAsociada.estado)}</span>}
+                          </div>
+                        )}
                       </div>
                       <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
                         <span style={{ fontSize: 10, fontFamily: "'IBM Plex Mono', monospace", fontWeight: 600, color: C.steel }}>{i.hh}h</span>
@@ -243,7 +271,8 @@ export default function Programacion() {
                     </div>
                     <div style={{ marginTop: 4 }}><Pill tone={i.tipo === "Reactiva" ? "red" : i.tipo === "Predictiva" ? "cyan" : "green"}>{i.tipo}</Pill></div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             </div>);
         })}
