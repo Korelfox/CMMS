@@ -51,6 +51,27 @@ describe("evaluarZarpe (semáforo GO/NO-GO)", () => {
     expect(evaluarZarpe(EMB, { ...base, planesEval: [{ tone: "red", plan: { descripcion: "Cambio aceite" }, equipo: eqB }] }).nivel).toBe("go");
   });
 
+  it("varada activa (ejecucion) para la nave → CONDICIONAL", () => {
+    const varadas = [{ embarcacion_id: EMB, estado: "ejecucion", nombre: "Varada anual 2026" }];
+    const r = evaluarZarpe(EMB, { equipos: [], ots: [], documentos: [], planesEval: [], varadas, hoy: HOY });
+    expect(r.nivel).toBe("condicional");
+    expect(r.advertencias[0].texto).toMatch(/Varada anual 2026/);
+    expect(r.advertencias[0].nav).toBe("varada");
+  });
+
+  it("varada en planificacion o cerrada no afecta semáforo", () => {
+    const varadas = [
+      { embarcacion_id: EMB, estado: "planificacion", nombre: "Futura" },
+      { embarcacion_id: EMB, estado: "cerrada",       nombre: "Pasada" },
+    ];
+    expect(evaluarZarpe(EMB, { equipos: [], ots: [], documentos: [], planesEval: [], varadas, hoy: HOY }).nivel).toBe("go");
+  });
+
+  it("varada de otra nave no afecta el semáforo de esta nave", () => {
+    const varadas = [{ embarcacion_id: "nave-otra", estado: "ejecucion", nombre: "Ajena" }];
+    expect(evaluarZarpe(EMB, { equipos: [], ots: [], documentos: [], planesEval: [], varadas, hoy: HOY }).nivel).toBe("go");
+  });
+
   it("ignora hallazgos de otras embarcaciones", () => {
     const r = evaluarZarpe(EMB, {
       equipos: [{ embarcacion_id: "otra", estado: "fuera_servicio", criticidad: "A", sistema: "X" }],

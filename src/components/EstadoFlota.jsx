@@ -20,22 +20,24 @@ export default function EstadoFlota({ onNavigate }) {
   const [documentos, setDocumentos] = useState([]);
   const [planes, setPlanes] = useState([]);
   const [mareas, setMareas] = useState([]);
+  const [varadas, setVaradas] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   const cargar = useCallback(async () => {
     setLoading(true); setError(null);
     try {
-      const [embs, eqs, otsAll, docs, pls, mrs] = await Promise.all([
+      const [embs, eqs, otsAll, docs, pls, mrs, vars] = await Promise.all([
         fetchAll("embarcaciones", { order: { col: "codigo", asc: true } }),
         fetchAll("equipos"),
         fetchAll("ordenes_trabajo"),
         fetchAll("documentos"),
         fetchAll("planes_pm"),
         fetchAll("mareas"),
+        fetchAll("varadas"),
       ]);
       setEmbarcaciones(embs); setEquipos(eqs); setOts(otsAll);
-      setDocumentos(docs); setPlanes(pls); setMareas(mrs);
+      setDocumentos(docs); setPlanes(pls); setMareas(mrs); setVaradas(vars);
     } catch (e) { setError("No se pudo cargar el estado de flota. " + e.message); }
     finally { setLoading(false); }
   }, []);
@@ -46,12 +48,12 @@ export default function EstadoFlota({ onNavigate }) {
     const planesEval = evaluarPlanes(planes, equipos);
     const ahora = Date.now();
     return embarcaciones.map((emb) => {
-      const zarpe = evaluarZarpe(emb.id, { equipos, ots, documentos, planesEval });
+      const zarpe = evaluarZarpe(emb.id, { equipos, ots, documentos, planesEval, varadas });
       const enMar = mareas.some((m) => m.embarcacion_id === emb.id && m.estado === "navegando");
       const utilizacion = diasEnMar(mareas, emb.id, ahora, 30);
       return { emb, zarpe, enMar, utilizacion };
     });
-  }, [embarcaciones, equipos, ots, documentos, planes, mareas]);
+  }, [embarcaciones, equipos, ots, documentos, planes, mareas, varadas]);
 
   const nGo   = flota.filter((f) => f.zarpe.nivel === "go").length;
   const nCond = flota.filter((f) => f.zarpe.nivel === "condicional").length;
@@ -145,7 +147,7 @@ export default function EstadoFlota({ onNavigate }) {
         <div style={{ fontSize: 12.5, color: C.slate, lineHeight: 1.7 }}>
           <strong style={{ color: C.ink }}>Reglas del semáforo:</strong>{" "}
           <strong style={{ color: C.red }}>NO-GO</strong> = equipo crítico (A) fuera de servicio, certificado vencido u OT crítica abierta.{" "}
-          <strong style={{ color: C.amber }}>CONDICIONAL</strong> = crítico en reparación, equipo menor fuera de servicio, OT alta, PM vencido en crítico o documento por vencer (≤ 7 días).{" "}
+          <strong style={{ color: C.amber }}>CONDICIONAL</strong> = crítico en reparación, equipo menor fuera de servicio, OT alta, PM vencido en crítico, documento por vencer (≤ 7 días) o nave en varada activa.{" "}
           Cada observación es clicable y lleva al módulo donde se resuelve. La decisión final de zarpe es del armador/capitán — este panel asegura que se tome con la información completa.
         </div>
       </Card>

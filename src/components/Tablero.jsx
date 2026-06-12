@@ -26,7 +26,7 @@ export default function Tablero({ onNavigate }) {
   const cargar = useCallback(async () => {
     setLoading(true); setError(null);
     try {
-      const [embs, eqs, otsAll, sols, its, stk, bita, pls] = await Promise.all([
+      const [embs, eqs, otsAll, sols, its, stk, bita, pls, vars] = await Promise.all([
         fetchAll("embarcaciones"),
         fetchAll("equipos"),
         fetchAll("ordenes_trabajo", { order: { col: "fecha", asc: false } }),
@@ -35,15 +35,16 @@ export default function Tablero({ onNavigate }) {
         fetchAll("stock"),
         fetchAll("bitacora", { order: { col: "fecha", asc: false } }),
         fetchAll("planes_pm"),
+        fetchAll("varadas"),
       ]);
-      setData({ embs, eqs, ots: otsAll, sols, its, stk, bita: bita.slice(0, 6), planes: pls });
+      setData({ embs, eqs, ots: otsAll, sols, its, stk, bita: bita.slice(0, 6), planes: pls, varadas: vars });
     } catch (e) { setError("No se pudo cargar el tablero. " + e.message); }
     finally { setLoading(false); }
   }, []);
   useEffect(() => { cargar(); }, [cargar]);
 
   const m = useMemo(() => {
-    const { embs = [], eqs = [], ots = [], sols = [], its = [], stk = [], planes = [] } = data;
+    const { embs = [], eqs = [], ots = [], sols = [], its = [], stk = [], planes = [], varadas = [] } = data;
     const otsAbiertas = ots.filter((o) => o.estado !== "cerrada");
     const otsCriticas = ots.filter((o) => (o.prioridad === "critica" || o.prioridad === "alta") && o.estado !== "cerrada");
     // Equipos con al menos un plan PM vencido (modelo real planes_pm, no legacy)
@@ -103,11 +104,13 @@ export default function Tablero({ onNavigate }) {
       return { emb, hexData, saludPromedio };
     });
 
+    const varadasActivas = varadas.filter((v) => v.estado === "ejecucion").length;
+
     return {
       flota: embs.length, equipos: eqs.length, otsTotal: ots.length, otsAbiertas: otsAbiertas.length,
       otsCriticas: otsCriticas.length, pmVencidos, stockBajo, solPend,
       mtbf, costoTotal, costoMes, porEstado, otsRec: ots.slice(0, 5),
-      diagnostico,
+      diagnostico, varadasActivas,
     };
   }, [data]);
 
@@ -143,11 +146,12 @@ export default function Tablero({ onNavigate }) {
       </div>
 
       {/* Estado de flota + indicadores */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 14, marginBottom: 18 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr 1fr", gap: 14, marginBottom: 18 }}>
         <Stat icon={Activity} label="MTBF" value={`${num(m.mtbf, 0)}h`} sub="tiempo medio entre fallas" onClick={() => onNavigate?.("kpis")} />
         <Stat icon={DollarSign} label="Costo del mes" value={clp(m.costoMes)} tone={C.gold} sub={`${clp(m.costoTotal)} acumulado`} onClick={() => onNavigate?.("costos")} />
         <Stat icon={TrendingUp} label="Flota" value={m.flota} sub={`${m.equipos} equipos registrados`} onClick={() => onNavigate?.("embarcaciones")} />
         <Stat icon={ClipboardList} label="Solicitudes" value={m.solPend} tone={m.solPend ? C.amber : C.green} sub="pendientes de revisar" onClick={() => onNavigate?.("solicitudes")} />
+        <Stat icon={Wrench} label="Varadas activas" value={m.varadasActivas} tone={m.varadasActivas ? C.amber : C.green} sub="naves en mantenimiento mayor" onClick={() => onNavigate?.("varada")} />
       </div>
 
       {/* Diagnóstico hexagonal por embarcación */}

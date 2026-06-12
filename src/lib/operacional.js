@@ -16,7 +16,7 @@ const DIA_MS = 86_400_000;
 // hoy: "YYYY-MM-DD" (inyectable para tests).
 // → { nivel: "go"|"condicional"|"nogo", bloqueos: [...], advertencias: [...] }
 //   cada razón: { texto, nav, ref? } (nav = módulo donde se resuelve)
-export function evaluarZarpe(embId, { equipos = [], ots = [], documentos = [], planesEval = [], hoy } = {}) {
+export function evaluarZarpe(embId, { equipos = [], ots = [], documentos = [], planesEval = [], varadas = [], hoy } = {}) {
   const hoyD = new Date((hoy || new Date().toISOString().slice(0, 10)) + "T00:00:00");
   const bloqueos = [], advertencias = [];
 
@@ -50,7 +50,13 @@ export function evaluarZarpe(embId, { equipos = [], ots = [], documentos = [], p
     else if (dias <= 7) advertencias.push({ texto: `${d.tipo || "Documento"} vence en ${dias} día${dias !== 1 ? "s" : ""}`, nav: "cumplimiento" });
   }
 
-  // 4) PM vencido sobre equipo crítico A
+  // 4) Varada activa: nave en mantenimiento planificado (no zarpa)
+  for (const v of varadas) {
+    if (v.embarcacion_id !== embId || v.estado !== "ejecucion") continue;
+    advertencias.push({ texto: `Nave en varada: ${v.nombre}`, nav: "varada" });
+  }
+
+  // 5) PM vencido sobre equipo crítico A
   for (const r of planesEval) {
     if (r.tone !== "red" || r.equipo?.embarcacion_id !== embId) continue;
     if (r.equipo?.criticidad === "A") {

@@ -18,6 +18,7 @@ export default function Backlog({ onNavigate }) {
   const [embarcaciones, setEmbarcaciones] = useState([]);
   const [equipos, setEquipos] = useState([]);
   const [ots, setOts] = useState([]);
+  const [varadas, setVaradas] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [filtro, setFiltro] = useState("all");
@@ -26,12 +27,13 @@ export default function Backlog({ onNavigate }) {
   const cargar = useCallback(async () => {
     setLoading(true); setError(null);
     try {
-      const [embs, eqs, otsAll] = await Promise.all([
+      const [embs, eqs, otsAll, vars] = await Promise.all([
         fetchAll("embarcaciones", { order: { col: "codigo", asc: true } }),
         fetchAll("equipos"),
         fetchAll("ordenes_trabajo", { order: { col: "fecha", asc: true } }),
+        fetchAll("varadas"),
       ]);
-      setEmbarcaciones(embs); setEquipos(eqs); setOts(otsAll);
+      setEmbarcaciones(embs); setEquipos(eqs); setOts(otsAll); setVaradas(vars);
     } catch (e) { setError("No se pudo cargar el backlog. " + e.message); }
     finally { setLoading(false); }
   }, []);
@@ -44,6 +46,7 @@ export default function Backlog({ onNavigate }) {
   }
 
   const embName = (id) => embarcaciones.find((e) => e.id === id)?.nombre || "—";
+  const varadaName = (id) => varadas.find((v) => v.id === id)?.nombre || null;
 
   // Backlog = OTs no cerradas, con score de riesgo, ordenadas de mayor a menor
   const backlog = useMemo(() => {
@@ -132,6 +135,7 @@ export default function Backlog({ onNavigate }) {
                   {/* Atributos */}
                   <Pill tone={lk(TIPOS_OT, ot.tipo) ? (TIPOS_OT.find((t) => t.value === ot.tipo)?.tone || "slate") : "slate"}>{lk(TIPOS_OT, ot.tipo)}</Pill>
                   <Pill tone={PRIORIDADES.find((p) => p.value === ot.prioridad)?.tone || "slate"}>{lk(PRIORIDADES, ot.prioridad)}</Pill>
+                  {ot.varada_id && varadaName(ot.varada_id) && <Pill tone="indigo">⚓ {varadaName(ot.varada_id)}</Pill>}
                   <Stat label="Estado" value={lk(ESTADOS_OT, ot.estado)} />
                   <Stat label="Días abierta" value={dias} color={dias > 30 ? C.red : dias > 14 ? C.amber : C.steel} />
                   <Stat label="HH est." value={Number(ot.mttr_horas) > 0 ? `${num(ot.mttr_horas, 1)}h` : "—"} />

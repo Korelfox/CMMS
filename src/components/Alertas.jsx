@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback, useMemo } from "react";
 import {
-  Bell, AlertTriangle, Package, Wrench, Clock, Ship, ShoppingCart, ChevronRight, Check, Droplet, ShieldCheck, Activity, FileWarning, ShieldAlert,
+  Bell, AlertTriangle, Package, Wrench, Clock, Ship, ShoppingCart, ChevronRight, Check, Droplet, ShieldCheck, Activity, FileWarning, ShieldAlert, Anchor,
 } from "lucide-react";
 import { fetchAll } from "../lib/db";
 import { C, archivo, num, SLA_HORAS, PRIORIDADES, lk } from "../theme";
@@ -23,6 +23,7 @@ const CATEGORIAS = [
   { id: "compra",   label: "Compras",         icon: ShoppingCart },
   { id: "fmeca",    label: "Riesgo FMECA",    icon: ShieldAlert },
   { id: "datos",    label: "Datos ISO",       icon: FileWarning },
+  { id: "varada",   label: "Varadas",         icon: Anchor },
 ];
 
 // A qué módulo lleva cada categoría de alerta al hacer clic.
@@ -38,6 +39,7 @@ const NAV_POR_CAT = {
   compra: "almacen",
   fmeca: "fallas",
   datos: "ots",
+  varada: "varada",
 };
 
 // Días hábiles (lun-vie) entre dos fechas (no cuenta feriados).
@@ -61,6 +63,7 @@ export default function Alertas({ onNavigate }) {
   const [mediciones, setMediciones] = useState([]);
   const [fallas, setFallas] = useState([]);
   const [destinos, setDestinos] = useState([]);
+  const [varadas, setVaradas] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [filtro, setFiltro] = useState("all");
@@ -68,7 +71,7 @@ export default function Alertas({ onNavigate }) {
   const cargar = useCallback(async () => {
     setLoading(true); setError(null);
     try {
-      const [embs, eqs, its, stk, otsAll, sols, cps, pzs, docs, pls, meds, fls, dsts] = await Promise.all([
+      const [embs, eqs, its, stk, otsAll, sols, cps, pzs, docs, pls, meds, fls, dsts, vars] = await Promise.all([
         fetchAll("embarcaciones", { order: { col: "codigo", asc: true } }),
         fetchAll("equipos"),
         fetchAll("inventario_items"),
@@ -82,10 +85,11 @@ export default function Alertas({ onNavigate }) {
         fetchAll("mediciones_pdm"),
         fetchAll("fallas"),
         fetchAll("inventario_item_destinos"),
+        fetchAll("varadas"),
       ]);
       setEmbarcaciones(embs); setEquipos(eqs); setItems(its); setStock(stk);
       setOts(otsAll); setSolicitudes(sols); setCompras(cps); setPrezarpes(pzs); setDocumentos(docs);
-      setPlanes(pls); setMediciones(meds); setFallas(fls); setDestinos(dsts);
+      setPlanes(pls); setMediciones(meds); setFallas(fls); setDestinos(dsts); setVaradas(vars);
     } catch (e) { setError("No se pudieron cargar las alertas. " + e.message); }
     finally { setLoading(false); }
   }, []);
@@ -281,13 +285,34 @@ export default function Alertas({ onNavigate }) {
       });
     });
 
+    // 10) Varadas: atrasadas (ejecución + fecha_fin_estimada vencida) o sin iniciar
+    const hoyISO = new Date().toISOString().slice(0, 10);
+    varadas.forEach((v) => {
+      if (v.estado === "ejecucion" && v.fecha_fin_estimada && v.fecha_fin_estimada < hoyISO) {
+        const dias = Math.round((new Date(hoyISO + "T00:00:00") - new Date(v.fecha_fin_estimada + "T00:00:00")) / 86_400_000);
+        all.push({
+          cat: "varada", sev: "red",
+          titulo: `Varada atrasada · ${v.nombre}`,
+          detalle: `${embName(v.embarcacion_id)} · lleva ${dias} día${dias !== 1 ? "s" : ""} sobre el plan (fin estimado ${v.fecha_fin_estimada}) · actualiza la fecha o cierra la varada`,
+          ts: v.fecha_fin_estimada,
+        });
+      } else if (v.estado === "planificacion" && v.fecha_inicio && v.fecha_inicio <= hoyISO) {
+        all.push({
+          cat: "varada", sev: "amber",
+          titulo: `Varada sin iniciar · ${v.nombre}`,
+          detalle: `${embName(v.embarcacion_id)} · fecha de inicio ${v.fecha_inicio} ya pasó — cambia el estado a "En ejecución" si los trabajos comenzaron`,
+          ts: v.fecha_inicio,
+        });
+      }
+    });
+
     // Orden: rojo primero, luego ámbar, dentro de cada uno por timestamp descendente
     return all.sort((a, b) => {
       const sevOrder = { red: 0, amber: 1, yellow: 2 };
       if (sevOrder[a.sev] !== sevOrder[b.sev]) return sevOrder[a.sev] - sevOrder[b.sev];
       return new Date(b.ts || 0).getTime() - new Date(a.ts || 0).getTime();
     });
-  }, [equipos, items, stock, ots, solicitudes, compras, prezarpes, documentos, embarcaciones, planes, mediciones, fallas, destinos]); // eslint-disable-line
+  }, [equipos, items, stock, ots, solicitudes, compras, prezarpes, documentos, embarcaciones, planes, mediciones, fallas, destinos, varadas]); // eslint-disable-line
 
   const conteoPorCat = (id) => alertas.filter((a) => a.cat === id).length;
   const listaFiltrada = filtro === "all" ? alertas : alertas.filter((a) => a.cat === filtro);
