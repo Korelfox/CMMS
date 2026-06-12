@@ -458,7 +458,9 @@ export default function Equipos() {
   // Edición LOCAL — no persiste hasta pulsar "Guardar cambios"
   const commit = onChangeLocal;
 
-  const CAMPOS_EDIT = ["id_visible", "sistema", "marca", "modelo", "horas_actual", "horas_ult_pm", "mtbf_objetivo", "estado", "embarcacion_id", "parent_id", "tipo_nodo", "criticidad", "prezarpe"];
+  // horas_ult_pm ya no se edita aquí: lo escribe Plan Preventivo al registrar
+  // cada PM (el hito real por plan vive en planes_pm.horas_ult_pm).
+  const CAMPOS_EDIT = ["id_visible", "sistema", "marca", "modelo", "horas_actual", "mtbf_objetivo", "estado", "embarcacion_id", "parent_id", "tipo_nodo", "criticidad", "prezarpe"];
   const eqDirty = (e) => { const o = original[e.id]; return o && CAMPOS_EDIT.some((c) => (e[c] ?? null) !== (o[c] ?? null)); };
   const dirtyIds = equipos.filter(eqDirty).map((e) => e.id);
 
@@ -708,7 +710,7 @@ export default function Equipos() {
               <th style={thE}>Marca</th>
               <th style={thE}>Modelo</th>
               <th style={{ ...thE, textAlign: "right" }}>Horas</th>
-              <th style={{ ...thE, textAlign: "right" }}>Hrs PM</th>
+              <th style={{ ...thE, textAlign: "right" }} title="Horas del último PM registrado — lo actualiza Plan Preventivo, no se edita aquí">Últ. PM</th>
               <th style={{ ...thE, textAlign: "right" }} title="MTBF objetivo (horas)">MTBF</th>
               <th style={thE}>Estado</th>
               <th style={{ ...thE, textAlign: "center" }}>Prezarpe</th>
@@ -842,11 +844,12 @@ export default function Equipos() {
                           onBlur={(ev) => commit(e.id, "horas_actual", +ev.target.value)}
                           style={{ ...bluC, width: 62, textAlign: "right" }} />
                       </td>
-                      <td style={{ ...tdE, textAlign: "right" }}>
-                        <input type="number" value={e.horas_ult_pm} disabled={!puedeOperar}
-                          onFocus={(ev) => ev.target.select()} onChange={(ev) => onChangeLocal(e.id, "horas_ult_pm", +ev.target.value)}
-                          onBlur={(ev) => commit(e.id, "horas_ult_pm", +ev.target.value)}
-                          style={{ ...bluC, width: 62, textAlign: "right" }} />
+                      {/* Último PM: solo lectura — lo escribe Plan Preventivo al registrar */}
+                      <td style={{ ...tdE, textAlign: "right" }}
+                        title="Se actualiza al registrar un PM en Plan Preventivo">
+                        <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 12, color: C.slate }}>
+                          {e.horas_ult_pm ? `${e.horas_ult_pm}h` : "—"}
+                        </span>
                       </td>
 
                       {/* MTBF objetivo (horas) */}
