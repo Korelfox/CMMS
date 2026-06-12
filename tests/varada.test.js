@@ -7,6 +7,7 @@ import {
   estadoVaradaTone,
   desvioPrespuesto,
   resumenPorSistema,
+  trabajosBloqueantes,
 } from "../src/lib/varada.js";
 
 const HOY = "2026-06-12";
@@ -218,5 +219,32 @@ describe("resumenPorSistema", () => {
 
   it("sin trabajos → array vacío", () => {
     expect(resumenPorSistema([], [], VID)).toHaveLength(0);
+  });
+});
+
+describe("trabajosBloqueantes (críticos para zarpe pendientes)", () => {
+  it("retorna trabajos critico_zarpe que no están completados ni cancelados", () => {
+    const trabajos = [
+      { id: "t1", critico_zarpe: true,  estado: "pendiente"   },
+      { id: "t2", critico_zarpe: true,  estado: "en_progreso" },
+      { id: "t3", critico_zarpe: true,  estado: "completado"  },
+      { id: "t4", critico_zarpe: true,  estado: "cancelado"   },
+      { id: "t5", critico_zarpe: false, estado: "pendiente"   },
+    ];
+    const result = trabajosBloqueantes(trabajos);
+    expect(result.map((t) => t.id)).toEqual(["t1", "t2"]);
+  });
+
+  it("sin trabajos → array vacío", () => {
+    expect(trabajosBloqueantes([])).toHaveLength(0);
+    expect(trabajosBloqueantes()).toHaveLength(0);
+  });
+
+  it("todos completados o cancelados → vacío aunque sean critico_zarpe", () => {
+    const trabajos = [
+      { id: "t1", critico_zarpe: true, estado: "completado" },
+      { id: "t2", critico_zarpe: true, estado: "cancelado"  },
+    ];
+    expect(trabajosBloqueantes(trabajos)).toHaveLength(0);
   });
 });

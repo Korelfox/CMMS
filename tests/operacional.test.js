@@ -51,25 +51,49 @@ describe("evaluarZarpe (semáforo GO/NO-GO)", () => {
     expect(evaluarZarpe(EMB, { ...base, planesEval: [{ tone: "red", plan: { descripcion: "Cambio aceite" }, equipo: eqB }] }).nivel).toBe("go");
   });
 
-  it("varada activa (ejecucion) para la nave → CONDICIONAL", () => {
-    const varadas = [{ embarcacion_id: EMB, estado: "ejecucion", nombre: "Varada anual 2026" }];
-    const r = evaluarZarpe(EMB, { equipos: [], ots: [], documentos: [], planesEval: [], varadas, hoy: HOY });
+  it("varada activa sin bloqueantes → CONDICIONAL", () => {
+    const varadas = [{ id: "v1", embarcacion_id: EMB, estado: "ejecucion", nombre: "Varada anual 2026" }];
+    const r = evaluarZarpe(EMB, { equipos: [], ots: [], documentos: [], planesEval: [], varadas, varadaTrabajos: [], hoy: HOY });
     expect(r.nivel).toBe("condicional");
     expect(r.advertencias[0].texto).toMatch(/Varada anual 2026/);
     expect(r.advertencias[0].nav).toBe("varada");
   });
 
+  it("trabajo critico_zarpe pendiente → NO-GO, con texto del trabajo en bloqueo", () => {
+    const varadas = [{ id: "v1", embarcacion_id: EMB, estado: "ejecucion", nombre: "Varada anual 2026" }];
+    const varadaTrabajos = [{ varada_id: "v1", critico_zarpe: true, estado: "pendiente", descripcion: "Reparar hélice" }];
+    const r = evaluarZarpe(EMB, { equipos: [], ots: [], documentos: [], planesEval: [], varadas, varadaTrabajos, hoy: HOY });
+    expect(r.nivel).toBe("nogo");
+    expect(r.bloqueos[0].texto).toMatch(/Reparar hélice/);
+    expect(r.bloqueos[0].nav).toBe("varada");
+  });
+
+  it("trabajo critico_zarpe completado → CONDICIONAL (varada sigue abierta)", () => {
+    const varadas = [{ id: "v1", embarcacion_id: EMB, estado: "ejecucion", nombre: "Varada anual 2026" }];
+    const varadaTrabajos = [{ varada_id: "v1", critico_zarpe: true, estado: "completado", descripcion: "Hélice completada" }];
+    const r = evaluarZarpe(EMB, { equipos: [], ots: [], documentos: [], planesEval: [], varadas, varadaTrabajos, hoy: HOY });
+    expect(r.nivel).toBe("condicional");
+  });
+
+  it("trabajo critico_zarpe cancelado no bloquea", () => {
+    const varadas = [{ id: "v1", embarcacion_id: EMB, estado: "ejecucion", nombre: "Varada" }];
+    const varadaTrabajos = [{ varada_id: "v1", critico_zarpe: true, estado: "cancelado", descripcion: "Cancelado" }];
+    const r = evaluarZarpe(EMB, { equipos: [], ots: [], documentos: [], planesEval: [], varadas, varadaTrabajos, hoy: HOY });
+    expect(r.nivel).toBe("condicional");
+  });
+
   it("varada en planificacion o cerrada no afecta semáforo", () => {
     const varadas = [
-      { embarcacion_id: EMB, estado: "planificacion", nombre: "Futura" },
-      { embarcacion_id: EMB, estado: "cerrada",       nombre: "Pasada" },
+      { id: "v2", embarcacion_id: EMB, estado: "planificacion", nombre: "Futura" },
+      { id: "v3", embarcacion_id: EMB, estado: "cerrada",       nombre: "Pasada" },
     ];
-    expect(evaluarZarpe(EMB, { equipos: [], ots: [], documentos: [], planesEval: [], varadas, hoy: HOY }).nivel).toBe("go");
+    expect(evaluarZarpe(EMB, { equipos: [], ots: [], documentos: [], planesEval: [], varadas, varadaTrabajos: [], hoy: HOY }).nivel).toBe("go");
   });
 
   it("varada de otra nave no afecta el semáforo de esta nave", () => {
-    const varadas = [{ embarcacion_id: "nave-otra", estado: "ejecucion", nombre: "Ajena" }];
-    expect(evaluarZarpe(EMB, { equipos: [], ots: [], documentos: [], planesEval: [], varadas, hoy: HOY }).nivel).toBe("go");
+    const varadas = [{ id: "v4", embarcacion_id: "nave-otra", estado: "ejecucion", nombre: "Ajena" }];
+    const varadaTrabajos = [{ varada_id: "v4", critico_zarpe: true, estado: "pendiente", descripcion: "Bloqueante ajena" }];
+    expect(evaluarZarpe(EMB, { equipos: [], ots: [], documentos: [], planesEval: [], varadas, varadaTrabajos, hoy: HOY }).nivel).toBe("go");
   });
 
   it("ignora hallazgos de otras embarcaciones", () => {
