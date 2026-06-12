@@ -4,7 +4,7 @@ import {
   Package, Warehouse, Gauge, Activity, AlertTriangle, ClipboardCheck, DollarSign,
   TrendingUp, FileText, History, Layers, Bell, LogOut, UserCircle, UserCog,
   Wifi, WifiOff, RefreshCw, CheckCircle2, BarChart3, ShipWheel, Fuel, ShieldCheck, Fish,
-  Menu, X, Sun, Moon, Building2, Timer, Waves,
+  Menu, X, Sun, Moon, Building2, Timer, Waves, ListTodo,
 } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { fetchAll } from "../lib/db";
@@ -41,6 +41,8 @@ const Bitacora      = lazy(() => import("./Bitacora"));
 const Rentabilidad  = lazy(() => import("./Rentabilidad"));
 const Empresas      = lazy(() => import("./Empresas"));
 const Usuarios      = lazy(() => import("./Usuarios"));
+const EstadoFlota   = lazy(() => import("./EstadoFlota"));
+const Backlog       = lazy(() => import("./Backlog"));
 
 const INTERVALOS_REFRESH = [
   { label: "5 min",       s: 300  },
@@ -60,6 +62,7 @@ function fmtTimer(s) {
 const NAV = [
   { id: "dashboard", label: "Tablero", icon: LayoutDashboard, group: "Principal" },
   { id: "alertas", label: "Alertas", icon: Bell, group: "Principal" },
+  { id: "flota", label: "Estado de Flota", icon: Anchor, group: "Principal" },
   { id: "mgm", label: "Modelo MGM", icon: Layers, group: "Principal" },
   { id: "embarcaciones", label: "Embarcaciones", icon: Sailboat, group: "Flota" },
   { id: "equipos", label: "Equipos", icon: Ship, group: "Flota" },
@@ -70,6 +73,7 @@ const NAV = [
   { id: "programa", label: "Programación", icon: Calendar, group: "Operación" },
   { id: "solicitudes", label: "Solicitudes", icon: Inbox, group: "Operación" },
   { id: "ots", label: "Órdenes de Trabajo", icon: ClipboardList, group: "Operación" },
+  { id: "backlog", label: "Backlog", icon: ListTodo, group: "Operación" },
   { id: "inventario", label: "Inventario", icon: Package, group: "Operación" },
   { id: "almacen", label: "Almacén & Compras", icon: Warehouse, group: "Operación" },
   { id: "kpis", label: "KPIs & Confiabilidad", icon: Gauge, group: "Análisis" },
@@ -92,6 +96,8 @@ const NAV = [
 const MODULOS = {
   dashboard: Tablero,
   alertas: Alertas,
+  flota: EstadoFlota,
+  backlog: Backlog,
   mgm: MGM,
   embarcaciones: Embarcaciones,
   equipos: Equipos,
