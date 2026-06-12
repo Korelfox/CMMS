@@ -1036,7 +1036,7 @@ function OCDetallePanel({ oc, its, itemCodigo, itemDesc, itemUnidad, whName,
   const displayIts = its.map((it) => {
     if (!modoEdicion) return it;
     const e = lineEdits[it.id] || {};
-    return { ...it, cantidad: e.cantidad ?? it.cantidad, precio: e.precio ?? it.precio || 0, descuento_pct: e.descuento_pct ?? it.descuento_pct || 0 };
+    return { ...it, cantidad: e.cantidad ?? it.cantidad, precio: e.precio ?? (it.precio || 0), descuento_pct: e.descuento_pct ?? (it.descuento_pct || 0) };
   });
   const activeIts   = modoEdicion ? displayIts.filter((it) => !linesToDel.has(it.id)) : displayIts;
   const newLineNeto = newLine.item_id ? newLine.cantidad * (newLine.precio || 0) * (1 - (newLine.descuento_pct || 0) / 100) : 0;
@@ -1154,7 +1154,7 @@ function OCDetallePanel({ oc, its, itemCodigo, itemDesc, itemUnidad, whName,
                 {/* Precio unit. */}
                 <td style={{ ...tdStyle, textAlign: "right" }}>
                   {modoEdicion && !marcado ? (
-                    <input type="number" min={0} step="any" value={lineEdits[it.id]?.precio ?? it.precio || 0}
+                    <input type="number" min={0} step="any" value={lineEdits[it.id]?.precio ?? (it.precio || 0)}
                       onFocus={(e) => e.target.select()}
                       onChange={(e) => setEdit(it.id, "precio", +e.target.value)}
                       style={{ ...bluInput, width: 90, textAlign: "right", padding: "4px 6px", fontSize: 12 }} />
@@ -1167,7 +1167,7 @@ function OCDetallePanel({ oc, its, itemCodigo, itemDesc, itemUnidad, whName,
                 {hasDcto && (
                   <td style={{ ...tdStyle, textAlign: "right" }}>
                     {modoEdicion && !marcado ? (
-                      <input type="number" min={0} max={100} step={0.5} value={lineEdits[it.id]?.descuento_pct ?? it.descuento_pct || 0}
+                      <input type="number" min={0} max={100} step={0.5} value={lineEdits[it.id]?.descuento_pct ?? (it.descuento_pct || 0)}
                         onFocus={(e) => e.target.select()}
                         onChange={(e) => setEdit(it.id, "descuento_pct", +e.target.value)}
                         style={{ ...bluInput, width: 56, textAlign: "right", padding: "4px 6px", fontSize: 12 }} />
