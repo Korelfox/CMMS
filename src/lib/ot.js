@@ -10,10 +10,16 @@ export const blankOT = (hoy) => ({
   mttr_horas: 0, hrs_oper_desde: 0, costo_mo: 0, costo_mat: 0,
 });
 
-// Folio de la OT: correlativo cuando hay conexión; provisional (S/N) offline.
-export function folioOT(count, online, nowIso = new Date().toISOString()) {
-  if (online) return `OT-${String(count + 1).padStart(3, "0")}`;
-  return `OT-S/N-${nowIso.slice(5, 16).replace("T", "-").replace(":", "")}`;
+// Folio de la OT: correlativo robusto cuando hay conexión (máximo folio
+// existente + 1 — count+1 colisionaba tras eliminar OTs); provisional (S/N)
+// offline. Ignora folios fuera del esquema OT-### (S/N, OT-RF-, legacy PM-).
+export function folioOT(ots, online, nowIso = new Date().toISOString()) {
+  if (!online) return `OT-S/N-${nowIso.slice(5, 16).replace("T", "-").replace(":", "")}`;
+  const maxN = (Array.isArray(ots) ? ots : []).reduce((mx, o) => {
+    const m = /^OT-(\d+)$/.exec(o?.folio || "");
+    return m ? Math.max(mx, parseInt(m[1], 10)) : mx;
+  }, 0);
+  return `OT-${String(maxN + 1).padStart(3, "0")}`;
 }
 
 // Costo total de una OT (mano de obra + materiales).

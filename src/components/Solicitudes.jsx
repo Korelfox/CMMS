@@ -11,6 +11,7 @@ import {
   thStyle, tdStyle, FilterBtn, Field, Empty, ErrorBanner, InlineSpinner,
 } from "../ui";
 import EquipoPicker from "./EquipoPicker";
+import { folioOT } from "../lib/ot";
 
 const HOY = () => new Date().toISOString().slice(0, 10);
 
@@ -78,14 +79,14 @@ export default function Solicitudes() {
     } catch (e) { setError("No se pudo crear: " + e.message); }
   }
 
-  // Convertir solicitud → OT (carga el conteo actual de OTs para folio)
+  // Convertir solicitud → OT (folio correlativo robusto desde lib/ot)
   async function convertir(sol) {
     if (!window.confirm(`¿Convertir "${sol.folio || sol.descripcion}" en una nueva Orden de Trabajo?`)) return;
     try {
       const otsActuales = await fetchAll("ordenes_trabajo");
-      const folioOT = `OT-${String(otsActuales.length + 1).padStart(3, "0")}`;
+      const folio = folioOT(otsActuales, true);
       const nuevaOT = await insertRow("ordenes_trabajo", profile.empresa_id, {
-        folio: folioOT,
+        folio,
         embarcacion_id: sol.embarcacion_id, sistema: sol.sistema,
         tipo: "correctivo", prioridad: sol.prioridad, estado: "planificada",
         descripcion: sol.descripcion, fecha: sol.fecha,
@@ -93,7 +94,7 @@ export default function Solicitudes() {
       });
       await updateRow("solicitudes", sol.id, { estado: "convertida", ot_id: nuevaOT.id });
       setSolicitudes((p) => p.map((s) => s.id === sol.id ? { ...s, estado: "convertida", ot_id: nuevaOT.id } : s));
-      logActivity(profile, "Solicitud → OT", `${sol.folio || ""} → ${folioOT}`);
+      logActivity(profile, "Solicitud → OT", `${sol.folio || ""} → ${folio}`);
     } catch (e) { setError("No se pudo convertir: " + e.message); }
   }
 

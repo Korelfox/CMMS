@@ -84,10 +84,16 @@ describe("Plantilla pesquera ISO 14224", () => {
     expect(find(PLANTILLA_PESQUERA, "CATCH").hijos.some((h) => h.cod === "CATCH-VIV")).toBe(true); // viveros
   });
 
-  it("la plantilla precarga planes PM válidos (descripción + intervalo > 0)", () => {
+  it("la plantilla precarga planes PM válidos (horas > 0, o calendario con unidad válida)", () => {
     expect(contarPlanesPMPlantilla()).toBeGreaterThan(0);
+    // Dos formatos documentados: [desc, horas] (disparador horas)
+    // y [desc, null, unidad] (disparador calendario).
+    const UNIDADES = new Set(["diario", "semanal", "mensual", "trimestral", "semestral", "anual"]);
     const ok = (nodos) => (nodos || []).every(
-      (n) => (n.pm || []).every(([d, h]) => typeof d === "string" && d.length > 0 && h > 0) && ok(n.hijos));
+      (n) => (n.pm || []).every(([d, h, u]) =>
+        typeof d === "string" && d.length > 0 &&
+        (u == null ? h > 0 : h == null && UNIDADES.has(u))
+      ) && ok(n.hijos));
     expect(ok(PLANTILLA_PESQUERA)).toBe(true);
   });
 

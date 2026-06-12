@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useRef, useEffect } from "react";
 import { Download, Plus, X, ChevronRight, ChevronDown, AlertCircle, Ship, Search } from "lucide-react";
-import { insertRow, upsertRow, logActivity } from "../../lib/db";
-import { C, canOperate, tint } from "../../theme";
+import { insertRow, updateRow, upsertRow, logActivity } from "../../lib/db";
+import { C, canOperate, clp, tint } from "../../theme";
 import { Card, Pill, primaryBtn, exportBtn, inputStyle, bluInput, thStyle, tdStyle, Field, Empty } from "../../ui";
 import { HOY, skey } from "./util";
 
@@ -110,6 +110,22 @@ export default function TabMovimientos({
         motivo: form.motivo, created_by: profile.id,
       });
       logActivity(profile, `Movimiento: ${tipo}`, `${cant}× ${itemDesc(form.item_id)}`);
+      // Valorización automática (ISO 55000): el costo del repuesto consumido
+      // se carga a la OT asociada — el costo real del mantenimiento queda
+      // trazado sin digitación manual.
+      if (tipo === "salida" && form.ot_id) {
+        const ot    = ots.find((o) => o.id === form.ot_id);
+        const item  = items.find((i) => i.id === form.item_id);
+        const costo = cant * (Number(item?.precio) || 0);
+        if (ot && costo > 0) {
+          await updateRow("ordenes_trabajo", form.ot_id, {
+            costo_mat: (Number(ot.costo_mat) || 0) + costo,
+            costos_por: profile?.nombre || profile?.email || "",
+            costos_fecha: new Date().toISOString(),
+          });
+          logActivity(profile, "Cargo repuesto a OT", `${ot.folio} · ${cant}× ${itemDesc(form.item_id)} · +${clp(costo)}`);
+        }
+      }
       setForm((f) => ({ ...f, cantidad: 1, ot_id: "", motivo: "" }));
       recargar();
     } catch (e) { setError("No se pudo registrar el movimiento: " + e.message); }
@@ -286,6 +302,11 @@ export default function TabMovimientos({
                       <option value="">— Ninguna —</option>
                       {ots.map((o) => <option key={o.id} value={o.id}>{o.folio} · {o.sistema}</option>)}
                     </select>
+                    {form.ot_id && (
+                      <div style={{ fontSize:10.5, color:C.steel, marginTop:4 }}>
+                        ✓ El costo (cantidad × precio del ítem) se cargará automáticamente a la OT.
+                      </div>
+                    )}
                   </Field>
                 )}
                 <Field label="Responsable">

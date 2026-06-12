@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { scheduleCompliance } from "../src/lib/pm.js";
+import { scheduleCompliance, statusPlan, evaluarPlanes } from "../src/lib/pm.js";
 
 const PLAN = { id: "p1", intervalo_horas: 250 };
 const ejec = (planId, horas) => ({ plan_pm_id: planId, horas_realizacion: horas });
@@ -50,5 +50,60 @@ describe("scheduleCompliance (PM a tiempo)", () => {
       [ejec("p1", 0), ejec("p1", 100), { plan_pm_id: null, horas_realizacion: 50 }, ejec("px", 10), ejec("p1", null)],
       [PLAN, { id: "px", intervalo_horas: 0 }]);
     expect(r.evaluadas).toBe(1); // solo la 2ª de p1
+  });
+});
+
+describe("statusPlan (semáforo de horas)", () => {
+  it("verde bajo el 90% del intervalo", () => expect(statusPlan(200, 250)[0]).toBe("green"));
+  it("amarillo desde el 90%", () => expect(statusPlan(225, 250)).toEqual(["yellow", "Próximo"]));
+  it("rojo al alcanzar el intervalo", () => expect(statusPlan(250, 250)).toEqual(["red", "Vencido"]));
+});
+
+describe("evaluarPlanes (semáforo real para Alertas/Tablero)", () => {
+  const EQ = { id: "e1", embarcacion_id: "n1", sistema: "Motor Ppal", horas_actual: 1000 };
+
+  it("plan de horas usa intervalo y hito propios del plan", () => {
+    const planes = [
+      { id: "a", equipo_id: "e1", intervalo_horas: 250, horas_ult_pm: 800 },  // 200h → verde
+      { id: "b", equipo_id: "e1", intervalo_horas: 250, horas_ult_pm: 775 },  // 225h → amarillo
+      { id: "c", equipo_id: "e1", intervalo_horas: 250, horas_ult_pm: 700 },  // 300h → rojo
+    ];
+    const r = evaluarPlanes(planes, [EQ]);
+    expect(r.map((x) => x.tone)).toEqual(["green", "yellow", "red"]);
+    expect(r[2].elapsed).toBe(300);
+    expect(r[2].limite).toBe(250);
+    expect(r[2].esCalendario).toBe(false);
+  });
+
+  it("plan calendario nunca realizado queda vencido (elapsed Infinity)", () => {
+    const planes = [{ id: "k", equipo_id: "e1", tipo_disparador: "calendario", unidad_calendario: "mensual", intervalo_calendario: 1 }];
+    const [r] = evaluarPlanes(planes, [EQ]);
+    expect(r.tone).toBe("red");
+    expect(r.elapsed).toBe(Infinity);
+    expect(r.limite).toBe(30);
+    expect(r.esCalendario).toBe(true);
+  });
+
+  it("plan calendario recién realizado queda verde", () => {
+    const hoy = new Date().toISOString().slice(0, 10);
+    const planes = [{ id: "k", equipo_id: "e1", tipo_disparador: "calendario", unidad_calendario: "mensual", fecha_ult_pm: hoy }];
+    expect(evaluarPlanes(planes, [EQ])[0].tone).toBe("green");
+  });
+
+  it("excluye planes inactivos y no crashea sin equipo o sin intervalo", () => {
+    const planes = [
+      { id: "off", equipo_id: "e1", intervalo_horas: 100, activo: false },
+      { id: "huerfano", equipo_id: "no-existe", intervalo_horas: 100, horas_ult_pm: 0 },
+      { id: "sin-intervalo", equipo_id: "e1", intervalo_horas: 0, horas_ult_pm: 0 },
+    ];
+    const r = evaluarPlanes(planes, [EQ]);
+    expect(r.map((x) => x.plan.id)).toEqual(["huerfano", "sin-intervalo"]);
+    expect(r[0].equipo).toBeNull();          // sin equipo → elapsed 0-0, verde, sin crash
+    expect(r[1].tone).toBe("green");         // intervalo 0 no genera falso vencido
+  });
+
+  it("listas vacías o nulas → []", () => {
+    expect(evaluarPlanes()).toEqual([]);
+    expect(evaluarPlanes(null, null)).toEqual([]);
   });
 });

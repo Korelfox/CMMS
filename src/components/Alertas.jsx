@@ -1,14 +1,18 @@
 import React, { useEffect, useState, useCallback, useMemo } from "react";
 import {
-  Bell, AlertTriangle, Package, Wrench, Clock, Ship, ShoppingCart, ChevronRight, Check, Droplet, ShieldCheck,
+  Bell, AlertTriangle, Package, Wrench, Clock, Ship, ShoppingCart, ChevronRight, Check, Droplet, ShieldCheck, Activity, FileWarning,
 } from "lucide-react";
-import { useAuth } from "../lib/auth";
 import { fetchAll } from "../lib/db";
-import { C, archivo, num, clp, PM_INTERVALS, SLA_HORAS, PRIORIDADES, lk } from "../theme";
+import { C, archivo, num, SLA_HORAS, PRIORIDADES, lk } from "../theme";
+import { evaluarPlanes } from "../lib/pm";
+import { seriesPdM, evaluarMedicion } from "../lib/pdm";
+import { sinValorizar } from "../lib/ot";
+import { requiereCodigoFalla } from "../lib/fallasISO";
 import { Card, PageHead, Pill, FilterBtn, Empty, ErrorBanner, InlineSpinner } from "../ui";
 
 const CATEGORIAS = [
   { id: "pm",       label: "Plan Preventivo", icon: Wrench },
+  { id: "pdm",      label: "Condición PdM",   icon: Activity },
   { id: "stock",    label: "Stock bajo",      icon: Package },
   { id: "ot",       label: "OTs críticas",    icon: AlertTriangle },
   { id: "sla",      label: "SLA vencido",     icon: Clock },
@@ -16,11 +20,13 @@ const CATEGORIAS = [
   { id: "consumo",  label: "Consumo aceite",  icon: Droplet },
   { id: "documento", label: "Documentos",     icon: ShieldCheck },
   { id: "compra",   label: "Compras",         icon: ShoppingCart },
+  { id: "datos",    label: "Datos ISO",       icon: FileWarning },
 ];
 
 // A qué módulo lleva cada categoría de alerta al hacer clic.
 const NAV_POR_CAT = {
   pm: "planpm",
+  pdm: "pdm",
   stock: "inventario",
   ot: "ots",
   sla: "solicitudes",
@@ -28,6 +34,7 @@ const NAV_POR_CAT = {
   consumo: "prezarpe",
   documento: "cumplimiento",
   compra: "almacen",
+  datos: "ots",
 };
 
 // Días hábiles (lun-vie) entre dos fechas (no cuenta feriados).
@@ -38,7 +45,6 @@ function diasHabiles(desde, hasta) {
 }
 
 export default function Alertas({ onNavigate }) {
-  const { profile } = useAuth();
   const [embarcaciones, setEmbarcaciones] = useState([]);
   const [equipos, setEquipos] = useState([]);
   const [items, setItems] = useState([]);
@@ -48,6 +54,8 @@ export default function Alertas({ onNavigate }) {
   const [compras, setCompras] = useState([]);
   const [prezarpes, setPrezarpes] = useState([]);
   const [documentos, setDocumentos] = useState([]);
+  const [planes, setPlanes] = useState([]);
+  const [mediciones, setMediciones] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [filtro, setFiltro] = useState("all");
@@ -55,7 +63,7 @@ export default function Alertas({ onNavigate }) {
   const cargar = useCallback(async () => {
     setLoading(true); setError(null);
     try {
-      const [embs, eqs, its, stk, otsAll, sols, cps, pzs, docs] = await Promise.all([
+      const [embs, eqs, its, stk, otsAll, sols, cps, pzs, docs, pls, meds] = await Promise.all([
         fetchAll("embarcaciones", { order: { col: "codigo", asc: true } }),
         fetchAll("equipos"),
         fetchAll("inventario_items"),
@@ -65,36 +73,54 @@ export default function Alertas({ onNavigate }) {
         fetchAll("compras"),
         fetchAll("prezarpes", { order: { col: "fecha", asc: false } }),
         fetchAll("documentos"),
+        fetchAll("planes_pm"),
+        fetchAll("mediciones_pdm"),
       ]);
       setEmbarcaciones(embs); setEquipos(eqs); setItems(its); setStock(stk);
       setOts(otsAll); setSolicitudes(sols); setCompras(cps); setPrezarpes(pzs); setDocumentos(docs);
+      setPlanes(pls); setMediciones(meds);
     } catch (e) { setError("No se pudieron cargar las alertas. " + e.message); }
     finally { setLoading(false); }
   }, []);
   useEffect(() => { cargar(); }, [cargar]);
 
   function embName(id) { return embarcaciones.find((e) => e.id === id)?.nombre || "—"; }
-  function itemDesc(id) { return items.find((i) => i.id === id)?.descripcion || "—"; }
 
   // ───── Generación de alertas (computada) ──────────────────────────────
   const alertas = useMemo(() => {
     const all = [];
 
-    // 1) PM vencido (transcurridas >= primer intervalo)
-    equipos.forEach((eq) => {
-      const elapsed = (eq.horas_actual || 0) - (eq.horas_ult_pm || 0);
-      for (const iv of [...PM_INTERVALS].reverse()) { // empieza por el mayor para clasificar peor caso
-        if (elapsed >= iv) {
-          all.push({
-            cat: "pm", sev: iv >= 250 ? "red" : iv >= 100 ? "amber" : "yellow",
-            titulo: `PM ${iv}h vencido · ${eq.sistema}`,
-            detalle: `${embName(eq.embarcacion_id)} · transcurridas ${num(elapsed, 0)}h desde último PM`,
-            ts: eq.updated_at,
-          });
-          break; // solo la peor coincidencia
-        }
-      }
+    // 1) Planes PM vencidos o próximos — modelo real (planes_pm: intervalo
+    //    propio por plan, hito de último PM, disparador horas o calendario).
+    evaluarPlanes(planes, equipos).forEach((r) => {
+      if (r.tone !== "red" && r.tone !== "yellow") return;
+      const eq = r.equipo;
+      const unidad = r.esCalendario ? "días" : "h";
+      const transcurrido = Number.isFinite(r.elapsed)
+        ? `${num(r.elapsed, 0)} ${unidad} desde último PM`
+        : "nunca realizado";
+      all.push({
+        cat: "pm", sev: r.tone === "red" ? "red" : "amber",
+        titulo: `PM ${r.label.toLowerCase()} · ${r.plan.descripcion}`,
+        detalle: `${embName(eq?.embarcacion_id)} · ${eq?.sistema || "equipo"} · ${transcurrido} (intervalo ${num(r.limite, 0)} ${unidad})`,
+        ts: r.plan.fecha_ult_pm || eq?.updated_at,
+      });
     });
+
+    // 1b) Condición PdM (ISO 17359): última medición de cada serie
+    //     (equipo+parámetro) que cruza su límite de alerta o crítico.
+    for (const serie of seriesPdM(mediciones).values()) {
+      const ult = serie[0];
+      const ev = evaluarMedicion(ult.valor, ult.limite_alerta, ult.limite_critico);
+      if (ev.key !== "critico" && ev.key !== "alerta") continue;
+      const eq = equipos.find((e) => e.id === ult.equipo_id);
+      all.push({
+        cat: "pdm", sev: ev.key === "critico" ? "red" : "amber",
+        titulo: `Condición ${ev.label.toLowerCase()} · ${ult.parametro} · ${eq?.sistema || "equipo"}`,
+        detalle: `${embName(eq?.embarcacion_id)} · ${num(ult.valor, 1)} ${ult.unidad || ""} (alerta ${ult.limite_alerta ?? "—"} / crítico ${ult.limite_critico ?? "—"}) · medido ${ult.fecha}`,
+        ts: ult.fecha,
+      });
+    }
 
     // 2) Stock bajo (stock total por item <= stock_min)
     items.forEach((it) => {
@@ -197,13 +223,33 @@ export default function Alertas({ onNavigate }) {
       }
     });
 
+    // 9) Calidad de datos ISO 14224: deuda de codificación y valorización.
+    //    Cerrar rápido en terreno está bien — pero la deuda queda visible
+    //    hasta completarla, o Pareto/Weibull/costos pierden esos eventos.
+    ots.filter((o) => o.estado === "cerrada" && requiereCodigoFalla(o) && !o.modo_falla).forEach((o) => {
+      all.push({
+        cat: "datos", sev: "amber",
+        titulo: `OT sin codificación de falla · ${o.folio || ""}`,
+        detalle: `${embName(o.embarcacion_id)} · ${o.sistema || ""} · correctiva cerrada sin modo de falla ISO 14224 — Pareto y MTBF la pierden`,
+        ts: o.cerrada_fecha || o.fecha, ref: o.id,
+      });
+    });
+    ots.filter(sinValorizar).forEach((o) => {
+      all.push({
+        cat: "datos", sev: "amber",
+        titulo: `OT sin valorizar · ${o.folio || ""}`,
+        detalle: `${embName(o.embarcacion_id)} · ${o.sistema || ""} · cerrada sin costos de MO/materiales — el costo real del mantenimiento queda subestimado`,
+        ts: o.cerrada_fecha || o.fecha, ref: o.id,
+      });
+    });
+
     // Orden: rojo primero, luego ámbar, dentro de cada uno por timestamp descendente
     return all.sort((a, b) => {
       const sevOrder = { red: 0, amber: 1, yellow: 2 };
       if (sevOrder[a.sev] !== sevOrder[b.sev]) return sevOrder[a.sev] - sevOrder[b.sev];
       return new Date(b.ts || 0).getTime() - new Date(a.ts || 0).getTime();
     });
-  }, [equipos, items, stock, ots, solicitudes, compras, prezarpes, documentos, embarcaciones]); // eslint-disable-line
+  }, [equipos, items, stock, ots, solicitudes, compras, prezarpes, documentos, embarcaciones, planes, mediciones]); // eslint-disable-line
 
   const conteoPorCat = (id) => alertas.filter((a) => a.cat === id).length;
   const listaFiltrada = filtro === "all" ? alertas : alertas.filter((a) => a.cat === filtro);
@@ -215,7 +261,7 @@ export default function Alertas({ onNavigate }) {
   return (
     <div>
       <PageHead kicker="Centro de Notificaciones" title="Alertas"
-        sub="Señales agregadas de toda la operación: PM vencidos, stock bajo, OTs críticas, SLA, equipos fuera de servicio y compras atrasadas. Si no hay nada acá, tu flota está bajo control." />
+        sub="Señales agregadas de toda la operación: planes PM vencidos, condición PdM fuera de límites, stock bajo, OTs críticas, SLA, equipos fuera de servicio, compras atrasadas y deuda de datos ISO. Si no hay nada acá, tu flota está bajo control." />
 
       <ErrorBanner onRetry={cargar}>{error}</ErrorBanner>
 
@@ -260,7 +306,7 @@ export default function Alertas({ onNavigate }) {
           const clicable = dest && onNavigate;
           return (
             <Card key={i}
-              onClick={clicable ? () => onNavigate(dest, a.cat === "ot" && a.ref ? { otId: a.ref } : null) : undefined}
+              onClick={clicable ? () => onNavigate(dest, (a.cat === "ot" || a.cat === "datos") && a.ref ? { otId: a.ref } : null) : undefined}
               title={clicable ? `Ir a ${cat?.label} para gestionarla` : undefined}
               style={{ padding: 0, overflow: "hidden", borderLeft: `4px solid ${borderC}`, background: bg, cursor: clicable ? "pointer" : "default" }}>
               <div style={{ padding: "12px 16px", display: "grid", gridTemplateColumns: "auto 1fr auto", gap: 12, alignItems: "center" }}>

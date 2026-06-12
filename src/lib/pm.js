@@ -156,3 +156,41 @@ export function statusPlanCalendario(diasElapsed, unidad, intervalo = 1) {
   if (diasElapsed >= total * 0.9)   return ["yellow", "Próximo"];
   return                                   ["green",  "OK"];
 }
+
+// Semáforo para planes de tipo HORAS (compartido por PlanPM, Alertas y Tablero).
+export function statusPlan(elapsed, intervalo) {
+  if (elapsed >= intervalo)          return ["red",    "Vencido"];
+  if (elapsed >= intervalo * 0.9)    return ["yellow", "Próximo"];
+  return                                    ["green",  "OK"];
+}
+
+// ============================================================
+//  Evaluación de TODOS los planes PM — única fuente de verdad
+//  del semáforo para Alertas, Tablero y PlanPM. Respeta el
+//  intervalo propio de cada plan, su hito (horas/fecha del
+//  último PM) y los disparadores por calendario.
+// ============================================================
+// planes:  filas de planes_pm · equipos: filas de equipos
+// → [{ plan, equipo, esCalendario, elapsed, limite, tone, label }]
+//   horas:      elapsed/limite en horas (equipo.horas_actual ya viene
+//               materializado con herencia desde Horómetros)
+//   calendario: elapsed/limite en días (elapsed = Infinity si nunca se hizo)
+export function evaluarPlanes(planes = [], equipos = []) {
+  const eqById = new Map((equipos || []).map((e) => [e.id, e]));
+  return (planes || [])
+    .filter((p) => p && p.activo !== false)
+    .map((p) => {
+      const eq = eqById.get(p.equipo_id) || null;
+      const esCalendario = p.tipo_disparador === "calendario";
+      if (esCalendario) {
+        const elapsed = diasDesde(p.fecha_ult_pm);
+        const limite  = totalDiasCalendario(p.unidad_calendario, p.intervalo_calendario ?? 1);
+        const [tone, label] = statusPlanCalendario(elapsed, p.unidad_calendario, p.intervalo_calendario ?? 1);
+        return { plan: p, equipo: eq, esCalendario, elapsed, limite, tone, label };
+      }
+      const elapsed = (eq?.horas_actual || 0) - (p.horas_ult_pm || 0);
+      const limite  = Number(p.intervalo_horas) || 0;
+      const [tone, label] = limite > 0 ? statusPlan(elapsed, limite) : ["green", "OK"];
+      return { plan: p, equipo: eq, esCalendario, elapsed, limite, tone, label };
+    });
+}

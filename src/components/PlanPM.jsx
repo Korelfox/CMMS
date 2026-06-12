@@ -11,18 +11,12 @@ import {
 } from "../ui";
 import ComboInput from "./ComboInput";
 import { TAREAS_PM } from "../lib/tareasPM";
-import { statusPlanCalendario, diasDesde, DIAS_POR_UNIDAD, LABEL_UNIDAD, labelIntervaloCalendario, scheduleComplianceCombinado } from "../lib/pm";
+import { statusPlan, statusPlanCalendario, diasDesde, DIAS_POR_UNIDAD, LABEL_UNIDAD, labelIntervaloCalendario, scheduleComplianceCombinado } from "../lib/pm";
+import { folioOT } from "../lib/ot";
 
 const HOY = () => new Date().toISOString().slice(0, 10);
 const INTERVALOS_COMUNES = [50, 100, 250, 500, 1000, 2000, 4000, 8000];
 const UNIDADES_CAL = ["diario", "semanal", "mensual", "trimestral", "semestral", "anual"];
-
-// ── Semáforo por plan ──────────────────────────────────────────
-function statusPlan(elapsed, intervalo) {
-  if (elapsed >= intervalo)          return ["red",    "Vencido"];
-  if (elapsed >= intervalo * 0.9)    return ["yellow", "Próximo"];
-  return                                    ["green",  "OK"];
-}
 
 // ── Barra de progreso por plan ─────────────────────────────────
 function PMBar({ elapsed, intervalo }) {
@@ -288,14 +282,15 @@ function TabPlan({ lista, equipos, setEquipos, planes, setPlanes, setHistorial, 
           ? statusPlanCalendario(elapsed, plan.unidad_calendario, plan.intervalo_calendario ?? 1)
           : statusPlan(elapsed, plan.intervalo_horas);
         const prio = tone === "red" ? "alta" : tone === "yellow" ? "media" : "baja";
-        const folio = `PM-${Date.now().toString().slice(-6)}`;
+        const otsActuales = await fetchAll("ordenes_trabajo");
+        const folio = folioOT(otsActuales, true);
         const ot = await insertRow("ordenes_trabajo", profile.empresa_id, {
           folio, embarcacion_id: eq.embarcacion_id, equipo_id: eq.id,
           sistema: eq.sistema, tipo: "preventivo",
           descripcion: esCalendario
             ? `PM Cal · ${plan.descripcion}`
             : `PM ${plan.intervalo_horas}h · ${plan.descripcion}`,
-          prioridad: prio, fecha, estado: "abierta", created_by: profile.id,
+          prioridad: prio, fecha, estado: "planificada", created_by: profile.id,
         });
         otId = ot.id;
       }
@@ -334,7 +329,7 @@ function TabPlan({ lista, equipos, setEquipos, planes, setPlanes, setHistorial, 
         const esCal = p.tipo_disparador === "calendario";
         let estado = "";
         if (esCal) {
-          const [tone, label] = statusPlanCalendario(diasDesde(p.fecha_ult_pm), p.unidad_calendario, p.intervalo_calendario ?? 1);
+          const [, label] = statusPlanCalendario(diasDesde(p.fecha_ult_pm), p.unidad_calendario, p.intervalo_calendario ?? 1);
           estado = label;
         } else {
           const elapsed = (eq?.horas_actual || 0) - (p.horas_ult_pm || 0);
@@ -429,7 +424,7 @@ tbody td{padding:5px 8px;vertical-align:middle}
   <tbody>${filasPDF}</tbody>
 </table>
 <div class="ftr"><span>Korelfox CMMS · Plan Preventivo</span><span>${fechaHoy}</span></div>
-<script>window.onload=function(){window.print()}<\/script>
+<script>window.onload=function(){window.print()}</script>
 </body></html>`;
 
     const w = window.open("", "_blank", "width=1200,height=800");

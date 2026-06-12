@@ -6,7 +6,8 @@ import {
 import { BarChart, Bar, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis } from "recharts";
 import { useAuth } from "../lib/auth";
 import { fetchAll } from "../lib/db";
-import { C, archivo, clp, num, rolLabel, ESTADOS_OT, PM_INTERVALS, lk } from "../theme";
+import { C, archivo, clp, num, rolLabel, ESTADOS_OT, lk } from "../theme";
+import { evaluarPlanes } from "../lib/pm";
 import { Card, PageHead, Pill, Empty, ErrorBanner, InlineSpinner } from "../ui";
 
 const ESTADO_COLOR = { solicitada: C.slate, planificada: C.purple, programada: C.steel, en_ejecucion: C.amber, cerrada: C.green };
@@ -25,7 +26,7 @@ export default function Tablero({ onNavigate }) {
   const cargar = useCallback(async () => {
     setLoading(true); setError(null);
     try {
-      const [embs, eqs, otsAll, sols, its, stk, bita] = await Promise.all([
+      const [embs, eqs, otsAll, sols, its, stk, bita, pls] = await Promise.all([
         fetchAll("embarcaciones"),
         fetchAll("equipos"),
         fetchAll("ordenes_trabajo", { order: { col: "fecha", asc: false } }),
@@ -33,28 +34,29 @@ export default function Tablero({ onNavigate }) {
         fetchAll("inventario_items"),
         fetchAll("stock"),
         fetchAll("bitacora", { order: { col: "fecha", asc: false } }),
+        fetchAll("planes_pm"),
       ]);
-      setData({ embs, eqs, ots: otsAll, sols, its, stk, bita: bita.slice(0, 6) });
+      setData({ embs, eqs, ots: otsAll, sols, its, stk, bita: bita.slice(0, 6), planes: pls });
     } catch (e) { setError("No se pudo cargar el tablero. " + e.message); }
     finally { setLoading(false); }
   }, []);
   useEffect(() => { cargar(); }, [cargar]);
 
   const m = useMemo(() => {
-    const { embs = [], eqs = [], ots = [], sols = [], its = [], stk = [] } = data;
+    const { embs = [], eqs = [], ots = [], sols = [], its = [], stk = [], planes = [] } = data;
     const otsAbiertas = ots.filter((o) => o.estado !== "cerrada");
     const otsCriticas = ots.filter((o) => (o.prioridad === "critica" || o.prioridad === "alta") && o.estado !== "cerrada");
-    const pmVencidos = eqs.filter((eq) => {
-      const elapsed = (eq.horas_actual || 0) - (eq.horas_ult_pm || 0);
-      return elapsed >= PM_INTERVALS[0];
-    }).length;
+    // Equipos con al menos un plan PM vencido (modelo real planes_pm, no legacy)
+    const eqIdsPMVencido = new Set(
+      evaluarPlanes(planes, eqs).filter((r) => r.tone === "red").map((r) => r.plan.equipo_id)
+    );
+    const pmVencidos = eqIdsPMVencido.size;
     const stockBajo = its.filter((i) => {
       const total = stk.filter((s) => s.item_id === i.id).reduce((acc, x) => acc + (Number(x.cantidad) || 0), 0);
       return i.stock_min > 0 && total <= i.stock_min;
     }).length;
     const solPend = sols.filter((s) => s.estado === "pendiente").length;
     const correctivas = ots.filter((o) => o.tipo === "correctivo");
-    const cerradas = ots.filter((o) => o.estado === "cerrada");
     const mtbf = correctivas.length ? correctivas.reduce((s, o) => s + (Number(o.hrs_oper_desde) || 0), 0) / correctivas.length : 0;
     const costoTotal = ots.reduce((s, o) => s + (Number(o.costo_mo) || 0) + (Number(o.costo_mat) || 0), 0);
     // mes actual
@@ -87,7 +89,7 @@ export default function Tablero({ onNavigate }) {
       const otsS = ots.filter((o) => o.embarcacion_id === embId && (match(o.sistema, kw) || match(o.descripcion, kw)));
       let score = 100;
       eqsS.forEach((e) => { if (e.estado === "fuera_servicio") score -= 25; else if (e.estado === "en_reparacion") score -= 20; else if (e.estado === "desgaste") score -= 10; });
-      eqsS.forEach((e) => { const el = (e.horas_actual || 0) - (e.horas_ult_pm || 0); if (el >= PM_INTERVALS[0]) score -= 15; });
+      eqsS.forEach((e) => { if (eqIdsPMVencido.has(e.id)) score -= 15; });
       otsS.filter((o) => o.tipo === "correctivo" && o.estado !== "cerrada").forEach((o) => { score -= o.prioridad === "critica" ? 25 : o.prioridad === "alta" ? 18 : 12; });
       otsS.filter((o) => o.tipo === "correctivo" && o.estado === "cerrada" && (nowMs - new Date(o.fecha).getTime()) < diasMs).forEach(() => { score -= 8; });
       if (eqsS.length === 0 && otsS.length === 0) score = 85;

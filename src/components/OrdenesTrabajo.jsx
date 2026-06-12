@@ -4,7 +4,7 @@ import { useAuth } from "../lib/auth";
 import { fetchAll, insertRow, updateRow, deleteRow, logActivity } from "../lib/db";
 import { useOnline, cacheTable, getCached, queueInsert, nuevoId } from "../lib/offline";
 import { subirFotos } from "../lib/fotos";
-import { C, clp, num, isAdmin, canOperate, TIPOS_OT, PRIORIDADES, ESTADOS_OT, lk, tn, tint } from "../theme";
+import { C, clp, isAdmin, canOperate, TIPOS_OT, PRIORIDADES, ESTADOS_OT, lk, tn, tint } from "../theme";
 import {
   Card, PageHead, Pill, primaryBtn, ghostBtn, exportBtn, inputStyle, bluInput,
   thStyle, tdStyle, FilterBtn, Field, Empty, ErrorBanner, InlineSpinner,
@@ -56,7 +56,7 @@ export default function OrdenesTrabajo({ navParams }) {
       setUsandoCache(false);
       // Guarda copia local para poder trabajar sin señal
       cacheTable("embarcaciones", embs); cacheTable("equipos", eqs); cacheTable("ordenes_trabajo", o);
-    } catch (e) {
+    } catch {
       // Sin señal o error de red → trabajamos con la última copia local
       const [embs, eqs, o] = await Promise.all([
         getCached("embarcaciones"), getCached("equipos"), getCached("ordenes_trabajo"),
@@ -101,7 +101,7 @@ export default function OrdenesTrabajo({ navParams }) {
     const id = nuevoId();
     const fila = {
       id,
-      folio: folioOT(ots.length, online),
+      folio: folioOT(ots, online),
       empresa_id: profile.empresa_id,
       embarcacion_id: form.embarcacion_id,
       equipo_id: form.equipo_id || null,
@@ -115,7 +115,7 @@ export default function OrdenesTrabajo({ navParams }) {
 
     if (online) {
       try {
-        const { empresa_id, ...resto } = fila;
+        const { empresa_id: _empresaId, ...resto } = fila;
         const nueva = await insertRow("ordenes_trabajo", profile.empresa_id, resto);
         setOts((p) => [nueva, ...p]);
         logActivity(profile, "Crear OT", `${fila.folio} · ${embName(form.embarcacion_id)} · ${lk(TIPOS_OT, form.tipo)} · ${form.descripcion}`);
@@ -486,7 +486,7 @@ export default function OrdenesTrabajo({ navParams }) {
   );
 }
 
-function MiniStat({ label, value, unit, tone, sub, onClick, hint }) {
+function MiniStat({ label, value, tone, sub, onClick, hint }) {
   return (
     <Card onClick={onClick} title={onClick ? hint : undefined}
       style={{ padding: 16, cursor: onClick ? "pointer" : "default" }}>

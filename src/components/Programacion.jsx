@@ -223,7 +223,7 @@ export default function Programacion() {
   // Crea una OT cerrada retroactiva y vincula la tarea programada a ella
   async function confirmarRegistro(item, datos) {
     setRegistroItem(null);
-    const folio   = folioOT(ots.length, true);
+    const folio   = folioOT(ots, true);
     const firma   = { cerrada_por: profile?.nombre || profile?.email || "", cerrada_fecha: new Date().toISOString() };
     const otData  = {
       embarcacion_id: item.embarcacion_id,

@@ -2,12 +2,24 @@ import { describe, it, expect } from "vitest";
 import { blankOT, folioOT, costoOT, kpisOT, filtrarOTs, validarNuevaOT } from "../src/lib/ot.js";
 
 describe("OT · folio", () => {
-  it("online: correlativo con padding a 3", () => {
-    expect(folioOT(0, true)).toBe("OT-001");
-    expect(folioOT(11, true)).toBe("OT-012");
+  it("online: máximo existente + 1 con padding a 3", () => {
+    expect(folioOT([], true)).toBe("OT-001");
+    expect(folioOT([{ folio: "OT-011" }], true)).toBe("OT-012");
+  });
+  it("online: no repite folios tras borrar OTs intermedias", () => {
+    // había 9 OTs, se borraron 2..8 — count+1 habría duplicado OT-003
+    const ots = [{ folio: "OT-001" }, { folio: "OT-009" }];
+    expect(folioOT(ots, true)).toBe("OT-010");
+  });
+  it("online: ignora folios fuera del esquema (S/N, RF, legacy PM)", () => {
+    const ots = [
+      { folio: "OT-S/N-06-07-0915" }, { folio: "OT-RF-123456" },
+      { folio: "PM-654321" }, { folio: "OT-002" }, { folio: null },
+    ];
+    expect(folioOT(ots, true)).toBe("OT-003");
   });
   it("offline: provisional S/N sin ':' problemáticos", () => {
-    const f = folioOT(5, false, "2026-06-07T09:15:00.000Z");
+    const f = folioOT([], false, "2026-06-07T09:15:00.000Z");
     expect(f.startsWith("OT-S/N-")).toBe(true);
     expect(f).not.toContain(":");
   });

@@ -187,7 +187,7 @@ export default function AppShell() {
 
   // ── Auto-refresh countdown ──────────────────────────────────────────────
   useEffect(() => {
-    try { localStorage.setItem("cmms-refresh-interval", String(refreshInterval)); } catch {}
+    try { localStorage.setItem("cmms-refresh-interval", String(refreshInterval)); } catch { /* almacenamiento local no disponible */ }
     if (refreshInterval <= 0) return;
     setTimeLeft(refreshInterval);
     const t = setInterval(() => {
