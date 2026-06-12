@@ -136,7 +136,9 @@ export default function Alertas({ onNavigate }) {
     // 2a) Cobertura de repuestos críticos: repuesto ligado a equipo de
     //     criticidad A con stock total agotado — la nave depende de ese
     //     equipo y no hay con qué repararlo (siempre rojo, tenga o no mínimo).
-    const sinCobertura = coberturaCriticos({ items, stock, destinos, equipos });
+    // Ítems con min=0 y max=0 no han sido auditados: omitirlos.
+    const sinCobertura = coberturaCriticos({ items, stock, destinos, equipos })
+      .filter(({ item }) => (item.stock_min || 0) > 0 || (item.stock_max || 0) > 0);
     const idsSinCobertura = new Set(sinCobertura.map((c) => c.item.id));
     sinCobertura.forEach(({ item, equiposA }) => {
       const nombres = equiposA.map((e) => e.sistema || e.id_visible).slice(0, 3).join(", ");
