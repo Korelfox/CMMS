@@ -2,17 +2,25 @@ import React, { useEffect, useState, useCallback } from "react";
 import { Calendar, Plus, Trash2, Check } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { fetchAll, insertRow, updateRow, deleteRow, logActivity } from "../lib/db";
-import { C, archivo, num, canOperate, isAdmin, DIAS_SEMANA, tint } from "../theme";
+import { C, archivo, num, canOperate, isAdmin, DIAS_SEMANA, tint, ESTADOS_OT } from "../theme";
 import {
   Card, PageHead, Pill, primaryBtn, ghostBtn, inputStyle, bluInput,
   Field, Empty, ErrorBanner, InlineSpinner,
 } from "../ui";
+import EquipoPicker from "./EquipoPicker";
 
 const TIPOS = ["Proactiva", "Reactiva", "Inspección", "Predictiva"];
+
+// Tipo de OT (BD) → tipo de tarea programada
+const TIPO_OT_A_PROG = { preventivo: "Proactiva", correctivo: "Reactiva", modificativo: "Proactiva", predictivo: "Predictiva" };
+// Orden de presentación de OTs abiertas: primero las que faltan por programar
+const RANK_ESTADO = { solicitada: 0, planificada: 1, programada: 2, en_ejecucion: 3 };
 
 export default function Programacion() {
   const { profile } = useAuth();
   const [embarcaciones, setEmbarcaciones] = useState([]);
+  const [equipos, setEquipos] = useState([]);
+  const [ots, setOts] = useState([]);
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -22,17 +30,19 @@ export default function Programacion() {
   const puedeBorrar = isAdmin(profile?.rol);
 
   function blank() {
-    return { embarcacion_id: "", ot_folio: "", sistema: "", tipo: "Proactiva", hh: 2, dia: "Lun" };
+    return { embarcacion_id: "", ot_id: "", ot_folio: "", equipo_id: "", sistema: "", tipo: "Proactiva", hh: 2, dia: "Lun" };
   }
 
   const cargar = useCallback(async () => {
     setLoading(true); setError(null);
     try {
-      const [embs, prog] = await Promise.all([
+      const [embs, prog, eqs, otsAll] = await Promise.all([
         fetchAll("embarcaciones", { order: { col: "codigo", asc: true } }),
         fetchAll("programacion", { order: { col: "created_at", asc: true } }),
+        fetchAll("equipos"),
+        fetchAll("ordenes_trabajo", { order: { col: "fecha", asc: false } }),
       ]);
-      setEmbarcaciones(embs); setItems(prog);
+      setEmbarcaciones(embs); setItems(prog); setEquipos(eqs); setOts(otsAll);
     } catch (e) { setError("No se pudo cargar la programación. " + e.message); }
     finally { setLoading(false); }
   }, []);
@@ -40,19 +50,56 @@ export default function Programacion() {
 
   function embName(id) { return embarcaciones.find((e) => e.id === id)?.nombre || "—"; }
   function embColor(id) { return embarcaciones.find((e) => e.id === id)?.color || C.steel; }
+  const estadoLabel = (v) => ESTADOS_OT.find((s) => s.value === v)?.label || v;
+
+  // Sistemas de la embarcación elegida (para el buscador de Sistema)
+  const equiposDeNave = form.embarcacion_id ? equipos.filter((e) => e.embarcacion_id === form.embarcacion_id) : [];
+
+  // OTs por cerrar, primero las que aún no se programan
+  const otsAbiertas = ots
+    .filter((o) => o.estado !== "cerrada")
+    .sort((a, b) => (RANK_ESTADO[a.estado] ?? 9) - (RANK_ESTADO[b.estado] ?? 9) || (b.fecha || "").localeCompare(a.fecha || ""));
+
+  // Elegir una OT pre-llena embarcación, sistema y tipo de la tarea.
+  function seleccionarOT(otId) {
+    const ot = ots.find((o) => o.id === otId);
+    if (!ot) { setForm((f) => ({ ...f, ot_id: "", ot_folio: "" })); return; }
+    setForm((f) => ({
+      ...f,
+      ot_id: ot.id,
+      ot_folio: ot.folio || "",
+      embarcacion_id: ot.embarcacion_id || f.embarcacion_id,
+      equipo_id: ot.equipo_id || "",
+      sistema: ot.sistema || f.sistema,
+      tipo: TIPO_OT_A_PROG[ot.tipo] || f.tipo,
+    }));
+  }
 
   async function crear(dia) {
     const f = dia ? { ...form, dia } : form;
     if (!f.embarcacion_id || !f.sistema.trim()) { setError("Indica embarcación y sistema."); return; }
+    let nuevo;
     try {
-      const nuevo = await insertRow("programacion", profile.empresa_id, {
+      nuevo = await insertRow("programacion", profile.empresa_id, {
         embarcacion_id: f.embarcacion_id, ot_folio: f.ot_folio.trim(),
         sistema: f.sistema.trim(), tipo: f.tipo, hh: f.hh, dia: f.dia, done: false, created_by: profile.id,
       });
       setItems((p) => [...p, nuevo]);
       logActivity(profile, "Programar tarea", `${f.dia} · ${nuevo.sistema} (${nuevo.hh}h)`);
       setForm(blank()); setShowForm(false);
-    } catch (e) { setError("No se pudo programar: " + e.message); }
+    } catch (e) { setError("No se pudo programar: " + e.message); return; }
+
+    // La OT asociada queda automáticamente en estado "programada"
+    const ot = f.ot_id ? ots.find((o) => o.id === f.ot_id) : null;
+    if (ot && ["solicitada", "planificada"].includes(ot.estado)) {
+      try {
+        await updateRow("ordenes_trabajo", ot.id, { estado: "programada" });
+        setOts((p) => p.map((o) => (o.id === ot.id ? { ...o, estado: "programada" } : o)));
+        logActivity(profile, "Programar OT", `${ot.folio} → programada (vía Programación Semanal)`);
+      } catch (e) {
+        setError(`La tarea quedó creada, pero no se pudo pasar la OT ${ot.folio} a programada: ` + e.message);
+      }
+    }
   }
 
   async function toggleDone(item) {
@@ -105,19 +152,42 @@ export default function Programacion() {
               </select>
             </Field>
             <Field label="Embarcación">
-              <select value={form.embarcacion_id} onChange={(e) => setForm({ ...form, embarcacion_id: e.target.value })} style={inputStyle()}>
+              <select value={form.embarcacion_id} onChange={(e) => setForm({ ...form, embarcacion_id: e.target.value, equipo_id: "", sistema: "" })} style={inputStyle()}>
                 <option value="">— Selecciona —</option>
                 {embarcaciones.map((v) => <option key={v.id} value={v.id}>{v.nombre}</option>)}
               </select>
             </Field>
-            <Field label="Sistema" span={2}><input value={form.sistema} onChange={(e) => setForm({ ...form, sistema: e.target.value })} style={inputStyle()} placeholder="Motor Principal" /></Field>
+            <Field label="Sistema" span={2}>
+              {form.embarcacion_id && equiposDeNave.length === 0 ? (
+                <input value={form.sistema} onChange={(e) => setForm({ ...form, sistema: e.target.value })}
+                  style={inputStyle()} placeholder="Sistema (nave sin equipos registrados)" />
+              ) : (
+                <EquipoPicker equipos={equiposDeNave} value={form.equipo_id} disabled={!form.embarcacion_id}
+                  placeholder={form.embarcacion_id ? "Buscar sistema o código…" : "Elige embarcación primero"}
+                  onChange={(eq) => setForm({ ...form, equipo_id: eq?.id || "", sistema: eq?.sistema || "" })} />
+              )}
+            </Field>
             <Field label="Tipo">
               <select value={form.tipo} onChange={(e) => setForm({ ...form, tipo: e.target.value })} style={inputStyle()}>
                 {TIPOS.map((t) => <option key={t} value={t}>{t}</option>)}
               </select>
             </Field>
             <Field label="HH"><input type="number" step={0.5} value={form.hh} onFocus={(e) => e.target.select()} onChange={(e) => setForm({ ...form, hh: +e.target.value })} style={bluInput} /></Field>
-            <Field label="OT (opcional)" span={6}><input value={form.ot_folio} onChange={(e) => setForm({ ...form, ot_folio: e.target.value })} style={inputStyle()} placeholder="OT-005" /></Field>
+            <Field label="OT por programar (opcional) — al guardar, la OT pasa a estado Programada" span={6}>
+              <select value={form.ot_id} onChange={(e) => seleccionarOT(e.target.value)} style={inputStyle()}>
+                <option value="">— Sin OT asociada —</option>
+                {otsAbiertas.map((o) => (
+                  <option key={o.id} value={o.id}>
+                    {o.folio} · {embName(o.embarcacion_id)} · {o.sistema || "—"}{o.descripcion ? ` — ${o.descripcion.slice(0, 50)}` : ""} ({estadoLabel(o.estado)})
+                  </option>
+                ))}
+              </select>
+              {form.ot_id && (
+                <div style={{ fontSize: 11, color: C.steel, marginTop: 5 }}>
+                  ✓ Embarcación, sistema y tipo se completaron desde la OT. Al guardar, {form.ot_folio} quedará <strong>Programada</strong>.
+                </div>
+              )}
+            </Field>
           </div>
           <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
             <button onClick={() => crear()} style={primaryBtn}>Agregar al programa</button>
@@ -182,6 +252,7 @@ export default function Programacion() {
       <Card style={{ marginTop: 16, background: C.mist }}>
         <div style={{ fontSize: 12.5, color: C.slate, lineHeight: 1.7 }}>
           <strong style={{ color: C.ink }}>Cómo usarlo:</strong> usa el botón <strong>+</strong> de cada día para agregar una tarea directamente a ese día.
+          Si asocias una <strong>OT por programar</strong>, sus datos se pre-llenan y la orden pasa automáticamente a estado <strong>Programada</strong> — así el flujo Solicitada → Planificada → Programada se cierra desde aquí.
           Pulsa <strong>✓</strong> cuando esté ejecutada — el indicador de cumplimiento sube automáticamente.
           Las HH por día te dicen si la carga está balanceada (objetivo: similar volumen lunes a viernes, menor el fin de semana).
         </div>
