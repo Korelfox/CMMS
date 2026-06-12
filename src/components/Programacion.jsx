@@ -4,7 +4,9 @@ import { useAuth } from "../lib/auth";
 import { fetchAll, insertRow, updateRow, deleteRow, logActivity } from "../lib/db";
 import { C, archivo, num, canOperate, isAdmin, tint, ESTADOS_OT, lk } from "../theme";
 import CierreFallaModal from "./ot/CierreFallaModal";
+import RegistroTrabajoModal from "./ot/RegistroTrabajoModal";
 import { MODOS_FALLA_ISO, requiereCodigoFalla } from "../lib/fallasISO";
+import { folioOT } from "../lib/ot";
 import {
   Card, PageHead, Pill, primaryBtn, ghostBtn, inputStyle, bluInput,
   Field, ErrorBanner, InlineSpinner,
@@ -12,7 +14,8 @@ import {
 import EquipoPicker from "./EquipoPicker";
 
 const TIPOS = ["Proactiva", "Reactiva", "Inspección", "Predictiva"];
-const TIPO_OT_A_PROG = { preventivo: "Proactiva", correctivo: "Reactiva", modificativo: "Proactiva", predictivo: "Predictiva" };
+const TIPO_OT_A_PROG  = { preventivo: "Proactiva", correctivo: "Reactiva", modificativo: "Proactiva", predictivo: "Predictiva" };
+const PROG_A_OT_TIPO  = { Proactiva: "preventivo", Reactiva: "correctivo", "Inspección": "preventivo", Predictiva: "predictivo" };
 const RANK_ESTADO = { solicitada: 0, planificada: 1, programada: 2, en_ejecucion: 3 };
 
 const NOMBRE_DIA = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
@@ -61,6 +64,7 @@ export default function Programacion() {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(() => blank(hoy));
   const [cierreOT, setCierreOT] = useState(null);
+  const [registroItem, setRegistroItem] = useState(null);
   const puedeOperar = canOperate(profile?.rol);
   const puedeBorrar = isAdmin(profile?.rol);
 
@@ -187,6 +191,13 @@ export default function Programacion() {
   async function toggleDone(item) {
     const previo = item.done;
     const ahora  = !previo;
+
+    // Al marcar hecha sin OT vinculada: pedir registro ISO (estadísticas + costos)
+    if (ahora && !item.ot_folio) {
+      setRegistroItem(item);
+      return;
+    }
+
     setItems((p) => p.map((x) => x.id === item.id ? { ...x, done: ahora } : x));
     try {
       await updateRow("programacion", item.id, { done: ahora });
@@ -206,6 +217,65 @@ export default function Programacion() {
           await cerrarOTDirecta(ot);
         }
       }
+    }
+  }
+
+  // Crea una OT cerrada retroactiva y vincula la tarea programada a ella
+  async function confirmarRegistro(item, datos) {
+    setRegistroItem(null);
+    const folio   = folioOT(ots.length, true);
+    const firma   = { cerrada_por: profile?.nombre || profile?.email || "", cerrada_fecha: new Date().toISOString() };
+    const otData  = {
+      embarcacion_id: item.embarcacion_id,
+      equipo_id:      null,
+      sistema:        item.sistema,
+      tipo:           PROG_A_OT_TIPO[item.tipo] || "preventivo",
+      prioridad:      "media",
+      estado:         "cerrada",
+      descripcion:    datos.descripcion,
+      fecha:          item.fecha_programada,
+      folio,
+      mttr_horas:     datos.mttr_horas  || null,
+      costo_mo:       datos.costo_mo    || 0,
+      costo_mat:      datos.costo_mat   || 0,
+      modo_falla:     datos.modo_falla  || null,
+      causa_falla:    datos.causa_falla || null,
+      mecanismo_falla: datos.mecanismo_falla || null,
+      ...firma,
+      created_by: profile.id,
+    };
+    let otCreada;
+    try {
+      otCreada = await insertRow("ordenes_trabajo", profile.empresa_id, otData);
+      setOts((p) => [otCreada, ...p]);
+      logActivity(profile, "Registrar trabajo vía Programación",
+        `${folio} · ${item.sistema} · ${datos.descripcion}`);
+    } catch (e) {
+      setError("No se pudo registrar el trabajo: " + e.message);
+      return;
+    }
+    // Marcar tarea hecha y vincularla al folio recién creado
+    const cambiosProg = { done: true, ot_folio: otCreada.folio };
+    setItems((p) => p.map((x) => x.id === item.id ? { ...x, ...cambiosProg } : x));
+    try {
+      await updateRow("programacion", item.id, cambiosProg);
+      logActivity(profile, "Cerrar tarea programada", `${item.sistema} · OT ${otCreada.folio}`);
+    } catch (e) {
+      setItems((p) => p.map((x) => x.id === item.id ? { ...x, done: false, ot_folio: "" } : x));
+      setError("OT creada, pero no se pudo cerrar la tarea: " + e.message);
+    }
+  }
+
+  // Escape: marca hecha sin registro (con advertencia implícita en el botón del modal)
+  async function saltarRegistro(item) {
+    setRegistroItem(null);
+    setItems((p) => p.map((x) => x.id === item.id ? { ...x, done: true } : x));
+    try {
+      await updateRow("programacion", item.id, { done: true });
+      logActivity(profile, "Cerrar tarea (sin registro OT)", `${item.sistema}`);
+    } catch (e) {
+      setItems((p) => p.map((x) => x.id === item.id ? { ...x, done: false } : x));
+      setError("No se pudo actualizar: " + e.message);
     }
   }
 
@@ -524,6 +594,16 @@ export default function Programacion() {
           onGuardar={(codigos) => cerrarOTConCodigos(cierreOT, codigos)}
           onCerrarSinCodificar={() => cerrarOTConCodigos(cierreOT, null)}
           onClose={() => setCierreOT(null)}
+        />
+      )}
+
+      {registroItem && (
+        <RegistroTrabajoModal
+          item={registroItem}
+          embName={embName(registroItem.embarcacion_id)}
+          onRegistrar={(datos) => confirmarRegistro(registroItem, datos)}
+          onSaltarRegistro={() => saltarRegistro(registroItem)}
+          onClose={() => setRegistroItem(null)}
         />
       )}
     </div>
