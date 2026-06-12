@@ -249,7 +249,7 @@ export default function Programacion() {
       otCreada = await insertRow("ordenes_trabajo", profile.empresa_id, otData);
       setOts((p) => [otCreada, ...p]);
       logActivity(profile, "Registrar trabajo vía Programación",
-        `${folio} · ${item.sistema} · ${datos.descripcion}`);
+        `${otCreada.folio} · ${item.sistema} · ${datos.descripcion}`);
     } catch (e) {
       setError("No se pudo registrar el trabajo: " + e.message);
       return;

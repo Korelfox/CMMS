@@ -94,7 +94,7 @@ export default function Solicitudes() {
       });
       await updateRow("solicitudes", sol.id, { estado: "convertida", ot_id: nuevaOT.id });
       setSolicitudes((p) => p.map((s) => s.id === sol.id ? { ...s, estado: "convertida", ot_id: nuevaOT.id } : s));
-      logActivity(profile, "Solicitud → OT", `${sol.folio || ""} → ${folio}`);
+      logActivity(profile, "Solicitud → OT", `${sol.folio || ""} → ${nuevaOT.folio}`);
     } catch (e) { setError("No se pudo convertir: " + e.message); }
   }
 

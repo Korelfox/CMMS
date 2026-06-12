@@ -118,7 +118,7 @@ export default function OrdenesTrabajo({ navParams }) {
         const { empresa_id: _empresaId, ...resto } = fila;
         const nueva = await insertRow("ordenes_trabajo", profile.empresa_id, resto);
         setOts((p) => [nueva, ...p]);
-        logActivity(profile, "Crear OT", `${fila.folio} · ${embName(form.embarcacion_id)} · ${lk(TIPOS_OT, form.tipo)} · ${form.descripcion}`);
+        logActivity(profile, "Crear OT", `${nueva.folio} · ${embName(form.embarcacion_id)} · ${lk(TIPOS_OT, form.tipo)} · ${form.descripcion}`);
         // Subir fotos opcionales asociadas a la OT recién creada
         if (fotos.length) {
           const { errores } = await subirFotos(fotos, { empresaId: profile.empresa_id, entidad: "ot", entidadId: nueva.id, profileId: profile.id });
