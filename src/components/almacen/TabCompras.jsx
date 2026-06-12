@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useRef } from "react";
 import {
   Plus, Trash2, Check, X, ShoppingCart, PackagePlus, Search, AlertCircle,
-  AlertTriangle, Printer, Eye, Edit2, Ban,
+  AlertTriangle, Printer, Eye, Edit2, Ban, SquarePen,
 } from "lucide-react";
 import { insertRow, updateRow, deleteRow, upsertRow, logActivity } from "../../lib/db";
 import { C, archivo, clp, isAdmin, tint } from "../../theme";
@@ -47,6 +47,7 @@ export default function TabCompras({
   const [form,       setForm]       = useState(() => FORM_EMPTY(bodegas));
   const [editOcId,   setEditOcId]   = useState(null);
   const [detalleId,  setDetalleId]  = useState(null);
+  const [autoEditId, setAutoEditId] = useState(null); // abre el detalle directo en modo edición de líneas
   const [line,       setLine]       = useState({ item_id: "", cantidad: 1, precio: 0, descuento_pct: 0 });
   const [recepPanel, setRecepPanel] = useState(null);
   const [recepCants, setRecepCants] = useState({});
@@ -901,6 +902,14 @@ tbody td { padding: 7px 9px; font-size: 11px; border-bottom: 1px solid #EEF3F7; 
                             style={{ ...ghostBtn, padding: "4px 8px" }}>
                             <Printer size={13} />
                           </button>
+                          {!["recibida","cancelada"].includes(o.estado) && puedeOperar && (
+                            <button onClick={() => { setDetalleId(o.id); setAutoEditId(o.id); }}
+                              title="Editar cantidades solicitadas"
+                              style={{ ...ghostBtn, padding: "4px 8px", color: C.sky,
+                                borderColor: tint(C.sky, 55), background: tint(C.sky, 9) }}>
+                              <SquarePen size={13} />
+                            </button>
+                          )}
                           {o.estado === "solicitada" && puedeOperar && (
                             <button onClick={() => abrirEditar(o)} title="Editar cabecera OC"
                               style={{ ...ghostBtn, padding: "4px 8px" }}>
@@ -954,6 +963,8 @@ tbody td { padding: 7px 9px; font-size: 11px; border-bottom: 1px solid #EEF3F7; 
                             whName={whName}
                             puedeOperar={puedeOperar} profile={profile}
                             items={items} recargar={recargar} setError={setError}
+                            autoEdit={autoEditId === o.id}
+                            onAutoEditConsumed={() => setAutoEditId(null)}
                           />
                         </td>
                       </tr>
@@ -971,7 +982,8 @@ tbody td { padding: 7px 9px; font-size: 11px; border-bottom: 1px solid #EEF3F7; 
 
 // ── Panel de detalle expandible ───────────────────────────────
 function OCDetallePanel({ oc, its, itemCodigo, itemDesc, itemUnidad, whName,
-                          puedeOperar, profile, items, recargar, setError }) {
+                          puedeOperar, profile, items, recargar, setError,
+                          autoEdit, onAutoEditConsumed }) {
   const [modoEdicion, setModoEdicion] = useState(false);
   const [lineEdits,   setLineEdits]   = useState({});
   const [linesToDel,  setLinesToDel]  = useState(new Set());
@@ -979,6 +991,12 @@ function OCDetallePanel({ oc, its, itemCodigo, itemDesc, itemUnidad, whName,
   const [guardando,   setGuardando]   = useState(false);
 
   const canEdit = puedeOperar && !["recibida", "cancelada"].includes(oc.estado);
+
+  // Icono "Editar cantidades" de la tabla: abre el panel ya en modo edición
+  React.useEffect(() => {
+    if (autoEdit && canEdit && !modoEdicion) { iniciarEdicion(); onAutoEditConsumed?.(); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoEdit]);
 
   function iniciarEdicion() {
     const edits = {};
