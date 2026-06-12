@@ -2,7 +2,9 @@ import React, { useEffect, useState, useCallback } from "react";
 import { Calendar, Plus, Trash2, Check } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { fetchAll, insertRow, updateRow, deleteRow, logActivity } from "../lib/db";
-import { C, archivo, num, canOperate, isAdmin, DIAS_SEMANA, tint, ESTADOS_OT } from "../theme";
+import { C, archivo, num, canOperate, isAdmin, DIAS_SEMANA, tint, ESTADOS_OT, lk } from "../theme";
+import CierreFallaModal from "./ot/CierreFallaModal";
+import { MODOS_FALLA_ISO, requiereCodigoFalla } from "../lib/fallasISO";
 import {
   Card, PageHead, Pill, primaryBtn, ghostBtn, inputStyle, bluInput,
   Field, Empty, ErrorBanner, InlineSpinner,
@@ -26,6 +28,7 @@ export default function Programacion() {
   const [error, setError] = useState(null);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(blank());
+  const [cierreOT, setCierreOT] = useState(null);
   const puedeOperar = canOperate(profile?.rol);
   const puedeBorrar = isAdmin(profile?.rol);
 
@@ -118,15 +121,39 @@ export default function Programacion() {
     if (ahora && item.ot_folio) {
       const ot = ots.find((o) => o.folio === item.ot_folio);
       if (ot && ot.estado !== "cerrada") {
-        const cambios = { estado: "cerrada", cerrada_por: profile?.nombre || profile?.email || "", cerrada_fecha: new Date().toISOString() };
-        try {
-          await updateRow("ordenes_trabajo", ot.id, cambios);
-          setOts((p) => p.map((o) => o.id === ot.id ? { ...o, ...cambios } : o));
-          logActivity(profile, "Cerrar OT vía Programación", `${ot.folio} → cerrada`);
-        } catch (e) {
-          setError(`Tarea marcada, pero no se pudo cerrar la OT ${item.ot_folio}: ` + e.message);
+        if (requiereCodigoFalla(ot) && !ot.modo_falla) {
+          // Correctiva sin codificar: pedir código ISO 14224 antes de cerrar
+          setCierreOT(ot);
+        } else {
+          await cerrarOTDirecta(ot);
         }
       }
+    }
+  }
+
+  async function cerrarOTDirecta(ot) {
+    const cambios = { estado: "cerrada", cerrada_por: profile?.nombre || profile?.email || "", cerrada_fecha: new Date().toISOString() };
+    try {
+      await updateRow("ordenes_trabajo", ot.id, cambios);
+      setOts((p) => p.map((o) => o.id === ot.id ? { ...o, ...cambios } : o));
+      logActivity(profile, "Cerrar OT vía Programación", `${ot.folio} → cerrada`);
+    } catch (e) {
+      setError(`Tarea marcada, pero no se pudo cerrar la OT ${ot.folio}: ` + e.message);
+    }
+  }
+
+  async function cerrarOTConCodigos(ot, codigos) {
+    const previo = { estado: ot.estado, modo_falla: ot.modo_falla ?? null, causa_falla: ot.causa_falla ?? null, mecanismo_falla: ot.mecanismo_falla ?? null, cerrada_por: ot.cerrada_por ?? null, cerrada_fecha: ot.cerrada_fecha ?? null };
+    const cambios = { estado: "cerrada", cerrada_por: profile?.nombre || profile?.email || "", cerrada_fecha: new Date().toISOString(), ...(codigos || {}) };
+    setOts((p) => p.map((o) => o.id === ot.id ? { ...o, ...cambios } : o));
+    setCierreOT(null);
+    try {
+      await updateRow("ordenes_trabajo", ot.id, cambios);
+      const modoLbl = codigos?.modo_falla ? lk(MODOS_FALLA_ISO, codigos.modo_falla) : "sin codificar";
+      logActivity(profile, "Cerrar OT correctiva vía Programación", `${ot.folio} · falla: ${modoLbl}`);
+    } catch (e) {
+      setOts((p) => p.map((o) => o.id === ot.id ? { ...o, ...previo } : o));
+      setError("No se pudo cerrar la OT: " + e.message);
     }
   }
 
@@ -286,6 +313,15 @@ export default function Programacion() {
           Las HH por día te dicen si la carga está balanceada (objetivo: similar volumen lunes a viernes, menor el fin de semana).
         </div>
       </Card>
+
+      {cierreOT && (
+        <CierreFallaModal
+          ot={cierreOT}
+          onGuardar={(codigos) => cerrarOTConCodigos(cierreOT, codigos)}
+          onCerrarSinCodificar={() => cerrarOTConCodigos(cierreOT, null)}
+          onClose={() => setCierreOT(null)}
+        />
+      )}
     </div>
   );
 }
