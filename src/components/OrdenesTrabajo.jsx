@@ -10,7 +10,7 @@ import {
   thStyle, tdStyle, FilterBtn, Field, Empty, ErrorBanner, InlineSpinner,
 } from "../ui";
 import { FotoInput, FotoGaleria } from "./Fotos";
-import { blankOT, folioOT, kpisOT, costoOT, filtrarOTs, validarNuevaOT } from "../lib/ot";
+import { blankOT, folioOT, kpisOT, costoOT, filtrarOTs, sinValorizar, validarNuevaOT } from "../lib/ot";
 import { MODOS_FALLA_ISO, requiereCodigoFalla } from "../lib/fallasISO";
 import EstadoSelect from "./ot/EstadoSelect";
 import CierreFallaModal from "./ot/CierreFallaModal";
@@ -218,12 +218,17 @@ export default function OrdenesTrabajo({ navParams }) {
     if (costoOk === otId) setCostoOk(null);
   }
 
-  // Guarda los costos de una OT al salir del campo (onBlur).
+  // Guarda los costos de una OT al salir del campo (onBlur), con firma de valorización.
   async function guardarCosto(ot) {
     setError(null);
+    const tieneCostos = (ot.costo_mo || 0) > 0 || (ot.costo_mat || 0) > 0;
+    const firma = tieneCostos
+      ? { costos_por: profile?.nombre || profile?.email || "—", costos_fecha: new Date().toISOString() }
+      : {};
     try {
-      await updateRow("ordenes_trabajo", ot.id, { costo_mo: ot.costo_mo || 0, costo_mat: ot.costo_mat || 0 });
-      logActivity(profile, "Editar costos OT", `${ot.folio} · MO ${clp(ot.costo_mo || 0)} · Mat ${clp(ot.costo_mat || 0)}`);
+      await updateRow("ordenes_trabajo", ot.id, { costo_mo: ot.costo_mo || 0, costo_mat: ot.costo_mat || 0, ...firma });
+      if (tieneCostos) setOts((p) => p.map((o) => (o.id === ot.id ? { ...o, ...firma } : o)));
+      logActivity(profile, "Valorizar costos OT", `${ot.folio} · MO ${clp(ot.costo_mo || 0)} · Mat ${clp(ot.costo_mat || 0)}`);
       setCostoOk(ot.id);
       setTimeout(() => setCostoOk((c) => (c === ot.id ? null : c)), 2000);
     } catch (e) { setError("No se pudieron guardar los costos: " + e.message); cargar(); }
@@ -244,6 +249,14 @@ export default function OrdenesTrabajo({ navParams }) {
       <PageHead kicker="Nivel Operativo · Libbrecht" title="Órdenes de Trabajo"
         sub="Flujo: Solicitada → Planificada → Programada → En ejecución → Cerrada. Registra costos, MTTR y horas de operación."
         action={<div style={{ display: "flex", gap: 8 }}>
+          {puedeCostos && (
+            <button onClick={() => setModoCostos((v) => !v)}
+              style={modoCostos
+                ? { ...primaryBtn, background: C.gold, borderColor: C.gold }
+                : { ...exportBtn, color: "#7a5b00", borderColor: C.gold }}>
+              <DollarSign size={15} /> {modoCostos ? "Cerrar valorización" : "Valorizar costos"}
+            </button>
+          )}
           <button onClick={exportar} style={exportBtn}><Download size={15} /> Exportar</button>
           {puedeOperar && <button data-testid="ot-nueva" onClick={() => { setShowForm(!showForm); setError(null); }} style={primaryBtn}><Plus size={16} /> Nueva OT</button>}
         </div>} />
@@ -321,12 +334,20 @@ export default function OrdenesTrabajo({ navParams }) {
           const n = ots.filter((o) => o.estado === s.value).length;
           return <FilterBtn key={s.value} active={!otDestacada && filtro === s.value} onClick={() => aplicarFiltro(s.value)}>{s.label} ({n})</FilterBtn>;
         })}
+        {(() => {
+          const n = ots.filter(sinValorizar).length;
+          return n > 0 ? (
+            <FilterBtn active={!otDestacada && filtro === "sin_valorizar"} onClick={() => aplicarFiltro("sin_valorizar")}>
+              $ Sin valorizar ({n})
+            </FilterBtn>
+          ) : null;
+        })()}
       </div>
 
       {modoCostos && (
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, background: C.goldBg || tint(C.gold, 16), border: `1px solid ${C.gold}`, borderRadius: 10, padding: "10px 14px", marginBottom: 14, fontSize: 13 }}>
           <span style={{ display: "inline-flex", alignItems: "center", gap: 8, color: "#7a5b00" }}>
-            <DollarSign size={16} /> Modo edición de costos: ingresa mano de obra (MO) y materiales (Mat) de cada orden. Se guarda al salir del campo.
+            <DollarSign size={16} /> Valorización de costos: ingresa mano de obra (MO) y materiales (Mat) de cada orden — también en OTs cerradas, para el cierre de costos posterior. Se guarda al salir del campo con tu firma.
           </span>
           <button onClick={() => setModoCostos(false)} style={{ ...ghostBtn, padding: "5px 12px", fontSize: 12.5, whiteSpace: "nowrap" }}>Listo</button>
         </div>
@@ -378,7 +399,20 @@ export default function OrdenesTrabajo({ navParams }) {
                         </div>
                       </td>
                     ) : (
-                      <td style={{ ...tdStyle, textAlign: "right", fontFamily: "'IBM Plex Mono', monospace", fontWeight: 600 }}>{clp(costoOT(o))}</td>
+                      <td style={{ ...tdStyle, textAlign: "right" }}>
+                        <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontWeight: 600 }}>{clp(costoOT(o))}</div>
+                        {sinValorizar(o) && (
+                          <span style={{ display: "inline-block", fontSize: 9.5, fontWeight: 700, color: "#7a5b00", background: tint(C.amber, 18), border: `1px solid ${C.amber}`, borderRadius: 20, padding: "1px 7px", marginTop: 3, whiteSpace: "nowrap" }}
+                            title="OT cerrada sin costos — pendiente de valorización del armador">
+                            $ por valorizar
+                          </span>
+                        )}
+                        {o.costos_por && costoOT(o) > 0 && (
+                          <div style={{ fontSize: 9.5, color: C.slate, marginTop: 3, whiteSpace: "nowrap" }} title="Firma de valorización de costos">
+                            $ {o.costos_por}{o.costos_fecha ? ` · ${new Date(o.costos_fecha).toLocaleDateString("es-CL")}` : ""}
+                          </div>
+                        )}
+                      </td>
                     )}
                     <td style={tdStyle}>
                       {puedeOperar && !o._pending && online
