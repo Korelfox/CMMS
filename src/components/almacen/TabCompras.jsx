@@ -1093,7 +1093,7 @@ function OCDetallePanel({ oc, its, itemCodigo, itemDesc, itemUnidad, whName,
 
       <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 12 }}>
         <thead>
-          <tr style={{ background: C.abyss }}>
+          <tr style={{ background: C.foam }}>
             {[
               ["Código",     "left",  90],
               ["Descripción","left",  null],
@@ -1105,7 +1105,7 @@ function OCDetallePanel({ oc, its, itemCodigo, itemDesc, itemUnidad, whName,
               ["Recibido",   "right", 88],
               ...(modoEdicion ? [["", "center", 36]] : []),
             ].map(([h, al, w], i) => (
-              <th key={i} style={{ ...thStyle, background: "transparent", color: "#fff", textAlign: al, width: w || undefined, fontSize: 11 }}>{h}</th>
+              <th key={i} style={{ ...thStyle, background: "transparent", textAlign: al, width: w || undefined, fontSize: 11 }}>{h}</th>
             ))}
           </tr>
         </thead>
