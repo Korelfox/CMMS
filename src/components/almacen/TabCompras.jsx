@@ -3,7 +3,7 @@ import {
   Plus, Trash2, Check, X, ShoppingCart, PackagePlus, Search, AlertCircle,
   AlertTriangle, Printer, Eye, Edit2, Ban, SquarePen,
 } from "lucide-react";
-import { insertRow, updateRow, deleteRow, upsertRow, logActivity } from "../../lib/db";
+import { insertRow, updateRow, deleteRow, upsertRow, fetchAll, logActivity } from "../../lib/db";
 import { C, archivo, clp, isAdmin, tint } from "../../theme";
 import { Card, Pill, primaryBtn, ghostBtn, inputStyle, bluInput, thStyle, tdStyle, Field, Empty } from "../../ui";
 import { HOY, skey } from "./util";
@@ -358,13 +358,23 @@ export default function TabCompras({
   }
 
   // ── Imprimir / Exportar PDF ───────────────────────────────────
-  function imprimirOC(oc) {
+  async function imprimirOC(oc) {
+    // La ventana se abre de inmediato (dentro del gesto del usuario) para que el popup no sea bloqueado
+    const w = window.open("", "_blank", "width=920,height=820,scrollbars=yes");
+    if (!w) { setError("No se pudo abrir la ventana — permite popups para este sitio."); return; }
     const its     = ocLines(oc);
     const sub     = its.reduce((s, it) => s + lineNeto(it), 0);
     const ivaPct  = oc.iva_pct ?? 19;
     const iva     = sub * (ivaPct / 100);
     const total   = sub + iva;
-    const empresa = profile?.empresa_nombre || "CMMS Flota";
+    const empresa = profile?.empresa_nombre || "CMMS Korelfox";
+    // Armador: usuario admin_empresa de la organización (respaldo: super admin, luego quien imprime)
+    let armador = profile?.nombre || "—";
+    try {
+      const profs = await fetchAll("profiles");
+      const arm = profs.find((p) => p.rol === "admin_empresa") || profs.find((p) => p.rol === "super_admin");
+      if (arm?.nombre) armador = arm.nombre;
+    } catch { /* sin conexión: usa el respaldo */ }
     const urgInfo = URGENCIAS.find((u) => u.value === (oc.urgencia || "normal"));
     const etaStr  = oc.fecha_entrega_esperada || calcETA(oc.fecha, oc.lead_dias) || "A convenir";
     const hasDcto = its.some((it) => (it.descuento_pct || 0) > 0);
@@ -390,7 +400,9 @@ body { font-family: Arial, Helvetica, sans-serif; font-size: 11px; color: #0A1A2
 .wrap { max-width: 780px; margin: 0 auto; padding: 20px 0; }
 .hdr  { display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 14px; border-bottom: 3px solid #06182E; margin-bottom: 18px; }
 .co-name { font-size: 20px; font-weight: 900; color: #06182E; }
-.co-sub  { font-size: 10px; color: #5A7184; margin-top: 3px; }
+.co-sub  { font-size: 10.5px; color: #B37D00; margin-top: 3px; font-style: italic; }
+.co-armador { font-size: 10.5px; color: #0A1A2A; margin-top: 8px; }
+.co-armador strong { font-weight: 700; }
 .oc-lbl  { font-size: 9px; text-transform: uppercase; letter-spacing: 1.2px; color: #5A7184; margin-bottom: 4px; }
 .oc-num  { font-size: 28px; font-weight: 900; color: #06182E; font-family: monospace; }
 .oc-date { font-size: 10px; color: #5A7184; margin-top: 4px; }
@@ -431,8 +443,9 @@ tbody td { padding: 7px 9px; font-size: 11px; border-bottom: 1px solid #EEF3F7; 
 </style></head><body><div class="wrap">
   <div class="hdr">
     <div>
-      <div class="co-name">${empresa}</div>
-      <div class="co-sub">Sistema de Gestión de Mantenimiento (CMMS)</div>
+      <div class="co-name">CMMS Korelfox</div>
+      <div class="co-sub">La energía que impulsa tu rumbo</div>
+      <div class="co-armador">Armador: <strong>${armador}</strong></div>
     </div>
     <div style="text-align:right">
       <div class="oc-lbl">Orden de Compra</div>
@@ -488,11 +501,9 @@ tbody td { padding: 7px 9px; font-size: 11px; border-bottom: 1px solid #EEF3F7; 
     <div class="sig"><div class="sig-line"></div><p>Solicitado por</p><div class="sig-name">${profile?.nombre || "—"}</div></div>
     <div class="sig"><div class="sig-line"></div><p>Aprobado por</p><div class="sig-name">${oc.aprobado_por || "—"}</div></div>
   </div>
-  <p class="doc-footer">Generado el ${new Date().toLocaleDateString("es-CL")} · ${empresa} · CMMS Flota · Válido con firma autorizante</p>
+  <p class="doc-footer">Generado el ${new Date().toLocaleDateString("es-CL")} · CMMS Korelfox · Válido con firma autorizante</p>
 </div></body></html>`;
 
-    const w = window.open("", "_blank", "width=920,height=820,scrollbars=yes");
-    if (!w) { setError("No se pudo abrir la ventana — permite popups para este sitio."); return; }
     w.document.write(html);
     w.document.close();
     setTimeout(() => { w.focus(); w.print(); }, 500);
