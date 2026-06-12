@@ -116,3 +116,25 @@ export function semanasCuadrilla(hhTotal, hhSemana) {
   if (!(cap > 0)) return null;
   return (Number(hhTotal) || 0) / cap;
 }
+
+// ── Cobertura de repuestos críticos ─────────────────────────
+// Repuestos ligados (inventario_item_destinos) a equipos de
+// criticidad "A" cuyo stock total está agotado: la nave depende
+// de ese equipo y no hay con qué repararlo a bordo ni en tierra.
+// → [{ item, total: 0, equiposA: [equipos críticos afectados] }]
+export function coberturaCriticos({ items = [], stock = [], destinos = [], equipos = [] } = {}) {
+  const eqA = new Map(equipos.filter((e) => e.criticidad === "A").map((e) => [e.id, e]));
+  if (eqA.size === 0) return [];
+  const out = [];
+  for (const it of items) {
+    const equiposA = destinos
+      .filter((d) => d.item_id === it.id && eqA.has(d.equipo_id))
+      .map((d) => eqA.get(d.equipo_id));
+    if (equiposA.length === 0) continue;
+    const total = stock
+      .filter((s) => s.item_id === it.id)
+      .reduce((sum, x) => sum + (Number(x.cantidad) || 0), 0);
+    if (total <= 0) out.push({ item: it, total: 0, equiposA });
+  }
+  return out;
+}

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { evaluarZarpe, diasEnMar, diasAbierta, scoreBacklog, nivelScore, semanasCuadrilla } from "../src/lib/operacional.js";
+import { evaluarZarpe, diasEnMar, diasAbierta, scoreBacklog, nivelScore, semanasCuadrilla, coberturaCriticos } from "../src/lib/operacional.js";
 
 const HOY = "2026-06-12";
 const EMB = "nave-1";
@@ -126,5 +126,50 @@ describe("nivelScore y semanasCuadrilla", () => {
     expect(semanasCuadrilla(120, 40)).toBe(3);
     expect(semanasCuadrilla(120, 0)).toBeNull();
     expect(semanasCuadrilla(0, 40)).toBe(0);
+  });
+});
+
+describe("coberturaCriticos (repuestos de equipos críticos A)", () => {
+  const equipos = [
+    { id: "eA", criticidad: "A", sistema: "Motor Ppal" },
+    { id: "eB", criticidad: "B", sistema: "Bomba aux" },
+  ];
+  const items = [
+    { id: "i1", descripcion: "Impeller agua de mar" },
+    { id: "i2", descripcion: "Filtro genérico" },
+    { id: "i3", descripcion: "Correa alternador" },
+  ];
+
+  it("repuesto de equipo A con stock 0 se reporta con sus equipos afectados", () => {
+    const destinos = [{ item_id: "i1", equipo_id: "eA" }];
+    const r = coberturaCriticos({ items, stock: [], destinos, equipos });
+    expect(r).toHaveLength(1);
+    expect(r[0].item.id).toBe("i1");
+    expect(r[0].equiposA.map((e) => e.id)).toEqual(["eA"]);
+  });
+
+  it("con stock disponible no se reporta", () => {
+    const destinos = [{ item_id: "i1", equipo_id: "eA" }];
+    const stock = [{ item_id: "i1", bodega_id: "b1", cantidad: 2 }];
+    expect(coberturaCriticos({ items, stock, destinos, equipos })).toHaveLength(0);
+  });
+
+  it("suma stock entre bodegas antes de decidir", () => {
+    const destinos = [{ item_id: "i1", equipo_id: "eA" }];
+    const stock = [
+      { item_id: "i1", bodega_id: "b1", cantidad: 0 },
+      { item_id: "i1", bodega_id: "b2", cantidad: 1 },
+    ];
+    expect(coberturaCriticos({ items, stock, destinos, equipos })).toHaveLength(0);
+  });
+
+  it("repuestos de equipos B/C o sin vínculo no se reportan aunque estén agotados", () => {
+    const destinos = [{ item_id: "i2", equipo_id: "eB" }]; // i3 sin destino
+    expect(coberturaCriticos({ items, stock: [], destinos, equipos })).toHaveLength(0);
+  });
+
+  it("sin equipos críticos → []", () => {
+    const destinos = [{ item_id: "i1", equipo_id: "eB" }];
+    expect(coberturaCriticos({ items, stock: [], destinos, equipos: [equipos[1]] })).toEqual([]);
   });
 });

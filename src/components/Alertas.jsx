@@ -8,6 +8,7 @@ import { evaluarPlanes } from "../lib/pm";
 import { seriesPdM, evaluarMedicion } from "../lib/pdm";
 import { sinValorizar } from "../lib/ot";
 import { requiereCodigoFalla } from "../lib/fallasISO";
+import { coberturaCriticos } from "../lib/operacional";
 import { Card, PageHead, Pill, FilterBtn, Empty, ErrorBanner, InlineSpinner } from "../ui";
 
 const CATEGORIAS = [
@@ -59,6 +60,7 @@ export default function Alertas({ onNavigate }) {
   const [planes, setPlanes] = useState([]);
   const [mediciones, setMediciones] = useState([]);
   const [fallas, setFallas] = useState([]);
+  const [destinos, setDestinos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [filtro, setFiltro] = useState("all");
@@ -66,7 +68,7 @@ export default function Alertas({ onNavigate }) {
   const cargar = useCallback(async () => {
     setLoading(true); setError(null);
     try {
-      const [embs, eqs, its, stk, otsAll, sols, cps, pzs, docs, pls, meds, fls] = await Promise.all([
+      const [embs, eqs, its, stk, otsAll, sols, cps, pzs, docs, pls, meds, fls, dsts] = await Promise.all([
         fetchAll("embarcaciones", { order: { col: "codigo", asc: true } }),
         fetchAll("equipos"),
         fetchAll("inventario_items"),
@@ -79,10 +81,11 @@ export default function Alertas({ onNavigate }) {
         fetchAll("planes_pm"),
         fetchAll("mediciones_pdm"),
         fetchAll("fallas"),
+        fetchAll("inventario_item_destinos"),
       ]);
       setEmbarcaciones(embs); setEquipos(eqs); setItems(its); setStock(stk);
       setOts(otsAll); setSolicitudes(sols); setCompras(cps); setPrezarpes(pzs); setDocumentos(docs);
-      setPlanes(pls); setMediciones(meds); setFallas(fls);
+      setPlanes(pls); setMediciones(meds); setFallas(fls); setDestinos(dsts);
     } catch (e) { setError("No se pudieron cargar las alertas. " + e.message); }
     finally { setLoading(false); }
   }, []);
@@ -126,8 +129,25 @@ export default function Alertas({ onNavigate }) {
       });
     }
 
-    // 2) Stock bajo (stock total por item <= stock_min)
+    // 2a) Cobertura de repuestos críticos: repuesto ligado a equipo de
+    //     criticidad A con stock total agotado — la nave depende de ese
+    //     equipo y no hay con qué repararlo (siempre rojo, tenga o no mínimo).
+    const sinCobertura = coberturaCriticos({ items, stock, destinos, equipos });
+    const idsSinCobertura = new Set(sinCobertura.map((c) => c.item.id));
+    sinCobertura.forEach(({ item, equiposA }) => {
+      const nombres = equiposA.map((e) => e.sistema || e.id_visible).slice(0, 3).join(", ");
+      all.push({
+        cat: "stock", sev: "red",
+        titulo: `Sin repuesto de equipo crítico · ${item.descripcion}`,
+        detalle: `Stock agotado en todas las bodegas · respalda a ${nombres}${equiposA.length > 3 ? ` (+${equiposA.length - 3})` : ""} (criticidad A) · gestiona compra o redistribución`,
+        ts: item.updated_at,
+      });
+    });
+
+    // 2b) Stock bajo (stock total por item <= stock_min); los agotados de
+    //     equipos críticos ya salieron arriba con mayor contexto.
     items.forEach((it) => {
+      if (idsSinCobertura.has(it.id)) return;
       const total = stock.filter((s) => s.item_id === it.id).reduce((s, x) => s + (Number(x.cantidad) || 0), 0);
       if (it.stock_min > 0 && total <= it.stock_min) {
         all.push({
@@ -267,7 +287,7 @@ export default function Alertas({ onNavigate }) {
       if (sevOrder[a.sev] !== sevOrder[b.sev]) return sevOrder[a.sev] - sevOrder[b.sev];
       return new Date(b.ts || 0).getTime() - new Date(a.ts || 0).getTime();
     });
-  }, [equipos, items, stock, ots, solicitudes, compras, prezarpes, documentos, embarcaciones, planes, mediciones, fallas]); // eslint-disable-line
+  }, [equipos, items, stock, ots, solicitudes, compras, prezarpes, documentos, embarcaciones, planes, mediciones, fallas, destinos]); // eslint-disable-line
 
   const conteoPorCat = (id) => alertas.filter((a) => a.cat === id).length;
   const listaFiltrada = filtro === "all" ? alertas : alertas.filter((a) => a.cat === filtro);
