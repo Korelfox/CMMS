@@ -443,6 +443,7 @@ tbody td { padding: 7px 9px; font-size: 11px; border-bottom: 1px solid #EEF3F7; 
 </style></head><body><div class="wrap">
   <div class="hdr">
     <div>
+      <div class="oc-lbl">Sistema de Gestión de Mantenimiento (CMMS)</div>
       <div class="co-name">CMMS Korelfox</div>
       <div class="co-sub">La energía que impulsa tu rumbo</div>
       <div class="co-armador">Armador: <strong>${armador}</strong></div>
