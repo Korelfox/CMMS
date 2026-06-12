@@ -978,7 +978,7 @@ function OCDetallePanel({ oc, its, itemCodigo, itemDesc, itemUnidad, whName,
   const [newLine,     setNewLine]     = useState({ item_id: "", cantidad: 1, precio: 0, descuento_pct: 0 });
   const [guardando,   setGuardando]   = useState(false);
 
-  const canEdit = puedeOperar && ["solicitada", "aprobada"].includes(oc.estado);
+  const canEdit = puedeOperar && !["recibida", "cancelada"].includes(oc.estado);
 
   function iniciarEdicion() {
     const edits = {};
