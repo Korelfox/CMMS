@@ -4,7 +4,7 @@ import {
   Package, Warehouse, Gauge, Activity, AlertTriangle, ClipboardCheck, DollarSign,
   TrendingUp, FileText, History, Layers, Bell, LogOut, UserCircle, UserCog,
   Wifi, WifiOff, RefreshCw, CheckCircle2, BarChart3, ShipWheel, Fuel, ShieldCheck, Fish,
-  Menu, X, Sun, Moon, Building2, Timer, Waves, ListTodo,
+  Menu, X, Sun, Moon, Building2, Timer, Waves, ListTodo, Microscope,
 } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { fetchAll } from "../lib/db";
@@ -43,6 +43,7 @@ const Empresas      = lazy(() => import("./Empresas"));
 const Usuarios      = lazy(() => import("./Usuarios"));
 const EstadoFlota   = lazy(() => import("./EstadoFlota"));
 const Backlog       = lazy(() => import("./Backlog"));
+const RCA           = lazy(() => import("./RCA"));
 
 const INTERVALOS_REFRESH = [
   { label: "5 min",       s: 300  },
@@ -79,6 +80,7 @@ const NAV = [
   { id: "kpis", label: "KPIs & Confiabilidad", icon: Gauge, group: "Análisis" },
   { id: "criticidad", label: "Criticidad", icon: Activity, group: "Análisis" },
   { id: "fallas", label: "Análisis de Fallas", icon: AlertTriangle, group: "Análisis" },
+  { id: "rca", label: "Causa Raíz (RCA)", icon: Microscope, group: "Análisis" },
   { id: "pdm", label: "Predictivo (PdM)", icon: Waves, group: "Análisis" },
   { id: "pareto", label: "Pareto (80/20)", icon: BarChart3, group: "Análisis" },
   { id: "consumos",      label: "Consumos & Eficiencia",  icon: Fuel,          group: "Análisis"  },
@@ -98,6 +100,7 @@ const MODULOS = {
   alertas: Alertas,
   flota: EstadoFlota,
   backlog: Backlog,
+  rca: RCA,
   mgm: MGM,
   embarcaciones: Embarcaciones,
   equipos: Equipos,
