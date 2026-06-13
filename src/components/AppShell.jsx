@@ -5,7 +5,7 @@ import {
   TrendingUp, TrendingDown, FileText, History, Layers, Bell, LogOut, UserCircle, UserCog,
   Wifi, WifiOff, RefreshCw, CheckCircle2, BarChart3, ShipWheel, Fuel, ShieldCheck, Fish,
   Menu, X, Sun, Moon, Building2, Timer, Waves, ListTodo, Microscope, Wrench, CalendarRange,
-  ShieldAlert, SlidersHorizontal,
+  ShieldAlert, SlidersHorizontal, PiggyBank,
 } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { fetchAll } from "../lib/db";
@@ -50,6 +50,7 @@ const LucroCesante        = lazy(() => import("./LucroCesante"));
 const PlanificacionPuerto = lazy(() => import("./PlanificacionPuerto"));
 const RiesgoFalla         = lazy(() => import("./RiesgoFalla"));
 const MinMaxSugerido      = lazy(() => import("./MinMaxSugerido"));
+const Presupuesto         = lazy(() => import("./Presupuesto"));
 
 const INTERVALOS_REFRESH = [
   { label: "5 min",       s: 300  },
@@ -96,7 +97,8 @@ const NAV = [
   { id: "pdm",         label: "Predictivo (PdM)",       icon: Waves,          group: "Análisis" },
   { id: "consumos",    label: "Consumos & Eficiencia",  icon: Fuel,           group: "Análisis" },
   { id: "auditoria",   label: "Auditoría MES",          icon: ClipboardCheck, group: "Análisis" },
-  { id: "rentabilidad",  label: "Rentabilidad por Marea", icon: Fish,           group: "Comercial" },
+  { id: "rentabilidad",  label: "Rentabilidad por Marea",  icon: Fish,     group: "Comercial" },
+  { id: "presupuesto",   label: "Presupuesto & Run-rate",  icon: PiggyBank, group: "Comercial" },
   { id: "costos", label: "Costo Global (CGM)", icon: DollarSign, group: "Optimización" },
   { id: "optim", label: "Optimización", icon: TrendingUp, group: "Optimización" },
   { id: "reportes", label: "Reportes", icon: FileText, group: "Sistema" },
@@ -130,6 +132,7 @@ const MODULOS = {
   planpuerto: PlanificacionPuerto,
   riesgo: RiesgoFalla,
   minmax: MinMaxSugerido,
+  presupuesto: Presupuesto,
   criticidad: Criticidad,
   fallas: Fallas,
   pdm: Pdm,
