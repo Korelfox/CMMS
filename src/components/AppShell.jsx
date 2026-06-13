@@ -5,7 +5,7 @@ import {
   TrendingUp, TrendingDown, FileText, History, Layers, Bell, LogOut, UserCircle, UserCog,
   Wifi, WifiOff, RefreshCw, CheckCircle2, BarChart3, ShipWheel, Fuel, ShieldCheck, Fish,
   Menu, X, Sun, Moon, Building2, Timer, Waves, ListTodo, Microscope, Wrench, CalendarRange,
-  ShieldAlert, SlidersHorizontal, PiggyBank, Sparkles, Stethoscope, Bot,
+  ShieldAlert, SlidersHorizontal, PiggyBank, Sparkles, Stethoscope, Bot, Scale,
 } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { fetchAll } from "../lib/db";
@@ -54,6 +54,7 @@ const Presupuesto         = lazy(() => import("./Presupuesto"));
 const InformeEjecutivo    = lazy(() => import("./InformeEjecutivo"));
 const DiagnosticoFallas   = lazy(() => import("./DiagnosticoFallas"));
 const CopilotoFlota       = lazy(() => import("./CopilotoFlota"));
+const OptimizadorVentana  = lazy(() => import("./OptimizadorVentana"));
 
 const INTERVALOS_REFRESH = [
   { label: "5 min",       s: 300  },
@@ -87,6 +88,7 @@ const NAV = [
   { id: "ots", label: "Órdenes de Trabajo", icon: ClipboardList, group: "Operación" },
   { id: "backlog",     label: "Backlog",             icon: ListTodo,     group: "Operación" },
   { id: "planpuerto", label: "Ventana de Puerto",  icon: CalendarRange, group: "Operación" },
+  { id: "optimvt",    label: "Optimizador de Ventana", icon: Scale,     group: "Operación" },
   { id: "programa",   label: "Programación",        icon: Calendar,     group: "Operación" },
   { id: "varada", label: "Varadas & Paradas", icon: Wrench, group: "Operación" },
   { id: "inventario", label: "Inventario", icon: Package, group: "Operación" },
@@ -136,6 +138,7 @@ const MODULOS = {
   kpis: KPIs,
   lucro: LucroCesante,
   planpuerto: PlanificacionPuerto,
+  optimvt:    OptimizadorVentana,
   riesgo: RiesgoFalla,
   diagnostico: DiagnosticoFallas,
   minmax: MinMaxSugerido,
