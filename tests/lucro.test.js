@@ -7,7 +7,6 @@ import {
 } from "../src/lib/lucro.js";
 
 const EMB = "nave-1";
-const HOY = "2026-06-12";
 const CORTE = "2025-06-12"; // 12 meses atrás
 
 // ── margenDiarioNave ─────────────────────────────────────────────────────────
