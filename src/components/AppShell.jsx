@@ -5,7 +5,7 @@ import {
   TrendingUp, TrendingDown, FileText, History, Layers, Bell, LogOut, UserCircle, UserCog,
   Wifi, WifiOff, RefreshCw, CheckCircle2, BarChart3, ShipWheel, Fuel, ShieldCheck, Fish,
   Menu, X, Sun, Moon, Building2, Timer, Waves, ListTodo, Microscope, Wrench, CalendarRange,
-  ShieldAlert, SlidersHorizontal, PiggyBank, Sparkles, Stethoscope, Bot, Scale, Sigma,
+  ShieldAlert, SlidersHorizontal, PiggyBank, Sparkles, Stethoscope, Bot, Scale, Sigma, Receipt,
 } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { fetchAll } from "../lib/db";
@@ -56,6 +56,7 @@ const DiagnosticoFallas   = lazy(() => import("./DiagnosticoFallas"));
 const CopilotoFlota       = lazy(() => import("./CopilotoFlota"));
 const OptimizadorVentana  = lazy(() => import("./OptimizadorVentana"));
 const ConfiabilidadML     = lazy(() => import("./ConfiabilidadML"));
+const OcrFacturas         = lazy(() => import("./OcrFacturas"));
 
 const INTERVALOS_REFRESH = [
   { label: "5 min",       s: 300  },
@@ -93,7 +94,8 @@ const NAV = [
   { id: "programa",   label: "Programación",        icon: Calendar,     group: "Operación" },
   { id: "varada", label: "Varadas & Paradas", icon: Wrench, group: "Operación" },
   { id: "inventario", label: "Inventario", icon: Package, group: "Operación" },
-  { id: "almacen", label: "Almacén & Compras", icon: Warehouse, group: "Operación" },
+  { id: "almacen",    label: "Almacén & Compras",  icon: Warehouse, group: "Operación" },
+  { id: "ocr",        label: "OCR Facturas",        icon: Receipt,   group: "Operación" },
   { id: "criticidad",  label: "Criticidad",            icon: Activity,       group: "Análisis" },
   { id: "kpis",        label: "KPIs & Confiabilidad",  icon: Gauge,          group: "Análisis" },
   { id: "lucro",       label: "Lucro Cesante",          icon: TrendingDown,       group: "Análisis" },
@@ -137,6 +139,7 @@ const MODULOS = {
   ots: OrdenesTrabajo,
   inventario: Inventario,
   almacen: Almacen,
+  ocr:     OcrFacturas,
   kpis: KPIs,
   lucro: LucroCesante,
   planpuerto: PlanificacionPuerto,
