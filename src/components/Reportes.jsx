@@ -1,11 +1,13 @@
-import React, { useEffect, useState, useCallback } from "react";
-import { FileText, Printer, ClipboardList, Package, Calendar, Gauge, ClipboardCheck } from "lucide-react";
+import React, { useState, useCallback } from "react";
+import { FileText, Printer, ClipboardList, Package, Calendar, Gauge, ClipboardCheck, BookOpen } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { fetchAll } from "../lib/db";
+import { imprimirInforme } from "../lib/imprimir";
 import { C, archivo, clp, num, rolLabel, TIPOS_OT, PRIORIDADES, ESTADOS_OT, lk } from "../theme";
 import {
   Card, PageHead, Pill, primaryBtn, ghostBtn, thStyle, tdStyle, Empty, ErrorBanner, InlineSpinner,
 } from "../ui";
+import { renderMarkdown } from "./Markdown";
 
 const REPORTES = [
   { id: "kpis",     titulo: "KPIs y Confiabilidad", icon: Gauge,         desc: "Disponibilidad, MTBF, MTTR, costos por embarcación." },
@@ -13,6 +15,7 @@ const REPORTES = [
   { id: "inv",      titulo: "Inventario y Stock",   icon: Package,       desc: "Catálogo con clasificación ABC, stock total y valor." },
   { id: "programa", titulo: "Programa Semanal",     icon: Calendar,      desc: "Tareas programadas por día con HH y cumplimiento." },
   { id: "prezarpes", titulo: "Prezarpes",           icon: ClipboardCheck, desc: "Inspecciones de prezarpe por embarcación, con veredicto y abastecimiento." },
+  { id: "informes", titulo: "Informes Ejecutivos",  icon: BookOpen,      desc: "Historial de informes generados por IA. Consulta y reimprime cualquier informe anterior." },
 ];
 
 function fechaLarga() {
@@ -59,6 +62,9 @@ export default function Reportes() {
           fetchAll("prezarpes", { order: { col: "created_at", asc: false } }),
         ]);
         setData({ embs, pzs });
+      } else if (t === "informes") {
+        const rows = await fetchAll("informes_ejecutivos", { order: { col: "created_at", asc: false } });
+        setData({ rows });
       }
     } catch (e) { setError("No se pudo generar el reporte. " + e.message); }
     finally { setLoading(false); }
@@ -108,6 +114,7 @@ export default function Reportes() {
           {tipo === "inv" && <ReporteInv {...data} />}
           {tipo === "programa" && <ReportePrograma {...data} />}
           {tipo === "prezarpes" && <ReportePrezarpes {...data} />}
+          {tipo === "informes" && <ReporteInformes rows={data.rows || []} empresa={empresa} />}
         </div>
       )}
 
@@ -377,6 +384,91 @@ function ReportePrezarpes({ embs = [], pzs = [] }) {
               </tr>))}
         </tbody>
       </table>
+    </Card>
+  );
+}
+
+function ReporteInformes({ rows = [], empresa }) {
+  const [selected, setSelected] = useState(null);
+
+  if (selected) {
+    const ctx = selected.contexto_json || {};
+    const ocStats = ctx.ocStats || null;
+    const anio = Number((selected.fecha || "").slice(0, 4)) || new Date().getFullYear();
+
+    return (
+      <div>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }} className="no-print">
+          <button onClick={() => setSelected(null)} style={ghostBtn}>← Informes</button>
+          <div style={{ ...archivo, fontSize: 17, fontWeight: 700, color: C.abyss }}>
+            {selected.periodo_label} &nbsp;·&nbsp; {selected.fecha}
+          </div>
+          <button
+            onClick={() => imprimirInforme({ contexto: ctx, ocStats, texto: selected.texto_md, hoy: selected.fecha, empresa, meses: selected.periodo_meses, anio })}
+            style={{ ...primaryBtn, marginLeft: "auto" }}
+          >
+            <Printer size={15} /> Reimprimir
+          </button>
+        </div>
+
+        <Card style={{ padding: "28px 32px" }}>
+          <article style={{ maxWidth: 780 }}>
+            {renderMarkdown(selected.texto_md)}
+          </article>
+        </Card>
+      </div>
+    );
+  }
+
+  return (
+    <Card>
+      <div style={{ ...archivo, fontWeight: 700, fontSize: 15, color: C.abyss, marginBottom: 12 }}>
+        {rows.length} informe{rows.length !== 1 ? "s" : ""} guardado{rows.length !== 1 ? "s" : ""}
+      </div>
+      {rows.length === 0 ? (
+        <Empty>
+          Aún no hay informes guardados. Genera uno en{" "}
+          <strong>Inteligencia → Informe Ejecutivo</strong> y pulsa el botón guardar.
+        </Empty>
+      ) : (
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <thead><tr>
+            <th style={thStyle}>Fecha</th>
+            <th style={thStyle}>Período</th>
+            <th style={{ ...thStyle, textAlign: "right" }}>Naves</th>
+            <th style={{ ...thStyle, textAlign: "right" }}>Riesgo alto</th>
+            <th style={{ ...thStyle, textAlign: "right" }}>PMs vencidos</th>
+            <th style={{ ...thStyle, textAlign: "right" }}>Gasto año</th>
+            <th style={thStyle}></th>
+          </tr></thead>
+          <tbody>
+            {rows.map((r) => {
+              const ctx = r.contexto_json || {};
+              return (
+                <tr key={r.id} style={{ cursor: "pointer" }} onClick={() => setSelected(r)}>
+                  <td style={{ ...tdStyle, fontWeight: 600 }}>{r.fecha}</td>
+                  <td style={tdStyle}>{r.periodo_label}</td>
+                  <td style={{ ...tdStyle, textAlign: "right" }}>{ctx.flota?.totalNaves ?? "—"}</td>
+                  <td style={{ ...tdStyle, textAlign: "right" }}>
+                    <span style={{ color: (ctx.confiabilidad?.equiposRiesgoAlto || 0) > 0 ? C.red : C.green, fontWeight: 600 }}>
+                      {ctx.confiabilidad?.equiposRiesgoAlto ?? "—"}
+                    </span>
+                  </td>
+                  <td style={{ ...tdStyle, textAlign: "right" }}>
+                    <span style={{ color: (ctx.mantenimiento?.pmVencidos || 0) > 0 ? C.red : C.green, fontWeight: 600 }}>
+                      {ctx.mantenimiento?.pmVencidos ?? "—"}
+                    </span>
+                  </td>
+                  <td style={{ ...tdStyle, textAlign: "right" }}>{ctx.costos?.gastoAnioFlota != null ? clp(ctx.costos.gastoAnioFlota) : "—"}</td>
+                  <td style={{ ...tdStyle, textAlign: "right" }}>
+                    <span style={{ fontSize: 12, color: C.cyan, fontWeight: 600 }}>Ver →</span>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      )}
     </Card>
   );
 }
