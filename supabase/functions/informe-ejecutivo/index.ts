@@ -100,8 +100,6 @@ Deno.serve(async (req: Request) => {
         model: model || MODELO_DEFECTO,
         max_tokens: 4000,
         stream: true,
-        thinking: { type: "disabled" },
-        output_config: { effort: "low" },
         system: SYSTEM,
         messages: [{ role: "user", content: userMsg }],
       }),
@@ -112,21 +110,20 @@ Deno.serve(async (req: Request) => {
       return json({ error: `Anthropic ${upstream.status}: ${errText.slice(0, 400)}` }, 502);
     }
 
-    // — Reemite solo los deltas de texto como SSE simple —
-    const reader = upstream.body.getReader();
-    const decoder = new TextDecoder();
+    // — Reemite solo los deltas de texto como SSE simple via TransformStream —
     const encoder = new TextEncoder();
-    let buf = "";
+    const { readable, writable } = new TransformStream<Uint8Array, Uint8Array>();
+    const writer = writable.getWriter();
 
-    const out = new ReadableStream({
-      async pull(controller) {
-        try {
+    // Procesa el stream de Anthropic en segundo plano y escribe al writable.
+    (async () => {
+      const reader = upstream.body!.getReader();
+      const decoder = new TextDecoder();
+      let buf = "";
+      try {
+        for (;;) {
           const { done, value } = await reader.read();
-          if (done) {
-            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ done: true })}\n\n`));
-            controller.close();
-            return;
-          }
+          if (done) break;
           buf += decoder.decode(value, { stream: true });
           const blocks = buf.split("\n\n");
           buf = blocks.pop() ?? "";
@@ -138,25 +135,24 @@ Deno.serve(async (req: Request) => {
             try {
               const obj = JSON.parse(payload);
               if (obj.type === "content_block_delta" && obj.delta?.type === "text_delta") {
-                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text: obj.delta.text })}\n\n`));
+                await writer.write(encoder.encode(`data: ${JSON.stringify({ text: obj.delta.text })}\n\n`));
               } else if (obj.type === "error") {
-                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: obj.error?.message || "Error de la API" })}\n\n`));
+                await writer.write(encoder.encode(`data: ${JSON.stringify({ error: obj.error?.message ?? "Error de la API" })}\n\n`));
               }
-            } catch (_) {
-              // Fragmento parcial entre chunks: se completa en la próxima lectura.
-            }
+            } catch (_) { /* fragmento parcial, se completa en la próxima lectura */ }
           }
-        } catch (e) {
-          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: String((e as Error)?.message || e) })}\n\n`));
-          try { controller.close(); } catch (_) { /* ya cerrado */ }
         }
-      },
-      cancel() {
-        reader.cancel().catch(() => {});
-      },
-    });
+        await writer.write(encoder.encode(`data: ${JSON.stringify({ done: true })}\n\n`));
+      } catch (e) {
+        try {
+          await writer.write(encoder.encode(`data: ${JSON.stringify({ error: String((e as Error)?.message || e) })}\n\n`));
+        } catch (_) { /* writer ya cerrado */ }
+      } finally {
+        try { await writer.close(); } catch (_) { /* ya cerrado */ }
+      }
+    })();
 
-    return new Response(out, {
+    return new Response(readable, {
       headers: { ...CORS, "Content-Type": "text/event-stream", "Cache-Control": "no-cache" },
     });
   } catch (e) {

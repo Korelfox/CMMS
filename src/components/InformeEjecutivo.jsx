@@ -174,7 +174,8 @@ export default function InformeEjecutivo() {
           let obj;
           try { obj = JSON.parse(raw); } catch { continue; }
           if (obj.text) setTexto((t) => t + obj.text);
-          else if (obj.error) setGenError(obj.error);
+          else if (obj.done) break;
+          else if (obj.error) { setGenError(obj.error); break; }
         }
       }
     } catch (e) {
