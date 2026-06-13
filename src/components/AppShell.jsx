@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef, lazy, Suspense } from 
 import {
   Anchor, LayoutDashboard, Ship, Sailboat, CalendarClock, Calendar, Inbox, ClipboardList,
   Package, Warehouse, Gauge, Activity, AlertTriangle, ClipboardCheck, DollarSign,
-  TrendingUp, FileText, History, Layers, Bell, LogOut, UserCircle, UserCog,
+  TrendingUp, TrendingDown, FileText, History, Layers, Bell, LogOut, UserCircle, UserCog,
   Wifi, WifiOff, RefreshCw, CheckCircle2, BarChart3, ShipWheel, Fuel, ShieldCheck, Fish,
   Menu, X, Sun, Moon, Building2, Timer, Waves, ListTodo, Microscope, Wrench,
 } from "lucide-react";
@@ -45,6 +45,7 @@ const EstadoFlota   = lazy(() => import("./EstadoFlota"));
 const Backlog       = lazy(() => import("./Backlog"));
 const RCA           = lazy(() => import("./RCA"));
 const Varada        = lazy(() => import("./Varada"));
+const LucroCesante  = lazy(() => import("./LucroCesante"));
 
 const INTERVALOS_REFRESH = [
   { label: "5 min",       s: 300  },
@@ -81,6 +82,7 @@ const NAV = [
   { id: "almacen", label: "Almacén & Compras", icon: Warehouse, group: "Operación" },
   { id: "criticidad",  label: "Criticidad",            icon: Activity,       group: "Análisis" },
   { id: "kpis",        label: "KPIs & Confiabilidad",  icon: Gauge,          group: "Análisis" },
+  { id: "lucro",       label: "Lucro Cesante",          icon: TrendingDown,   group: "Análisis" },
   { id: "pareto",      label: "Pareto (80/20)",         icon: BarChart3,      group: "Análisis" },
   { id: "fallas",      label: "Análisis de Fallas",    icon: AlertTriangle,  group: "Análisis" },
   { id: "rca",         label: "Causa Raíz (RCA)",       icon: Microscope,     group: "Análisis" },
@@ -117,6 +119,7 @@ const MODULOS = {
   inventario: Inventario,
   almacen: Almacen,
   kpis: KPIs,
+  lucro: LucroCesante,
   criticidad: Criticidad,
   fallas: Fallas,
   pdm: Pdm,
