@@ -4,7 +4,7 @@ import {
   Package, Warehouse, Gauge, Activity, AlertTriangle, ClipboardCheck, DollarSign,
   TrendingUp, TrendingDown, FileText, History, Layers, Bell, LogOut, UserCircle, UserCog,
   Wifi, WifiOff, RefreshCw, CheckCircle2, BarChart3, ShipWheel, Fuel, ShieldCheck, Fish,
-  Menu, X, Sun, Moon, Building2, Timer, Waves, ListTodo, Microscope, Wrench,
+  Menu, X, Sun, Moon, Building2, Timer, Waves, ListTodo, Microscope, Wrench, CalendarRange,
 } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { fetchAll } from "../lib/db";
@@ -45,7 +45,8 @@ const EstadoFlota   = lazy(() => import("./EstadoFlota"));
 const Backlog       = lazy(() => import("./Backlog"));
 const RCA           = lazy(() => import("./RCA"));
 const Varada        = lazy(() => import("./Varada"));
-const LucroCesante  = lazy(() => import("./LucroCesante"));
+const LucroCesante       = lazy(() => import("./LucroCesante"));
+const PlanificacionPuerto = lazy(() => import("./PlanificacionPuerto"));
 
 const INTERVALOS_REFRESH = [
   { label: "5 min",       s: 300  },
@@ -75,8 +76,9 @@ const NAV = [
   { id: "planpm", label: "Plan Preventivo", icon: CalendarClock, group: "Operación" },
   { id: "solicitudes", label: "Solicitudes", icon: Inbox, group: "Operación" },
   { id: "ots", label: "Órdenes de Trabajo", icon: ClipboardList, group: "Operación" },
-  { id: "backlog", label: "Backlog", icon: ListTodo, group: "Operación" },
-  { id: "programa", label: "Programación", icon: Calendar, group: "Operación" },
+  { id: "backlog",     label: "Backlog",             icon: ListTodo,     group: "Operación" },
+  { id: "planpuerto", label: "Ventana de Puerto",  icon: CalendarRange, group: "Operación" },
+  { id: "programa",   label: "Programación",        icon: Calendar,     group: "Operación" },
   { id: "varada", label: "Varadas & Paradas", icon: Wrench, group: "Operación" },
   { id: "inventario", label: "Inventario", icon: Package, group: "Operación" },
   { id: "almacen", label: "Almacén & Compras", icon: Warehouse, group: "Operación" },
@@ -120,6 +122,7 @@ const MODULOS = {
   almacen: Almacen,
   kpis: KPIs,
   lucro: LucroCesante,
+  planpuerto: PlanificacionPuerto,
   criticidad: Criticidad,
   fallas: Fallas,
   pdm: Pdm,
