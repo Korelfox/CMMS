@@ -175,10 +175,16 @@ export default function AppShell() {
   const [pendientes, setPendientes] = useState(0);
   const [sidebarOpen, setSidebarOpen] = useState(false); // drawer móvil
   const [refreshInterval, setRefreshInterval] = useState(() => {
-    try { return parseInt(localStorage.getItem("cmms-refresh-interval") || "1800", 10); } catch { return 1800; }
+    try {
+      const stored = localStorage.getItem("cmms-refresh-interval");
+      return stored !== null ? parseInt(stored, 10) : 0;
+    } catch { return 0; }
   });
-  const [timeLeft, setTimeLeft]     = useState(() => {
-    try { return parseInt(localStorage.getItem("cmms-refresh-interval") || "1800", 10); } catch { return 1800; }
+  const [timeLeft, setTimeLeft] = useState(() => {
+    try {
+      const stored = localStorage.getItem("cmms-refresh-interval");
+      return stored !== null ? parseInt(stored, 10) : 0;
+    } catch { return 0; }
   });
   const [refreshTick, setRefreshTick]       = useState(0);
   const [showRefreshCfg, setShowRefreshCfg] = useState(false);
