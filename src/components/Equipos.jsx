@@ -13,8 +13,9 @@ import {
 } from "../ui";
 import NotaJerarquia from "./equipos/NotaJerarquia";
 import RepuestoPanel from "./equipos/RepuestoPanel";
-import FichaEquipo, { fichaTieneDatos } from "./equipos/FichaEquipo";
-import PropOpModal from "./equipos/PropOpModal";
+import { FichaBody, fichaTieneDatos } from "./equipos/FichaEquipo";
+import { PropOpBody } from "./equipos/PropOpModal";
+import { useWindows } from "./windows/WindowManager";
 
 const TIPO_NODOS = [
   { value: "equipo",      label: "Equipo (genérico)" },
@@ -63,9 +64,8 @@ export default function Equipos() {
   const [items,       setItems]       = useState([]); // inventario_items (repuestos)
   const [destinos,    setDestinos]    = useState([]); // inventario_item_destinos (item↔equipo)
   const [repuestoPanel, setRepuestoPanel] = useState(null); // equipo id con panel de repuestos abierto
-  const [fichaNode, setFichaNode] = useState(null);   // equipo con la ficha técnica abierta
-  const [propOpNode, setPropOpNode] = useState(null); // equipo con config. operacional abierta
   const [menuHijo, setMenuHijo] = useState(null);     // equipo id con el menú "agregar (tipo)" abierto
+  const { open } = useWindows();
   const [densidad, setDensidad] = useState(() => {
     try { return localStorage.getItem("equipos_densidad") || "media"; } catch { return "media"; }
   });
@@ -417,6 +417,33 @@ export default function Equipos() {
     setEquipos((p) => p.map((x) => x.id === id ? { ...x, ficha } : x));
     setOriginal((o) => (o[id] ? { ...o, [id]: { ...o[id], ficha } } : o));
     logActivity(profile, "Editar ficha técnica", `${eq?.id_visible} · ${eq?.sistema}`);
+  }
+
+  // Abre la configuración operacional como ventana apilable.
+  function abrirPropOp(e) {
+    open({
+      id: `propop-${e.id}`,
+      title: "Configuración operacional",
+      subtitle: `${e.id_visible} · ${e.sistema}`,
+      icon: Settings2,
+      width: 460,
+      render: ({ close }) => <PropOpBody node={e} onSave={guardarPropOp} onDone={close} />,
+    });
+  }
+  // Abre la ficha técnica como ventana apilable.
+  function abrirFicha(e) {
+    const meta = TIPO_NODO_META[e.tipo_nodo] || TIPO_NODO_META.equipo;
+    open({
+      id: `ficha-${e.id}`,
+      title: e.sistema,
+      subtitle: `${e.id_visible} · ${meta.label}`,
+      icon: FileText,
+      iconColor: meta.color,
+      width: 720,
+      render: ({ close }) => (
+        <FichaBody node={e} puedeOperar={puedeOperar} onSave={(ficha) => guardarFicha(e.id, ficha)} onDone={close} />
+      ),
+    });
   }
 
   // Guarda inmediatamente los atributos operacionales (horómetro / consume aceite / nivel).
@@ -882,7 +909,7 @@ export default function Equipos() {
                         <td style={tdE}>
                           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
                             {puedeOperar && (
-                              <button onClick={() => setPropOpNode(e)}
+                              <button onClick={() => abrirPropOp(e)}
                                 title={`Config. operacional de "${e.sistema}"`}
                                 style={{ background: "none", border: `1px solid ${C.line}`, borderRadius: 6, cursor: "pointer", color: C.slate, padding: "2px 5px", display: "flex", alignItems: "center", flexShrink: 0 }}>
                                 <Settings2 size={14} />
@@ -891,7 +918,7 @@ export default function Equipos() {
                             {(() => {
                               const conFicha = fichaTieneDatos(e.ficha);
                               return (
-                                <button onClick={() => setFichaNode(e)}
+                                <button onClick={() => abrirFicha(e)}
                                   title={`Ficha técnica de "${e.sistema}"${conFicha ? " (con datos)" : ""}`}
                                   style={{ background: conFicha ? tint(C.steel, 14) : "none", border: `1px solid ${conFicha ? C.steel : C.line}`, borderRadius: 6, cursor: "pointer", color: C.steel, padding: "2px 5px", display: "flex", alignItems: "center", flexShrink: 0 }}>
                                   <FileText size={14} />
@@ -939,21 +966,6 @@ export default function Equipos() {
         </div>
       </Card>
 
-      {fichaNode && (
-        <FichaEquipo
-          node={fichaNode}
-          puedeOperar={puedeOperar}
-          onSave={(ficha) => guardarFicha(fichaNode.id, ficha)}
-          onClose={() => setFichaNode(null)}
-        />
-      )}
-      {propOpNode && (
-        <PropOpModal
-          node={propOpNode}
-          onSave={guardarPropOp}
-          onClose={() => setPropOpNode(null)}
-        />
-      )}
     </div>
   );
 }

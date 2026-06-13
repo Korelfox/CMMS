@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import { registerSW } from "virtual:pwa-register";
 import { AuthProvider } from "./lib/auth";
 import { DesignSystemStyles, FocusScroll } from "./ui";
+import { WindowProvider, WindowHost } from "./components/windows/WindowManager";
 import { THEME_VARS } from "./theme";
 import App from "./App";
 
@@ -44,7 +45,10 @@ createRoot(document.getElementById("root")).render(
     <DesignSystemStyles />
     <FocusScroll />
     <AuthProvider>
-      <App />
+      <WindowProvider>
+        <App />
+        <WindowHost />
+      </WindowProvider>
     </AuthProvider>
   </React.StrictMode>
 );

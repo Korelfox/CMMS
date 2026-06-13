@@ -1,8 +1,7 @@
 import React, { useState } from "react";
-import { X, Plus, Trash2, FileText } from "lucide-react";
-import { C, tint } from "../../theme";
+import { Plus, Trash2 } from "lucide-react";
+import { C } from "../../theme";
 import { primaryBtn, ghostBtn, inputStyle, Field } from "../../ui";
-import { TIPO_NODO_META } from "../../lib/plantillaPesquera";
 
 // ── Plantilla de campos de la ficha técnica ──────────────────────────────
 // Secciones comunes a todo equipo/componente.
@@ -53,10 +52,12 @@ export function fichaTieneDatos(ficha) {
   return algo || cust || (!!notas && notas.trim() !== "");
 }
 
-export default function FichaEquipo({ node, puedeOperar, onSave, onClose }) {
+// Cuerpo de la ficha técnica para una ventana del WindowManager.
+// La ventana aporta el marco (overlay, cabecera, breadcrumb); aquí va el
+// contenido desplazable + el pie de acciones. onDone() cierra la ventana.
+export function FichaBody({ node, puedeOperar, onSave, onDone }) {
   const [ficha, setFicha] = useState(() => ({ ...(node.ficha || {}) }));
   const [guardando, setGuardando] = useState(false);
-  const meta = TIPO_NODO_META[node.tipo_nodo] || TIPO_NODO_META.equipo;
   const secciones = [SECCIONES[0], seccionTecnicos(node.tipo_nodo), ...SECCIONES.slice(1)];
 
   const set = (k, v) => setFicha((f) => ({ ...f, [k]: v }));
@@ -75,80 +76,63 @@ export default function FichaEquipo({ node, puedeOperar, onSave, onClose }) {
       const cust = custom.filter((c) => c && (c.k || c.v));
       if (cust.length) limpio._custom = cust;
       await onSave(limpio);
-      onClose();
+      onDone();
     } catch { setGuardando(false); }
   }
 
   return (
-    <div onClick={onClose}
-      style={{ position: "fixed", inset: 0, background: "rgba(6,24,46,.55)", backdropFilter: "blur(3px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100, padding: 20 }}>
-      <div onClick={(e) => e.stopPropagation()}
-        style={{ background: C.surface, borderRadius: 16, width: "100%", maxWidth: 820, maxHeight: "90vh", display: "flex", flexDirection: "column", boxShadow: "0 20px 60px rgba(0,0,0,.3)", overflow: "hidden" }}>
-
-        {/* Cabecera */}
-        <div style={{ padding: "18px 22px", borderBottom: `1px solid ${C.line}`, display: "flex", alignItems: "center", gap: 12 }}>
-          <div style={{ width: 40, height: 40, borderRadius: 10, background: tint(meta.color, 14), display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-            <FileText size={20} color={meta.color} />
-          </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontWeight: 800, fontSize: 15.5, color: C.abyss, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{node.sistema}</div>
-            <div style={{ fontSize: 12, color: C.slate, fontFamily: "'IBM Plex Mono', monospace" }}>{node.id_visible} · {meta.label}</div>
-          </div>
-          <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: C.slate, padding: 4 }}><X size={20} /></button>
-        </div>
-
-        {/* Cuerpo desplazable */}
-        <div style={{ padding: "18px 22px", overflowY: "auto" }}>
-          {secciones.map((sec) => (
-            <div key={sec.id} style={{ marginBottom: 18 }}>
-              <div style={{ fontSize: 11, letterSpacing: 0.6, textTransform: "uppercase", color: C.steel, fontWeight: 700, marginBottom: 8 }}>{sec.titulo}</div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
-                {sec.campos.map(([k, label, type]) => (
-                  <Field key={k} label={label}>
-                    <input type={type || "text"} value={ficha[k] ?? ""} disabled={!puedeOperar}
-                      onChange={(e) => set(k, e.target.value)} style={inputStyle()} />
-                  </Field>
-                ))}
-              </div>
-            </div>
-          ))}
-
-          {/* Notas */}
-          <div style={{ marginBottom: 18 }}>
-            <div style={{ fontSize: 11, letterSpacing: 0.6, textTransform: "uppercase", color: C.steel, fontWeight: 700, marginBottom: 8 }}>Notas / Observaciones</div>
-            <textarea value={ficha.notas ?? ""} disabled={!puedeOperar} rows={3}
-              onChange={(e) => set("notas", e.target.value)}
-              style={{ ...inputStyle(), width: "100%", resize: "vertical", fontFamily: "inherit" }} />
-          </div>
-
-          {/* Campos personalizados */}
-          <div>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-              <div style={{ fontSize: 11, letterSpacing: 0.6, textTransform: "uppercase", color: C.steel, fontWeight: 700 }}>Campos personalizados</div>
-              {puedeOperar && (
-                <button onClick={() => setCustom([...custom, { k: "", v: "" }])} style={{ ...ghostBtn, fontSize: 12, padding: "4px 10px" }}><Plus size={13} /> Agregar campo</button>
-              )}
-            </div>
-            {custom.length === 0
-              ? <div style={{ fontSize: 12, color: C.slate, fontStyle: "italic" }}>Sin campos personalizados.</div>
-              : custom.map((c, i) => (
-                <div key={i} style={{ display: "flex", gap: 8, marginBottom: 6 }}>
-                  <input value={c.k} disabled={!puedeOperar} placeholder="Etiqueta" onChange={(e) => setCustom(custom.map((x, j) => j === i ? { ...x, k: e.target.value } : x))} style={{ ...inputStyle(), flex: 1 }} />
-                  <input value={c.v} disabled={!puedeOperar} placeholder="Valor" onChange={(e) => setCustom(custom.map((x, j) => j === i ? { ...x, v: e.target.value } : x))} style={{ ...inputStyle(), flex: 2 }} />
-                  {puedeOperar && (
-                    <button onClick={() => setCustom(custom.filter((_, j) => j !== i))} style={{ background: "none", border: "none", cursor: "pointer", color: C.slate, padding: 4 }}><Trash2 size={16} /></button>
-                  )}
-                </div>
+    <>
+      {/* Cuerpo desplazable */}
+      <div style={{ flex: 1, overflowY: "auto", padding: "18px 22px" }}>
+        {secciones.map((sec) => (
+          <div key={sec.id} style={{ marginBottom: 18 }}>
+            <div style={{ fontSize: 11, letterSpacing: 0.6, textTransform: "uppercase", color: C.steel, fontWeight: 700, marginBottom: 8 }}>{sec.titulo}</div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
+              {sec.campos.map(([k, label, type]) => (
+                <Field key={k} label={label}>
+                  <input type={type || "text"} value={ficha[k] ?? ""} disabled={!puedeOperar}
+                    onChange={(e) => set(k, e.target.value)} style={inputStyle()} />
+                </Field>
               ))}
+            </div>
           </div>
+        ))}
+
+        {/* Notas */}
+        <div style={{ marginBottom: 18 }}>
+          <div style={{ fontSize: 11, letterSpacing: 0.6, textTransform: "uppercase", color: C.steel, fontWeight: 700, marginBottom: 8 }}>Notas / Observaciones</div>
+          <textarea value={ficha.notas ?? ""} disabled={!puedeOperar} rows={3}
+            onChange={(e) => set("notas", e.target.value)}
+            style={{ ...inputStyle(), width: "100%", resize: "vertical", fontFamily: "inherit" }} />
         </div>
 
-        {/* Pie */}
-        <div style={{ padding: "14px 22px", borderTop: `1px solid ${C.line}`, display: "flex", justifyContent: "flex-end", gap: 8 }}>
-          <button onClick={onClose} style={ghostBtn}>Cerrar</button>
-          {puedeOperar && <button onClick={guardar} disabled={guardando} style={primaryBtn}>{guardando ? "Guardando…" : "Guardar ficha"}</button>}
+        {/* Campos personalizados */}
+        <div>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+            <div style={{ fontSize: 11, letterSpacing: 0.6, textTransform: "uppercase", color: C.steel, fontWeight: 700 }}>Campos personalizados</div>
+            {puedeOperar && (
+              <button onClick={() => setCustom([...custom, { k: "", v: "" }])} style={{ ...ghostBtn, fontSize: 12, padding: "4px 10px" }}><Plus size={13} /> Agregar campo</button>
+            )}
+          </div>
+          {custom.length === 0
+            ? <div style={{ fontSize: 12, color: C.slate, fontStyle: "italic" }}>Sin campos personalizados.</div>
+            : custom.map((c, i) => (
+              <div key={i} style={{ display: "flex", gap: 8, marginBottom: 6 }}>
+                <input value={c.k} disabled={!puedeOperar} placeholder="Etiqueta" onChange={(e) => setCustom(custom.map((x, j) => j === i ? { ...x, k: e.target.value } : x))} style={{ ...inputStyle(), flex: 1 }} />
+                <input value={c.v} disabled={!puedeOperar} placeholder="Valor" onChange={(e) => setCustom(custom.map((x, j) => j === i ? { ...x, v: e.target.value } : x))} style={{ ...inputStyle(), flex: 2 }} />
+                {puedeOperar && (
+                  <button onClick={() => setCustom(custom.filter((_, j) => j !== i))} style={{ background: "none", border: "none", cursor: "pointer", color: C.slate, padding: 4 }}><Trash2 size={16} /></button>
+                )}
+              </div>
+            ))}
         </div>
       </div>
-    </div>
+
+      {/* Pie */}
+      <div style={{ padding: "14px 22px", borderTop: `1px solid ${C.line}`, display: "flex", justifyContent: "flex-end", gap: 8, flexShrink: 0 }}>
+        <button onClick={onDone} style={ghostBtn}>Cerrar</button>
+        {puedeOperar && <button onClick={guardar} disabled={guardando} style={primaryBtn}>{guardando ? "Guardando…" : "Guardar ficha"}</button>}
+      </div>
+    </>
   );
 }
