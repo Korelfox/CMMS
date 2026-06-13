@@ -316,7 +316,7 @@ export default function InformeEjecutivo() {
       <Card style={{ marginTop: 16, background: C.mist }}>
         <div style={{ fontSize: 12, color: C.slate, lineHeight: 1.7 }}>
           <strong style={{ color: C.ink }}>Cómo funciona:</strong>{" "}
-          el informe se genera con <strong>Claude Opus 4.8</strong> sobre los indicadores reales del período
+          el informe se genera con <strong>Claude Sonnet 4.6</strong> sobre los indicadores reales del período
           (confiabilidad, PMs, OTs, presupuesto, run-rate, inventario crítico). La clave de la API vive solo en el
           servidor (Edge Function); el navegador nunca la ve. Claude usa únicamente los datos provistos — no inventa cifras.
         </div>

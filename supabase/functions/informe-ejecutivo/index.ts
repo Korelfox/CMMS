@@ -20,7 +20,7 @@ const CORS = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-const MODELO_DEFECTO = "claude-opus-4-8";
+const MODELO_DEFECTO = "claude-sonnet-4-6";
 
 const SYSTEM = `Eres un analista senior de confiabilidad y gestión de mantenimiento (CMMS) para flotas pesqueras industriales. Redactas el informe ejecutivo periódico dirigido a la gerencia de operaciones y al directorio de una empresa naviera/pesquera.
 
@@ -98,10 +98,10 @@ Deno.serve(async (req: Request) => {
       },
       body: JSON.stringify({
         model: model || MODELO_DEFECTO,
-        max_tokens: 8000,
+        max_tokens: 4000,
         stream: true,
-        thinking: { type: "adaptive" },
-        output_config: { effort: "medium" },
+        thinking: { type: "disabled" },
+        output_config: { effort: "low" },
         system: SYSTEM,
         messages: [{ role: "user", content: userMsg }],
       }),
