@@ -5,7 +5,7 @@ import {
   TrendingUp, TrendingDown, FileText, History, Layers, Bell, LogOut, UserCircle, UserCog,
   Wifi, WifiOff, RefreshCw, CheckCircle2, BarChart3, ShipWheel, Fuel, ShieldCheck, Fish,
   Menu, X, Sun, Moon, Building2, Timer, Waves, ListTodo, Microscope, Wrench, CalendarRange,
-  ShieldAlert, SlidersHorizontal, PiggyBank, Sparkles, Stethoscope, Bot, Scale, Sigma, Receipt,
+  ShieldAlert, SlidersHorizontal, PiggyBank, Sparkles, Stethoscope, Bot, Scale, Sigma, Receipt, Replace,
 } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { fetchAll } from "../lib/db";
@@ -57,6 +57,7 @@ const CopilotoFlota       = lazy(() => import("./CopilotoFlota"));
 const OptimizadorVentana  = lazy(() => import("./OptimizadorVentana"));
 const ConfiabilidadML     = lazy(() => import("./ConfiabilidadML"));
 const OcrFacturas         = lazy(() => import("./OcrFacturas"));
+const ReemplazarReparar   = lazy(() => import("./ReemplazarReparar"));
 
 const INTERVALOS_REFRESH = [
   { label: "5 min",       s: 300  },
@@ -112,6 +113,7 @@ const NAV = [
   { id: "rentabilidad",  label: "Rentabilidad por Marea",  icon: Fish,     group: "Comercial" },
   { id: "presupuesto",   label: "Presupuesto & Run-rate",  icon: PiggyBank, group: "Comercial" },
   { id: "costos", label: "Costo Global (CGM)", icon: DollarSign, group: "Optimización" },
+  { id: "capex", label: "Reemplazar vs Reparar", icon: Replace, group: "Optimización" },
   { id: "optim", label: "Optimización", icon: TrendingUp, group: "Optimización" },
   { id: "reportes", label: "Reportes", icon: FileText, group: "Sistema" },
   { id: "bitacora", label: "Bitácora", icon: History, group: "Sistema" },
@@ -158,6 +160,7 @@ const MODULOS = {
   consumos: Consumos,
   auditoria: AuditoriaMES,
   costos: CGM,
+  capex: ReemplazarReparar,
   optim: Weibull,
   reportes: Reportes,
   bitacora:      Bitacora,
