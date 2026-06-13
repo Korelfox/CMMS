@@ -1,5 +1,5 @@
-import React, { useEffect, useState, useCallback } from "react";
-import { Ship, Plus, Trash2, Download, AlertCircle, GitBranch, Layers, Cpu, Wrench, Box, Hash, ChevronDown, ChevronRight, ChevronUp, Check, Package, X, Rows3, FileText, Settings2 } from "lucide-react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
+import { Ship, Plus, Trash2, Download, AlertCircle, GitBranch, Layers, Cpu, Wrench, Box, Hash, ChevronDown, ChevronRight, ChevronUp, Check, Package, X, Rows3, FileText, Settings2, PanelRightOpen } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { fetchAll, insertRow, updateRow, deleteRow, logActivity } from "../lib/db";
 import { C, isAdmin, canOperate, ESTADOS_EQUIPO, estadoLabel, tint, shadow } from "../theme";
@@ -16,6 +16,8 @@ import RepuestoPanel from "./equipos/RepuestoPanel";
 import { FichaBody, fichaTieneDatos } from "./equipos/FichaEquipo";
 import { PropOpBody } from "./equipos/PropOpModal";
 import { useWindows } from "./windows/WindowManager";
+import EquipoWindow, { RepuestosWindowBody } from "./equipos/EquipoWindow";
+import { equiposStore } from "./equipos/equiposStore";
 
 const TIPO_NODOS = [
   { value: "equipo",      label: "Equipo (genérico)" },
@@ -66,6 +68,12 @@ export default function Equipos() {
   const [repuestoPanel, setRepuestoPanel] = useState(null); // equipo id con panel de repuestos abierto
   const [menuHijo, setMenuHijo] = useState(null);     // equipo id con el menú "agregar (tipo)" abierto
   const { open } = useWindows();
+  const handlersRef = useRef({}); // callbacks vivos que consumen las ventanas
+
+  // Espeja el estado a la fuente viva que leen las ventanas (drill-down).
+  useEffect(() => {
+    equiposStore.set({ equipos, items, destinos, embarcaciones });
+  }, [equipos, items, destinos, embarcaciones]);
   const [densidad, setDensidad] = useState(() => {
     try { return localStorage.getItem("equipos_densidad") || "media"; } catch { return "media"; }
   });
@@ -445,6 +453,39 @@ export default function Equipos() {
       ),
     });
   }
+  // Abre la ventana de navegación/estructura de un nodo (drill-down apilable).
+  function abrirEquipoWindow(node) {
+    const meta = TIPO_NODO_META[node.tipo_nodo] || TIPO_NODO_META.equipo;
+    const nave = embarcaciones.find((v) => v.id === node.embarcacion_id);
+    open({
+      id: `eq-${node.id}`,
+      title: node.sistema || node.id_visible,
+      subtitle: nave ? `${node.id_visible} · ${nave.nombre || nave.codigo}` : node.id_visible,
+      icon: ICONO_TIPO[node.tipo_nodo] || ICONO_TIPO.equipo,
+      iconColor: meta.color,
+      width: 600,
+      render: () => <EquipoWindow nodeId={node.id} handlersRef={handlersRef} puedeOperar={puedeOperar} />,
+    });
+  }
+  // Abre la ventana de repuestos de un componente (apilada).
+  function abrirRepuestos(node) {
+    open({
+      id: `rep-${node.id}`,
+      title: node.sistema || node.id_visible,
+      subtitle: `Repuestos · ${node.id_visible}`,
+      icon: Package,
+      width: 560,
+      render: ({ close }) => (
+        <RepuestosWindowBody nodeId={node.id} handlersRef={handlersRef} puedeBorrar={puedeBorrar} onDone={close} />
+      ),
+    });
+  }
+
+  // Ref vivo con los callbacks que consumen las ventanas (evita closures viejas).
+  handlersRef.current = {
+    agregarHijo, abrirEquipoWindow, abrirFicha, abrirPropOp, abrirRepuestos,
+    enlazarRepuesto, desenlazarRepuesto, crearYEnlazarRepuesto,
+  };
 
   // Guarda inmediatamente los atributos operacionales (horómetro / consume aceite / nivel).
   // PropOpModal llama directamente aquí; los cambios NO pasan por la barra "Guardar cambios".
@@ -806,7 +847,12 @@ export default function Equipos() {
                           {(() => {
                             const Ico = ICONO_TIPO[e.tipo_nodo] || ICONO_TIPO.equipo;
                             const meta = TIPO_NODO_META[e.tipo_nodo] || TIPO_NODO_META.equipo;
-                            return <Ico size={13} color={meta.color} style={{ marginRight: 5, flexShrink: 0 }} title={meta.label} />;
+                            return (
+                              <button onClick={() => abrirEquipoWindow(e)} title={`Abrir ventana · ${meta.label}`}
+                                style={{ background: "none", border: "none", padding: 0, marginRight: 5, cursor: "pointer", display: "flex", alignItems: "center", flexShrink: 0 }}>
+                                <Ico size={13} color={meta.color} />
+                              </button>
+                            );
                           })()}
                           <input value={e.sistema} disabled={!puedeOperar} title={e.sistema}
                             onChange={(ev) => onChangeLocal(e.id, "sistema", ev.target.value)}
@@ -908,6 +954,10 @@ export default function Equipos() {
                       {hasActions && (
                         <td style={tdE}>
                           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+                            <button onClick={() => abrirEquipoWindow(e)} title={`Abrir ventana de "${e.sistema}"`}
+                              style={{ background: "none", border: `1px solid ${C.line}`, borderRadius: 6, cursor: "pointer", color: C.steel, padding: "2px 5px", display: "flex", alignItems: "center", flexShrink: 0 }}>
+                              <PanelRightOpen size={14} />
+                            </button>
                             {puedeOperar && (
                               <button onClick={() => abrirPropOp(e)}
                                 title={`Config. operacional de "${e.sistema}"`}
