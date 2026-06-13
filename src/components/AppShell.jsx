@@ -5,7 +5,7 @@ import {
   TrendingUp, TrendingDown, FileText, History, Layers, Bell, LogOut, UserCircle, UserCog,
   Wifi, WifiOff, RefreshCw, CheckCircle2, BarChart3, ShipWheel, Fuel, ShieldCheck, Fish,
   Menu, X, Sun, Moon, Building2, Timer, Waves, ListTodo, Microscope, Wrench, CalendarRange,
-  ShieldAlert, SlidersHorizontal, PiggyBank, Sparkles, Stethoscope, Bot, Scale,
+  ShieldAlert, SlidersHorizontal, PiggyBank, Sparkles, Stethoscope, Bot, Scale, Sigma,
 } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { fetchAll } from "../lib/db";
@@ -55,6 +55,7 @@ const InformeEjecutivo    = lazy(() => import("./InformeEjecutivo"));
 const DiagnosticoFallas   = lazy(() => import("./DiagnosticoFallas"));
 const CopilotoFlota       = lazy(() => import("./CopilotoFlota"));
 const OptimizadorVentana  = lazy(() => import("./OptimizadorVentana"));
+const ConfiabilidadML     = lazy(() => import("./ConfiabilidadML"));
 
 const INTERVALOS_REFRESH = [
   { label: "5 min",       s: 300  },
@@ -103,6 +104,7 @@ const NAV = [
   { id: "fallas",      label: "Análisis de Fallas",    icon: AlertTriangle,  group: "Análisis" },
   { id: "rca",         label: "Causa Raíz (RCA)",       icon: Microscope,     group: "Análisis" },
   { id: "pdm",         label: "Predictivo (PdM)",       icon: Waves,          group: "Análisis" },
+  { id: "confiab",    label: "Predictivo ML",           icon: Sigma,          group: "Análisis" },
   { id: "consumos",    label: "Consumos & Eficiencia",  icon: Fuel,           group: "Análisis" },
   { id: "auditoria",   label: "Auditoría MES",          icon: ClipboardCheck, group: "Análisis" },
   { id: "rentabilidad",  label: "Rentabilidad por Marea",  icon: Fish,     group: "Comercial" },
@@ -149,6 +151,7 @@ const MODULOS = {
   fallas: Fallas,
   pdm: Pdm,
   pareto: Pareto,
+  confiab:  ConfiabilidadML,
   consumos: Consumos,
   auditoria: AuditoriaMES,
   costos: CGM,
