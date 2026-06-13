@@ -5,7 +5,7 @@ import {
   TrendingUp, TrendingDown, FileText, History, Layers, Bell, LogOut, UserCircle, UserCog,
   Wifi, WifiOff, RefreshCw, CheckCircle2, BarChart3, ShipWheel, Fuel, ShieldCheck, Fish,
   Menu, X, Sun, Moon, Building2, Timer, Waves, ListTodo, Microscope, Wrench, CalendarRange,
-  ShieldAlert, SlidersHorizontal, PiggyBank, Sparkles,
+  ShieldAlert, SlidersHorizontal, PiggyBank, Sparkles, Stethoscope,
 } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { fetchAll } from "../lib/db";
@@ -52,6 +52,7 @@ const RiesgoFalla         = lazy(() => import("./RiesgoFalla"));
 const MinMaxSugerido      = lazy(() => import("./MinMaxSugerido"));
 const Presupuesto         = lazy(() => import("./Presupuesto"));
 const InformeEjecutivo    = lazy(() => import("./InformeEjecutivo"));
+const DiagnosticoFallas   = lazy(() => import("./DiagnosticoFallas"));
 
 const INTERVALOS_REFRESH = [
   { label: "5 min",       s: 300  },
@@ -92,6 +93,7 @@ const NAV = [
   { id: "kpis",        label: "KPIs & Confiabilidad",  icon: Gauge,          group: "Análisis" },
   { id: "lucro",       label: "Lucro Cesante",          icon: TrendingDown,       group: "Análisis" },
   { id: "riesgo",      label: "Riesgo de Falla",        icon: ShieldAlert,        group: "Análisis" },
+  { id: "diagnostico", label: "Diagnóstico de Fallas IA", icon: Stethoscope,      group: "Análisis" },
   { id: "minmax",      label: "Min/Max Sugerido",        icon: SlidersHorizontal,  group: "Análisis" },
   { id: "pareto",      label: "Pareto (80/20)",         icon: BarChart3,           group: "Análisis" },
   { id: "fallas",      label: "Análisis de Fallas",    icon: AlertTriangle,  group: "Análisis" },
@@ -133,6 +135,7 @@ const MODULOS = {
   lucro: LucroCesante,
   planpuerto: PlanificacionPuerto,
   riesgo: RiesgoFalla,
+  diagnostico: DiagnosticoFallas,
   minmax: MinMaxSugerido,
   presupuesto: Presupuesto,
   informe: InformeEjecutivo,
