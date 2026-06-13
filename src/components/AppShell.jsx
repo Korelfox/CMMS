@@ -5,7 +5,7 @@ import {
   TrendingUp, TrendingDown, FileText, History, Layers, Bell, LogOut, UserCircle, UserCog,
   Wifi, WifiOff, RefreshCw, CheckCircle2, BarChart3, ShipWheel, Fuel, ShieldCheck, Fish,
   Menu, X, Sun, Moon, Building2, Timer, Waves, ListTodo, Microscope, Wrench, CalendarRange,
-  ShieldAlert, SlidersHorizontal, PiggyBank, Sparkles, Stethoscope,
+  ShieldAlert, SlidersHorizontal, PiggyBank, Sparkles, Stethoscope, Bot,
 } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { fetchAll } from "../lib/db";
@@ -53,6 +53,7 @@ const MinMaxSugerido      = lazy(() => import("./MinMaxSugerido"));
 const Presupuesto         = lazy(() => import("./Presupuesto"));
 const InformeEjecutivo    = lazy(() => import("./InformeEjecutivo"));
 const DiagnosticoFallas   = lazy(() => import("./DiagnosticoFallas"));
+const CopilotoFlota       = lazy(() => import("./CopilotoFlota"));
 
 const INTERVALOS_REFRESH = [
   { label: "5 min",       s: 300  },
@@ -73,7 +74,8 @@ const NAV = [
   { id: "dashboard", label: "Tablero", icon: LayoutDashboard, group: "Principal" },
   { id: "alertas", label: "Alertas", icon: Bell, group: "Principal" },
   { id: "flota", label: "Estado de Flota", icon: Anchor, group: "Principal" },
-  { id: "informe", label: "Informe Ejecutivo IA", icon: Sparkles, group: "Principal" },
+  { id: "copiloto", label: "Copiloto IA",           icon: Bot,      group: "Principal" },
+  { id: "informe",  label: "Informe Ejecutivo IA", icon: Sparkles, group: "Principal" },
   { id: "mgm", label: "Modelo MGM", icon: Layers, group: "Principal" },
   { id: "embarcaciones", label: "Embarcaciones", icon: Sailboat, group: "Flota" },
   { id: "equipos", label: "Equipos", icon: Ship, group: "Flota" },
@@ -138,7 +140,8 @@ const MODULOS = {
   diagnostico: DiagnosticoFallas,
   minmax: MinMaxSugerido,
   presupuesto: Presupuesto,
-  informe: InformeEjecutivo,
+  copiloto: CopilotoFlota,
+  informe:  InformeEjecutivo,
   criticidad: Criticidad,
   fallas: Fallas,
   pdm: Pdm,
