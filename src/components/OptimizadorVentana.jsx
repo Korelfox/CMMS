@@ -49,7 +49,7 @@ export default function OptimizadorVentana() {
         fetchAll("stock"),
         fetchAll("mareas"),
         fetchAll("marea_captura"),
-        fetchAll("economias"),
+        fetchAll("marea_economia"),
       ]);
       setData({
         embs, equipos, planesEval: evaluarPlanes(planes, equipos),
