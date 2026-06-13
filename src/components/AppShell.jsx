@@ -5,6 +5,7 @@ import {
   TrendingUp, TrendingDown, FileText, History, Layers, Bell, LogOut, UserCircle, UserCog,
   Wifi, WifiOff, RefreshCw, CheckCircle2, BarChart3, ShipWheel, Fuel, ShieldCheck, Fish,
   Menu, X, Sun, Moon, Building2, Timer, Waves, ListTodo, Microscope, Wrench, CalendarRange,
+  ShieldAlert, SlidersHorizontal,
 } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { fetchAll } from "../lib/db";
@@ -45,8 +46,10 @@ const EstadoFlota   = lazy(() => import("./EstadoFlota"));
 const Backlog       = lazy(() => import("./Backlog"));
 const RCA           = lazy(() => import("./RCA"));
 const Varada        = lazy(() => import("./Varada"));
-const LucroCesante       = lazy(() => import("./LucroCesante"));
+const LucroCesante        = lazy(() => import("./LucroCesante"));
 const PlanificacionPuerto = lazy(() => import("./PlanificacionPuerto"));
+const RiesgoFalla         = lazy(() => import("./RiesgoFalla"));
+const MinMaxSugerido      = lazy(() => import("./MinMaxSugerido"));
 
 const INTERVALOS_REFRESH = [
   { label: "5 min",       s: 300  },
@@ -84,8 +87,10 @@ const NAV = [
   { id: "almacen", label: "Almacén & Compras", icon: Warehouse, group: "Operación" },
   { id: "criticidad",  label: "Criticidad",            icon: Activity,       group: "Análisis" },
   { id: "kpis",        label: "KPIs & Confiabilidad",  icon: Gauge,          group: "Análisis" },
-  { id: "lucro",       label: "Lucro Cesante",          icon: TrendingDown,   group: "Análisis" },
-  { id: "pareto",      label: "Pareto (80/20)",         icon: BarChart3,      group: "Análisis" },
+  { id: "lucro",       label: "Lucro Cesante",          icon: TrendingDown,       group: "Análisis" },
+  { id: "riesgo",      label: "Riesgo de Falla",        icon: ShieldAlert,        group: "Análisis" },
+  { id: "minmax",      label: "Min/Max Sugerido",        icon: SlidersHorizontal,  group: "Análisis" },
+  { id: "pareto",      label: "Pareto (80/20)",         icon: BarChart3,           group: "Análisis" },
   { id: "fallas",      label: "Análisis de Fallas",    icon: AlertTriangle,  group: "Análisis" },
   { id: "rca",         label: "Causa Raíz (RCA)",       icon: Microscope,     group: "Análisis" },
   { id: "pdm",         label: "Predictivo (PdM)",       icon: Waves,          group: "Análisis" },
@@ -123,6 +128,8 @@ const MODULOS = {
   kpis: KPIs,
   lucro: LucroCesante,
   planpuerto: PlanificacionPuerto,
+  riesgo: RiesgoFalla,
+  minmax: MinMaxSugerido,
   criticidad: Criticidad,
   fallas: Fallas,
   pdm: Pdm,
