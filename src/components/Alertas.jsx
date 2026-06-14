@@ -1,7 +1,8 @@
 import React, { useEffect, useState, useCallback, useMemo } from "react";
 import {
-  Bell, AlertTriangle, Package, Wrench, Clock, Ship, ShoppingCart, ChevronRight, Check, Droplet, ShieldCheck, Activity, FileWarning, ShieldAlert, Anchor,
+  Bell, AlertTriangle, Package, Wrench, Clock, Ship, ShoppingCart, ChevronRight, Check, Droplet, ShieldCheck, Activity, FileWarning, ShieldAlert, Anchor, Timer,
 } from "lucide-react";
+import { puntoHorometro, diasDesde } from "../lib/horometro";
 import { fetchAll } from "../lib/db";
 import { C, archivo, num, SLA_HORAS, PRIORIDADES, lk } from "../theme";
 import { evaluarPlanes } from "../lib/pm";
@@ -12,18 +13,19 @@ import { coberturaCriticos } from "../lib/operacional";
 import { Card, PageHead, Pill, FilterBtn, Empty, ErrorBanner, InlineSpinner } from "../ui";
 
 const CATEGORIAS = [
-  { id: "pm",       label: "Plan Preventivo", icon: Wrench },
-  { id: "pdm",      label: "Condición PdM",   icon: Activity },
-  { id: "stock",    label: "Stock bajo",      icon: Package },
-  { id: "ot",       label: "OTs críticas",    icon: AlertTriangle },
-  { id: "sla",      label: "SLA vencido",     icon: Clock },
-  { id: "equipo",   label: "Equipos",         icon: Ship },
-  { id: "consumo",  label: "Consumo aceite",  icon: Droplet },
-  { id: "documento", label: "Documentos",     icon: ShieldCheck },
-  { id: "compra",   label: "Compras",         icon: ShoppingCart },
-  { id: "fmeca",    label: "Riesgo FMECA",    icon: ShieldAlert },
-  { id: "datos",    label: "Datos ISO",       icon: FileWarning },
-  { id: "varada",   label: "Varadas",         icon: Anchor },
+  { id: "pm",        label: "Plan Preventivo", icon: Wrench },
+  { id: "pdm",       label: "Condición PdM",   icon: Activity },
+  { id: "stock",     label: "Stock bajo",      icon: Package },
+  { id: "ot",        label: "OTs críticas",    icon: AlertTriangle },
+  { id: "sla",       label: "SLA vencido",     icon: Clock },
+  { id: "equipo",    label: "Equipos",         icon: Ship },
+  { id: "consumo",   label: "Consumo aceite",  icon: Droplet },
+  { id: "documento", label: "Documentos",      icon: ShieldCheck },
+  { id: "compra",    label: "Compras",         icon: ShoppingCart },
+  { id: "fmeca",     label: "Riesgo FMECA",    icon: ShieldAlert },
+  { id: "datos",     label: "Datos ISO",       icon: FileWarning },
+  { id: "varada",    label: "Varadas",         icon: Anchor },
+  { id: "horometro", label: "Horómetros",      icon: Timer },
 ];
 
 // A qué módulo lleva cada categoría de alerta al hacer clic.
@@ -40,6 +42,7 @@ const NAV_POR_CAT = {
   fmeca: "fallas",
   datos: "ots",
   varada: "varada",
+  horometro: "horometros",
 };
 
 // Días hábiles (lun-vie) entre dos fechas (no cuenta feriados).
@@ -64,6 +67,7 @@ export default function Alertas({ onNavigate }) {
   const [fallas, setFallas] = useState([]);
   const [destinos, setDestinos] = useState([]);
   const [varadas, setVaradas] = useState([]);
+  const [lecturas, setLecturas] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [filtro, setFiltro] = useState("all");
@@ -71,7 +75,7 @@ export default function Alertas({ onNavigate }) {
   const cargar = useCallback(async () => {
     setLoading(true); setError(null);
     try {
-      const [embs, eqs, its, stk, otsAll, sols, cps, pzs, docs, pls, meds, fls, dsts, vars] = await Promise.all([
+      const [embs, eqs, its, stk, otsAll, sols, cps, pzs, docs, pls, meds, fls, dsts, vars, lecs] = await Promise.all([
         fetchAll("embarcaciones", { order: { col: "codigo", asc: true } }),
         fetchAll("equipos"),
         fetchAll("inventario_items"),
@@ -86,10 +90,11 @@ export default function Alertas({ onNavigate }) {
         fetchAll("fallas"),
         fetchAll("inventario_item_destinos"),
         fetchAll("varadas"),
+        fetchAll("lecturas_horometro", { order: { col: "fecha", asc: false } }),
       ]);
       setEmbarcaciones(embs); setEquipos(eqs); setItems(its); setStock(stk);
       setOts(otsAll); setSolicitudes(sols); setCompras(cps); setPrezarpes(pzs); setDocumentos(docs);
-      setPlanes(pls); setMediciones(meds); setFallas(fls); setDestinos(dsts); setVaradas(vars);
+      setPlanes(pls); setMediciones(meds); setFallas(fls); setDestinos(dsts); setVaradas(vars); setLecturas(lecs);
     } catch (e) { setError("No se pudieron cargar las alertas. " + e.message); }
     finally { setLoading(false); }
   }, []);
@@ -308,13 +313,57 @@ export default function Alertas({ onNavigate }) {
       }
     });
 
+    // 11) Agente A — puntos de horómetro sin lectura reciente (ISO 14224 §9.4)
+    const byIdH = new Map(equipos.map((e) => [e.id, e]));
+    const ultimaDe = (id) => lecturas.find((l) => l.equipo_id === id);
+    equipos.filter((e) => e.horometro === "propio" && e.tipo_nodo !== "sistema").forEach((eq) => {
+      const ultima = ultimaDe(eq.id);
+      const dias = diasDesde(ultima?.fecha);
+      if (dias == null || dias > 30) {
+        all.push({ cat: "horometro", sev: "red",
+          titulo: `Sin lectura de horómetro · ${eq.sistema}`,
+          detalle: `${embName(eq.embarcacion_id)} · ${eq.id_visible} · ${dias == null ? "nunca registrada" : `última hace ${Math.round(dias)} días`} — ingresar en Horómetros`,
+          ts: ultima?.fecha || eq.updated_at });
+      } else if (dias > 7) {
+        all.push({ cat: "horometro", sev: "amber",
+          titulo: `Lectura de horómetro atrasada · ${eq.sistema}`,
+          detalle: `${embName(eq.embarcacion_id)} · ${eq.id_visible} · última hace ${Math.round(dias)} días (objetivo ≤7 días) — ingresar en Horómetros`,
+          ts: ultima?.fecha });
+      }
+    });
+
+    // 12) Agente B — herencia huérfana: "hereda" sin ascendiente con horómetro propio
+    equipos.filter((e) => (e.horometro || "hereda") === "hereda" && e.tipo_nodo !== "sistema").forEach((e) => {
+      if (puntoHorometro(e, byIdH) === null) {
+        all.push({ cat: "horometro", sev: "amber",
+          titulo: `Herencia de horómetro sin resolver · ${e.sistema}`,
+          detalle: `${embName(e.embarcacion_id)} · ${e.id_visible} · "hereda" pero ningún ascendiente tiene horómetro propio — configurar en Equipos`,
+          ts: e.updated_at });
+      }
+    });
+
+    // 13) Agente C — coherencia PM/horómetro: horas_ult_pm > horas_actual (datos inconsistentes)
+    evaluarPlanes(planes, equipos).filter((r) => !r.esCalendario && r.equipo).forEach((r) => {
+      const eq = r.equipo;
+      const ptoId = puntoHorometro(eq, byIdH);
+      const pto = ptoId ? byIdH.get(ptoId) : null;
+      const horasAct = Number(pto?.horas_actual ?? 0);
+      const hPM = Number(r.plan?.horas_ult_pm ?? 0);
+      if (hPM > 0 && horasAct > 0 && hPM > horasAct) {
+        all.push({ cat: "horometro", sev: "amber",
+          titulo: `Horómetro inconsistente con PM · ${r.plan.descripcion}`,
+          detalle: `${embName(eq.embarcacion_id)} · ${eq.sistema} · último PM a ${num(hPM, 0)} h pero horómetro actual es ${num(horasAct, 0)} h`,
+          ts: r.plan?.fecha_ult_pm || eq.updated_at });
+      }
+    });
+
     // Orden: rojo primero, luego ámbar, dentro de cada uno por timestamp descendente
     return all.sort((a, b) => {
       const sevOrder = { red: 0, amber: 1, yellow: 2 };
       if (sevOrder[a.sev] !== sevOrder[b.sev]) return sevOrder[a.sev] - sevOrder[b.sev];
       return new Date(b.ts || 0).getTime() - new Date(a.ts || 0).getTime();
     });
-  }, [equipos, items, stock, ots, solicitudes, compras, prezarpes, documentos, embarcaciones, planes, mediciones, fallas, destinos, varadas]); // eslint-disable-line
+  }, [equipos, items, stock, ots, solicitudes, compras, prezarpes, documentos, embarcaciones, planes, mediciones, fallas, destinos, varadas, lecturas]); // eslint-disable-line
 
   const conteoPorCat = (id) => alertas.filter((a) => a.cat === id).length;
   const listaFiltrada = filtro === "all" ? alertas : alertas.filter((a) => a.cat === filtro);

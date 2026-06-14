@@ -30,6 +30,7 @@ export default function Horometros() {
   const [okMsg, setOkMsg]       = useState(null);
   const [filtro, setFiltro]   = useState("all");
   const [valores, setValores] = useState({});      // puntoId → texto ingresado
+  const [fechas, setFechas] = useState({});         // puntoId → fecha de lectura (YYYY-MM-DD)
   const [histAbierto, setHistAbierto] = useState(null);
   const [guardando, setGuardando]     = useState(false);
   const puedeOperar = canOperate(profile?.rol);
@@ -94,9 +95,11 @@ export default function Horometros() {
         if (v.warning && !window.confirm(`${eq.id_visible} · ${eq.sistema}\n\n${v.warning}\n\n¿Guardar de todas formas?`)) continue;
 
         const horas = Number(valor);
+        const fechaLec = fechas[puntoId] ? new Date(fechas[puntoId] + "T12:00:00") : new Date();
         const row = await insertRow("lecturas_horometro", profile.empresa_id, {
           equipo_id: puntoId, horas, horas_anterior: eq.horas_actual ?? null,
           fuente: "manual", usuario_id: profile.id, usuario_nombre: profile.nombre || "",
+          fecha: fechaLec.toISOString(),
         });
         // Propaga las horas al punto + sus descendientes que heredan.
         const ids = idsBajoPunto(puntoId, equipos, byId);
@@ -105,6 +108,7 @@ export default function Horometros() {
         setLecturas((p) => [row, ...p]);
         setEquipos((p) => p.map((x) => ids.includes(x.id) ? { ...x, horas_actual: horas } : x));
         setValores((p) => { const n = { ...p }; delete n[puntoId]; return n; });
+        setFechas((p) => { const n = { ...p }; delete n[puntoId]; return n; });
         guardadas.push(`${eq.id_visible} (+${ids.length - 1} comp.)`);
       }
       if (guardadas.length) {
@@ -178,7 +182,7 @@ export default function Horometros() {
                 <th style={{ ...thStyle, textAlign: "right" }}>Horas</th>
                 <th style={thStyle}>Última lectura</th>
                 <th style={{ ...thStyle, textAlign: "right" }}>Tendencia</th>
-                {puedeOperar && <th style={{ ...thStyle, textAlign: "right" }}>Nueva lectura (h)</th>}
+                {puedeOperar && <th style={{ ...thStyle, textAlign: "right" }}>Nueva lectura</th>}
                 <th style={{ ...thStyle, textAlign: "center" }}>Hist.</th>
               </tr></thead>
               <tbody>
@@ -237,11 +241,17 @@ export default function Horometros() {
                       {puedeOperar && (
                         <td style={{ ...tdStyle, textAlign: "right" }}>
                           {esPropio ? (
-                            <input type="number" min={eq.horas_actual || 0} placeholder={`≥ ${num(eq.horas_actual || 0)}`}
-                              value={valores[eq.id] ?? ""}
-                              onChange={(ev) => setValores((p) => ({ ...p, [eq.id]: ev.target.value }))}
-                              onKeyDown={(ev) => { if (ev.key === "Enter") guardarLecturas(); }}
-                              style={{ ...inputStyle(120), textAlign: "right", borderColor: (valores[eq.id] ?? "") !== "" ? C.steel : undefined }} />
+                            <div style={{ display: "flex", flexDirection: "column", gap: 4, alignItems: "flex-end" }}>
+                              <input type="date" max={new Date().toLocaleDateString("en-CA")}
+                                value={fechas[eq.id] ?? new Date().toLocaleDateString("en-CA")}
+                                onChange={(ev) => setFechas((p) => ({ ...p, [eq.id]: ev.target.value }))}
+                                style={{ ...inputStyle(130), fontSize: 11.5 }} />
+                              <input type="number" min={eq.horas_actual || 0} placeholder={`≥ ${num(eq.horas_actual || 0)}`}
+                                value={valores[eq.id] ?? ""}
+                                onChange={(ev) => setValores((p) => ({ ...p, [eq.id]: ev.target.value }))}
+                                onKeyDown={(ev) => { if (ev.key === "Enter") guardarLecturas(); }}
+                                style={{ ...inputStyle(130), textAlign: "right", borderColor: (valores[eq.id] ?? "") !== "" ? C.steel : undefined }} />
+                            </div>
                           ) : <span style={{ color: C.line }}>—</span>}
                         </td>
                       )}

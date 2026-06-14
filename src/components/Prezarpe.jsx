@@ -5,6 +5,8 @@ import {
 } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { fetchAll, insertRow, updateRow, deleteRow, logActivity } from "../lib/db";
+import { supabase } from "../lib/supabase";
+import { idsBajoPunto } from "../lib/horometro";
 import { useOnline, cacheTable, getCached, queueInsert, nuevoId } from "../lib/offline";
 import { subirFotos, listarFotos, borrarFoto } from "../lib/fotos";
 import { C, archivo, canOperate, isAdmin, tint } from "../theme";
@@ -92,6 +94,23 @@ export default function Prezarpe() {
         comb_fin: datos.comb_fin, agua_fin: datos.agua_fin, aceite_fin: datos.aceite_fin,
         horometros_fin: datos.horometros_fin,
       });
+      // Lecturas ISO 14224 para horómetros de fin de marea + propagación a descendientes
+      const horosFin = datos.horometros_fin || {};
+      if (Object.keys(horosFin).length > 0) {
+        const byIdRec = new Map(equipos.map((e) => [e.id, e]));
+        const recaladaAt = new Date().toISOString();
+        for (const [eqId, horas] of Object.entries(horosFin)) {
+          const eq = byIdRec.get(eqId);
+          if (!eq) continue;
+          await insertRow("lecturas_horometro", profile.empresa_id, {
+            equipo_id: eqId, horas: Number(horas), horas_anterior: eq.horas_actual ?? null,
+            fuente: "recalada", usuario_id: profile.id, usuario_nombre: profile.nombre || "",
+            fecha: recaladaAt,
+          });
+          const ids = idsBajoPunto(eqId, equipos, byIdRec);
+          if (ids.length > 0) await supabase.from("equipos").update({ horas_actual: Number(horas) }).in("id", ids);
+        }
+      }
       logActivity(profile, "Recalada", embName(m.embarcacion_id));
       setVista("flota"); setMareaRec(null); setError(null);
       await cargar();
@@ -165,6 +184,20 @@ export default function Prezarpe() {
         const { empresa_id: _b, ...pRest } = prez; await insertRow("prezarpes", profile.empresa_id, pRest);
         if (sol) { const { empresa_id: _c, ...sRest } = sol; await insertRow("solicitudes", profile.empresa_id, sRest); }
         if (fotos.length) await subirFotos(fotos, { empresaId: profile.empresa_id, entidad: "prezarpe", entidadId: prezId, profileId: profile.id });
+        // Lecturas ISO 14224 para cada horómetro del prezarpe + propagación a descendientes
+        const byIdPz = new Map(equipos.map((e) => [e.id, e]));
+        const zarpeAt = new Date().toISOString();
+        for (const [eqId, horas] of Object.entries(payload.horometros || {})) {
+          const eq = byIdPz.get(eqId);
+          if (!eq) continue;
+          await insertRow("lecturas_horometro", profile.empresa_id, {
+            equipo_id: eqId, horas: Number(horas), horas_anterior: eq.horas_actual ?? null,
+            fuente: "prezarpe", usuario_id: profile.id, usuario_nombre: profile.nombre || "",
+            fecha: zarpeAt,
+          });
+          const ids = idsBajoPunto(eqId, equipos, byIdPz);
+          if (ids.length > 0) await supabase.from("equipos").update({ horas_actual: Number(horas) }).in("id", ids);
+        }
         logActivity(profile, "Prezarpe", `${nave.nombre} · ${payload.apto ? "APTO" : "NO APTO" + (sol ? " · solicitud generada" : "")}`);
         await cargar();
       } else {
