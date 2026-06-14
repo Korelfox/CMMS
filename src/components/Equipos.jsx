@@ -464,7 +464,7 @@ export default function Equipos() {
       icon: ICONO_TIPO[node.tipo_nodo] || ICONO_TIPO.equipo,
       iconColor: meta.color,
       width: 600,
-      render: () => <EquipoWindow nodeId={node.id} handlersRef={handlersRef} puedeOperar={puedeOperar} />,
+      render: ({ setTitle }) => <EquipoWindow nodeId={node.id} handlersRef={handlersRef} puedeOperar={puedeOperar} setTitle={setTitle} />,
     });
   }
   // Abre la ventana de repuestos de un componente (apilada).
@@ -485,6 +485,7 @@ export default function Equipos() {
   handlersRef.current = {
     agregarHijo, abrirEquipoWindow, abrirFicha, abrirPropOp, abrirRepuestos,
     enlazarRepuesto, desenlazarRepuesto, crearYEnlazarRepuesto,
+    renombrar: (id, nombre) => { onChangeLocal(id, "sistema", nombre); commit(id, "sistema", nombre); },
   };
 
   // Guarda inmediatamente los atributos operacionales (horómetro / consume aceite / nivel).
@@ -848,17 +849,29 @@ export default function Equipos() {
                           {(() => {
                             const Ico = ICONO_TIPO[e.tipo_nodo] || ICONO_TIPO.equipo;
                             const meta = TIPO_NODO_META[e.tipo_nodo] || TIPO_NODO_META.equipo;
+                            if (esAgrupador) {
+                              return (
+                                <button onClick={() => abrirEquipoWindow(e)} title="Abrir"
+                                  className="cmms-clickable"
+                                  style={{ background: "none", border: "none", cursor: "pointer", padding: "2px 4px 2px 0", display: "flex", alignItems: "center", gap: 7, fontFamily: "inherit", fontSize: 13.5, fontWeight: 700, color: C.abyss, flex: 1, minWidth: 0, textAlign: "left", borderRadius: 5 }}>
+                                  <Ico size={13} color={meta.color} style={{ flexShrink: 0 }} />
+                                  <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{e.sistema}</span>
+                                </button>
+                              );
+                            }
                             return (
-                              <button onClick={() => abrirEquipoWindow(e)} title={`Abrir ventana · ${meta.label}`}
-                                style={{ background: "none", border: "none", padding: 0, marginRight: 5, cursor: "pointer", display: "flex", alignItems: "center", flexShrink: 0 }}>
-                                <Ico size={13} color={meta.color} />
-                              </button>
+                              <>
+                                <button onClick={() => abrirEquipoWindow(e)} title={`Abrir ventana · ${meta.label}`}
+                                  style={{ background: "none", border: "none", padding: 0, marginRight: 5, cursor: "pointer", display: "flex", alignItems: "center", flexShrink: 0 }}>
+                                  <Ico size={13} color={meta.color} />
+                                </button>
+                                <input value={e.sistema} disabled={!puedeOperar} title={e.sistema}
+                                  onChange={(ev) => onChangeLocal(e.id, "sistema", ev.target.value)}
+                                  onBlur={(ev) => commit(e.id, "sistema", ev.target.value)}
+                                  style={{ ...bluC, width: Math.max(172, 262 - e.depth * 12), fontFamily: "inherit", color: e.depth === 0 ? C.abyss : C.ink, fontWeight: e.depth === 0 ? 700 : 400 }} />
+                              </>
                             );
                           })()}
-                          <input value={e.sistema} disabled={!puedeOperar} title={e.sistema}
-                            onChange={(ev) => onChangeLocal(e.id, "sistema", ev.target.value)}
-                            onBlur={(ev) => commit(e.id, "sistema", ev.target.value)}
-                            style={{ ...bluC, width: Math.max(172, 262 - e.depth * 12), fontFamily: "inherit", color: e.depth === 0 ? C.abyss : C.ink, fontWeight: e.depth === 0 ? 700 : 400 }} />
                           {puedeOperar && (
                             <span style={{ position: "relative", display: "inline-flex", flexShrink: 0 }}>
                               <button onClick={() => setMenuHijo(menuHijo === e.id ? null : e.id)} title={`Agregar dentro de "${e.sistema}"`}
@@ -964,10 +977,12 @@ export default function Equipos() {
                       {hasActions && (
                         <td style={tdE}>
                           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
-                            <button onClick={() => abrirEquipoWindow(e)} title={`Abrir ventana de "${e.sistema}"`}
-                              style={{ background: "none", border: `1px solid ${C.line}`, borderRadius: 6, cursor: "pointer", color: C.steel, padding: "2px 5px", display: "flex", alignItems: "center", flexShrink: 0 }}>
-                              <PanelRightOpen size={14} />
-                            </button>
+                            {!esAgrupador && (
+                              <button onClick={() => abrirEquipoWindow(e)} title={`Abrir ventana de "${e.sistema}"`}
+                                style={{ background: "none", border: `1px solid ${C.line}`, borderRadius: 6, cursor: "pointer", color: C.steel, padding: "2px 5px", display: "flex", alignItems: "center", flexShrink: 0 }}>
+                                <PanelRightOpen size={14} />
+                              </button>
+                            )}
                             {puedeOperar && !esAgrupador && (
                               <button onClick={() => abrirPropOp(e)}
                                 title={`Config. operacional de "${e.sistema}"`}

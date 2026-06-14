@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import {
   Layers, GitBranch, Wrench, Cpu, Box, Plus, ChevronRight,
   FileText, Settings2, Package, AlertCircle,
@@ -29,10 +29,13 @@ function ordenarHijos(arr) {
 // ── Ventana de un nodo: identidad + paneles ricos + estructura (hijos) ──
 // handlersRef.current trae los callbacks vivos de Equipos:
 //   { agregarHijo, abrirEquipoWindow, abrirFicha, abrirPropOp, abrirRepuestos }
-export default function EquipoWindow({ nodeId, handlersRef, puedeOperar }) {
+export default function EquipoWindow({ nodeId, handlersRef, puedeOperar, setTitle }) {
   const { equipos, destinos, embarcaciones } = useEquiposData();
   const node = equipos.find((e) => e.id === nodeId);
   const h = handlersRef.current;
+
+  const [sysName, setSysName] = useState(node?.sistema || "");
+  useEffect(() => { if (node) setSysName(node.sistema || ""); }, [node]);
 
   if (!node) {
     return (
@@ -48,6 +51,15 @@ export default function EquipoWindow({ nodeId, handlersRef, puedeOperar }) {
   const nave    = embarcaciones.find((v) => v.id === node.embarcacion_id);
   const nReps   = destinos.filter((d) => d.equipo_id === node.id).length;
   const esComponente = node.tipo_nodo === "componente" || node.tipo_nodo === "instrumento" || node.tipo_nodo === "equipo";
+
+  function handleNameBlur() {
+    const n = sysName.trim() || node.sistema;
+    setSysName(n);
+    if (n !== node.sistema) {
+      h.renombrar?.(node.id, n);
+      setTitle?.(n);
+    }
+  }
 
   const datos = [
     nave && ["Nave", nave.nombre || nave.codigo],
@@ -67,6 +79,12 @@ export default function EquipoWindow({ nodeId, handlersRef, puedeOperar }) {
           </span>
           {node.criticidad && <Pill tone={CRITICIDAD_TONE[node.criticidad]}>Crit. {node.criticidad}</Pill>}
         </div>
+        {puedeOperar
+          ? <input value={sysName} onChange={(ev) => setSysName(ev.target.value)}
+              onBlur={handleNameBlur} onKeyDown={(ev) => { if (ev.key === "Enter") ev.target.blur(); }}
+              style={{ marginTop: 8, display: "block", width: "100%", boxSizing: "border-box", fontFamily: "inherit", fontSize: 17, fontWeight: 800, color: C.abyss, background: "transparent", border: "none", borderBottom: `1px solid ${C.foam}`, padding: "2px 0 5px", outline: "none", cursor: "text" }} />
+          : <div style={{ marginTop: 8, fontSize: 17, fontWeight: 800, color: C.abyss }}>{node.sistema}</div>
+        }
         {datos.length > 0 && (
           <div style={{ display: "flex", flexWrap: "wrap", gap: "4px 18px", marginTop: 10 }}>
             {datos.map(([k, v]) => (

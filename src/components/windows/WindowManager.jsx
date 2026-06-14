@@ -47,16 +47,19 @@ export function WindowProvider({ children }) {
     return i < 0 ? s : s.slice(0, i + 1); // conserva hasta esa ventana
   }), []);
   const closeAll = useCallback(() => setStack([]), []);
+  const setTitle = useCallback((id, newTitle) => {
+    setStack((s) => s.map((w) => (w.id === id ? { ...w, title: newTitle } : w)));
+  }, []);
 
   const value = useMemo(
-    () => ({ stack, open, close, closeTop, popTo, closeAll }),
-    [stack, open, close, closeTop, popTo, closeAll],
+    () => ({ stack, open, close, closeTop, popTo, closeAll, setTitle }),
+    [stack, open, close, closeTop, popTo, closeAll, setTitle],
   );
   return <WindowContext.Provider value={value}>{children}</WindowContext.Provider>;
 }
 
 export function WindowHost() {
-  const { stack, open, close, closeTop, popTo, closeAll } = useWindows();
+  const { stack, open, close, closeTop, popTo, closeAll, setTitle } = useWindows();
   const active = stack.length > 0;
 
   // ESC cierra la ventana de arriba; bloquea el scroll del fondo.
@@ -86,7 +89,7 @@ export function WindowHost() {
           isTop={i === stack.length - 1}
           z={1201 + i}
           crumbs={stack.slice(0, i + 1)}
-          api={{ close: () => close(win.id), closeAll, open }}
+          api={{ close: () => close(win.id), closeAll, open, setTitle: (t) => setTitle(win.id, t) }}
           onBack={closeTop}
           onCrumb={popTo}
         />
