@@ -1,8 +1,9 @@
 import React, { useEffect, useState, useCallback, useMemo, useRef } from "react";
-import { CalendarClock, Check, AlertCircle, Plus, Trash2, Download, Printer, History, ClipboardList, X, ChevronDown, ChevronRight, Edit3, PanelRightOpen } from "lucide-react";
+import { CalendarClock, Check, AlertCircle, Plus, Trash2, Download, Printer, History, ClipboardList, X, ChevronDown, ChevronRight, Edit3, PanelRightOpen, Layers } from "lucide-react";
 import { useWindows } from "./windows/WindowManager";
 import { planpmStore } from "./planpm/planpmStore";
 import PMWindow from "./planpm/PMWindow";
+import PMEstructuraWindow from "./planpm/PMEstructuraWindow";
 import { useAuth } from "../lib/auth";
 import { fetchAll, insertRow, updateRow, deleteRow, logActivity } from "../lib/db";
 import { buildEquipoTree } from "../lib/equipTree";
@@ -95,17 +96,32 @@ export default function PlanPM({ onNavigate }) {
   const embName = (id) => embarcaciones.find((e) => e.id === id)?.nombre || "—";
 
   function abrirPMWindow(eq) {
-    open({
-      id: `pm-${eq.id}`,
-      title: eq.sistema,
-      subtitle: `${eq.id_visible} · ${embName(eq.embarcacion_id)}`,
-      icon: CalendarClock,
-      iconColor: C.cyan,
-      width: 640,
-      render: () => (
-        <PMWindow equipoId={eq.id} handlersRef={handlersRef} puedeOperar={puedeOperar} puedeBorrar={puedeBorrar} />
-      ),
-    });
+    const esAgrupador = eq.tipo_nodo === "sistema";
+    if (esAgrupador) {
+      open({
+        id: `pm-struct-${eq.id}`,
+        title: eq.sistema,
+        subtitle: `${eq.id_visible} · ${embName(eq.embarcacion_id)}`,
+        icon: Layers,
+        iconColor: C.steel,
+        width: 600,
+        render: () => (
+          <PMEstructuraWindow equipoId={eq.id} handlersRef={handlersRef} />
+        ),
+      });
+    } else {
+      open({
+        id: `pm-${eq.id}`,
+        title: eq.sistema,
+        subtitle: `${eq.id_visible} · ${embName(eq.embarcacion_id)}`,
+        icon: CalendarClock,
+        iconColor: C.cyan,
+        width: 640,
+        render: () => (
+          <PMWindow equipoId={eq.id} handlersRef={handlersRef} puedeOperar={puedeOperar} puedeBorrar={puedeBorrar} />
+        ),
+      });
+    }
   }
   const lista   = buildEquipoTree(filtro === "all" ? equipos : equipos.filter((e) => e.embarcacion_id === filtro));
 
@@ -456,6 +472,7 @@ tbody td{padding:5px 8px;vertical-align:middle}
   handlersRef.current = {
     registrarPM, guardarHito, agregarPlan, eliminarPlan,
     nombreUsuario: profile?.nombre || "",
+    abrirPMWindowAdaptado: abrirPMWindow,
   };
 
   return (
@@ -489,6 +506,7 @@ tbody td{padding:5px 8px;vertical-align:middle}
         const tieneHijos = arbol.tieneHijos(eq);
         const colapsado = arbol.estaColapsado(eq);
         const nSub = arbol.nSubDe(eq);
+        const esAgrupador = eq.tipo_nodo === "sistema";
 
         return (
           <Card key={eq.id} style={{ marginBottom: 10, borderLeft: `4px solid ${vencidosEq > 0 ? C.red : colorTipo(eq)}`, background: fondoTipo(eq), paddingBottom: 8 }}>
@@ -511,11 +529,13 @@ tbody td{padding:5px 8px;vertical-align:middle}
                 <span style={{ fontSize: 11.5, color: C.slate, marginLeft: 6 }}>· {embName(eq.embarcacion_id)}</span>
                 {colapsado && nSub > 0 && <span style={{ fontSize: 11.5, color: C.steel, marginLeft: 8, fontWeight: 600 }} title={`${nSub} elemento(s) ocultos`}>▸ {nSub}</span>}
               </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, color: C.slate }}>
-                {num(eq.horas_actual || 0, 0)}h actuales
-              </div>
-              {vencidosEq > 0 && <Pill tone="red">{vencidosEq} vencido{vencidosEq > 1 && "s"}</Pill>}
-              {puedeOperar && (
+              {!esAgrupador && (
+                <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, color: C.slate }}>
+                  {num(eq.horas_actual || 0, 0)}h actuales
+                </div>
+              )}
+              {!esAgrupador && vencidosEq > 0 && <Pill tone="red">{vencidosEq} vencido{vencidosEq > 1 && "s"}</Pill>}
+              {puedeOperar && !esAgrupador && (
                 <button onClick={() => setAddingFor(addingFor === eq.id ? null : eq.id)}
                   style={{ ...ghostBtn, padding: "4px 10px", fontSize: 12 }}>
                   <Plus size={13} /> Plan
@@ -523,11 +543,20 @@ tbody td{padding:5px 8px;vertical-align:middle}
               )}
             </div>
 
-            {/* ── Planes del equipo ── */}
-            {planesEq.length === 0 && addingFor !== eq.id && (
-              <div style={{ fontSize: 12.5, color: C.slate, paddingLeft: eq.depth * 16 + 8, fontStyle: "italic" }}>
-                Sin planes de PM — agrega el primero con el botón "+ Plan"
+            {/* ── Planes del equipo / nota agrupador ── */}
+            {esAgrupador ? (
+              <div style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 12, color: C.slate, paddingLeft: eq.depth * 16 + 8, paddingBottom: 2, fontStyle: "italic" }}>
+                <Layers size={13} color={C.line} />
+                {nSub > 0
+                  ? `Sistema agrupador · ${nSub} equipo${nSub !== 1 ? "s" : ""} — haz clic en el nombre para ver su PM`
+                  : "Sistema agrupador — sin equipos dentro"}
               </div>
+            ) : (
+              planesEq.length === 0 && addingFor !== eq.id && (
+                <div style={{ fontSize: 12.5, color: C.slate, paddingLeft: eq.depth * 16 + 8, fontStyle: "italic" }}>
+                  Sin planes de PM — agrega el primero con el botón "+ Plan"
+                </div>
+              )
             )}
 
             {planesEq.map((plan) => {
