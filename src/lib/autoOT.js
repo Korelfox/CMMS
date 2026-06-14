@@ -21,6 +21,8 @@
 // ============================================================
 
 import { evaluarPlanes } from "./pm.js";
+import { muestrasTBF, ajustarWeibull } from "./calculos.js";
+import { tendenciaHorasDia, diasDesde, puntoHorometro, modoHorometro } from "./horometro.js";
 
 // Centinela de exceso para vencidos sin métrica finita (calendario nunca
 // ejecutado → elapsed Infinity). Ordena primero sin contaminar con Infinity.
@@ -114,4 +116,67 @@ export function generarOTsPreventivas({ planes = [], equipos = [], ots = [] } = 
   // Más vencidos primero (mayor exceso sobre el límite).
   sugerencias.sort((a, b) => b.exceso - a.exceso);
   return { sugerencias, yaCubiertas, total: sugerencias.length };
+}
+
+// ── Disparador PREDICTIVO (RUL / Weibull) ────────────────────────────────────
+// Vive en JS (no en el cron SQL): la regresión de Weibull no va en plpgsql.
+// Se materializa bajo demanda ("Generar ahora") y deja la sugerencia en la misma
+// bandeja con origen 'predictivo'. Conservador a propósito: solo equipos críticos
+// (A/B) con ajuste de desgaste creíble (β>1, r² decente) que ya entraron en la
+// zona de vida característica. Huella mensual → re-evalúa sin spamear a diario.
+const mesDe = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+
+export function generarOTsPredictivas({ equipos = [], ots = [], lecturas = [], hoy = new Date() } = {}, opts = {}) {
+  const { r2Min = 0.75, fraccionVida = 0.7 } = opts;
+  const byId = new Map((equipos || []).map((e) => [e.id, e]));
+  const huellasExistentes = new Set((ots || []).map((o) => o?.huella).filter(Boolean));
+
+  // Lecturas agrupadas por punto de horómetro (el equipo_id de la lectura es el punto).
+  const lecturasPorPunto = new Map();
+  for (const l of lecturas || []) {
+    if (!l?.equipo_id) continue;
+    if (!lecturasPorPunto.has(l.equipo_id)) lecturasPorPunto.set(l.equipo_id, []);
+    lecturasPorPunto.get(l.equipo_id).push(l);
+  }
+
+  const sugerencias = [];
+  for (const eq of equipos || []) {
+    if (modoHorometro(eq) === "no") continue;
+    if (eq.criticidad !== "A" && eq.criticidad !== "B") continue;   // foco alta criticidad
+
+    const w = ajustarWeibull(muestrasTBF(ots, eq.id));
+    if (!w || w.beta <= 1 || w.r2 < r2Min) continue;                // necesita desgaste + ajuste creíble
+
+    // Última falla correctiva y ritmo de uso → edad operativa estimada.
+    const ultima = (ots || [])
+      .filter((o) => o.equipo_id === eq.id && o.tipo === "correctivo" && o.fecha)
+      .sort((a, b) => new Date(b.fecha) - new Date(a.fecha))[0];
+    if (!ultima?.fecha) continue;
+
+    const punto = puntoHorometro(eq, byId);
+    const rate = tendenciaHorasDia(punto ? (lecturasPorPunto.get(punto) || []) : [], 6);
+    if (!rate || rate <= 0) continue;
+
+    const dias = diasDesde(ultima.fecha, hoy);
+    if (dias == null) continue;
+    const edad = dias * rate;                                       // horas operadas desde la falla
+    if (edad < fraccionVida * w.eta) continue;
+
+    const huella = `pred:${eq.id}:${mesDe(hoy)}`;
+    if (huellasExistentes.has(huella)) continue;
+
+    const pct = Math.round((edad / w.eta) * 100);
+    sugerencias.push({
+      huella, plan_id: null, equipo_id: eq.id, embarcacion_id: eq.embarcacion_id || null,
+      sistema: eq.sistema || "", tipo: "preventivo",
+      prioridad: eq.criticidad === "A" ? "alta" : "media",
+      descripcion: `Inspección predictiva · ${eq.sistema || "equipo"}`,
+      motivo: `Weibull β=${w.beta.toFixed(2)} η=${Math.round(w.eta)} h (r²=${w.r2.toFixed(2)}) · edad ~${Math.round(edad)} h ≈ ${pct}% de la vida característica`,
+      origen: "predictivo", criticidad: eq.criticidad || null, tone: "amber",
+      horas_actual: eq.horas_actual || 0, elapsed: edad, limite: w.eta, exceso: edad - w.eta,
+    });
+  }
+
+  sugerencias.sort((a, b) => b.exceso - a.exceso);
+  return { sugerencias, total: sugerencias.length };
 }

@@ -2,14 +2,14 @@ import React, { useState, useEffect, useMemo, useCallback } from "react";
 import {
   Workflow, Timer, CalendarRange, Sigma, Activity, Wrench, Cpu, Fingerprint,
   Lightbulb, UserCheck, ClipboardList, RotateCw, Anchor, CalendarClock,
-  Check, RefreshCw, AlertTriangle, Bot, Zap, X, Clock,
+  Check, RefreshCw, AlertTriangle, Bot, Zap, X,
 } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { useOnline } from "../lib/offline";
 import { supabase } from "../lib/supabase";
 import { fetchAll, insertRow, updateRow, logActivity } from "../lib/db";
 import { folioOT } from "../lib/ot";
-import { generarOTsPreventivas } from "../lib/autoOT";
+import { generarOTsPreventivas, generarOTsPredictivas } from "../lib/autoOT";
 import { C, tint, canOperate } from "../theme";
 import { Card, PageHead, InlineSpinner, Empty } from "../ui";
 
@@ -62,10 +62,18 @@ function Chip({ color, bg, border, children }) {
 }
 
 // ── Badges en la paleta de la app ──
-function VencidoBadge() {
+// El "origen" identifica QUÉ disparó la sugerencia → ícono, color y etiqueta.
+const ORIGEN_META = {
+  cron:       { Icon: Wrench,   color: C.red,    label: "PM vencido" },
+  manual:     { Icon: Wrench,   color: C.red,    label: "PM vencido" },
+  condicion:  { Icon: Activity, color: C.cyan,   label: "Condición PdM" },
+  predictivo: { Icon: Sigma,    color: C.purple, label: "Predictivo" },
+};
+function TipoBadge({ origen }) {
+  const m = ORIGEN_META[origen] || ORIGEN_META.cron;
   return (
-    <span style={{ fontSize: 10.5, fontWeight: 700, color: C.red, background: tint(C.red, 14), border: `1px solid ${tint(C.red, 35)}`, borderRadius: 20, padding: "1px 9px", whiteSpace: "nowrap" }}>
-      Vencido
+    <span style={{ fontSize: 10.5, fontWeight: 700, color: m.color, background: tint(m.color, 14), border: `1px solid ${tint(m.color, 35)}`, borderRadius: 20, padding: "1px 9px", whiteSpace: "nowrap" }}>
+      {m.label}
     </span>
   );
 }
@@ -75,15 +83,6 @@ function CritBadge({ nivel }) {
   return (
     <span style={{ fontSize: 10.5, fontWeight: 700, color: col, background: tint(col, 12), border: `1px solid ${tint(col, 30)}`, borderRadius: 20, padding: "1px 8px" }}>
       Crit. {nivel}
-    </span>
-  );
-}
-function OrigenChip({ origen }) {
-  const cron = origen === "cron";
-  const col = cron ? C.purple : C.steel;
-  return (
-    <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 10.5, fontWeight: 600, color: col, background: tint(col, 10), borderRadius: 6, padding: "1px 7px" }}>
-      {cron ? <Clock size={10} /> : <Zap size={10} />} {cron ? "nocturno" : "manual"}
     </span>
   );
 }
@@ -103,7 +102,7 @@ export default function OTAutonomas({ onNavigate }) {
   const online = useOnline();
   const puedeOperar = canOperate(profile?.rol);
 
-  const [data, setData] = useState({ planes: [], equipos: [], ots: [] });
+  const [data, setData] = useState({ planes: [], equipos: [], ots: [], lecturas: [] });
   const [sugerencias, setSugerencias] = useState([]);   // bandeja: ot_sugerencias estado 'sugerida'
   const [cargando, setCargando] = useState(true);
   const [ts, setTs] = useState(null);
@@ -115,13 +114,14 @@ export default function OTAutonomas({ onNavigate }) {
   const cargar = useCallback(async () => {
     setCargando(true);
     try {
-      const [planes, equipos, ots, sugs] = await Promise.all([
+      const [planes, equipos, ots, lecturas, sugs] = await Promise.all([
         fetchAll("planes_pm"),
         fetchAll("equipos"),
         fetchAll("ordenes_trabajo"),
+        fetchAll("lecturas_horometro"),
         supabase.from("ot_sugerencias").select("*").eq("estado", "sugerida").order("created_at", { ascending: false }),
       ]);
-      setData({ planes: planes || [], equipos: equipos || [], ots: ots || [] });
+      setData({ planes: planes || [], equipos: equipos || [], ots: ots || [], lecturas: lecturas || [] });
       setSugerencias(sugs?.data || []);
       setTs(new Date());
     } catch { /* conserva datos previos */ }
@@ -168,16 +168,35 @@ export default function OTAutonomas({ onNavigate }) {
     });
   }
 
-  // Genera ahora (no esperar al cron): RPC scoped a la empresa del usuario.
+  // Genera ahora (no esperar al cron): PM/condición server-side + predictivo cliente.
   async function generarAhora() {
     setGenerando(true); setError(""); setAviso("");
     try {
+      // (1) PM + condición + auto-confirm C — server-side, scoped a la empresa.
       const { data: n, error: e } = await supabase.rpc("generar_ots_preventivas");
       if (e) throw e;
+      // (2) Predictivo (Weibull) — se evalúa en el cliente y se materializa en la bandeja.
+      const pred = generarOTsPredictivas({
+        equipos: data.equipos, ots: [...data.ots, ...sugerencias], lecturas: data.lecturas, hoy: new Date(),
+      });
+      if (pred.sugerencias.length > 0) {
+        const filas = pred.sugerencias.map((s) => ({
+          empresa_id: profile.empresa_id, huella: s.huella, plan_pm_id: null,
+          equipo_id: s.equipo_id, embarcacion_id: s.embarcacion_id, sistema: s.sistema,
+          tipo: "preventivo", prioridad: s.prioridad, descripcion: s.descripcion,
+          motivo: s.motivo, criticidad: s.criticidad, horas_actual: s.horas_actual,
+          elapsed: s.elapsed, limite: s.limite, estado: "sugerida", origen: "predictivo",
+        }));
+        const { error: ep } = await supabase
+          .from("ot_sugerencias")
+          .upsert(filas, { onConflict: "empresa_id,huella", ignoreDuplicates: true });
+        if (ep) throw ep;
+      }
       await cargar();
-      setAviso(n > 0
-        ? `${n} sugerencia${n !== 1 ? "s" : ""} nueva${n !== 1 ? "s" : ""} en la bandeja.`
-        : "Sin nuevos vencidos: la bandeja ya está al día.");
+      const partes = [];
+      if ((n || 0) > 0) partes.push(`${n} por reglas (PM/condición)`);
+      if (pred.total > 0) partes.push(`${pred.total} predictiva${pred.total !== 1 ? "s" : ""}`);
+      setAviso(partes.length ? `Bandeja actualizada: ${partes.join(" + ")}.` : "Sin nuevos disparadores: la bandeja ya está al día.");
     } catch (e) { setError(mensajeError(e)); }
     finally { setGenerando(false); }
   }
@@ -388,17 +407,18 @@ export default function OTAutonomas({ onNavigate }) {
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {sugerencias.map((s) => {
               const enCurso = confirmando === s.id;
+              const meta = ORIGEN_META[s.origen] || ORIGEN_META.cron;
+              const OIcon = meta.Icon;
               return (
                 <div key={s.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px 13px", borderRadius: 10, border: `1px solid ${C.line}`, background: C.surface2 }}>
-                  <div style={{ width: 34, height: 34, borderRadius: 9, background: tint(C.red, 12), display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                    <Wrench size={16} color={C.red} />
+                  <div style={{ width: 34, height: 34, borderRadius: 9, background: tint(meta.color, 12), display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                    <OIcon size={16} color={meta.color} />
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                       <span style={{ fontSize: 13.5, fontWeight: 700, color: C.abyss }}>{s.sistema || "Equipo"}</span>
-                      <VencidoBadge />
+                      <TipoBadge origen={s.origen} />
                       <CritBadge nivel={s.criticidad} />
-                      <OrigenChip origen={s.origen} />
                     </div>
                     <div style={{ fontSize: 12.5, color: C.ink, marginTop: 2 }}>{s.descripcion}</div>
                     <div style={{ fontSize: 11.5, color: C.slate, marginTop: 3, lineHeight: 1.45 }}>{s.motivo}</div>

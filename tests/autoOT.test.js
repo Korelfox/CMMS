@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { generarOTsPreventivas, huellaPM } from "../src/lib/autoOT.js";
+import { generarOTsPreventivas, generarOTsPredictivas, huellaPM } from "../src/lib/autoOT.js";
 
 // Equipo con horómetro propio a 1000 h.
 const EQ = { id: "e1", embarcacion_id: "n1", sistema: "Motor Ppal", horas_actual: 1000 };
@@ -96,5 +96,57 @@ describe("generarOTsPreventivas (disparador por horas)", () => {
   it("entradas vacías → estructura vacía estable", () => {
     expect(generarOTsPreventivas()).toEqual({ sugerencias: [], yaCubiertas: [], total: 0 });
     expect(generarOTsPreventivas({})).toEqual({ sugerencias: [], yaCubiertas: [], total: 0 });
+  });
+});
+
+describe("generarOTsPredictivas (Weibull / RUL)", () => {
+  const hoy = new Date("2026-06-14T12:00:00");
+  const diasAtras = (n) => new Date(hoy.getTime() - n * 86400000).toISOString().slice(0, 10);
+  const eqA = { id: "m1", embarcacion_id: "n1", sistema: "Motor Estribor", criticidad: "A", horometro: "propio", horas_actual: 5000 };
+  // 4 fallas con TBF creciente y agrupado → desgaste (β>1) con buen ajuste.
+  const correctivas = [
+    { equipo_id: "m1", tipo: "correctivo", hrs_oper_desde: 400, fecha: diasAtras(400) },
+    { equipo_id: "m1", tipo: "correctivo", hrs_oper_desde: 480, fecha: diasAtras(300) },
+    { equipo_id: "m1", tipo: "correctivo", hrs_oper_desde: 520, fecha: diasAtras(180) },
+    { equipo_id: "m1", tipo: "correctivo", hrs_oper_desde: 600, fecha: diasAtras(90) },
+  ];
+  // Ritmo: 360 h en 30 días = 12 h/día → edad ≈ 90·12 = 1080 h (supera 0.7·η).
+  const lecturas = [
+    { equipo_id: "m1", fecha: diasAtras(30), horas: 0 },
+    { equipo_id: "m1", fecha: diasAtras(0), horas: 360 },
+  ];
+
+  it("equipo crítico A con desgaste y edad alta → propone inspección predictiva", () => {
+    const { sugerencias, total } = generarOTsPredictivas({ equipos: [eqA], ots: correctivas, lecturas, hoy });
+    expect(total).toBe(1);
+    expect(sugerencias[0].origen).toBe("predictivo");
+    expect(sugerencias[0].huella).toBe("pred:m1:2026-06");
+    expect(sugerencias[0].prioridad).toBe("alta");
+    expect(sugerencias[0].motivo).toContain("Weibull");
+  });
+
+  it("criticidad C (baja) no entra al predictivo", () => {
+    const r = generarOTsPredictivas({ equipos: [{ ...eqA, criticidad: "C" }], ots: correctivas, lecturas, hoy });
+    expect(r.total).toBe(0);
+  });
+
+  it("menos de 3 fallas → sin ajuste Weibull → no propone", () => {
+    const r = generarOTsPredictivas({ equipos: [eqA], ots: correctivas.slice(0, 2), lecturas, hoy });
+    expect(r.total).toBe(0);
+  });
+
+  it("sin lecturas no hay ritmo de uso → no propone", () => {
+    const r = generarOTsPredictivas({ equipos: [eqA], ots: correctivas, lecturas: [], hoy });
+    expect(r.total).toBe(0);
+  });
+
+  it("idempotencia: si ya existe huella del mes, no duplica", () => {
+    const ots = [...correctivas, { huella: "pred:m1:2026-06", estado: "planificada" }];
+    const r = generarOTsPredictivas({ equipos: [eqA], ots, lecturas, hoy });
+    expect(r.total).toBe(0);
+  });
+
+  it("entradas vacías → estructura estable", () => {
+    expect(generarOTsPredictivas()).toEqual({ sugerencias: [], total: 0 });
   });
 });
