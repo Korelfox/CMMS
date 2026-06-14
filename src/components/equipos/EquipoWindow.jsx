@@ -50,6 +50,7 @@ export default function EquipoWindow({ nodeId, handlersRef, puedeOperar, setTitl
   const hijos   = ordenarHijos(equipos.filter((e) => e.parent_id === node.id));
   const nave    = embarcaciones.find((v) => v.id === node.embarcacion_id);
   const nReps   = destinos.filter((d) => d.equipo_id === node.id).length;
+  const esAgrupador  = node.tipo_nodo === "sistema";
   const esComponente = node.tipo_nodo === "componente" || node.tipo_nodo === "instrumento" || node.tipo_nodo === "equipo";
 
   function handleNameBlur() {
@@ -97,14 +98,16 @@ export default function EquipoWindow({ nodeId, handlersRef, puedeOperar, setTitl
         )}
       </div>
 
-      {/* Paneles ricos (ventanas apiladas) */}
-      <div style={{ padding: "12px 20px", display: "flex", gap: 8, flexWrap: "wrap", borderBottom: `1px solid ${C.foam}` }}>
-        <AccionBtn icon={FileText} label="Ficha técnica" onClick={() => h.abrirFicha(node)} />
-        <AccionBtn icon={Settings2} label="Operacional" onClick={() => h.abrirPropOp(node)} />
-        {esComponente && (
-          <AccionBtn icon={Package} label={`Repuestos${nReps ? ` (${nReps})` : ""}`} onClick={() => h.abrirRepuestos(node)} />
-        )}
-      </div>
+      {/* Paneles ricos (ventanas apiladas) — ocultos para nodos agrupadores */}
+      {!esAgrupador && (
+        <div style={{ padding: "12px 20px", display: "flex", gap: 8, flexWrap: "wrap", borderBottom: `1px solid ${C.foam}` }}>
+          <AccionBtn icon={FileText} label="Ficha técnica" onClick={() => h.abrirFicha(node)} />
+          <AccionBtn icon={Settings2} label="Operacional" onClick={() => h.abrirPropOp(node)} />
+          {esComponente && (
+            <AccionBtn icon={Package} label={`Repuestos${nReps ? ` (${nReps})` : ""}`} onClick={() => h.abrirRepuestos(node)} />
+          )}
+        </div>
+      )}
 
       {/* Estructura: hijos */}
       <div style={{ padding: "14px 20px 18px" }}>
