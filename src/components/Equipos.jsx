@@ -975,7 +975,7 @@ export default function Equipos() {
                                 <Settings2 size={14} />
                               </button>
                             )}
-                            {(() => {
+                            {!esAgrupador && (() => {
                               const conFicha = fichaTieneDatos(e.ficha);
                               return (
                                 <button onClick={() => abrirFicha(e)}
