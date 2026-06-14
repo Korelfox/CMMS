@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback, useMemo } from "react";
 import {
-  Bell, AlertTriangle, Package, Wrench, Clock, Ship, ShoppingCart, ChevronRight, Check, Droplet, ShieldCheck, Activity, FileWarning, ShieldAlert, Anchor, Timer,
+  Bell, AlertTriangle, Package, Wrench, Clock, Ship, ShoppingCart, ChevronRight, Check, Droplet, ShieldCheck, Activity, FileWarning, ShieldAlert, Anchor, Timer, Cpu,
 } from "lucide-react";
 import { puntoHorometro, diasDesde } from "../lib/horometro";
 import { fetchAll } from "../lib/db";
@@ -26,6 +26,7 @@ const CATEGORIAS = [
   { id: "datos",     label: "Datos ISO",       icon: FileWarning },
   { id: "varada",    label: "Varadas",         icon: Anchor },
   { id: "horometro", label: "Horómetros",      icon: Timer },
+  { id: "ia",        label: "Agentes IA",      icon: Cpu },
 ];
 
 // A qué módulo lleva cada categoría de alerta al hacer clic.
@@ -43,6 +44,7 @@ const NAV_POR_CAT = {
   datos: "ots",
   varada: "varada",
   horometro: "horometros",
+  ia: "equipos",
 };
 
 // Días hábiles (lun-vie) entre dos fechas (no cuenta feriados).
@@ -356,6 +358,55 @@ export default function Alertas({ onNavigate }) {
           ts: r.plan?.fecha_ult_pm || eq.updated_at });
       }
     });
+
+    // ──── Agentes IA — calidad de datos que alimentan módulos de inteligencia ────
+
+    // IA-A: equipos sin criticidad → riesgoFlota() / InformeEjecutivo / CopilotoFlota degradados
+    const sinCrit = equipos.filter((e) => !e.criticidad && e.tipo_nodo !== "sistema");
+    if (sinCrit.length > 5) {
+      all.push({ cat: "ia", sev: sinCrit.length > 20 ? "red" : "amber",
+        titulo: `${sinCrit.length} equipos sin criticidad — scoring de riesgo degradado`,
+        detalle: `InformeEjecutivo y CopilotoFlota no priorizan correctamente sin A/B/C — configurar criticidad en módulo Equipos`,
+        ts: null });
+    }
+
+    // IA-B: % OTs correctivas sin modo_falla ISO 14224 → historial de DiagnosticoFallas incompleto
+    const otsCorrCerr = ots.filter((o) => o.estado === "cerrada" && o.tipo === "correctivo");
+    if (otsCorrCerr.length >= 5) {
+      const sinModo = otsCorrCerr.filter((o) => !o.modo_falla).length;
+      const pct = Math.round((sinModo / otsCorrCerr.length) * 100);
+      if (pct > 30) {
+        all.push({ cat: "ia", sev: pct > 60 ? "red" : "amber",
+          titulo: `Historial ISO al ${100 - pct}% — DiagnosticoFallas trabaja con datos incompletos`,
+          detalle: `${sinModo} de ${otsCorrCerr.length} OTs correctivas sin modo_falla ISO 14224 · el motor de diagnóstico pierde el patrón histórico de falla por cada OT sin codificar`,
+          ts: null });
+      }
+    }
+
+    // IA-C: equipos críticos A con <4 OTs correctivas → Weibull no puede ajustarse (ConfiabilidadML)
+    const eqCriticosA = equipos.filter((e) => e.criticidad === "A");
+    const sinPred = eqCriticosA.filter((eq) =>
+      ots.filter((o) => o.equipo_id === eq.id && o.tipo === "correctivo" && o.estado === "cerrada").length < 4
+    );
+    if (eqCriticosA.length > 0 && sinPred.length > 0) {
+      all.push({ cat: "ia", sev: "amber",
+        titulo: `${sinPred.length} equipo${sinPred.length !== 1 ? "s" : ""} crítico${sinPred.length !== 1 ? "s" : ""} A sin predicción Weibull`,
+        detalle: `ConfiabilidadML requiere ≥4 OTs correctivas cerradas por equipo · sin ese historial no hay ajuste de distribución ni vida residual (RUL)`,
+        ts: null });
+    }
+
+    // IA-D: series PdM sin medición reciente → DiagnosticoFallas pierde contexto de condición
+    let pdmStale = 0;
+    for (const serie of seriesPdM(mediciones).values()) {
+      const dSerie = diasDesde(serie[0]?.fecha);
+      if (dSerie == null || dSerie > 30) pdmStale++;
+    }
+    if (pdmStale > 0) {
+      all.push({ cat: "ia", sev: "amber",
+        titulo: `${pdmStale} serie${pdmStale !== 1 ? "s" : ""} PdM sin datos recientes (>30 d)`,
+        detalle: `DiagnosticoFallas y ConfiabilidadML pierden contexto de condición — ingresar mediciones en módulo PdM`,
+        ts: null });
+    }
 
     // Orden: rojo primero, luego ámbar, dentro de cada uno por timestamp descendente
     return all.sort((a, b) => {
