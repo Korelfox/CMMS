@@ -1,26 +1,28 @@
-import React, { useState } from "react";
-import { Save } from "lucide-react";
+import React, { useState, useMemo } from "react";
+import { Save, CornerDownRight, Users, AlertTriangle } from "lucide-react";
 import { C, tint, NIVEL_TIPOS } from "../../theme";
+import { useEquiposData } from "./equiposStore";
+import { puntoHorometro, idsBajoPunto } from "../../lib/horometro";
 
 // Cuerpo de "Configuración operacional" para una ventana del WindowManager.
-// La ventana aporta el marco (overlay, cabecera, breadcrumb); aquí va el
-// contenido desplazable + el pie de acciones. onDone() cierra la ventana.
+// La ventana aporta el marco; aquí va el contenido + pie de acciones.
+// onDone() cierra la ventana.
 
 const MODOS_HOR = [
   {
     value: "propio",
     label: "Punto propio",
-    desc: "Este equipo tiene su propio contador de horas. Aquí se registran las lecturas periódicas.",
+    desc: "Este equipo tiene su propio horómetro (motor, generador, bomba). Las lecturas se ingresan aquí y se propagan a sus componentes.",
   },
   {
     value: "hereda",
-    label: "Hereda",
-    desc: "Usa las horas del equipo ascendiente con horómetro propio más cercano (p.ej., un filtro usa las horas de su motor).",
+    label: "Hereda horas",
+    desc: "Usa las horas del ascendiente con horómetro propio más cercano (filtros, enfriadores, componentes acoplados a la máquina).",
   },
   {
     value: "no",
     label: "No aplica",
-    desc: "Sin registro de horas: estructuras, mamparos, casco, equipos estáticos, sistemas de seguridad pasiva.",
+    desc: "Sin registro de horas: estructura, mamparos, casco, equipos estáticos, seguridad pasiva.",
   },
 ];
 
@@ -54,6 +56,25 @@ export function PropOpBody({ node, onSave, onDone }) {
   const [niv, setNiv] = useState(node.nivel_tipo || "ninguno");
   const [guardando, setGuardando] = useState(false);
 
+  // Datos vivos del store — siempre frescos aunque el árbol haya cambiado.
+  const { equipos } = useEquiposData();
+  const byId = useMemo(() => new Map(equipos.map((e) => [e.id, e])), [equipos]);
+
+  // Resuelve la herencia con el modo actualmente seleccionado.
+  // Simulamos que el nodo tiene el modo elegido para ver el resultado inmediatamente.
+  const nodoSimulado = useMemo(() => ({ ...node, horometro: hor }), [node, hor]);
+  const puntoId  = useMemo(() => puntoHorometro(nodoSimulado, byId), [nodoSimulado, byId]);
+  const puntoDato = puntoId ? byId.get(puntoId) : null;
+
+  // Para "propio": muestra cuántos componentes heredarían de este nodo.
+  const subHeredando = useMemo(() => {
+    if (hor !== "propio") return [];
+    return idsBajoPunto(node.id, equipos, byId)
+      .filter((id) => id !== node.id)
+      .map((id) => byId.get(id))
+      .filter(Boolean);
+  }, [hor, node.id, equipos, byId]);
+
   async function guardar() {
     setGuardando(true);
     try {
@@ -64,7 +85,7 @@ export function PropOpBody({ node, onSave, onDone }) {
       });
       onDone();
     } catch {
-      // El padre muestra el error vía setError; la ventana permanece abierta.
+      /* onSave muestra el error vía setError en Equipos */
     } finally {
       setGuardando(false);
     }
@@ -79,6 +100,7 @@ export function PropOpBody({ node, onSave, onDone }) {
     <>
       {/* Cuerpo desplazable */}
       <div style={{ flex: 1, overflowY: "auto", padding: "18px 20px 4px" }}>
+
         {/* ── Horómetro ── */}
         <div style={{ marginBottom: 22 }}>
           <div style={secLbl}>Horómetro</div>
@@ -86,6 +108,61 @@ export function PropOpBody({ node, onSave, onDone }) {
             <RadioCard key={m.value} label={m.label} desc={m.desc}
               checked={hor === m.value} onChange={() => setHor(m.value)} color={C.steel} />
           ))}
+
+          {/* ── Resolución en tiempo real de la herencia ── */}
+          {hor === "hereda" && (
+            <div style={{
+              marginTop: 8, padding: "9px 12px", borderRadius: 8,
+              border: `1px solid ${puntoDato ? tint(C.cyan, 35) : tint(C.amber, 35)}`,
+              background: puntoDato ? tint(C.cyan, 7) : tint(C.amber, 7),
+            }}>
+              {puntoDato ? (
+                <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
+                  <CornerDownRight size={14} color={C.cyan} style={{ flexShrink: 0 }} />
+                  <span style={{ fontSize: 12.5, color: C.slate }}>Heredará horas de</span>
+                  <strong style={{ fontSize: 13, color: C.abyss }}>{puntoDato.sistema}</strong>
+                  <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 12, color: C.steel, background: tint(C.steel, 10), borderRadius: 5, padding: "1px 6px" }}>
+                    {puntoDato.id_visible}
+                  </span>
+                </div>
+              ) : (
+                <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
+                  <AlertTriangle size={15} color={C.amber} style={{ flexShrink: 0, marginTop: 1 }} />
+                  <div>
+                    <div style={{ fontSize: 12.5, fontWeight: 700, color: C.amber }}>Sin ascendiente con horómetro propio</div>
+                    <div style={{ fontSize: 11.5, color: C.slate, marginTop: 3, lineHeight: 1.5 }}>
+                      Ningún equipo en la cadena de padres está configurado como "Punto propio".
+                      Este componente quedará sin horas hasta que un ascendiente lo tenga.
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── Para "propio": lista de componentes que heredan ── */}
+          {hor === "propio" && subHeredando.length > 0 && (
+            <div style={{
+              marginTop: 8, padding: "10px 12px", borderRadius: 8,
+              border: `1px solid ${tint(C.steel, 25)}`, background: tint(C.steel, 5),
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
+                <Users size={13} color={C.steel} />
+                <span style={{ fontSize: 12, fontWeight: 700, color: C.ink }}>
+                  {subHeredando.length} componente{subHeredando.length !== 1 ? "s" : ""} heredan horas de este equipo
+                </span>
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                {subHeredando.map((e) => (
+                  <div key={e.id} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12 }}>
+                    <CornerDownRight size={11} color={C.slate} style={{ flexShrink: 0 }} />
+                    <span style={{ color: C.ink, fontWeight: 600 }}>{e.sistema}</span>
+                    <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, color: C.steel }}>{e.id_visible}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* ── Consume aceite (solo propio) ── */}
@@ -99,8 +176,7 @@ export function PropOpBody({ node, onSave, onDone }) {
             background: hor === "propio" && aco ? tint(C.gold, 8) : tint(C.slate, 4),
             opacity: hor !== "propio" ? 0.45 : 1, transition: "all .12s",
           }}>
-            <input
-              type="checkbox" checked={aco}
+            <input type="checkbox" checked={aco}
               disabled={hor !== "propio"}
               onChange={(ev) => hor === "propio" && setAco(ev.target.checked)}
               style={{ width: 16, height: 16, accentColor: C.gold, cursor: hor === "propio" ? "pointer" : "default", marginTop: 2, flexShrink: 0 }}
@@ -120,7 +196,7 @@ export function PropOpBody({ node, onSave, onDone }) {
         <div style={{ marginBottom: 20 }}>
           <div style={secLbl}>Revisión de niveles en prezarpe</div>
           <div style={{ fontSize: 11.5, color: C.slate, marginBottom: 10, lineHeight: 1.4 }}>
-            Niveles físicos que el capitán/maquinista verifica al zarpar.
+            Niveles físicos que el capitán o maquinista verifica antes de zarpar.
           </div>
           {NIVEL_TIPOS.map((n) => {
             const sel = niv === n.value;
@@ -141,7 +217,7 @@ export function PropOpBody({ node, onSave, onDone }) {
         </div>
       </div>
 
-      {/* Pie */}
+      {/* ── Pie ── */}
       <div style={{ padding: "12px 20px", borderTop: `1px solid ${C.line}`, display: "flex", justifyContent: "flex-end", gap: 8, flexShrink: 0 }}>
         <button onClick={onDone} style={{
           padding: "8px 16px", borderRadius: 8, border: `1px solid ${C.line}`,
