@@ -931,7 +931,7 @@ export default function Equipos() {
                             <input type="number" value={e.horas_actual} disabled={!puedeOperar}
                               onFocus={(ev) => ev.target.select()} onChange={(ev) => onChangeLocal(e.id, "horas_actual", +ev.target.value)}
                               onBlur={(ev) => commit(e.id, "horas_actual", +ev.target.value)}
-                              style={{ ...bluC, width: 62, textAlign: "right" }} />
+                              style={{ ...bluC, width: 76, textAlign: "right" }} />
                           </td>}
                       {/* Último PM: solo lectura — lo escribe Plan Preventivo al registrar */}
                       {esAgrupador
