@@ -5,7 +5,7 @@ import {
   TrendingUp, TrendingDown, FileText, History, Layers, Bell, LogOut, UserCircle, UserCog,
   Wifi, WifiOff, RefreshCw, CheckCircle2, BarChart3, ShipWheel, Fuel, ShieldCheck, Fish,
   Menu, X, Sun, Moon, Building2, Timer, Waves, ListTodo, Microscope, Wrench, CalendarRange,
-  ShieldAlert, SlidersHorizontal, PiggyBank, Sparkles, Stethoscope, Bot, Scale, Sigma, Receipt, Replace,
+  ShieldAlert, SlidersHorizontal, PiggyBank, Sparkles, Stethoscope, Bot, Scale, Sigma, Receipt, Replace, Network,
 } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { fetchAll } from "../lib/db";
@@ -58,6 +58,7 @@ const OptimizadorVentana  = lazy(() => import("./OptimizadorVentana"));
 const ConfiabilidadML     = lazy(() => import("./ConfiabilidadML"));
 const OcrFacturas         = lazy(() => import("./OcrFacturas"));
 const ReemplazarReparar   = lazy(() => import("./ReemplazarReparar"));
+const ArquitecturaIA      = lazy(() => import("./ArquitecturaIA"));
 
 const INTERVALOS_REFRESH = [
   { label: "5 min",       s: 300  },
@@ -115,6 +116,7 @@ const NAV = [
   { id: "costos", label: "Costo Global (CGM)", icon: DollarSign, group: "Optimización" },
   { id: "capex", label: "Reemplazar vs Reparar", icon: Replace, group: "Optimización" },
   { id: "optim", label: "Optimización", icon: TrendingUp, group: "Optimización" },
+  { id: "arquia",   label: "Arquitectura IA", icon: Network,   group: "Sistema" },
   { id: "reportes", label: "Reportes", icon: FileText, group: "Sistema" },
   { id: "bitacora", label: "Bitácora", icon: History, group: "Sistema" },
   { id: "usuarios", label: "Usuarios", icon: UserCog, group: "Sistema", adminOnly: true },
@@ -162,6 +164,7 @@ const MODULOS = {
   costos: CGM,
   capex: ReemplazarReparar,
   optim: Weibull,
+  arquia:   ArquitecturaIA,
   reportes: Reportes,
   bitacora:      Bitacora,
   rentabilidad:  Rentabilidad,
