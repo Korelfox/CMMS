@@ -1,5 +1,8 @@
-import React, { useEffect, useState, useCallback, useMemo } from "react";
-import { CalendarClock, Check, AlertCircle, Plus, Trash2, Download, Printer, History, ClipboardList, X, ChevronDown, ChevronRight, Edit3 } from "lucide-react";
+import React, { useEffect, useState, useCallback, useMemo, useRef } from "react";
+import { CalendarClock, Check, AlertCircle, Plus, Trash2, Download, Printer, History, ClipboardList, X, ChevronDown, ChevronRight, Edit3, PanelRightOpen } from "lucide-react";
+import { useWindows } from "./windows/WindowManager";
+import { planpmStore } from "./planpm/planpmStore";
+import PMWindow from "./planpm/PMWindow";
 import { useAuth } from "../lib/auth";
 import { fetchAll, insertRow, updateRow, deleteRow, logActivity } from "../lib/db";
 import { buildEquipoTree } from "../lib/equipTree";
@@ -67,6 +70,8 @@ export default function PlanPM({ onNavigate }) {
   const [tab,        setTab]        = useState("plan"); // "plan" | "historial"
   const puedeOperar = canOperate(profile?.rol);
   const puedeBorrar = isAdmin(profile?.rol);
+  const { open } = useWindows();
+  const handlersRef = useRef({});
 
   const cargar = useCallback(async () => {
     setLoading(true); setError(null);
@@ -83,7 +88,25 @@ export default function PlanPM({ onNavigate }) {
   }, []);
   useEffect(() => { cargar(); }, [cargar]);
 
+  useEffect(() => {
+    planpmStore.set({ planes, historial, equipos, embarcaciones });
+  }, [planes, historial, equipos, embarcaciones]);
+
   const embName = (id) => embarcaciones.find((e) => e.id === id)?.nombre || "—";
+
+  function abrirPMWindow(eq) {
+    open({
+      id: `pm-${eq.id}`,
+      title: eq.sistema,
+      subtitle: `${eq.id_visible} · ${embName(eq.embarcacion_id)}`,
+      icon: CalendarClock,
+      iconColor: C.cyan,
+      width: 640,
+      render: () => (
+        <PMWindow equipoId={eq.id} handlersRef={handlersRef} puedeOperar={puedeOperar} puedeBorrar={puedeBorrar} />
+      ),
+    });
+  }
   const lista   = buildEquipoTree(filtro === "all" ? equipos : equipos.filter((e) => e.embarcacion_id === filtro));
 
   // KPIs globales
@@ -161,7 +184,8 @@ export default function PlanPM({ onNavigate }) {
           historial={historial} setHistorial={setHistorial}
           embarcaciones={embarcaciones} embName={embName}
           profile={profile} puedeOperar={puedeOperar} puedeBorrar={puedeBorrar}
-          setError={setError} onNavigate={onNavigate} />
+          setError={setError} onNavigate={onNavigate}
+          handlersRef={handlersRef} abrirPMWindow={abrirPMWindow} />
       )}
       {tab === "historial" && (
         <TabHistorial historial={historial} planes={planes} equipos={equipos} embName={embName} />
@@ -173,7 +197,7 @@ export default function PlanPM({ onNavigate }) {
 // ─────────────────────────────────────────────────────────────────
 // TAB PLAN
 // ─────────────────────────────────────────────────────────────────
-function TabPlan({ lista, equipos, setEquipos, planes, setPlanes, setHistorial, embName, profile, puedeOperar, puedeBorrar, setError, onNavigate }) {
+function TabPlan({ lista, equipos, setEquipos, planes, setPlanes, setHistorial, embName, profile, puedeOperar, puedeBorrar, setError, onNavigate, handlersRef, abrirPMWindow }) {
   const [addingFor,   setAddingFor]   = useState(null); // equipo_id
   const [newPlan,     setNewPlan]     = useState({ descripcion: "", tipo_disparador: "horas", intervalo_horas: 250, unidad_calendario: "mensual", intervalo_calendario: 1, horas_ult_pm: "", fecha_ult_pm: "" });
   const [registrando, setRegistrando] = useState(null); // plan_pm_id
@@ -200,30 +224,28 @@ function TabPlan({ lista, equipos, setEquipos, planes, setPlanes, setHistorial, 
     </Empty></Card>
   );
 
-  async function agregarPlan(equipoId) {
-    if (!newPlan.descripcion.trim()) return;
+  async function agregarPlan(equipoId, planData) {
+    if (!planData.descripcion.trim()) return;
     const eq = equipos.find((e) => e.id === equipoId);
-    const esCalendario = newPlan.tipo_disparador === "calendario";
+    const esCalendario = planData.tipo_disparador === "calendario";
     try {
       const nuevo = await insertRow("planes_pm", profile.empresa_id, {
         equipo_id:            equipoId,
-        descripcion:          newPlan.descripcion.trim(),
-        tipo_disparador:      newPlan.tipo_disparador,
-        intervalo_horas:      esCalendario ? null : +newPlan.intervalo_horas,
-        unidad_calendario:    esCalendario ? newPlan.unidad_calendario : null,
-        intervalo_calendario: esCalendario ? +newPlan.intervalo_calendario : null,
+        descripcion:          planData.descripcion.trim(),
+        tipo_disparador:      planData.tipo_disparador,
+        intervalo_horas:      esCalendario ? null : +planData.intervalo_horas,
+        unidad_calendario:    esCalendario ? planData.unidad_calendario : null,
+        intervalo_calendario: esCalendario ? +planData.intervalo_calendario : null,
         activo:               true,
-        horas_ult_pm:         esCalendario ? null : (newPlan.horas_ult_pm !== "" ? +newPlan.horas_ult_pm : 0),
-        fecha_ult_pm:         newPlan.fecha_ult_pm || null,
+        horas_ult_pm:         esCalendario ? null : (planData.horas_ult_pm !== "" ? +planData.horas_ult_pm : 0),
+        fecha_ult_pm:         planData.fecha_ult_pm || null,
       });
       setPlanes((p) => [...p, nuevo]);
       const cadaLabel = esCalendario
         ? `cada ${nuevo.intervalo_calendario} ${LABEL_UNIDAD[nuevo.unidad_calendario] || nuevo.unidad_calendario}`
         : `cada ${nuevo.intervalo_horas}h`;
       logActivity(profile, "Crear plan PM", `${eq?.sistema} · ${cadaLabel}`);
-      setNewPlan({ descripcion: "", tipo_disparador: "horas", intervalo_horas: 250, unidad_calendario: "mensual", intervalo_calendario: 1, horas_ult_pm: "", fecha_ult_pm: "" });
-      setAddingFor(null);
-    } catch (e) { setError("No se pudo crear el plan: " + e.message); }
+    } catch (e) { setError("No se pudo crear el plan: " + e.message); throw e; }
   }
 
   // Ajusta el hito (último servicio) de un plan existente sin crear un PM nuevo.
@@ -236,14 +258,13 @@ function TabPlan({ lista, equipos, setEquipos, planes, setPlanes, setHistorial, 
     });
   }
 
-  async function guardarHito(plan) {
+  async function guardarHito(plan, form) {
     const esCalendario = plan.tipo_disparador === "calendario";
-    const horas  = !esCalendario ? (hitoForm.horas !== "" ? +hitoForm.horas : 0) : null;
-    const fecha  = hitoForm.fecha || null;
+    const horas  = !esCalendario ? (form.horas !== "" ? +form.horas : 0) : null;
+    const fecha  = form.fecha || null;
     const prev   = { horas_ult_pm: plan.horas_ult_pm, fecha_ult_pm: plan.fecha_ult_pm };
     const update = esCalendario ? { fecha_ult_pm: fecha } : { horas_ult_pm: horas, fecha_ult_pm: fecha };
     setPlanes((p) => p.map((x) => x.id === plan.id ? { ...x, ...update } : x));
-    setEditHitoId(null);
     try {
       await updateRow("planes_pm", plan.id, update);
       const logLabel = esCalendario
@@ -252,8 +273,8 @@ function TabPlan({ lista, equipos, setEquipos, planes, setPlanes, setHistorial, 
       logActivity(profile, "Ajustar hito PM", logLabel);
     } catch (e) {
       setPlanes((p) => p.map((x) => x.id === plan.id ? { ...x, ...prev } : x));
-      setEditHitoId(plan.id);
       setError("No se pudo guardar el hito: " + e.message);
+      throw e;
     }
   }
 
@@ -265,7 +286,7 @@ function TabPlan({ lista, equipos, setEquipos, planes, setPlanes, setHistorial, 
     catch (e) { setPlanes((p) => [...p, plan]); setError("No se pudo eliminar: " + e.message); }
   }
 
-  async function registrarPM(plan) {
+  async function registrarPM(plan, form) {
     const eq           = equipos.find((e) => e.id === plan.equipo_id);
     const horas        = eq?.horas_actual || 0;
     const fecha        = HOY();
@@ -277,7 +298,7 @@ function TabPlan({ lista, equipos, setEquipos, planes, setPlanes, setHistorial, 
 
     try {
       // 1) Generar OT si se pidió
-      if (regForm.crearOT && eq) {
+      if (form.crearOT && eq) {
         const [tone] = esCalendario
           ? statusPlanCalendario(elapsed, plan.unidad_calendario, plan.intervalo_calendario ?? 1)
           : statusPlan(elapsed, plan.intervalo_horas);
@@ -294,11 +315,11 @@ function TabPlan({ lista, equipos, setEquipos, planes, setPlanes, setHistorial, 
         });
         otId = ot.id;
       }
-      // 2) Actualizar contador del plan (calendario: solo fecha; horas: horas + fecha)
+      // 2) Actualizar contador del plan
       const pmUpdate = esCalendario ? { fecha_ult_pm: fecha } : { horas_ult_pm: horas, fecha_ult_pm: fecha };
       await updateRow("planes_pm", plan.id, pmUpdate);
       setPlanes((p) => p.map((x) => x.id === plan.id ? { ...x, ...pmUpdate } : x));
-      // 3) Actualizar horas_ult_pm del equipo (resumen global)
+      // 3) Actualizar horas_ult_pm del equipo
       if (eq) {
         await updateRow("equipos", eq.id, { horas_ult_pm: horas, fecha_ult_pm: fecha });
         setEquipos((p) => p.map((e) => e.id === eq.id ? { ...e, horas_ult_pm: horas, fecha_ult_pm: fecha } : e));
@@ -307,17 +328,15 @@ function TabPlan({ lista, equipos, setEquipos, planes, setPlanes, setHistorial, 
       const registro = await insertRow("historial_pm", profile.empresa_id, {
         plan_pm_id: plan.id, equipo_id: plan.equipo_id,
         horas_realizacion: horas, fecha_realizacion: fecha,
-        realizado_por: regForm.realizado_por.trim() || profile.nombre || "",
-        notas: regForm.notas.trim() || null,
+        realizado_por: (form.realizado_por || "").trim() || profile.nombre || "",
+        notas: (form.notas || "").trim() || null,
         ot_id: otId, created_by: profile.id,
       });
       setHistorial((p) => [registro, ...p]);
       logActivity(profile, "Registrar PM", `${eq?.sistema} · ${plan.descripcion} · ${num(horas)}h`);
-      setRegistrando(null);
-      setRegForm({ realizado_por: "", notas: "", crearOT: false });
       // 5) Navegar a la OT si se creó
-      if (otId && regForm.crearOT) onNavigate?.("ots", { otId });
-    } catch (e) { setError("No se pudo registrar el PM: " + e.message); }
+      if (otId && form.crearOT) onNavigate?.("ots", { otId });
+    } catch (e) { setError("No se pudo registrar el PM: " + e.message); throw e; }
   }
 
   // ── Exportar plan PM completo a CSV ─────────────────────────────
@@ -433,6 +452,12 @@ tbody td{padding:5px 8px;vertical-align:middle}
     w.document.close();
   }
 
+  // Expone handlers al ref para que PMWindow los llame desde fuera del árbol.
+  handlersRef.current = {
+    registrarPM, guardarHito, agregarPlan, eliminarPlan,
+    nombreUsuario: profile?.nombre || "",
+  };
+
   return (
     <div>
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12, flexWrap: "wrap" }}>
@@ -475,8 +500,12 @@ tbody td{padding:5px 8px;vertical-align:middle}
                   {colapsado ? <ChevronRight size={17} /> : <ChevronDown size={17} />}
                 </button>
               ) : eq.depth > 0 ? <span style={{ color: C.slate, fontSize: 13 }}>└─</span> : <span style={{ width: 17 }} />}
-              <div style={{ flex: 1 }}>
-                <span style={{ fontWeight: 700, fontSize: 14, color: C.abyss }}>{eq.sistema}</span>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <button onClick={() => abrirPMWindow(eq)} className="cmms-clickable"
+                  style={{ background: "none", border: "none", cursor: "pointer", padding: 0, display: "inline-flex", alignItems: "center", gap: 6, fontFamily: "inherit" }}>
+                  <span style={{ fontWeight: 700, fontSize: 14, color: C.abyss }}>{eq.sistema}</span>
+                  <PanelRightOpen size={13} color={C.slate} style={{ opacity: 0.6 }} />
+                </button>
                 {eq.criticidad && <span style={{ marginLeft: 7 }}><Pill tone={{ A: "red", B: "yellow", C: "green" }[eq.criticidad]}>{eq.criticidad}</Pill></span>}
                 <span style={{ fontSize: 11.5, color: C.slate, marginLeft: 8, fontFamily: "'IBM Plex Mono', monospace" }}>{eq.id_visible}</span>
                 <span style={{ fontSize: 11.5, color: C.slate, marginLeft: 6 }}>· {embName(eq.embarcacion_id)}</span>
@@ -588,7 +617,7 @@ tbody td{padding:5px 8px;vertical-align:middle}
                         </Field>
                       </div>
                       <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
-                        <button onClick={() => guardarHito(plan)} style={primaryBtn}>
+                        <button onClick={async () => { try { await guardarHito(plan, hitoForm); setEditHitoId(null); } catch { setEditHitoId(plan.id); } }} style={primaryBtn}>
                           <Check size={14} /> Guardar hito
                         </button>
                         <button onClick={() => setEditHitoId(null)} style={ghostBtn}><X size={13} /> Cancelar</button>
@@ -622,7 +651,7 @@ tbody td{padding:5px 8px;vertical-align:middle}
                         </label>
                       </div>
                       <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
-                        <button onClick={() => registrarPM(plan)} style={primaryBtn}>
+                        <button onClick={async () => { try { await registrarPM(plan, regForm); setRegistrando(null); setRegForm({ realizado_por: "", notas: "", crearOT: false }); } catch { /* error manejado por registrarPM */ } }} style={primaryBtn}>
                           <Check size={14} /> Confirmar PM{regForm.crearOT ? " + OT" : ""}
                         </button>
                         <button onClick={() => setRegistrando(null)} style={ghostBtn}><X size={13} /> Cancelar</button>
@@ -676,7 +705,7 @@ tbody td{padding:5px 8px;vertical-align:middle}
                       </div>
                     </div>
                   )}
-                  <button onClick={() => agregarPlan(eq.id)} style={{ ...primaryBtn, marginTop: 22 }}>Guardar</button>
+                  <button onClick={async () => { try { await agregarPlan(eq.id, newPlan); setNewPlan({ descripcion: "", tipo_disparador: "horas", intervalo_horas: 250, unidad_calendario: "mensual", intervalo_calendario: 1, horas_ult_pm: "", fecha_ult_pm: "" }); setAddingFor(null); } catch { /* error manejado por agregarPlan */ } }} style={{ ...primaryBtn, marginTop: 22 }}>Guardar</button>
                   <button onClick={() => setAddingFor(null)} style={{ ...ghostBtn, marginTop: 22 }}><X size={13} /></button>
                 </div>
                 {/* ── Hito inicial (opcional) ── */}
