@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from "react";
-import { Ship, Plus, Trash2, Anchor } from "lucide-react";
+import { Ship, Plus, Trash2, Anchor, Wifi, Copy } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { fetchAll, insertRow, updateRow, deleteRow, logActivity } from "../lib/db";
 import { C, archivo, isAdmin, canOperate } from "../theme";
@@ -10,6 +10,9 @@ import {
 
 const COLORES = ["#0B2A4A", "#1C5C9B", "#127C8A", "#1E9E6A", "#6C4FA3", "#8A5A2B", "#E0A526", "#D8443C"];
 
+// Endpoint del webhook de telemetría de horómetro (CMMS autónomo · Salto 3).
+const FUNCTIONS_URL = (import.meta.env.VITE_SUPABASE_URL || "") + "/functions/v1/ingest-horometro";
+
 export default function Embarcaciones() {
   const { profile } = useAuth();
   const [rows, setRows] = useState([]);
@@ -17,6 +20,7 @@ export default function Embarcaciones() {
   const [error, setError] = useState(null);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ codigo: "", nombre: "", color: COLORES[1] });
+  const [tokenAbierto, setTokenAbierto] = useState(null);
   const puedeOperar = canOperate(profile?.rol);
   const puedeBorrar = isAdmin(profile?.rol);
 
@@ -138,6 +142,29 @@ export default function Embarcaciones() {
                       </label>
                     )}
                   </div>
+
+                  {puedeBorrar && (
+                    <div style={{ marginTop: 14, paddingTop: 12, borderTop: `1px solid ${C.foam}` }}>
+                      <button onClick={() => setTokenAbierto(tokenAbierto === e.id ? null : e.id)}
+                        style={{ display: "flex", alignItems: "center", gap: 6, background: "none", border: "none", cursor: "pointer", color: C.steel, fontSize: 12, fontWeight: 600, padding: 0 }}>
+                        <Wifi size={13} /> Telemetría de horómetro {tokenAbierto === e.id ? "▲" : "▼"}
+                      </button>
+                      {tokenAbierto === e.id && (
+                        <div style={{ marginTop: 10 }}>
+                          <div style={{ fontSize: 10.5, color: C.slate, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 }}>Endpoint (POST)</div>
+                          <div style={{ fontSize: 11, fontFamily: "'IBM Plex Mono', monospace", color: C.ink, background: C.mist, border: `1px solid ${C.line}`, borderRadius: 6, padding: "6px 8px", wordBreak: "break-all", marginBottom: 8 }}>{FUNCTIONS_URL}</div>
+                          <div style={{ fontSize: 10.5, color: C.slate, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 }}>Token de esta nave</div>
+                          <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                            <code style={{ flex: 1, fontSize: 11, fontFamily: "'IBM Plex Mono', monospace", color: C.ink, background: C.mist, border: `1px solid ${C.line}`, borderRadius: 6, padding: "6px 8px", wordBreak: "break-all" }}>{e.telemetria_token}</code>
+                            <button onClick={() => navigator.clipboard?.writeText(e.telemetria_token)} title="Copiar token" style={{ ...ghostBtn, padding: "6px 9px" }}><Copy size={13} /></button>
+                          </div>
+                          <div style={{ fontSize: 11, color: C.slate, marginTop: 8, lineHeight: 1.5 }}>
+                            El emisor a bordo hace POST con <code style={{ fontSize: 10.5 }}>{"{ token, equipo_id, horas }"}</code>. La lectura entra con fuente telemetría y se propaga al subárbol del horómetro. Token secreto — trátalo como una credencial.
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </Card>
             ))}
