@@ -5,7 +5,7 @@ import {
   TrendingUp, TrendingDown, FileText, History, Layers, Bell, LogOut, UserCircle, UserCog,
   Wifi, WifiOff, RefreshCw, CheckCircle2, BarChart3, ShipWheel, Fuel, ShieldCheck, Fish,
   Menu, X, Sun, Moon, Building2, Timer, Waves, ListTodo, Microscope, Wrench, CalendarRange,
-  ShieldAlert, SlidersHorizontal, PiggyBank, Sparkles, Stethoscope, Bot, Scale, Sigma, Receipt, Replace, Network,
+  ShieldAlert, SlidersHorizontal, PiggyBank, Sparkles, Stethoscope, Bot, Scale, Sigma, Receipt, Replace, Network, Workflow,
 } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { fetchAll } from "../lib/db";
@@ -59,6 +59,7 @@ const ConfiabilidadML     = lazy(() => import("./ConfiabilidadML"));
 const OcrFacturas         = lazy(() => import("./OcrFacturas"));
 const ReemplazarReparar   = lazy(() => import("./ReemplazarReparar"));
 const ArquitecturaIA      = lazy(() => import("./ArquitecturaIA"));
+const OTAutonomas         = lazy(() => import("./OTAutonomas"));
 
 const INTERVALOS_REFRESH = [
   { label: "5 min",       s: 300  },
@@ -90,6 +91,7 @@ const NAV = [
   { id: "planpm", label: "Plan Preventivo", icon: CalendarClock, group: "Operación" },
   { id: "solicitudes", label: "Solicitudes", icon: Inbox, group: "Operación" },
   { id: "ots", label: "Órdenes de Trabajo", icon: ClipboardList, group: "Operación" },
+  { id: "otauto",      label: "OTs Automáticas",     icon: Workflow,     group: "Operación" },
   { id: "backlog",     label: "Backlog",             icon: ListTodo,     group: "Operación" },
   { id: "planpuerto", label: "Ventana de Puerto",  icon: CalendarRange, group: "Operación" },
   { id: "optimvt",    label: "Optimizador de Ventana", icon: Scale,     group: "Operación" },
@@ -141,6 +143,7 @@ const MODULOS = {
   programa: Programacion,
   solicitudes: Solicitudes,
   ots: OrdenesTrabajo,
+  otauto: OTAutonomas,
   inventario: Inventario,
   almacen: Almacen,
   ocr:     OcrFacturas,
