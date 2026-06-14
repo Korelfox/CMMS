@@ -2,11 +2,12 @@ import React, { useState, useEffect, useMemo, useCallback } from "react";
 import {
   Workflow, Timer, CalendarRange, Sigma, Activity, Wrench, Cpu, Fingerprint,
   Lightbulb, UserCheck, ClipboardList, RotateCw, Anchor, CalendarClock,
-  Check, RefreshCw, AlertTriangle, Bot,
+  Check, RefreshCw, AlertTriangle, Bot, Zap, X, Clock,
 } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { useOnline } from "../lib/offline";
-import { fetchAll, insertRow, logActivity } from "../lib/db";
+import { supabase } from "../lib/supabase";
+import { fetchAll, insertRow, updateRow, logActivity } from "../lib/db";
 import { folioOT } from "../lib/ot";
 import { generarOTsPreventivas } from "../lib/autoOT";
 import { C, tint, canOperate } from "../theme";
@@ -25,7 +26,6 @@ const TONE_DIAG = {
   purple: { t: "#d8b4fe", bg: "rgba(168,85,247,.14)", b: "rgba(168,85,247,.45)" },
 };
 
-// Caja del diagrama. dim → atenuada (Fase 2, aún no implementada).
 function Step({ icon: Ico, title, sub, tone = "blue", dim = false, wide = false }) {
   const c = TONE_DIAG[tone];
   return (
@@ -53,16 +53,37 @@ function DiagLabel({ children }) {
   return <div style={{ fontSize: 10, fontWeight: 700, color: D.dim, letterSpacing: 0.9, textTransform: "uppercase", margin: "0 0 8px" }}>{children}</div>;
 }
 
-// ── Badge de prioridad / semáforo en la paleta de la app ──
-function SemBadge({ tone }) {
-  const map = {
-    red:    [C.red, "Vencido"],
-    yellow: [C.yellow, "Próximo"],
-  };
-  const [col, label] = map[tone] || [C.slate, "—"];
+function Chip({ color, bg, border, children }) {
   return (
-    <span style={{ fontSize: 10.5, fontWeight: 700, color: col, background: tint(col, 14), border: `1px solid ${tint(col, 35)}`, borderRadius: 20, padding: "1px 9px", whiteSpace: "nowrap" }}>
-      {label}
+    <span style={{ fontSize: 10.5, fontWeight: 700, color, background: bg, border: `1px solid ${border}`, borderRadius: 20, padding: "2px 10px", whiteSpace: "nowrap" }}>
+      {children}
+    </span>
+  );
+}
+
+// ── Badges en la paleta de la app ──
+function VencidoBadge() {
+  return (
+    <span style={{ fontSize: 10.5, fontWeight: 700, color: C.red, background: tint(C.red, 14), border: `1px solid ${tint(C.red, 35)}`, borderRadius: 20, padding: "1px 9px", whiteSpace: "nowrap" }}>
+      Vencido
+    </span>
+  );
+}
+function CritBadge({ nivel }) {
+  if (!nivel) return null;
+  const col = nivel === "A" ? C.red : nivel === "B" ? C.yellow : C.steel;
+  return (
+    <span style={{ fontSize: 10.5, fontWeight: 700, color: col, background: tint(col, 12), border: `1px solid ${tint(col, 30)}`, borderRadius: 20, padding: "1px 8px" }}>
+      Crit. {nivel}
+    </span>
+  );
+}
+function OrigenChip({ origen }) {
+  const cron = origen === "cron";
+  const col = cron ? C.purple : C.steel;
+  return (
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 10.5, fontWeight: 600, color: col, background: tint(col, 10), borderRadius: 6, padding: "1px 7px" }}>
+      {cron ? <Clock size={10} /> : <Zap size={10} />} {cron ? "nocturno" : "manual"}
     </span>
   );
 }
@@ -83,22 +104,25 @@ export default function OTAutonomas({ onNavigate }) {
   const puedeOperar = canOperate(profile?.rol);
 
   const [data, setData] = useState({ planes: [], equipos: [], ots: [] });
+  const [sugerencias, setSugerencias] = useState([]);   // bandeja: ot_sugerencias estado 'sugerida'
   const [cargando, setCargando] = useState(true);
   const [ts, setTs] = useState(null);
-  const [incluirProximos, setIncluirProximos] = useState(false);
-  const [confirmando, setConfirmando] = useState(null); // huella en curso | "all"
+  const [generando, setGenerando] = useState(false);
+  const [confirmando, setConfirmando] = useState(null); // id de sugerencia | "all"
   const [error, setError] = useState("");
-  const [creadas, setCreadas] = useState(0);
+  const [aviso, setAviso] = useState("");
 
   const cargar = useCallback(async () => {
     setCargando(true);
     try {
-      const [planes, equipos, ots] = await Promise.all([
+      const [planes, equipos, ots, sugs] = await Promise.all([
         fetchAll("planes_pm"),
         fetchAll("equipos"),
         fetchAll("ordenes_trabajo"),
+        supabase.from("ot_sugerencias").select("*").eq("estado", "sugerida").order("created_at", { ascending: false }),
       ]);
       setData({ planes: planes || [], equipos: equipos || [], ots: ots || [] });
+      setSugerencias(sugs?.data || []);
       setTs(new Date());
     } catch { /* conserva datos previos */ }
     setCargando(false);
@@ -106,10 +130,12 @@ export default function OTAutonomas({ onNavigate }) {
 
   useEffect(() => { cargar(); }, [cargar]);
 
-  const motor = useMemo(
-    () => generarOTsPreventivas(data, { incluirProximos }),
-    [data, incluirProximos]
-  );
+  // Preview del motor (cliente): vencidos que aún no están materializados —
+  // ni como OT firme ni como sugerencia en bandeja. Dedup contra ambos.
+  const motor = useMemo(() => {
+    const conHuella = [...data.ots, ...sugerencias];
+    return generarOTsPreventivas({ planes: data.planes, equipos: data.equipos, ots: conHuella });
+  }, [data, sugerencias]);
 
   const planesHoras = useMemo(
     () => data.planes.filter((p) => p.activo !== false && p.tipo_disparador !== "calendario").length,
@@ -118,10 +144,10 @@ export default function OTAutonomas({ onNavigate }) {
 
   function mensajeError(e) {
     const msg = e?.message || String(e);
-    if (/origen|huella|column/i.test(msg)) {
-      return "Faltan las columnas origen/huella en ordenes_trabajo. Aplica la migración 20260614_0001_ot_autogeneracion.sql en Supabase y reintenta.";
+    if (/ot_sugerencias|generar_ots|function|origen|huella|column|does not exist/i.test(msg)) {
+      return "Faltan objetos de BD de la Fase 2. Aplica las migraciones 20260614_0001 y 0002 en Supabase y reintenta.";
     }
-    return "No se pudo generar la OT: " + msg;
+    return "Operación fallida: " + msg;
   }
 
   async function crearOT(sug, actuales) {
@@ -133,7 +159,7 @@ export default function OTAutonomas({ onNavigate }) {
       sistema: sug.sistema,
       tipo: "preventivo",
       descripcion: sug.descripcion,
-      prioridad: sug.prioridad,
+      prioridad: sug.prioridad || "alta",
       fecha: new Date().toISOString().slice(0, 10),
       estado: "planificada",
       origen: "auto",
@@ -142,38 +168,68 @@ export default function OTAutonomas({ onNavigate }) {
     });
   }
 
-  async function confirmarUna(sug) {
-    setConfirmando(sug.huella); setError("");
+  // Genera ahora (no esperar al cron): RPC scoped a la empresa del usuario.
+  async function generarAhora() {
+    setGenerando(true); setError(""); setAviso("");
     try {
-      const actuales = await fetchAll("ordenes_trabajo");
-      if (sug.huella && actuales.some((o) => o.huella === sug.huella)) {
-        setData((d) => ({ ...d, ots: actuales }));          // otra sesión ya la creó
-        return;
-      }
+      const { data: n, error: e } = await supabase.rpc("generar_ots_preventivas");
+      if (e) throw e;
+      await cargar();
+      setAviso(n > 0
+        ? `${n} sugerencia${n !== 1 ? "s" : ""} nueva${n !== 1 ? "s" : ""} en la bandeja.`
+        : "Sin nuevos vencidos: la bandeja ya está al día.");
+    } catch (e) { setError(mensajeError(e)); }
+    finally { setGenerando(false); }
+  }
+
+  // Confirmar una sugerencia → nace la OT firme + se marca confirmada.
+  async function confirmarSug(sug, actualesPre) {
+    const actuales = actualesPre || await fetchAll("ordenes_trabajo");
+    let otId = actuales.find((o) => o.huella === sug.huella)?.id || null;
+    let folio = null;
+    if (!otId) {
       const ot = await crearOT(sug, actuales);
-      setData((d) => ({ ...d, ots: [ot, ...actuales] }));
-      logActivity(profile, "OT auto-generada", `${ot.folio} · ${sug.sistema} · ${sug.motivo}`);
+      otId = ot.id; folio = ot.folio;
+      actuales.unshift(ot);
+    }
+    await updateRow("ot_sugerencias", sug.id, {
+      estado: "confirmada", ot_id: otId,
+      resolved_at: new Date().toISOString(), resolved_by: profile.id,
+    });
+    if (folio) logActivity(profile, "OT auto-generada (confirmada)", `${folio} · ${sug.sistema} · ${sug.motivo || ""}`);
+    return otId;
+  }
+
+  async function onConfirmarUna(sug) {
+    setConfirmando(sug.id); setError(""); setAviso("");
+    try {
+      await confirmarSug(sug);
+      setSugerencias((p) => p.filter((s) => s.id !== sug.id));
+      setAviso(`OT creada y planificada para ${sug.sistema || "el equipo"}.`);
     } catch (e) { setError(mensajeError(e)); }
     finally { setConfirmando(null); }
   }
 
-  async function confirmarTodas() {
-    if (!motor.sugerencias.length) return;
-    setConfirmando("all"); setError(""); setCreadas(0);
+  async function onConfirmarTodas() {
+    if (!sugerencias.length) return;
+    setConfirmando("all"); setError(""); setAviso("");
     try {
-      let actuales = await fetchAll("ordenes_trabajo");
-      const huellasYa = new Set(actuales.map((o) => o.huella).filter(Boolean));
+      const actuales = await fetchAll("ordenes_trabajo");
       let n = 0;
-      for (const sug of motor.sugerencias) {
-        if (sug.huella && huellasYa.has(sug.huella)) continue;
-        const ot = await crearOT(sug, actuales);
-        actuales = [ot, ...actuales];
-        huellasYa.add(sug.huella);
-        n++;
-      }
-      setData((d) => ({ ...d, ots: actuales }));
-      setCreadas(n);
-      if (n > 0) logActivity(profile, "Generación automática de OTs", `${n} OT(s) preventivas auto-generadas desde planes vencidos`);
+      for (const sug of sugerencias) { await confirmarSug(sug, actuales); n++; }
+      setSugerencias([]);
+      setAviso(`${n} OT${n !== 1 ? "s" : ""} creada${n !== 1 ? "s" : ""} y planificada${n !== 1 ? "s" : ""}.`);
+    } catch (e) { setError(mensajeError(e)); }
+    finally { setConfirmando(null); }
+  }
+
+  async function onRechazar(sug) {
+    setConfirmando(sug.id); setError(""); setAviso("");
+    try {
+      await updateRow("ot_sugerencias", sug.id, {
+        estado: "rechazada", resolved_at: new Date().toISOString(), resolved_by: profile.id,
+      });
+      setSugerencias((p) => p.filter((s) => s.id !== sug.id));
     } catch (e) { setError(mensajeError(e)); }
     finally { setConfirmando(null); }
   }
@@ -186,7 +242,7 @@ export default function OTAutonomas({ onNavigate }) {
       <PageHead
         kicker="Operación · CMMS autónomo"
         title="OTs Automáticas"
-        sub="El sistema detecta planes preventivos vencidos y propone la orden de trabajo. Tú confirmas; la huella de idempotencia evita que se regenere. Lazo de generación → agendamiento → zarpe."
+        sub="Cada noche el motor detecta planes preventivos vencidos y deja las propuestas en la bandeja, sin que nadie abra la app. Tú confirmas; nace la OT firme. La huella de idempotencia evita duplicados."
       />
 
       {/* ───────────── Blueprint del lazo de control ───────────── */}
@@ -196,41 +252,41 @@ export default function OTAutonomas({ onNavigate }) {
             <Workflow size={18} color="#93c5fd" />
             <span style={{ fontSize: 16, fontWeight: 800, color: D.ink, letterSpacing: -0.3 }}>Lazo de control · Generación automática de OTs</span>
           </div>
-          <div style={{ display: "flex", gap: 8 }}>
-            <span style={{ fontSize: 10.5, fontWeight: 700, color: "#86efac", background: "rgba(34,197,94,.12)", border: "1px solid rgba(34,197,94,.35)", borderRadius: 20, padding: "2px 10px" }}>Fase 1 · activa</span>
-            <span style={{ fontSize: 10.5, fontWeight: 700, color: D.muted, background: "rgba(100,116,139,.12)", border: "1px solid rgba(100,116,139,.3)", borderRadius: 20, padding: "2px 10px" }}>Fase 2 · diseño</span>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <Chip color="#86efac" bg="rgba(34,197,94,.12)" border="rgba(34,197,94,.35)">Cron nocturno · activo</Chip>
+            <Chip color={D.muted} bg="rgba(100,116,139,.12)" border="rgba(100,116,139,.3)">Predictivo · Fase 2</Chip>
           </div>
         </div>
 
         <DiagLabel>1 · Disparadores — eventos que pueden originar trabajo</DiagLabel>
         <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
-          <Step icon={Timer}        title="Horas (horómetro)" sub="PM vencido por horas de operación" tone="green" />
+          <Step icon={Timer}         title="Horas (horómetro)" sub="PM vencido por horas de operación" tone="green" />
           <Step icon={CalendarRange} title="Calendario"        sub="PM vencido por período" tone="green" />
-          <Step icon={Sigma}        title="Predictivo (RUL)"  sub="Weibull proyecta falla · Fase 2" tone="purple" dim />
-          <Step icon={Activity}     title="Condición (PdM)"   sub="medición cruza umbral · Fase 2" tone="cyan" dim />
-          <Step icon={Wrench}       title="Derivado"          sub="stock, inspección, varada · Fase 2" tone="amber" dim />
+          <Step icon={Sigma}         title="Predictivo (RUL)"  sub="Weibull proyecta falla · Fase 2" tone="purple" dim />
+          <Step icon={Activity}      title="Condición (PdM)"   sub="medición cruza umbral · Fase 2" tone="cyan" dim />
+          <Step icon={Wrench}        title="Derivado"          sub="stock, inspección, varada · Fase 2" tone="amber" dim />
         </div>
 
-        <Flow>↓ &nbsp;evaluarPlanes() · vencido = elapsed ≥ intervalo</Flow>
+        <Flow>↓ &nbsp;pg_cron 08:00 UTC · evaluarPlanes() · vencido = elapsed ≥ intervalo</Flow>
 
-        <DiagLabel>2 · Motor de reglas — autoOT.js</DiagLabel>
-        <Step icon={Cpu} title="generarOTsPreventivas()" sub="Evalúa cada plan activo y selecciona los vencidos. Lógica pura, determinística, sin estadística." tone="blue" wide />
+        <DiagLabel>2 · Motor de reglas — _gen_ots() en SQL + src/lib/autoOT.js</DiagLabel>
+        <Step icon={Cpu} title="Genera sin intervención" sub="Corre en la base de datos cada noche y materializa los vencidos. Mismo criterio determinístico en SQL y en el preview del cliente." tone="blue" wide />
 
-        <Flow>↓ &nbsp;huella  pm:{"{plan}"}:{"{hito}"}</Flow>
+        <Flow>↓ &nbsp;huella  pm:{"{plan}"}:{"{hito}"}  ·  unique(empresa, huella)</Flow>
 
         <DiagLabel>3 · Idempotencia — el mecanismo anti-spam</DiagLabel>
-        <Step icon={Fingerprint} title="Huella de ciclo" sub="¿Ya existe una OT con esta huella? Duplicada → se descarta. Nueva → continúa. La huella es estable mientras el PM siga pendiente." tone="amber" wide />
+        <Step icon={Fingerprint} title="Huella de ciclo" sub="ON CONFLICT DO NOTHING: la sugerencia no se regenera mientras el PM siga pendiente; al ejecutarse el PM el hito avanza y se habilita el próximo ciclo." tone="amber" wide />
 
         <Flow>↓</Flow>
 
-        <DiagLabel>4 · Sugerencia explicable</DiagLabel>
-        <Step icon={Lightbulb} title="OT propuesta + motivo" sub="Carga los números que la dispararon (horas actuales vs intervalo). Sin explicación el operador no confía." tone="cyan" wide />
+        <DiagLabel>4 · Bandeja de sugerencias (staging aislado)</DiagLabel>
+        <Step icon={Lightbulb} title="ot_sugerencias + motivo" sub="Tabla separada: una sugerencia NO contamina KPIs, backlog ni el gate de zarpe hasta que se confirma. Carga el motivo explicable." tone="cyan" wide />
 
         <Flow>↓ &nbsp;compuerta de confianza</Flow>
 
         <DiagLabel>5 · Compuerta humana</DiagLabel>
         <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
-          <Step icon={UserCheck} title="Confirmación humana" sub="Fase 1: el planificador revisa y confirma cada OT" tone="green" />
+          <Step icon={UserCheck} title="Confirmación humana" sub="El planificador confirma o rechaza cada propuesta" tone="green" />
           <Step icon={Bot} title="Auto-confirmación por criticidad" sub="Fase 2: PM rutinario de criticidad C entra solo; A siempre con ojo humano" tone="purple" dim />
         </div>
 
@@ -248,25 +304,26 @@ export default function OTAutonomas({ onNavigate }) {
         <div style={{ display: "flex", alignItems: "center", gap: 11, background: "rgba(34,197,94,.08)", border: "1px dashed rgba(34,197,94,.4)", borderRadius: 9, padding: "12px 15px" }}>
           <RotateCw size={18} color="#86efac" style={{ flexShrink: 0 }} />
           <div style={{ fontSize: 12, color: D.text, lineHeight: 1.5 }}>
-            <strong style={{ color: "#86efac" }}>El lazo se cierra:</strong> al ejecutar el PM, el horómetro o la fecha del último mantenimiento avanza → la huella cambia → queda habilitada la OT del próximo ciclo. El sistema vuelve a vigilar sin intervención.
+            <strong style={{ color: "#86efac" }}>El lazo se cierra:</strong> al ejecutar el PM, el horómetro o la fecha del último mantenimiento avanza → la huella cambia → queda habilitada la OT del próximo ciclo. El sistema vuelve a vigilar solo.
           </div>
         </div>
       </div>
 
-      {/* ───────────── Panel vivo ───────────── */}
+      {/* ───────────── Bandeja ───────────── */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginBottom: 12 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <span style={{ fontSize: 15, fontWeight: 800, color: C.abyss }}>Motor en vivo</span>
-          {cargando && <span style={{ fontSize: 11.5, color: C.slate }}>· evaluando…</span>}
-          {tsStr && !cargando && <span style={{ fontSize: 11.5, color: C.slate }}>· evaluado {tsStr}</span>}
+          <span style={{ fontSize: 15, fontWeight: 800, color: C.abyss }}>Bandeja de sugerencias</span>
+          {cargando && <span style={{ fontSize: 11.5, color: C.slate }}>· cargando…</span>}
+          {tsStr && !cargando && <span style={{ fontSize: 11.5, color: C.slate }}>· {tsStr}</span>}
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-          <label style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 12.5, color: C.slate, cursor: "pointer" }}>
-            <input type="checkbox" checked={incluirProximos} onChange={(e) => setIncluirProximos(e.target.checked)} style={{ width: 15, height: 15, accentColor: C.steel }} />
-            Incluir próximos (≥90%)
-          </label>
+          <button onClick={generarAhora} disabled={sinAccion || generando}
+            title={!puedeOperar ? "Tu rol no permite generar" : !online ? "Sin conexión" : "Corre el motor ahora, sin esperar la noche"}
+            style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 12.5, fontWeight: 700, color: "#fff", background: sinAccion ? C.slate : C.steel, border: "none", borderRadius: 8, padding: "7px 14px", cursor: sinAccion || generando ? "default" : "pointer", opacity: generando ? 0.7 : 1 }}>
+            <Zap size={14} /> {generando ? "Generando…" : "Generar ahora"}
+          </button>
           <button onClick={cargar} disabled={cargando} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, fontWeight: 600, color: C.steel, background: tint(C.steel, 10), border: `1px solid ${tint(C.steel, 30)}`, borderRadius: 8, padding: "6px 12px", cursor: cargando ? "default" : "pointer", opacity: cargando ? 0.5 : 1 }}>
-            <RefreshCw size={13} /> Reevaluar
+            <RefreshCw size={13} /> Recargar
           </button>
         </div>
       </div>
@@ -274,9 +331,9 @@ export default function OTAutonomas({ onNavigate }) {
       {/* Estadísticas */}
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 14 }}>
         <StatCard label="Planes por horas activos" valor={cargando ? "—" : planesHoras} color={C.steel} />
-        <StatCard label="Vencidos detectados" valor={cargando ? "—" : motor.total + motor.yaCubiertas.length} color={C.slate} />
-        <StatCard label="Ya con OT (no se duplican)" valor={cargando ? "—" : motor.yaCubiertas.length} color={C.green} sub="huella ya existente" />
-        <StatCard label="Nuevas sugerencias" valor={cargando ? "—" : motor.total} color={motor.total > 0 ? C.gold : C.green} />
+        <StatCard label="En bandeja (por confirmar)" valor={cargando ? "—" : sugerencias.length} color={sugerencias.length > 0 ? C.gold : C.green} />
+        <StatCard label="Sin materializar" valor={cargando ? "—" : motor.total} color={motor.total > 0 ? C.amber : C.green} sub="el motor los detecta; aún no generados" />
+        <StatCard label="Motor nocturno" valor="08:00" color={C.purple} sub="UTC · pg_cron diario" />
       </div>
 
       {error && (
@@ -285,79 +342,88 @@ export default function OTAutonomas({ onNavigate }) {
           <span style={{ fontSize: 12.5, color: C.ink, lineHeight: 1.5 }}>{error}</span>
         </div>
       )}
-
-      {creadas > 0 && !error && (
+      {aviso && !error && (
         <div style={{ display: "flex", alignItems: "center", gap: 9, background: tint(C.green, 10), border: `1px solid ${tint(C.green, 35)}`, borderRadius: 10, padding: "11px 14px", marginBottom: 14 }}>
           <Check size={16} color={C.green} style={{ flexShrink: 0 }} />
           <span style={{ fontSize: 12.5, color: C.ink }}>
-            {creadas} OT{creadas !== 1 ? "s" : ""} generada{creadas !== 1 ? "s" : ""} y planificada{creadas !== 1 ? "s" : ""}.
+            {aviso}
             <button onClick={() => onNavigate?.("ots")} style={{ marginLeft: 8, fontSize: 12.5, fontWeight: 700, color: C.steel, background: "none", border: "none", cursor: "pointer", textDecoration: "underline", padding: 0 }}>
-              Ver en Órdenes de Trabajo
+              Ver Órdenes de Trabajo
             </button>
           </span>
         </div>
       )}
 
-      {/* Lista de sugerencias */}
       <Card>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginBottom: motor.sugerencias.length ? 12 : 0 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginBottom: sugerencias.length ? 12 : 0 }}>
           <div style={{ fontSize: 13.5, fontWeight: 700, color: C.abyss }}>
-            Sugerencias del motor{motor.total > 0 ? ` · ${motor.total}` : ""}
+            Propuestas pendientes{sugerencias.length > 0 ? ` · ${sugerencias.length}` : ""}
           </div>
-          {motor.sugerencias.length > 0 && (
-            <button onClick={confirmarTodas} disabled={sinAccion || confirmando === "all"}
+          {sugerencias.length > 0 && (
+            <button onClick={onConfirmarTodas} disabled={sinAccion || confirmando === "all"}
               title={!puedeOperar ? "Tu rol no permite generar OTs" : !online ? "Sin conexión" : ""}
               style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 13, fontWeight: 700, color: "#fff", background: sinAccion ? C.slate : C.green, border: "none", borderRadius: 9, padding: "8px 16px", cursor: sinAccion || confirmando === "all" ? "default" : "pointer", opacity: confirmando === "all" ? 0.7 : 1 }}>
-              <Check size={15} /> {confirmando === "all" ? "Generando…" : `Confirmar todas (${motor.total})`}
+              <Check size={15} /> {confirmando === "all" ? "Creando…" : `Confirmar todas (${sugerencias.length})`}
             </button>
           )}
         </div>
 
         {cargando ? (
-          <InlineSpinner label="Evaluando planes…" />
-        ) : motor.sugerencias.length === 0 ? (
+          <InlineSpinner label="Cargando bandeja…" />
+        ) : sugerencias.length === 0 ? (
           <Empty>
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
-              <Check size={26} color={C.green} />
-              <div style={{ fontSize: 13.5, fontWeight: 700, color: C.ink }}>Sin OTs pendientes de generar</div>
-              <div style={{ fontSize: 12.5, color: C.slate, maxWidth: 440, lineHeight: 1.5 }}>
-                {motor.yaCubiertas.length > 0
-                  ? `Los ${motor.yaCubiertas.length} planes vencidos ya tienen su OT. El motor no duplica trabajo.`
-                  : "Ningún plan preventivo está vencido en este momento."}
+              <Check size={26} color={motor.total > 0 ? C.amber : C.green} />
+              <div style={{ fontSize: 13.5, fontWeight: 700, color: C.ink }}>
+                {motor.total > 0 ? "Bandeja vacía, pero hay vencidos sin materializar" : "Bandeja al día"}
+              </div>
+              <div style={{ fontSize: 12.5, color: C.slate, maxWidth: 460, lineHeight: 1.5 }}>
+                {motor.total > 0
+                  ? `El motor detecta ${motor.total} plan${motor.total !== 1 ? "es" : ""} vencido${motor.total !== 1 ? "s" : ""} todavía sin propuesta. Pulsa “Generar ahora” o espera la corrida nocturna de las 08:00 UTC.`
+                  : "Ningún plan preventivo está vencido. El motor vuelve a evaluar cada noche automáticamente."}
               </div>
             </div>
           </Empty>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {motor.sugerencias.map((s) => {
-              const enCurso = confirmando === s.huella;
+            {sugerencias.map((s) => {
+              const enCurso = confirmando === s.id;
               return (
-                <div key={s.huella} style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px 13px", borderRadius: 10, border: `1px solid ${C.line}`, background: C.surface2 }}>
-                  <div style={{ width: 34, height: 34, borderRadius: 9, background: tint(s.tone === "red" ? C.red : C.yellow, 12), display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                    <Wrench size={16} color={s.tone === "red" ? C.red : C.yellow} />
+                <div key={s.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px 13px", borderRadius: 10, border: `1px solid ${C.line}`, background: C.surface2 }}>
+                  <div style={{ width: 34, height: 34, borderRadius: 9, background: tint(C.red, 12), display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                    <Wrench size={16} color={C.red} />
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                       <span style={{ fontSize: 13.5, fontWeight: 700, color: C.abyss }}>{s.sistema || "Equipo"}</span>
-                      <SemBadge tone={s.tone} />
+                      <VencidoBadge />
+                      <CritBadge nivel={s.criticidad} />
+                      <OrigenChip origen={s.origen} />
                     </div>
                     <div style={{ fontSize: 12.5, color: C.ink, marginTop: 2 }}>{s.descripcion}</div>
                     <div style={{ fontSize: 11.5, color: C.slate, marginTop: 3, lineHeight: 1.45 }}>{s.motivo}</div>
                   </div>
-                  <button onClick={() => confirmarUna(s)} disabled={sinAccion || enCurso}
-                    title={!puedeOperar ? "Tu rol no permite generar OTs" : !online ? "Sin conexión" : ""}
-                    style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, fontWeight: 700, color: sinAccion ? C.slate : C.steel, background: sinAccion ? tint(C.slate, 10) : tint(C.steel, 10), border: `1px solid ${sinAccion ? C.line : tint(C.steel, 35)}`, borderRadius: 8, padding: "7px 13px", cursor: sinAccion || enCurso ? "default" : "pointer", flexShrink: 0, opacity: enCurso ? 0.7 : 1 }}>
-                    <ClipboardList size={13} /> {enCurso ? "Creando…" : "Confirmar → OT"}
-                  </button>
+                  <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                    <button onClick={() => onRechazar(s)} disabled={sinAccion || enCurso}
+                      title="Descartar (la huella sigue evitando que se regenere)"
+                      style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12.5, fontWeight: 600, color: sinAccion ? C.slate : C.slate, background: C.surface, border: `1px solid ${C.line}`, borderRadius: 8, padding: "7px 11px", cursor: sinAccion || enCurso ? "default" : "pointer" }}>
+                      <X size={13} /> Rechazar
+                    </button>
+                    <button onClick={() => onConfirmarUna(s)} disabled={sinAccion || enCurso}
+                      title={!puedeOperar ? "Tu rol no permite generar OTs" : !online ? "Sin conexión" : ""}
+                      style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, fontWeight: 700, color: sinAccion ? C.slate : "#fff", background: sinAccion ? tint(C.slate, 12) : C.green, border: "none", borderRadius: 8, padding: "7px 13px", cursor: sinAccion || enCurso ? "default" : "pointer", opacity: enCurso ? 0.7 : 1 }}>
+                      <ClipboardList size={13} /> {enCurso ? "Creando…" : "Confirmar → OT"}
+                    </button>
+                  </div>
                 </div>
               );
             })}
           </div>
         )}
 
-        {!puedeOperar && motor.sugerencias.length > 0 && (
+        {!puedeOperar && sugerencias.length > 0 && (
           <div style={{ fontSize: 11.5, color: C.slate, marginTop: 10, fontStyle: "italic" }}>
-            Tu rol permite ver las sugerencias pero no generarlas. Un planificador o administrador debe confirmarlas.
+            Tu rol permite ver la bandeja pero no confirmar. Un planificador o administrador debe aprobar las propuestas.
           </div>
         )}
       </Card>
