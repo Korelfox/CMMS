@@ -1,179 +1,364 @@
-import React from "react";
-import { PageHead } from "../ui";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
+import { PageHead, InlineSpinner } from "../ui";
+import { fetchAll } from "../lib/db";
+import { seriesPdM } from "../lib/pdm";
+import { diasDesde } from "../lib/horometro";
 
-const HTML = `<style>
-.iaa{font-family:'Inter',system-ui,sans-serif;background:#0d1117;color:#c9d1d9;padding:26px;border-radius:12px;font-size:13px;line-height:1.5}
-.iaa-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;padding-bottom:14px;border-bottom:1px solid #21262d}
-.iaa-h1{font-size:17px;font-weight:800;color:#e6edf3;letter-spacing:-0.3px}
-.iaa-rev{font-size:11px;color:#6e7681;font-family:'IBM Plex Mono','Courier New',monospace}
-.iaa-sec{margin-bottom:18px;background:#161b22;border:1px solid #21262d;border-radius:10px;padding:16px 18px}
-.iaa-stit{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#7d8590;margin-bottom:12px;display:flex;align-items:center;gap:8px}
-.iaa-badge{font-size:10px;font-weight:600;padding:2px 9px;border-radius:20px;text-transform:uppercase;letter-spacing:0.5px}
-.iaa-badge.sl{background:rgba(100,116,139,.2);color:#94a3b8;border:1px solid rgba(100,116,139,.3)}
-.iaa-badge.am{background:rgba(245,158,11,.2);color:#fbbf24;border:1px solid rgba(245,158,11,.3)}
-.iaa-badge.rd{background:rgba(239,68,68,.2);color:#f87171;border:1px solid rgba(239,68,68,.3)}
-.iaa-lbl{font-size:10px;font-weight:600;color:#6e7681;letter-spacing:.5px;margin-bottom:7px;margin-top:11px;text-transform:uppercase}
-.iaa-lbl:first-child{margin-top:0}
-.iaa-row{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:2px}
-.iaa-box{flex:1;min-width:120px;padding:9px 11px;border-radius:7px;font-size:12px;font-weight:600;line-height:1.4}
-.iaa-sub{display:block;font-size:10.5px;font-weight:400;margin-top:2px;opacity:.8}
-.iaa-box.db{background:rgba(30,41,59,.8);border:1px solid #2d333b;color:#c9d1d9}
-.iaa-box.dbg{background:rgba(245,158,11,.07);border:1px solid rgba(245,158,11,.4);color:#fbbf24}
-.iaa-box.ctb{background:rgba(59,130,246,.12);border:1px solid rgba(59,130,246,.35);color:#93c5fd}
-.iaa-box.ctc{background:rgba(6,182,212,.12);border:1px solid rgba(6,182,212,.35);color:#67e8f9}
-.iaa-box.ctp{background:rgba(168,85,247,.12);border:1px solid rgba(168,85,247,.35);color:#d8b4fe}
-.iaa-box.ctg{background:rgba(34,197,94,.12);border:1px solid rgba(34,197,94,.35);color:#86efac}
-.iaa-box.efb{background:rgba(59,130,246,.18);border:1px solid rgba(59,130,246,.5);color:#bfdbfe}
-.iaa-box.efc{background:rgba(6,182,212,.18);border:1px solid rgba(6,182,212,.5);color:#a5f3fc}
-.iaa-box.efp{background:rgba(168,85,247,.18);border:1px solid rgba(168,85,247,.5);color:#e9d5ff}
-.iaa-box.efg{background:rgba(34,197,94,.18);border:1px solid rgba(34,197,94,.5);color:#bbf7d0}
-.iaa-box.stat{background:rgba(100,116,139,.12);border:1px solid rgba(100,116,139,.3);color:#cbd5e1}
-.iaa-box.agt{background:rgba(15,23,42,.85);border:1px solid #2d333b;padding:12px 14px}
-.iaa-agt-id{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#6e7681;margin-bottom:3px}
-.iaa-agt-nm{font-size:13px;font-weight:700;color:#e6edf3;margin-bottom:3px}
-.iaa-agt-ds{font-size:11.5px;color:#8b949e;line-height:1.5;font-weight:400}
-.iaa-arr{text-align:center;color:#4b6ef6;font-size:13px;font-weight:600;padding:5px 0;letter-spacing:.3px}
-.iaa-api{background:linear-gradient(135deg,rgba(59,130,246,.14),rgba(168,85,247,.14));border:1px solid rgba(99,102,241,.5);border-radius:9px;padding:14px 18px;margin-top:8px;text-align:center}
-.iaa-api-t{font-size:15px;font-weight:800;color:#c7d2fe;margin-bottom:5px}
-.iaa-api-s{font-size:11px;color:#94a3b8;margin-bottom:6px;font-family:'IBM Plex Mono',monospace}
-.iaa-api-k{font-size:11.5px;color:#34d399;font-weight:600}
-.iaa-gaps{display:flex;flex-direction:column;gap:9px}
-.iaa-gap{display:flex;gap:12px;background:rgba(239,68,68,.05);border:1px solid rgba(239,68,68,.22);border-radius:7px;padding:11px 13px;align-items:flex-start}
-.iaa-gid{font-size:10px;font-weight:800;color:#f87171;text-transform:uppercase;letter-spacing:1px;flex-shrink:0;padding-top:1px;min-width:42px}
-.iaa-gt{font-size:12.5px;font-weight:700;color:#fca5a5;margin-bottom:4px}
-.iaa-gd{font-size:11.5px;color:#8b949e;line-height:1.55;margin-bottom:5px}
-.iaa-gf{font-size:11px;color:#34d399;font-weight:600}
-</style>
-<div class="iaa">
-  <div class="iaa-hdr">
-    <div class="iaa-h1">Arquitectura de Inteligencia Artificial — CMMS Pesquero</div>
-    <div class="iaa-rev">Rev. 2026-06 · claude-sonnet-4-6</div>
-  </div>
+// ── Paleta self-contained (dark diagram, sin CSS global) ─────────────────
+const BG    = "#0d1117";
+const BG2   = "#161b22";
+const BDR   = "#21262d";
+const INK   = "#e6edf3";
+const TEXT  = "#c9d1d9";
+const MUTED = "#8b949e";
+const DIM   = "#6e7681";
 
-  <div class="iaa-sec">
-    <div class="iaa-stit">Pipeline Claude API</div>
+const ACCENT = {
+  blue:   { t: "#93c5fd", lg: "rgba(59,130,246,.12)",  mg: "rgba(59,130,246,.18)",  b: "rgba(59,130,246,.35)",  bm: "rgba(59,130,246,.5)"  },
+  cyan:   { t: "#67e8f9", lg: "rgba(6,182,212,.12)",   mg: "rgba(6,182,212,.18)",   b: "rgba(6,182,212,.35)",   bm: "rgba(6,182,212,.5)"   },
+  purple: { t: "#d8b4fe", lg: "rgba(168,85,247,.12)",  mg: "rgba(168,85,247,.18)",  b: "rgba(168,85,247,.35)",  bm: "rgba(168,85,247,.5)"  },
+  green:  { t: "#86efac", lg: "rgba(34,197,94,.12)",   mg: "rgba(34,197,94,.18)",   b: "rgba(34,197,94,.35)",   bm: "rgba(34,197,94,.5)"   },
+};
 
-    <div class="iaa-lbl">Fuentes de datos — Supabase PostgreSQL (multi-tenant por empresa_id)</div>
-    <div class="iaa-row">
-      <div class="iaa-box db">BD Equipos<span class="iaa-sub">criticidad · horometro · tipo_nodo</span></div>
-      <div class="iaa-box db">OTs &amp; Fallas<span class="iaa-sub">modo_falla · estado · cerrada_en</span></div>
-      <div class="iaa-box db">Mareas &amp; Horómetros<span class="iaa-sub">mareas · lecturas_horometro</span></div>
-      <div class="iaa-box db">Inventario<span class="iaa-sub">items · stock · consumos</span></div>
-      <div class="iaa-box dbg">Mediciones PdM<span class="iaa-sub">⚠ gap — no inyectadas en IA</span></div>
+const SEV = {
+  red:   { fg: "#f87171", bg: "rgba(239,68,68,.1)",    bd: "rgba(239,68,68,.35)"   },
+  amber: { fg: "#fbbf24", bg: "rgba(245,158,11,.1)",   bd: "rgba(245,158,11,.35)"  },
+  ok:    { fg: "#34d399", bg: "rgba(34,197,94,.08)",   bd: "rgba(34,197,94,.35)"   },
+  slate: { fg: "#94a3b8", bg: "rgba(100,116,139,.12)", bd: "rgba(100,116,139,.3)"  },
+  none:  { fg: DIM,       bg: "rgba(15,23,42,.85)",    bd: BDR                      },
+};
+
+// ── Primitivas de layout ──────────────────────────────────────────────────
+
+function Sec({ children, last }) {
+  return (
+    <div style={{ marginBottom: last ? 0 : 18, background: BG2, border: `1px solid ${BDR}`, borderRadius: 10, padding: "16px 18px" }}>
+      {children}
     </div>
+  );
+}
 
-    <div class="iaa-arr">↓</div>
-
-    <div class="iaa-lbl">Context Builders (src/lib/) — construyen el prompt del sistema</div>
-    <div class="iaa-row">
-      <div class="iaa-box ctb">copiloto.js<span class="iaa-sub">flota completa + OTs activas</span></div>
-      <div class="iaa-box ctc">diagnostico.js<span class="iaa-sub">fallas + modo + historial</span></div>
-      <div class="iaa-box ctp">informe context<span class="iaa-sub">KPIs + tendencias críticas</span></div>
-      <div class="iaa-box ctg">ocr-parser<span class="iaa-sub">imagen → base64 JPEG</span></div>
+function SecTitle({ children, badgeLabel, badgeSev = "slate" }) {
+  const s = SEV[badgeSev] || SEV.slate;
+  return (
+    <div style={{ fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, color: DIM, marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
+      {children}
+      {badgeLabel && (
+        <span style={{ fontSize: 10, fontWeight: 600, padding: "2px 9px", borderRadius: 20, textTransform: "uppercase", letterSpacing: 0.5, background: s.bg, color: s.fg, border: `1px solid ${s.bd}` }}>
+          {badgeLabel}
+        </span>
+      )}
     </div>
+  );
+}
 
-    <div class="iaa-arr">↓&nbsp;&nbsp;SSE streaming · respuesta fragmentada en tiempo real</div>
+function Lbl({ mt = 11, children }) {
+  return <div style={{ fontSize: 10, fontWeight: 600, color: DIM, letterSpacing: 0.5, marginBottom: 7, marginTop: mt, textTransform: "uppercase" }}>{children}</div>;
+}
 
-    <div class="iaa-lbl">Supabase Edge Functions — Deno runtime · solo server-side · sin acceso desde browser</div>
-    <div class="iaa-row">
-      <div class="iaa-box efb">copiloto-flota<span class="iaa-sub">análisis + chat interactivo</span></div>
-      <div class="iaa-box efc">diagnostico-fallas<span class="iaa-sub">modo de falla + causa raíz</span></div>
-      <div class="iaa-box efp">informe-ejecutivo<span class="iaa-sub">resumen gerencial PDF-ready</span></div>
-      <div class="iaa-box efg">ocr-factura<span class="iaa-sub">extracción de datos → JSON</span></div>
+function Row({ children }) {
+  return <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>{children}</div>;
+}
+
+function Arr({ children }) {
+  return <div style={{ textAlign: "center", color: "#4b6ef6", fontSize: 13, fontWeight: 600, padding: "5px 0" }}>{children ?? "↓"}</div>;
+}
+
+// ── Cajas del pipeline ────────────────────────────────────────────────────
+
+function SrcBox({ label, sub, count, loading, warn }) {
+  const isEmpty = !loading && count !== undefined && count === 0;
+  const isWarn  = warn || isEmpty;
+  return (
+    <div style={{ flex: 1, minWidth: 120, padding: "9px 11px", borderRadius: 7, fontSize: 12, fontWeight: 600, lineHeight: 1.4, background: isWarn ? "rgba(245,158,11,.07)" : "rgba(30,41,59,.8)", border: `1px solid ${isWarn ? "rgba(245,158,11,.4)" : BDR}`, color: isWarn ? "#fbbf24" : TEXT }}>
+      {label}
+      {sub && <span style={{ display: "block", fontSize: 10.5, fontWeight: 400, marginTop: 2, opacity: 0.85 }}>{sub}</span>}
+      {count !== undefined && <span style={{ display: "block", fontSize: 10, marginTop: 4, color: isEmpty ? "#fbbf24" : DIM }}>{loading ? "…" : `${count.toLocaleString()} registros`}</span>}
     </div>
+  );
+}
 
-    <div class="iaa-arr">↓&nbsp;&nbsp;HTTPS · Authorization: Bearer ANTHROPIC_API_KEY</div>
-
-    <div class="iaa-api">
-      <div class="iaa-api-t">Anthropic Claude API</div>
-      <div class="iaa-api-s">claude-sonnet-4-6 · max_tokens 2048–4096 · temperature 0.4–0.7 · streaming SSE</div>
-      <div class="iaa-api-k">🔒&nbsp;ANTHROPIC_API_KEY — vive solo en Supabase Secrets · nunca llega al navegador</div>
+function CtxBox({ label, sub, color }) {
+  const a = ACCENT[color];
+  return (
+    <div style={{ flex: 1, minWidth: 120, padding: "9px 11px", borderRadius: 7, fontSize: 12, fontWeight: 600, lineHeight: 1.4, background: a.lg, border: `1px solid ${a.b}`, color: a.t }}>
+      {label}
+      {sub && <span style={{ display: "block", fontSize: 10.5, fontWeight: 400, marginTop: 2, opacity: 0.85 }}>{sub}</span>}
     </div>
-  </div>
+  );
+}
 
-  <div class="iaa-sec">
-    <div class="iaa-stit">Pipeline Estadístico <span class="iaa-badge sl">Sin Claude · cómputo en browser</span></div>
-    <div class="iaa-row">
-      <div class="iaa-box stat">ConfiabilidadML<span class="iaa-sub">Weibull biparamétrico · curva TTF · estimación β y η</span></div>
-      <div class="iaa-box stat">RCA — Causa Raíz<span class="iaa-sub">Pareto 80/20 · Bow-Tie manual · árbol de causas</span></div>
-      <div class="iaa-box stat">Score de Riesgo<span class="iaa-sub">Criticidad × MTTR × Frecuencia de falla</span></div>
+function EdgeBox({ label, sub, color }) {
+  const a = ACCENT[color];
+  return (
+    <div style={{ flex: 1, minWidth: 120, padding: "9px 11px", borderRadius: 7, fontSize: 12, fontWeight: 600, lineHeight: 1.4, background: a.mg, border: `1px solid ${a.bm}`, color: a.t }}>
+      {label}
+      {sub && <span style={{ display: "block", fontSize: 10.5, fontWeight: 400, marginTop: 2, opacity: 0.85 }}>{sub}</span>}
     </div>
-  </div>
+  );
+}
 
-  <div class="iaa-sec">
-    <div class="iaa-stit">Agentes de Monitoreo IA <span class="iaa-badge am">Frontend · useMemo · Alertas.jsx</span></div>
-    <div class="iaa-row">
-      <div class="iaa-box agt">
-        <div class="iaa-agt-id">IA-A</div>
-        <div class="iaa-agt-nm">Datos de criticidad</div>
-        <div class="iaa-agt-ds">Equipos sin criticidad asignada. &gt;5 → amber · &gt;20 → rojo</div>
-      </div>
-      <div class="iaa-box agt">
-        <div class="iaa-agt-id">IA-B</div>
-        <div class="iaa-agt-nm">OTs sin modo de falla</div>
-        <div class="iaa-agt-ds">% OTs correctivas sin modo_falla. &gt;30% → amber · &gt;60% → rojo</div>
-      </div>
-      <div class="iaa-box agt">
-        <div class="iaa-agt-id">IA-C</div>
-        <div class="iaa-agt-nm">Historial equipos críticos A</div>
-        <div class="iaa-agt-ds">Críticos A con &lt;4 OTs cerradas — sin historial suficiente para diagnóstico</div>
-      </div>
-      <div class="iaa-box agt">
-        <div class="iaa-agt-id">IA-D</div>
-        <div class="iaa-agt-nm">Señales PdM activas</div>
-        <div class="iaa-agt-ds">Series PdM sin medición &gt;30 días — datos necesarios para análisis predictivo</div>
-      </div>
+function StatBox({ label, sub }) {
+  return (
+    <div style={{ flex: 1, minWidth: 120, padding: "9px 11px", borderRadius: 7, fontSize: 12, fontWeight: 600, lineHeight: 1.4, background: "rgba(100,116,139,.12)", border: "1px solid rgba(100,116,139,.3)", color: "#cbd5e1" }}>
+      {label}
+      {sub && <span style={{ display: "block", fontSize: 10.5, fontWeight: 400, marginTop: 2, opacity: 0.85 }}>{sub}</span>}
     </div>
-  </div>
+  );
+}
 
-  <div class="iaa-sec">
-    <div class="iaa-stit">Brechas ISO 14224 identificadas <span class="iaa-badge rd">Requieren acción</span></div>
-    <div class="iaa-gaps">
-      <div class="iaa-gap">
-        <div class="iaa-gid">GAP-1</div>
-        <div>
-          <div class="iaa-gt">Weibull usa días calendario en lugar de horas de operación</div>
-          <div class="iaa-gd">ConfiabilidadML calcula TTF usando fechas de OT. ISO 14224 §9.3 requiere parámetro de exposición = horas reales de operación desde lecturas_horometro. Afecta β (forma) y η (escala) del modelo.</div>
-          <div class="iaa-gf">→ Fix: cruzar lectura de horómetro más cercana a cada fecha de falla para obtener horas TTF real.</div>
-        </div>
+// ── Agente con badge de severidad viva ────────────────────────────────────
+
+function Agent({ id, nombre, desc, valor, sev, loading }) {
+  const s = SEV[sev] || SEV.none;
+  return (
+    <div style={{ flex: 1, minWidth: 150, padding: "12px 14px", borderRadius: 8, background: s.bg, border: `1px solid ${s.bd}`, transition: "background .3s, border-color .3s" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
+        <span style={{ fontSize: 10, fontWeight: 800, color: DIM, textTransform: "uppercase", letterSpacing: 1 }}>{id}</span>
+        {loading
+          ? <span style={{ fontSize: 10, color: DIM }}>…</span>
+          : <span style={{ fontSize: 10.5, fontWeight: 700, color: s.fg, background: s.bg, border: `1px solid ${s.bd}`, padding: "1px 8px", borderRadius: 20, whiteSpace: "nowrap" }}>
+              {valor}
+            </span>
+        }
       </div>
-      <div class="iaa-gap">
-        <div class="iaa-gid">GAP-2</div>
-        <div>
-          <div class="iaa-gt">Horómetros no inyectados en contexto IA</div>
-          <div class="iaa-gd">Copiloto Flota e Informe Ejecutivo no incluyen el historial de horas de operación en su contexto, limitando el análisis de desgaste real y vida remanente de equipos.</div>
-          <div class="iaa-gf">→ Fix: agregar summary de lecturas_horometro en copiloto.js e informe context builder.</div>
-        </div>
-      </div>
-      <div class="iaa-gap">
-        <div class="iaa-gid">GAP-3</div>
-        <div>
-          <div class="iaa-gt">ANTHROPIC_API_KEY pendiente de configurar en Supabase Secrets</div>
-          <div class="iaa-gd">Las 4 Edge Functions retornan HTTP 500 hasta que se configure la clave. Bloquea todo el pipeline IA en producción.</div>
-          <div class="iaa-gf">→ Fix: Supabase Dashboard → Project Settings → Edge Functions → Secrets → agregar ANTHROPIC_API_KEY.</div>
-        </div>
-      </div>
-      <div class="iaa-gap">
-        <div class="iaa-gid">GAP-4</div>
-        <div>
-          <div class="iaa-gt">Taxonomía FMECA no estructurada (ISO 14224 Apéndice C)</div>
-          <div class="iaa-gd">OTs tienen modo_falla de texto libre. ISO 14224 define 3 niveles (clase → grupo → código) para análisis estadístico válido y benchmarking de industria.</div>
-          <div class="iaa-gf">→ Fix: tabla modo_falla_catalogo + selector jerárquico en OTs (enabler clave para Diagnóstico IA y Confiabilidad).</div>
-        </div>
+      <div style={{ fontSize: 13, fontWeight: 700, color: INK, marginBottom: 3 }}>{nombre}</div>
+      <div style={{ fontSize: 11.5, color: MUTED, lineHeight: 1.5 }}>{desc}</div>
+    </div>
+  );
+}
+
+// ── Ítem de brecha ISO ────────────────────────────────────────────────────
+
+function GapItem({ id, titulo, desc, fix, stat, statColor }) {
+  return (
+    <div style={{ display: "flex", gap: 12, background: "rgba(239,68,68,.05)", border: "1px solid rgba(239,68,68,.22)", borderRadius: 7, padding: "11px 13px", alignItems: "flex-start" }}>
+      <div style={{ fontSize: 10, fontWeight: 800, color: "#f87171", textTransform: "uppercase", letterSpacing: 1, flexShrink: 0, paddingTop: 1, minWidth: 42 }}>{id}</div>
+      <div>
+        <div style={{ fontSize: 12.5, fontWeight: 700, color: "#fca5a5", marginBottom: 4 }}>{titulo}</div>
+        <div style={{ fontSize: 11.5, color: MUTED, lineHeight: 1.55, marginBottom: stat || fix ? 5 : 0 }}>{desc}</div>
+        {stat && <div style={{ fontSize: 11, color: statColor || "#34d399", fontWeight: 600, marginBottom: fix ? 4 : 0 }}>{stat}</div>}
+        {fix  && <div style={{ fontSize: 11, color: "#34d399", fontWeight: 600 }}>{fix}</div>}
       </div>
     </div>
-  </div>
-</div>`;
+  );
+}
+
+// ── Componente principal ──────────────────────────────────────────────────
 
 export default function ArquitecturaIA() {
+  const [datos, setDatos] = useState({ eq: [], ots: [], med: [], lec: [] });
+  const [cargando, setCargando] = useState(true);
+  const [ts, setTs] = useState(null);
+
+  const cargar = useCallback(async () => {
+    setCargando(true);
+    try {
+      const [eq, ots, med, lec] = await Promise.all([
+        fetchAll("equipos"),
+        fetchAll("ordenes_trabajo"),
+        fetchAll("mediciones_pdm"),
+        fetchAll("lecturas_horometro"),
+      ]);
+      setDatos({ eq: eq || [], ots: ots || [], med: med || [], lec: lec || [] });
+      setTs(new Date());
+    } catch { /* mantiene datos previos */ }
+    setCargando(false);
+  }, []);
+
+  useEffect(() => { cargar(); }, [cargar]);
+
+  const m = useMemo(() => {
+    const { eq, ots, med, lec } = datos;
+
+    // IA-A: equipos sin criticidad
+    const sinCrit = eq.filter(e => !e.criticidad && e.tipo_nodo !== "sistema").length;
+    const sevA = sinCrit > 20 ? "red" : sinCrit > 5 ? "amber" : "ok";
+
+    // IA-B: % OTs correctivas cerradas sin modo_falla
+    const corrCerr = ots.filter(o => o.estado === "cerrada" && o.tipo === "correctivo");
+    const sinModo  = corrCerr.filter(o => !o.modo_falla).length;
+    const pctSin   = corrCerr.length >= 5 ? Math.round(sinModo / corrCerr.length * 100) : null;
+    const pctCon   = pctSin != null ? 100 - pctSin : null;
+    const sevB     = pctSin == null ? "slate" : pctSin > 60 ? "red" : pctSin > 30 ? "amber" : "ok";
+
+    // IA-C: críticos A con <4 OTs cerradas (Weibull)
+    const criticos = eq.filter(e => e.criticidad === "A");
+    const sinPred  = criticos.filter(eq2 =>
+      ots.filter(o => o.equipo_id === eq2.id && o.tipo === "correctivo" && o.estado === "cerrada").length < 4
+    ).length;
+    const sevC = criticos.length === 0 ? "slate" : sinPred > 0 ? "amber" : "ok";
+
+    // IA-D: series PdM con datos >30 días
+    let pdmStale = 0;
+    for (const serie of seriesPdM(med).values()) {
+      const d = diasDesde(serie[0]?.fecha);
+      if (d == null || d > 30) pdmStale++;
+    }
+    const sevD = pdmStale > 0 ? "amber" : "ok";
+
+    return {
+      nEq: eq.length, nOts: ots.length, nMed: med.length, nLec: lec.length,
+      nConLec: new Set(lec.map(l => l.equipo_id)).size,
+      sinCrit, sevA,
+      nCorr: corrCerr.length, sinModo, pctSin, pctCon, sevB,
+      criticos: criticos.length, sinPred, sevC,
+      pdmStale, sevD,
+    };
+  }, [datos]);
+
+  const tsStr = ts ? ts.toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" }) : null;
+
   return (
     <div style={{ paddingBottom: 40 }}>
       <PageHead
         kicker="Sistema · Inteligencia Artificial"
         title="Arquitectura IA"
-        sub="Pipeline completo: fuentes de datos → context builders → Edge Functions → Claude API. Módulos estadísticos, agentes de monitoreo y brechas ISO 14224 identificadas."
+        sub="Pipeline completo: fuentes de datos → context builders → Edge Functions → Claude API. Módulos estadísticos, agentes de monitoreo y brechas ISO 14224."
       />
-      <div dangerouslySetInnerHTML={{ __html: HTML }} />
+
+      <div style={{ fontFamily: "'Inter', system-ui, sans-serif", background: BG, color: TEXT, padding: 26, borderRadius: 12, fontSize: 13, lineHeight: 1.5 }}>
+
+        {/* ── Cabecera ── */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24, paddingBottom: 14, borderBottom: `1px solid ${BDR}`, gap: 16 }}>
+          <div style={{ fontSize: 17, fontWeight: 800, color: INK, letterSpacing: -0.3 }}>
+            Arquitectura de Inteligencia Artificial — CMMS Pesquero
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
+            {cargando && <InlineSpinner />}
+            {tsStr && !cargando && (
+              <span style={{ fontSize: 11, color: DIM, fontFamily: "'IBM Plex Mono', monospace" }}>
+                Actualizado {tsStr}
+              </span>
+            )}
+            <button onClick={cargar} disabled={cargando} style={{ fontSize: 11, fontWeight: 600, color: "#60a5fa", background: "rgba(59,130,246,.12)", border: "1px solid rgba(59,130,246,.3)", borderRadius: 6, padding: "3px 10px", cursor: cargando ? "default" : "pointer", opacity: cargando ? 0.5 : 1, fontFamily: "inherit" }}>
+              ↺ Actualizar
+            </button>
+          </div>
+        </div>
+
+        {/* ── Pipeline Claude API ── */}
+        <Sec>
+          <SecTitle>Pipeline Claude API</SecTitle>
+
+          <Lbl mt={0}>Fuentes de datos — Supabase PostgreSQL (multi-tenant por empresa_id)</Lbl>
+          <Row>
+            <SrcBox label="BD Equipos"          sub="criticidad · horometro · tipo_nodo"   count={m.nEq}  loading={cargando} />
+            <SrcBox label="OTs & Fallas"         sub="modo_falla · estado · cerrada_en"     count={m.nOts} loading={cargando} />
+            <SrcBox label="Mareas & Horómetros"  sub="mareas · lecturas_horometro"          count={m.nLec} loading={cargando} />
+            <SrcBox label="Inventario"           sub="items · stock · consumos" />
+            <SrcBox label="Mediciones PdM"       sub="⚠ gap — no inyectadas en IA"         count={m.nMed} loading={cargando} warn={!cargando && m.nMed === 0} />
+          </Row>
+
+          <Arr />
+
+          <Lbl>Context Builders (src/lib/) — construyen el prompt del sistema</Lbl>
+          <Row>
+            <CtxBox label="copiloto.js"     sub="flota completa + OTs activas"   color="blue"   />
+            <CtxBox label="diagnostico.js"  sub="fallas + modo + historial"       color="cyan"   />
+            <CtxBox label="informe context" sub="KPIs + tendencias críticas"      color="purple" />
+            <CtxBox label="ocr-parser"      sub="imagen → base64 JPEG"            color="green"  />
+          </Row>
+
+          <Arr>{"↓  SSE streaming · respuesta fragmentada en tiempo real"}</Arr>
+
+          <Lbl>Supabase Edge Functions — Deno runtime · solo server-side</Lbl>
+          <Row>
+            <EdgeBox label="copiloto-flota"     sub="análisis + chat interactivo"   color="blue"   />
+            <EdgeBox label="diagnostico-fallas" sub="modo de falla + causa raíz"    color="cyan"   />
+            <EdgeBox label="informe-ejecutivo"  sub="resumen gerencial PDF-ready"   color="purple" />
+            <EdgeBox label="ocr-factura"        sub="extracción de datos → JSON"    color="green"  />
+          </Row>
+
+          <Arr>{"↓  HTTPS · Authorization: Bearer ANTHROPIC_API_KEY"}</Arr>
+
+          <div style={{ background: "linear-gradient(135deg,rgba(59,130,246,.14),rgba(168,85,247,.14))", border: "1px solid rgba(99,102,241,.5)", borderRadius: 9, padding: "14px 18px", textAlign: "center" }}>
+            <div style={{ fontSize: 15, fontWeight: 800, color: "#c7d2fe", marginBottom: 5 }}>Anthropic Claude API</div>
+            <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 6, fontFamily: "'IBM Plex Mono', monospace" }}>
+              claude-sonnet-4-6 · max_tokens 2048–4096 · temperature 0.4–0.7 · streaming SSE
+            </div>
+            <div style={{ fontSize: 11.5, color: "#34d399", fontWeight: 600 }}>
+              🔒 ANTHROPIC_API_KEY — vive solo en Supabase Secrets · nunca llega al navegador
+            </div>
+          </div>
+        </Sec>
+
+        {/* ── Pipeline Estadístico ── */}
+        <Sec>
+          <SecTitle badgeLabel="Sin Claude · cómputo en browser">Pipeline Estadístico</SecTitle>
+          <Row>
+            <StatBox label="ConfiabilidadML"  sub="Weibull biparamétrico · curva TTF · estimación β y η" />
+            <StatBox label="RCA — Causa Raíz" sub="Pareto 80/20 · Bow-Tie manual · árbol de causas" />
+            <StatBox label="Score de Riesgo"  sub="Criticidad × MTTR × Frecuencia de falla" />
+          </Row>
+        </Sec>
+
+        {/* ── Agentes de monitoreo IA ── */}
+        <Sec>
+          <SecTitle badgeLabel="Frontend · useMemo · Alertas.jsx" badgeSev="amber">Agentes de Monitoreo IA</SecTitle>
+          <Row>
+            <Agent
+              id="IA-A" nombre="Datos de criticidad"
+              desc={`Equipos sin criticidad${!cargando ? ` (${m.nEq} totales)` : ""}. >5 → amber · >20 → rojo`}
+              valor={m.sinCrit === 0 ? "✓ OK" : `${m.sinCrit} sin crit.`}
+              sev={cargando ? "none" : m.sevA} loading={cargando}
+            />
+            <Agent
+              id="IA-B" nombre="OTs sin modo de falla"
+              desc={`% correctivas cerradas sin modo_falla ISO 14224${!cargando && m.nCorr > 0 ? ` (${m.nCorr} OTs)` : ""}. >30% → amber · >60% → rojo`}
+              valor={m.nCorr < 5 ? "sin datos" : m.pctSin === 0 ? "✓ OK" : `${m.pctSin}% sin modo`}
+              sev={cargando ? "none" : m.sevB} loading={cargando}
+            />
+            <Agent
+              id="IA-C" nombre="Historial críticos A"
+              desc={`Críticos A con <4 OTs cerradas (Weibull)${!cargando ? ` · ${m.criticos} críticos A` : ""}. >0 → amber`}
+              valor={m.criticos === 0 ? "sin datos" : m.sinPred === 0 ? "✓ OK" : `${m.sinPred}/${m.criticos}`}
+              sev={cargando ? "none" : m.sevC} loading={cargando}
+            />
+            <Agent
+              id="IA-D" nombre="Señales PdM activas"
+              desc={`Series PdM sin medición >30 días${!cargando && m.nMed > 0 ? ` (${m.nMed} mediciones)` : ""}. >0 → amber`}
+              valor={m.pdmStale === 0 ? "✓ OK" : `${m.pdmStale} series`}
+              sev={cargando ? "none" : m.sevD} loading={cargando}
+            />
+          </Row>
+        </Sec>
+
+        {/* ── Brechas ISO 14224 ── */}
+        <Sec last>
+          <SecTitle badgeLabel="Requieren acción" badgeSev="red">Brechas ISO 14224 identificadas</SecTitle>
+          <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
+            <GapItem
+              id="GAP-1"
+              titulo="Weibull usa días calendario en lugar de horas de operación"
+              desc="ConfiabilidadML calcula TTF usando fechas de OT. ISO 14224 §9.3 requiere parámetro de exposición = horas reales de operación desde lecturas_horometro. Afecta β (forma) y η (escala) del modelo."
+              stat={!cargando && m.nConLec > 0 ? `→ ${m.nConLec} equipos ya tienen lecturas registradas (${m.nLec.toLocaleString()} lecturas totales)` : undefined}
+              fix="→ Fix: cruzar lectura de horómetro más cercana a cada fecha de falla para obtener horas TTF real."
+            />
+            <GapItem
+              id="GAP-2"
+              titulo="Horómetros no inyectados en contexto IA"
+              desc="Copiloto Flota e Informe Ejecutivo no incluyen el historial de horas de operación en su contexto, limitando el análisis de desgaste real y vida remanente de equipos."
+              fix="→ Fix: agregar summary de lecturas_horometro en copiloto.js e informe context builder."
+            />
+            <GapItem
+              id="GAP-3"
+              titulo="ANTHROPIC_API_KEY pendiente de configurar en Supabase Secrets"
+              desc="Las 4 Edge Functions retornan HTTP 500 hasta que se configure la clave. Bloquea todo el pipeline IA en producción."
+              fix="→ Fix: Supabase Dashboard → Project Settings → Edge Functions → Secrets → agregar ANTHROPIC_API_KEY."
+            />
+            <GapItem
+              id="GAP-4"
+              titulo="Taxonomía FMECA no estructurada (ISO 14224 Apéndice C)"
+              desc="OTs tienen modo_falla de texto libre. ISO 14224 define 3 niveles (clase → grupo → código) para análisis estadístico válido y benchmarking de industria."
+              stat={!cargando && m.pctCon != null ? `→ Estado actual: ${m.pctCon}% de OTs correctivas con modo_falla registrado (${m.nCorr} OTs)` : undefined}
+              statColor={m.pctCon != null ? (m.pctCon < 40 ? "#fbbf24" : "#34d399") : undefined}
+              fix="→ Fix: tabla modo_falla_catalogo + selector jerárquico en OTs (enabler para Diagnóstico IA y Confiabilidad)."
+            />
+          </div>
+        </Sec>
+
+      </div>
     </div>
   );
 }
