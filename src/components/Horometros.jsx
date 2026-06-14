@@ -89,27 +89,45 @@ export default function Horometros() {
       for (const [puntoId, valor] of pendientes) {
         const eq = byId.get(puntoId);
         if (!eq) continue;
-        const ultima = lecturasDe(puntoId)[0];
-        const v = validarLectura({ horasPrev: eq.horas_actual ?? null, fechaPrev: ultima?.fecha ?? null, horas: Number(valor) });
-        if (!v.ok) { setError(`${eq.id_visible}: ${v.error}`); continue; }
-        if (v.warning && !window.confirm(`${eq.id_visible} · ${eq.sistema}\n\n${v.warning}\n\n¿Guardar de todas formas?`)) continue;
 
         const horas = Number(valor);
         const fechaLec = fechas[puntoId] ? new Date(fechas[puntoId] + "T12:00:00") : new Date();
+        const todasLecs = lecturasDe(puntoId);          // desc por fecha
+        const ultimaFecha = todasLecs[0]?.fecha ? new Date(todasLecs[0].fecha) : null;
+        const esRetroactiva = ultimaFecha !== null && fechaLec < ultimaFecha;
+        // Contexto de validación: para retroactivas usar la lectura justo anterior
+        // en el tiempo, no la última (que sería "del futuro" relativo a la entrada).
+        const lecPrev = esRetroactiva
+          ? (todasLecs.find((l) => new Date(l.fecha) <= fechaLec) ?? null)
+          : (todasLecs[0] ?? null);
+        const v = validarLectura({
+          horasPrev: lecPrev ? Number(lecPrev.horas) : (eq.horas_actual ?? null),
+          fechaPrev: lecPrev?.fecha ?? null,
+          horas,
+        });
+        if (!v.ok) { setError(`${eq.id_visible}: ${v.error}`); continue; }
+        if (v.warning && !window.confirm(`${eq.id_visible} · ${eq.sistema}\n\n${v.warning}\n\n¿Guardar de todas formas?`)) continue;
+
         const row = await insertRow("lecturas_horometro", profile.empresa_id, {
-          equipo_id: puntoId, horas, horas_anterior: eq.horas_actual ?? null,
+          equipo_id: puntoId, horas,
+          horas_anterior: lecPrev ? Number(lecPrev.horas) : (eq.horas_actual ?? null),
           fuente: "manual", usuario_id: profile.id, usuario_nombre: profile.nombre || "",
           fecha: fechaLec.toISOString(),
         });
-        // Propaga las horas al punto + sus descendientes que heredan.
+        // Solo propaga horas_actual si esta lectura es la más reciente por fecha.
+        // Las retroactivas quedan en el audit trail sin sobreescribir el horómetro actual.
         const ids = idsBajoPunto(puntoId, equipos, byId);
-        await supabase.from("equipos").update({ horas_actual: horas }).in("id", ids);
+        if (!esRetroactiva) {
+          await supabase.from("equipos").update({ horas_actual: horas }).in("id", ids);
+          setEquipos((p) => p.map((x) => ids.includes(x.id) ? { ...x, horas_actual: horas } : x));
+        }
 
         setLecturas((p) => [row, ...p]);
-        setEquipos((p) => p.map((x) => ids.includes(x.id) ? { ...x, horas_actual: horas } : x));
         setValores((p) => { const n = { ...p }; delete n[puntoId]; return n; });
         setFechas((p) => { const n = { ...p }; delete n[puntoId]; return n; });
-        guardadas.push(`${eq.id_visible} (+${ids.length - 1} comp.)`);
+        guardadas.push(esRetroactiva
+          ? `${eq.id_visible} (historial ${fechas[puntoId]})`
+          : `${eq.id_visible} (+${ids.length - 1} comp.)`);
       }
       if (guardadas.length) {
         setOkMsg(`${guardadas.length} lectura(s) guardada(s) y propagada(s): ${guardadas.join(", ")}`);
