@@ -797,7 +797,7 @@ export default function Equipos() {
                   const nReps = destinos.filter((d) => d.equipo_id === e.id).length;
                   const panelAbierto = repuestoPanel === e.id;
                   const pos = posInfo.get(e.id) || { first: true, last: true };
-                  const esAgrupador = e.tipo_nodo === "sistema" || e.tipo_nodo === "subsistema";
+                  const esAgrupador = e.tipo_nodo === "sistema";
                   return ([
                     <tr key={e.id} style={{ background: eqDirty(e) ? tint(C.gold, 14) : fondoTipo(e) }}>
 
