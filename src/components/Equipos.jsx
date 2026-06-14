@@ -840,8 +840,9 @@ export default function Equipos() {
                         <div style={{ display: "flex", alignItems: "center" }}>
                           {tieneHijos ? (
                             <button onClick={() => toggleColapso(e.id)} title={colapsado ? "Expandir" : "Colapsar"}
-                              style={{ background: "none", border: "none", cursor: "pointer", color: C.steel, padding: 0, marginLeft: e.depth * 14, marginRight: 4, display: "flex", alignItems: "center", flexShrink: 0 }}>
-                              {colapsado ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
+                              className="cmms-clickable"
+                              style={{ background: colapsado ? tint(C.cyan, 10) : C.foam, border: `1px solid ${colapsado ? tint(C.cyan, 30) : C.line}`, cursor: "pointer", color: colapsado ? C.cyan : C.steel, padding: "3px 5px", borderRadius: 7, marginLeft: e.depth * 14, marginRight: 6, display: "flex", alignItems: "center", flexShrink: 0 }}>
+                              {colapsado ? <ChevronRight size={18} strokeWidth={2.5} /> : <ChevronDown size={18} strokeWidth={2.5} />}
                             </button>
                           ) : e.depth > 0 ? (
                             <span style={{ marginLeft: e.depth * 14, marginRight: 5, color: C.slate, fontSize: 13, flexShrink: 0 }}>└─</span>
