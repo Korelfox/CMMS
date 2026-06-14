@@ -950,7 +950,7 @@ export default function Equipos() {
                               placeholder="—"
                               onFocus={(ev) => ev.target.select()} onChange={(ev) => onChangeLocal(e.id, "mtbf_objetivo", ev.target.value === "" ? null : +ev.target.value)}
                               onBlur={(ev) => commit(e.id, "mtbf_objetivo", ev.target.value === "" ? null : +ev.target.value)}
-                              style={{ ...bluC, width: 62, textAlign: "right" }} />
+                              style={{ ...bluC, width: 76, textAlign: "right" }} />
                           </td>}
 
                       {/* Estado */}
