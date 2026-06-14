@@ -130,12 +130,16 @@ function Agent({ id, nombre, desc, valor, sev, loading }) {
 
 // ── Ítem de brecha ISO ────────────────────────────────────────────────────
 
-function GapItem({ id, titulo, desc, fix, stat, statColor }) {
+function GapItem({ id, titulo, desc, fix, stat, statColor, resuelto }) {
+  const bg  = resuelto ? "rgba(34,197,94,.06)" : "rgba(239,68,68,.05)";
+  const bd  = resuelto ? "rgba(34,197,94,.3)"  : "rgba(239,68,68,.22)";
+  const idC = resuelto ? "#86efac" : "#f87171";
+  const tiC = resuelto ? "#86efac" : "#fca5a5";
   return (
-    <div style={{ display: "flex", gap: 12, background: "rgba(239,68,68,.05)", border: "1px solid rgba(239,68,68,.22)", borderRadius: 7, padding: "11px 13px", alignItems: "flex-start" }}>
-      <div style={{ fontSize: 10, fontWeight: 800, color: "#f87171", textTransform: "uppercase", letterSpacing: 1, flexShrink: 0, paddingTop: 1, minWidth: 42 }}>{id}</div>
+    <div style={{ display: "flex", gap: 12, background: bg, border: `1px solid ${bd}`, borderRadius: 7, padding: "11px 13px", alignItems: "flex-start" }}>
+      <div style={{ fontSize: 10, fontWeight: 800, color: idC, textTransform: "uppercase", letterSpacing: 1, flexShrink: 0, paddingTop: 1, minWidth: 42 }}>{id}</div>
       <div>
-        <div style={{ fontSize: 12.5, fontWeight: 700, color: "#fca5a5", marginBottom: 4 }}>{titulo}</div>
+        <div style={{ fontSize: 12.5, fontWeight: 700, color: tiC, marginBottom: 4 }}>{resuelto ? "✓ " : ""}{titulo}</div>
         <div style={{ fontSize: 11.5, color: MUTED, lineHeight: 1.55, marginBottom: stat || fix ? 5 : 0 }}>{desc}</div>
         {stat && <div style={{ fontSize: 11, color: statColor || "#34d399", fontWeight: 600, marginBottom: fix ? 4 : 0 }}>{stat}</div>}
         {fix  && <div style={{ fontSize: 11, color: "#34d399", fontWeight: 600 }}>{fix}</div>}
@@ -343,9 +347,10 @@ export default function ArquitecturaIA() {
             />
             <GapItem
               id="GAP-3"
-              titulo="ANTHROPIC_API_KEY pendiente de configurar en Supabase Secrets"
-              desc="Las 4 Edge Functions retornan HTTP 500 hasta que se configure la clave. Bloquea todo el pipeline IA en producción."
-              fix="→ Fix: Supabase Dashboard → Project Settings → Edge Functions → Secrets → agregar ANTHROPIC_API_KEY."
+              resuelto
+              titulo="ANTHROPIC_API_KEY configurada — pipeline IA operativo"
+              desc="El secreto está cargado en Supabase (Edge Functions Secrets). Las 4 funciones (Copiloto, Diagnóstico, Informe, OCR) operan, y habilita el Informe Ejecutivo quincenal automático."
+              fix="✓ Resuelto · 2026-06-14."
             />
             <GapItem
               id="GAP-4"

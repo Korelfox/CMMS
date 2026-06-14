@@ -166,8 +166,7 @@ export default function Vigilante({ onNavigate }) {
             <div style={{ fontSize: 12, color: C.slate, lineHeight: 1.55 }}>
               El envío de un correo cuando hay severidad roja necesita una clave de proveedor de email
               (Resend / SendGrid) en Supabase Secrets. La vigilancia y el registro ya funcionan solos;
-              solo falta esa credencial para el aviso automático. El Informe Ejecutivo nocturno con IA,
-              además, espera la ANTHROPIC_API_KEY.
+              solo falta esa credencial para el aviso automático.
             </div>
           </div>
         </div>
