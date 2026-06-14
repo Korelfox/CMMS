@@ -797,6 +797,7 @@ export default function Equipos() {
                   const nReps = destinos.filter((d) => d.equipo_id === e.id).length;
                   const panelAbierto = repuestoPanel === e.id;
                   const pos = posInfo.get(e.id) || { first: true, last: true };
+                  const esAgrupador = e.tipo_nodo === "sistema" || e.tipo_nodo === "subsistema";
                   return ([
                     <tr key={e.id} style={{ background: eqDirty(e) ? tint(C.gold, 14) : fondoTipo(e) }}>
 
@@ -885,7 +886,7 @@ export default function Equipos() {
                           {e.criticidad && <span style={{ marginLeft: 6, flexShrink: 0 }}><Pill tone={CRITICIDAD_TONE[e.criticidad]}>{e.criticidad}</Pill></span>}
                           {colapsado && nDesc > 0 && <span style={{ marginLeft: 8, fontSize: 11.5, color: C.steel, fontWeight: 600, flexShrink: 0 }} title={`${nDesc} elemento(s) ocultos`}>▸ {nDesc}</span>}
                           {/* Indicadores operacionales: punto propio (azul), sin horómetro (gris), aceite (dorado), nivel (verde) */}
-                          {(e.horometro === "propio" || e.horometro === "no" || e.consume_aceite || (e.nivel_tipo && e.nivel_tipo !== "ninguno")) && (
+                          {!esAgrupador && (e.horometro === "propio" || e.horometro === "no" || e.consume_aceite || (e.nivel_tipo && e.nivel_tipo !== "ninguno")) && (
                             <span style={{ display: "inline-flex", gap: 2, marginLeft: 5, flexShrink: 0, alignItems: "center" }}>
                               {e.horometro === "propio" && <span title="Horómetro propio"    style={{ width: 6, height: 6, borderRadius: "50%", background: C.steel, display: "inline-block" }} />}
                               {e.horometro === "no"     && <span title="Sin horómetro"       style={{ width: 6, height: 6, borderRadius: "50%", background: C.slate, display: "inline-block" }} />}
@@ -907,49 +908,58 @@ export default function Equipos() {
                       </td>
 
                       {/* Marca / Modelo */}
-                      <td style={tdE}><input value={e.marca || ""} disabled={!puedeOperar} title={e.marca || ""} onChange={(ev) => onChangeLocal(e.id, "marca", ev.target.value)} onBlur={(ev) => commit(e.id, "marca", ev.target.value)} style={inC(90)} /></td>
-                      <td style={tdE}><input value={e.modelo || ""} disabled={!puedeOperar} title={e.modelo || ""} onChange={(ev) => onChangeLocal(e.id, "modelo", ev.target.value)} onBlur={(ev) => commit(e.id, "modelo", ev.target.value)} style={inC(90)} /></td>
+                      {esAgrupador ? <td style={tdE} /> : <td style={tdE}><input value={e.marca || ""} disabled={!puedeOperar} title={e.marca || ""} onChange={(ev) => onChangeLocal(e.id, "marca", ev.target.value)} onBlur={(ev) => commit(e.id, "marca", ev.target.value)} style={inC(90)} /></td>}
+                      {esAgrupador ? <td style={tdE} /> : <td style={tdE}><input value={e.modelo || ""} disabled={!puedeOperar} title={e.modelo || ""} onChange={(ev) => onChangeLocal(e.id, "modelo", ev.target.value)} onBlur={(ev) => commit(e.id, "modelo", ev.target.value)} style={inC(90)} /></td>}
 
                       {/* Horas */}
-                      <td style={{ ...tdE, textAlign: "right" }}>
-                        <input type="number" value={e.horas_actual} disabled={!puedeOperar}
-                          onFocus={(ev) => ev.target.select()} onChange={(ev) => onChangeLocal(e.id, "horas_actual", +ev.target.value)}
-                          onBlur={(ev) => commit(e.id, "horas_actual", +ev.target.value)}
-                          style={{ ...bluC, width: 62, textAlign: "right" }} />
-                      </td>
+                      {esAgrupador
+                        ? <td style={{ ...tdE, textAlign: "right" }}><span style={{ color: C.line }}>—</span></td>
+                        : <td style={{ ...tdE, textAlign: "right" }}>
+                            <input type="number" value={e.horas_actual} disabled={!puedeOperar}
+                              onFocus={(ev) => ev.target.select()} onChange={(ev) => onChangeLocal(e.id, "horas_actual", +ev.target.value)}
+                              onBlur={(ev) => commit(e.id, "horas_actual", +ev.target.value)}
+                              style={{ ...bluC, width: 62, textAlign: "right" }} />
+                          </td>}
                       {/* Último PM: solo lectura — lo escribe Plan Preventivo al registrar */}
-                      <td style={{ ...tdE, textAlign: "right" }}
-                        title="Se actualiza al registrar un PM en Plan Preventivo">
-                        <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 12, color: C.slate }}>
-                          {e.horas_ult_pm ? `${e.horas_ult_pm}h` : "—"}
-                        </span>
-                      </td>
+                      {esAgrupador
+                        ? <td style={{ ...tdE, textAlign: "right" }}><span style={{ color: C.line }}>—</span></td>
+                        : <td style={{ ...tdE, textAlign: "right" }} title="Se actualiza al registrar un PM en Plan Preventivo">
+                            <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 12, color: C.slate }}>
+                              {e.horas_ult_pm ? `${e.horas_ult_pm}h` : "—"}
+                            </span>
+                          </td>}
 
                       {/* MTBF objetivo (horas) */}
-                      <td style={{ ...tdE, textAlign: "right" }}>
-                        <input type="number" value={e.mtbf_objetivo ?? ""} disabled={!puedeOperar}
-                          placeholder="—"
-                          onFocus={(ev) => ev.target.select()} onChange={(ev) => onChangeLocal(e.id, "mtbf_objetivo", ev.target.value === "" ? null : +ev.target.value)}
-                          onBlur={(ev) => commit(e.id, "mtbf_objetivo", ev.target.value === "" ? null : +ev.target.value)}
-                          style={{ ...bluC, width: 62, textAlign: "right" }} />
-                      </td>
+                      {esAgrupador
+                        ? <td style={{ ...tdE, textAlign: "right" }}><span style={{ color: C.line }}>—</span></td>
+                        : <td style={{ ...tdE, textAlign: "right" }}>
+                            <input type="number" value={e.mtbf_objetivo ?? ""} disabled={!puedeOperar}
+                              placeholder="—"
+                              onFocus={(ev) => ev.target.select()} onChange={(ev) => onChangeLocal(e.id, "mtbf_objetivo", ev.target.value === "" ? null : +ev.target.value)}
+                              onBlur={(ev) => commit(e.id, "mtbf_objetivo", ev.target.value === "" ? null : +ev.target.value)}
+                              style={{ ...bluC, width: 62, textAlign: "right" }} />
+                          </td>}
 
                       {/* Estado */}
-                      <td style={tdE}>
-                        <select value={e.estado} disabled={!puedeOperar}
-                          onChange={(ev) => commit(e.id, "estado", ev.target.value)}
-                          style={inC(104)}>
-                          {ESTADOS_EQUIPO.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
-                        </select>
-                      </td>
+                      {esAgrupador
+                        ? <td style={tdE} />
+                        : <td style={tdE}>
+                            <select value={e.estado} disabled={!puedeOperar}
+                              onChange={(ev) => commit(e.id, "estado", ev.target.value)}
+                              style={inC(104)}>
+                              {ESTADOS_EQUIPO.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+                            </select>
+                          </td>}
 
                       {/* Prezarpe */}
-                      <td style={{ ...tdE, textAlign: "center" }}>
-                        <input type="checkbox" checked={!!e.prezarpe} disabled={!puedeOperar}
-                          onChange={(ev) => commit(e.id, "prezarpe", ev.target.checked)}
-                          title="Incluir en inspección de prezarpe"
-                          style={{ width: 16, height: 16, cursor: puedeOperar ? "pointer" : "default", accentColor: C.steel }} />
-                      </td>
+                      {esAgrupador
+                        ? <td style={{ ...tdE, textAlign: "center" }} />
+                        : <td style={{ ...tdE, textAlign: "center" }}>
+                            <input type="checkbox" checked={!!e.prezarpe} disabled={!puedeOperar}
+                              onChange={(ev) => commit(e.id, "prezarpe", ev.target.checked)}
+                              title="Incluir en inspección de prezarpe"
+                              style={{ width: 16, height: 16, cursor: puedeOperar ? "pointer" : "default", accentColor: C.steel }} />
+                          </td>}
 
                       {hasActions && (
                         <td style={tdE}>
@@ -958,7 +968,7 @@ export default function Equipos() {
                               style={{ background: "none", border: `1px solid ${C.line}`, borderRadius: 6, cursor: "pointer", color: C.steel, padding: "2px 5px", display: "flex", alignItems: "center", flexShrink: 0 }}>
                               <PanelRightOpen size={14} />
                             </button>
-                            {puedeOperar && (
+                            {puedeOperar && !esAgrupador && (
                               <button onClick={() => abrirPropOp(e)}
                                 title={`Config. operacional de "${e.sistema}"`}
                                 style={{ background: "none", border: `1px solid ${C.line}`, borderRadius: 6, cursor: "pointer", color: C.slate, padding: "2px 5px", display: "flex", alignItems: "center", flexShrink: 0 }}>
