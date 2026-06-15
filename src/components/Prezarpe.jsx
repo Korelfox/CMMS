@@ -5,13 +5,11 @@ import {
 } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { fetchAll, insertRow, updateRow, deleteRow, logActivity } from "../lib/db";
-import { supabase } from "../lib/supabase";
-import { idsBajoPunto } from "../lib/horometro";
 import { useOnline, cacheTable, getCached, queueInsert, nuevoId } from "../lib/offline";
 import { subirFotos, listarFotos, borrarFoto } from "../lib/fotos";
-import { C, archivo, canOperate, isAdmin, tint } from "../theme";
+import { C, canOperate, isAdmin } from "../theme";
 import { buildEquipoTree } from "../lib/equipTree";
-import { Card, PageHead, Pill, primaryBtn, ghostBtn, thStyle, tdStyle, InlineSpinner, ErrorBanner, Empty, Field, inputStyle } from "../ui";
+import { Card, PageHead, Pill, primaryBtn, ghostBtn, InlineSpinner, ErrorBanner, Empty, Field } from "../ui";
 import { FotoInput, FotoGaleria } from "./Fotos";
 import { HOY, SEGURIDAD_FIJA } from "./prezarpe/util";
 import { VistaFlota, VistaChecklist, VistaRecalada, VistaRetornoFalla, VistaHistorial, VistaInforme, ModalEliminar } from "./prezarpe/vistas";
@@ -49,7 +47,7 @@ export default function Prezarpe() {
       ]);
       setEmbarcaciones(embs); setEquipos(eqs); setMareas(ms); setPrezarpes(pzs); setDocumentos(docs); setUsandoCache(false);
       cacheTable("embarcaciones", embs); cacheTable("equipos", eqs); cacheTable("mareas", ms); cacheTable("prezarpes", pzs); cacheTable("documentos", docs);
-    } catch (e) {
+    } catch {
       const [embs, eqs, ms, pzs, docs] = await Promise.all([getCached("embarcaciones"), getCached("equipos"), getCached("mareas"), getCached("prezarpes"), getCached("documentos")]);
       setEmbarcaciones(embs); setEquipos(eqs); setMareas(ms); setPrezarpes(pzs); setDocumentos(docs); setUsandoCache(true);
       if (!embs.length) setError("No se pudo cargar y no hay copia local. Conéctate al menos una vez.");
@@ -107,8 +105,6 @@ export default function Prezarpe() {
             fuente: "recalada", usuario_id: profile.id, usuario_nombre: profile.nombre || "",
             fecha: recaladaAt,
           });
-          const ids = idsBajoPunto(eqId, equipos, byIdRec);
-          if (ids.length > 0) await supabase.from("equipos").update({ horas_actual: Number(horas) }).in("id", ids);
         }
       }
       logActivity(profile, "Recalada", embName(m.embarcacion_id));
@@ -195,8 +191,6 @@ export default function Prezarpe() {
             fuente: "prezarpe", usuario_id: profile.id, usuario_nombre: profile.nombre || "",
             fecha: zarpeAt,
           });
-          const ids = idsBajoPunto(eqId, equipos, byIdPz);
-          if (ids.length > 0) await supabase.from("equipos").update({ horas_actual: Number(horas) }).in("id", ids);
         }
         logActivity(profile, "Prezarpe", `${nave.nombre} · ${payload.apto ? "APTO" : "NO APTO" + (sol ? " · solicitud generada" : "")}`);
         await cargar();

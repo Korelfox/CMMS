@@ -2,7 +2,6 @@ import React, { useEffect, useState, useCallback, useMemo } from "react";
 import { Timer, Save, ChevronDown, ChevronRight, History, AlertCircle, CheckCircle2, CornerDownRight } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { fetchAll, insertRow, logActivity } from "../lib/db";
-import { supabase } from "../lib/supabase";
 import { validarLectura, tendenciaHorasDia, diasDesde, modoHorometro, puntoHorometro, idsBajoPunto } from "../lib/horometro";
 import { buildEquipoTree } from "../lib/equipTree";
 import { useArbolColapsable, BotonesColapsar, colorTipo, fondoTipo } from "../lib/arbolColapsable";
@@ -78,9 +77,9 @@ export default function Horometros() {
 
   const pendientes = Object.entries(valores).filter(([, v]) => String(v).trim() !== "");
 
-  // Guarda las lecturas pendientes (cada una en su punto propio) y PROPAGA las
-  // horas a todo el subárbol que hereda, para que el PM por intervalo de cada
-  // componente use las horas de su máquina.
+  // Guarda lecturas pendientes. La propagación de horas_actual al subárbol la
+  // hace el trigger trg_propagar_horas en la DB (atómico, cualquier fuente).
+  // Aquí solo actualizamos estado local para UX inmediata.
   async function guardarLecturas() {
     if (!pendientes.length) return;
     setGuardando(true); setError(null); setOkMsg(null);
@@ -92,11 +91,9 @@ export default function Horometros() {
 
         const horas = Number(valor);
         const fechaLec = fechas[puntoId] ? new Date(fechas[puntoId] + "T12:00:00") : new Date();
-        const todasLecs = lecturasDe(puntoId);          // desc por fecha
+        const todasLecs = lecturasDe(puntoId);
         const ultimaFecha = todasLecs[0]?.fecha ? new Date(todasLecs[0].fecha) : null;
         const esRetroactiva = ultimaFecha !== null && fechaLec < ultimaFecha;
-        // Contexto de validación: para retroactivas usar la lectura justo anterior
-        // en el tiempo, no la última (que sería "del futuro" relativo a la entrada).
         const lecPrev = esRetroactiva
           ? (todasLecs.find((l) => new Date(l.fecha) <= fechaLec) ?? null)
           : (todasLecs[0] ?? null);
@@ -114,11 +111,10 @@ export default function Horometros() {
           fuente: "manual", usuario_id: profile.id, usuario_nombre: profile.nombre || "",
           fecha: fechaLec.toISOString(),
         });
-        // Solo propaga horas_actual si esta lectura es la más reciente por fecha.
-        // Las retroactivas quedan en el audit trail sin sobreescribir el horómetro actual.
+
+        // Optimistic update local: el trigger de DB ya propagó en la transacción.
         const ids = idsBajoPunto(puntoId, equipos, byId);
         if (!esRetroactiva) {
-          await supabase.from("equipos").update({ horas_actual: horas }).in("id", ids);
           setEquipos((p) => p.map((x) => ids.includes(x.id) ? { ...x, horas_actual: horas } : x));
         }
 

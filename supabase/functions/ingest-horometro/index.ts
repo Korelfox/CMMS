@@ -112,15 +112,15 @@ Deno.serve(async (req: Request) => {
       .single();
     if (insErr) return json({ error: insErr.message }, 500);
 
-    // 6) propagar horas_actual al subárbol que hereda del punto
-    const ids = idsBajoPunto(puntoId, equipos ?? [], byId);
-    if (ids.length) await supabase.from("equipos").update({ horas_actual: h }).in("id", ids);
+    // 6) contar propagados para la respuesta (el trigger trg_propagar_horas
+    //    ya actualizó equipos.horas_actual en la misma transacción del INSERT).
+    const propagados = idsBajoPunto(puntoId, equipos ?? [], byId).length;
 
     return json({
       ok: true,
       embarcacion: emb.codigo || emb.nombre,
       punto: punto.id_visible, sistema: punto.sistema,
-      horas: h, propagados: ids.length, lectura_id: lectura.id,
+      horas: h, propagados, lectura_id: lectura.id,
     });
   } catch (e) {
     return json({ error: String((e as Error)?.message ?? e) }, 500);
