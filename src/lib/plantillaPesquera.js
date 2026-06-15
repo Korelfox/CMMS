@@ -25,9 +25,62 @@
 //    hijos  → array de subnodos (opcional)
 // ============================================================
 
-const comp = (cod, nom, { rep = [], pm = [], basico = true, crit = "A" } = {}) =>
-  ({ cod, nom, crit, tipo: "componente", rep, pm, basico });
+const comp = (cod, nom, { rep = [], pm = [], basico = true, crit = "A", param = null } = {}) =>
+  ({ cod, nom, crit, tipo: "componente", rep, pm, basico, ...(param ? { param } : {}) });
 const inst = (cod, nom, opts = {}) => ({ ...comp(cod, nom, opts), tipo: "instrumento" });
+
+// ── Umbrales de condición ISO 13374 / ISO 10816 / ISO 4413 ───────────────────
+// Cada constante es el valor de equipos.parametros_criticos (JSONB).
+// Estructura: { tipo, parametro, unidad, min_alerta?, min_critico?, max_alerta?, max_critico?, norma }
+// Valores de referencia para diesel marino; ajustar según motor específico en Ficha técnica.
+const PM_ACEITE = [
+  { tipo: "presion",     parametro: "Presión de Aceite",     unidad: "bar", min_alerta: 2.0, min_critico: 1.5, norma: "ISO 13374" },
+  { tipo: "temperatura", parametro: "Temperatura de Aceite", unidad: "°C",  max_alerta: 105, max_critico: 110, norma: "ISO 13374" },
+];
+const PM_ACE_SIMPLE = [
+  { tipo: "presion", parametro: "Presión de Aceite", unidad: "bar", min_alerta: 2.0, min_critico: 1.5, norma: "ISO 13374" },
+];
+const PM_REFRIG = [
+  { tipo: "temperatura", parametro: "Temperatura Refrigerante", unidad: "°C", max_alerta: 90, max_critico: 95, norma: "ISO 13374" },
+];
+const PM_EGT = [
+  { tipo: "temperatura", parametro: "Temperatura Escape (EGT)", unidad: "°C", max_alerta: 520, max_critico: 550, norma: "ISO 13374" },
+];
+const PM_BOOST = [
+  { tipo: "presion", parametro: "Presión Sobrealimentación", unidad: "bar", min_alerta: 1.2, min_critico: 1.0, max_alerta: 2.2, max_critico: 2.5, norma: "ISO 13374" },
+];
+const PM_RPM_VIB = [
+  { tipo: "velocidad",  parametro: "RPM Motor",             unidad: "rpm",  max_alerta: 2000, max_critico: 2200, norma: "ISO 3046"  },
+  { tipo: "vibracion",  parametro: "Vibración Carcasa RMS", unidad: "mm/s", max_alerta: 4.5,  max_critico: 7.1,  norma: "ISO 10816" },
+];
+const PM_FUEL_P = [
+  { tipo: "presion", parametro: "Presión Suministro Combustible", unidad: "bar", min_alerta: 2.0, min_critico: 1.5, norma: "ISO 13374" },
+];
+const PM_ACE_RED = [
+  { tipo: "presion",     parametro: "Presión Aceite Reductora",     unidad: "bar", min_alerta: 4.0, min_critico: 3.0, norma: "ISO 13374" },
+  { tipo: "temperatura", parametro: "Temperatura Aceite Reductora", unidad: "°C",  max_alerta: 85,  max_critico: 95,  norma: "ISO 13374" },
+];
+const PM_VOLTAJE = [
+  { tipo: "voltaje",    parametro: "Voltaje Alternador", unidad: "V",  min_alerta: 210, min_critico: 200, max_alerta: 235, max_critico: 245, norma: "IEC 60092" },
+  { tipo: "frecuencia", parametro: "Frecuencia",         unidad: "Hz", min_alerta: 49,  min_critico: 48,  max_alerta: 51,  max_critico: 52,  norma: "IEC 60092" },
+];
+const PM_HID_P = [
+  { tipo: "presion", parametro: "Presión Sistema Hidráulico", unidad: "bar", min_alerta: 160, min_critico: 140, max_alerta: 210, max_critico: 230, norma: "ISO 4413" },
+];
+const PM_HPU_MTR = [
+  { tipo: "presion",     parametro: "Presión Aceite Motor HPU", unidad: "bar", min_alerta: 2.0, min_critico: 1.5, norma: "ISO 13374" },
+  { tipo: "temperatura", parametro: "Temperatura Motor HPU",    unidad: "°C",  max_alerta: 105, max_critico: 110, norma: "ISO 13374" },
+];
+const PM_RSW_T = [
+  { tipo: "temperatura", parametro: "Temperatura Bodega RSW", unidad: "°C", max_alerta: 2, max_critico: 4, norma: "ISO 5552" },
+];
+const PM_VIVERO = [
+  { tipo: "oxigeno",     parametro: "Oxígeno Disuelto",        unidad: "mg/L", min_alerta: 5.0, min_critico: 3.0, norma: "FAO" },
+  { tipo: "temperatura", parametro: "Temperatura Agua Vivero", unidad: "°C",   max_alerta: 12,  max_critico: 15,  norma: "FAO" },
+];
+const PM_VIB = [
+  { tipo: "vibracion", parametro: "Vibración Carcasa RMS", unidad: "mm/s", max_alerta: 4.5, max_critico: 7.1, norma: "ISO 10816" },
+];
 
 // ============================================================
 //  SFI 611 — MOTOR PRINCIPAL
@@ -160,6 +213,7 @@ const MOTOR_PRINCIPAL = {
             ["Inspección visual / por condición", 1000],
           ] }),
         inst("PROP-MTR-LUB-SEN", "Sensor de Presión / Temperatura Aceite", {
+          param: PM_ACEITE,
           rep: [
             ["SEN-PRE-CAT", "Sensor Presión Aceite CAT (OEM)", "oem"],
             ["SEN-TEM-CAT", "Sensor Temperatura Aceite CAT (OEM)", "oem"],
@@ -211,7 +265,7 @@ const MOTOR_PRINCIPAL = {
             ["MNG-AD-GEN", "Manguera Agua Dulce Genérica", "generico"],
           ],
           pm: [["Inspección visual / por condición", 2000]] }),
-        inst("PROP-MTR-FW-SEN", "Sensor de Temperatura A.D.", { rep: [
+        inst("PROP-MTR-FW-SEN", "Sensor de Temperatura A.D.", { param: PM_REFRIG, rep: [
           ["SEN-TEM-CAT", "Sensor Temperatura CAT (OEM)", "oem"],
           ["SEN-TEM-ALT", "Sensor Temperatura Alternativo", "alternativo"],
         ] }),
@@ -309,7 +363,7 @@ const MOTOR_PRINCIPAL = {
           ["MNG-COMB-ALT", "Manguera Combustible Alternativa", "alternativo"],
         ],
         pm: [["Inspección de líneas y mangueras de combustible", null, "semanal"]] }),
-        inst("PROP-MTR-FUEL-SEN", "Sensor de Presión de Combustible", { rep: [
+        inst("PROP-MTR-FUEL-SEN", "Sensor de Presión de Combustible", { param: PM_FUEL_P, rep: [
           ["SEN-PRE-COMB-CAT", "Sensor Presión Combustible CAT (OEM)", "oem"],
           ["SEN-PRE-COMB-ALT", "Sensor Presión Combustible Alternativo", "alternativo"],
         ] }),
@@ -349,7 +403,7 @@ const MOTOR_PRINCIPAL = {
         comp("PROP-MTR-AIR-MAN", "Múltiple de Admisión", { basico: false, rep: [
           ["JD-MAN-ADM", "Junta Múltiple Admisión (kit)", "generico"],
         ] }),
-        inst("PROP-MTR-AIR-SEN", "Sensor de Presión de Sobrealimentación (Boost)", { rep: [
+        inst("PROP-MTR-AIR-SEN", "Sensor de Presión de Sobrealimentación (Boost)", { param: PM_BOOST, rep: [
           ["SEN-BOOST-CAT", "Sensor Boost CAT (OEM)", "oem"],
           ["SEN-BOOST-ALT", "Sensor Boost Alternativo", "alternativo"],
         ] }),
@@ -381,6 +435,7 @@ const MOTOR_PRINCIPAL = {
           ["SIL-ESC-OEM", "Silenciador (OEM)", "oem"],
         ] }),
         inst("PROP-MTR-EXH-EGT", "Sensor de Temperatura de Gases (EGT)", {
+          param: PM_EGT,
           rep: [
             ["EGT-CAT", "Sensor EGT CAT (OEM)", "oem"],
             ["EGT-ALT", "Sensor EGT Alternativo", "alternativo"],
@@ -433,7 +488,7 @@ const MOTOR_PRINCIPAL = {
           ["PNL-CAT", "Panel CAT (OEM)", "oem"],
           ["PNL-ALT", "Panel Alternativo", "alternativo"],
         ] }),
-        inst("PROP-MTR-CTRL-RPM", "Sensor de RPM", { rep: [
+        inst("PROP-MTR-CTRL-RPM", "Sensor de RPM", { param: PM_RPM_VIB, rep: [
           ["RPM-CAT", "Sensor RPM CAT (OEM)", "oem"],
           ["RPM-ALT", "Sensor RPM Alternativo", "alternativo"],
         ] }),
@@ -517,7 +572,7 @@ const MOTOR_GENERADOR = {
         comp("GEN-MTR-LUB-ENF", "Enfriador de Aceite", { basico: false,
           rep: [["ENF-GEN-OEM", "Enfriador Aceite Generador (OEM)", "oem"]],
           pm: [["Limpieza de radiador / intercambiador de calor", 4000]] }),
-        inst("GEN-MTR-LUB-SEN", "Sensor de Presión de Aceite", { rep: [
+        inst("GEN-MTR-LUB-SEN", "Sensor de Presión de Aceite", { param: PM_ACE_SIMPLE, rep: [
           ["SEN-PRE-CAT", "Sensor Presión CAT (OEM)", "oem"],
           ["SEN-PRE-ALT", "Sensor Presión Alternativo", "alternativo"],
         ] }),
@@ -535,7 +590,7 @@ const MOTOR_GENERADOR = {
         comp("GEN-MTR-FW-INT", "Intercambiador de Calor", { basico: false,
           rep: [["INT-GEN-OEM", "Intercambiador Generador (OEM)", "oem"], ["KIT-JD-INT", "Kit Juntas Intercambiador", "generico"]],
           pm: [["Limpieza de radiador / intercambiador de calor", 4000]] }),
-        inst("GEN-MTR-FW-SEN", "Sensor de Temperatura A.D.", { rep: [
+        inst("GEN-MTR-FW-SEN", "Sensor de Temperatura A.D.", { param: PM_REFRIG, rep: [
           ["SEN-TEM-CAT", "Sensor Temperatura CAT (OEM)", "oem"],
         ] }),
       ],
@@ -620,6 +675,7 @@ const MOTOR_GENERADOR = {
           // SFI 621 semanal prueba AVR
           pm: [["Prueba de alarmas y paradas de seguridad", null, "semanal"]] }),
         inst("GEN-MTR-ALT-VOL", "Sensor de Voltaje / Frecuencia", {
+          param: PM_VOLTAJE,
           rep: [
             ["VOL-CAT", "Sensor Voltaje (OEM)", "oem"],
             ["FRE-CAT", "Sensor Frecuencia (OEM)", "oem"],
@@ -708,6 +764,7 @@ const CENTRAL_HIDRAULICA = {
           ],
           pm: [["Revisión de bomba de agua de mar (impeller)", 500], ["Limpieza de radiador / intercambiador de calor", 2000]] }),
         inst("HPU-MTR-SEN", "Sensores (presión / temperatura)", {
+          param: PM_HPU_MTR,
           rep: [
             ["SEN-PRE-HPU-OEM", "Sensor Presión Aceite HPU (OEM)", "oem"],
             ["SEN-TEM-HPU-OEM", "Sensor Temperatura HPU (OEM)", "oem"],
@@ -830,6 +887,7 @@ const CENTRAL_HIDRAULICA = {
       ],
       pm: [["Limpieza de radiador / intercambiador de calor", 1000]] }),
     inst("HPU-SEN-P", "Sensor de Presión Hidráulica", {
+      param: PM_HID_P,
       rep: [
         ["SEN-PRE-HID-OEM", "Sensor Presión Hidráulica (OEM)", "oem"],
         ["SEN-PRE-HID-ALT", "Sensor Presión Hidráulica Alternativo", "alternativo"],
@@ -862,6 +920,7 @@ export const PLANTILLA_PESQUERA = [
             rep: [["ENF-RED-OEM", "Enfriador Reductora (OEM)", "oem"]],
             pm: [["Limpieza de radiador / intercambiador de calor", 4000]] }),
           inst("PROP-RED-SEN", "Sensor Presión/Temp Reductora", {
+            param: PM_ACE_RED,
             rep: [["SEN-PRE-RED", "Sensor Presión Reductora", "oem"]] }),
         ],
       },
@@ -982,6 +1041,7 @@ export const PLANTILLA_PESQUERA = [
             rep: [["PNL-ALM-OEM", "Panel de Alarmas (OEM)", "oem"]],
             pm: [["Prueba de alarmas y paradas de seguridad", 1000]] }),
           inst("ELEC-MON-SEN", "Sensores de Alarma (nivel, temp, presión)", {
+            param: PM_VIB,
             rep: [["SEN-ALM-GEN", "Sensores de Alarma (kit)", "generico"]],
             pm: [["Calibración de sensores / instrumentos", 4000]] }),
         ],
@@ -1091,6 +1151,7 @@ export const PLANTILLA_PESQUERA = [
         pm: [["Inspección visual / por condición", 250]] }),
       comp("CATCH-CLA", "Mesa de Clasificación / Picking", { basico: false }),
       inst("CATCH-SEN", "Sensores de Calidad de Agua (O₂, temp)", {
+        param: PM_VIVERO,
         rep: [["SEN-OXI-OEM", "Sensor de Oxígeno Disuelto", "oem"], ["SEN-TEM-VIV", "Sensor de Temperatura Vivero", "oem"]],
         pm: [["Calibración de sensores / instrumentos", 2000]] }),
     ],
@@ -1154,6 +1215,7 @@ export const PLANTILLA_PESQUERA = [
       { cod: "RSW-BAM", nom: "Bomba Agua de Mar RSW",   crit: "A", tipo: "subsistema" },
       { cod: "RSW-BOD", nom: "Bodegas de Pesca",        crit: "A", tipo: "subsistema" },
       inst("RSW-SEN-T", "Sensor Temperatura RSW", { crit: "A",
+        param: PM_RSW_T,
         pm: [["Calibración de sensores / instrumentos", null, "semestral"]] }),
     ],
   },

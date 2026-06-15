@@ -396,6 +396,7 @@ export default function Equipos() {
           embarcacion_id: emb.id, id_visible: idVis,
           sistema: nodo.nom, tipo_nodo: nodo.tipo, criticidad: nodo.crit,
           mtbf_objetivo: nodo.mtbf ?? null,
+          parametros_criticos: nodo.param ?? null,
           parent_id: parentId, created_by: profile.id,
         });
         nodeId = row.id;
