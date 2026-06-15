@@ -372,17 +372,40 @@ begin
       (v_varada, v_emp, 'Eléctrico',  'Megado de cuadro y alternadores',          'pendiente',    20, 'Taller',    6, false),
       (v_varada, v_emp, 'Propulsión', 'Alineación de línea de ejes',              'pendiente',    32, 'Astillero', 7, true);
 
-    -- OTs programadas asociadas a la varada
-    insert into ordenes_trabajo (empresa_id, embarcacion_id, equipo_id, sistema, tipo, prioridad, estado, descripcion, fecha, varada_id)
-    select v_emp, p_emb, e.id, e.sistema, 'preventivo', 'alta', 'programada',
-      'Trabajo de varada: ' || e.sistema, v_hoy - 5, v_varada
-    from equipos e where e.embarcacion_id = p_emb and e.id_visible like '%-PROP-EJE%' and e.tipo_nodo='componente'
-    limit 3;
+    -- Una OT vinculada por trabajo, con costos MO/Mat según estado → demuestra
+    -- el flujo de costos completo: trabajo → OT (varada_id + ot_id) → MO+Mat →
+    -- rollup "Costo real vs presupuesto". Tarifa MO ~$28.000/h.
+    --   completado → OT cerrada + costos valorizados (firma)
+    --   en_progreso→ OT en_ejecución + costo parcial (valorizado)
+    --   pendiente  → OT planificada sin costo aún
+    for v_eq in select id, sistema, descripcion, estado, horas_estimadas, critico_zarpe
+                from varada_trabajos where varada_id = v_varada
+    loop
+      insert into ordenes_trabajo (empresa_id, embarcacion_id, sistema, tipo, prioridad, estado,
+        descripcion, fecha, varada_id, costo_mo, costo_mat, cerrada_por, cerrada_fecha, costos_por, costos_fecha)
+      values (v_emp, p_emb, v_eq.sistema, 'preventivo',
+        (case when v_eq.critico_zarpe then 'alta' else 'media' end)::app.prioridad,
+        (case v_eq.estado when 'completado' then 'cerrada' when 'en_progreso' then 'en_ejecucion' else 'planificada' end)::app.estado_ot,
+        v_eq.descripcion, v_hoy - 18, v_varada,
+        round((v_eq.horas_estimadas * 28000 * (case v_eq.estado when 'completado' then 1.0 when 'en_progreso' then 0.55 else 0 end))::numeric),
+        round((v_eq.horas_estimadas * 28000 * (case v_eq.estado when 'completado' then 1.0 when 'en_progreso' then 0.55 else 0 end) * (0.4 + random()*0.8))::numeric),
+        case when v_eq.estado = 'completado' then 'Astillero' end,
+        case when v_eq.estado = 'completado' then (v_hoy - 6)::timestamptz end,
+        case when v_eq.estado in ('completado','en_progreso') then 'Jefe Mantención' end,
+        case when v_eq.estado in ('completado','en_progreso') then (v_hoy - 6)::timestamptz end)
+      returning id into v_major;
+      update varada_trabajos set ot_id = v_major where id = v_eq.id;
+    end loop;
 
   elsif p_perfil = 'critica' then
     insert into varadas (empresa_id, embarcacion_id, nombre, tipo, estado, fecha_inicio, fecha_fin_estimada, fecha_fin_real, presupuesto, descripcion)
     values (v_emp, p_emb, 'Carena anual', 'carena', 'cerrada', v_hoy - 300, v_hoy - 288, v_hoy - 285, 22000000,
-      'Carena programada del año anterior');
+      'Carena programada del año anterior')
+    returning id into v_varada;
+    -- Carena cerrada con OTs costeadas → costo real vs presupuesto poblado.
+    insert into ordenes_trabajo (empresa_id, embarcacion_id, sistema, tipo, prioridad, estado, descripcion, fecha, varada_id, costo_mo, costo_mat, cerrada_por, cerrada_fecha, costos_por, costos_fecha) values
+      (v_emp, p_emb, 'Casco', 'preventivo', 'alta', 'cerrada', 'Carena: arenado y pintura de obra viva', v_hoy - 295, v_varada, 3200000, 5400000, 'Astillero', (v_hoy-286)::timestamptz, 'Jefe Mantención', (v_hoy-286)::timestamptz),
+      (v_emp, p_emb, 'Propulsión', 'preventivo', 'media', 'cerrada', 'Carena: inspección de ejes y hélice', v_hoy - 293, v_varada, 1800000, 2600000, 'Astillero', (v_hoy-286)::timestamptz, 'Jefe Mantención', (v_hoy-286)::timestamptz);
   end if;
 
   -- ── 3.10 Inventario: stock por bodega de la nave + consumos ──
