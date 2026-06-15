@@ -10,9 +10,10 @@ import { supabase } from "./supabase";
 // ============================================================
 
 // Lectura genérica de una tabla (RLS filtra por empresa automáticamente).
-export async function fetchAll(tabla, { select = "*", order } = {}) {
+export async function fetchAll(tabla, { select = "*", order, limit } = {}) {
   let q = supabase.from(tabla).select(select);
   if (order) q = q.order(order.col, { ascending: order.asc ?? true });
+  if (limit) q = q.limit(limit);
   const { data, error } = await q;
   if (error) { console.error(`[CMMS] fetchAll(${tabla}):`, error.message); throw error; }
   return data || [];
@@ -53,6 +54,13 @@ export async function upsertRow(tabla, empresaId, row, onConflict) {
     .single();
   if (error) { console.error(`[CMMS] upsertRow(${tabla}):`, error.message); throw error; }
   return data;
+}
+
+// Llama a una función RPC de Postgres (fn = nombre sin esquema, params = objeto).
+export async function rpcCall(fn, params = {}) {
+  const { data, error } = await supabase.rpc(fn, params);
+  if (error) { console.error(`[CMMS] rpc(${fn}):`, error.message); throw error; }
+  return data ?? [];
 }
 
 // Registra un evento en la bitácora de actividad.

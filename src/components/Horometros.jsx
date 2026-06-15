@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback, useMemo } from "react";
-import { Timer, Save, ChevronDown, ChevronRight, History, AlertCircle, CheckCircle2, CornerDownRight } from "lucide-react";
+import { Timer, Save, ChevronDown, ChevronRight, History, AlertCircle, CheckCircle2, CornerDownRight, ShieldCheck } from "lucide-react";
 import { useAuth } from "../lib/auth";
-import { fetchAll, insertRow, logActivity } from "../lib/db";
+import { fetchAll, insertRow, logActivity, rpcCall } from "../lib/db";
 import { validarLectura, tendenciaHorasDia, diasDesde, modoHorometro, puntoHorometro, idsBajoPunto } from "../lib/horometro";
 import { buildEquipoTree } from "../lib/equipTree";
 import { useArbolColapsable, BotonesColapsar, colorTipo, fondoTipo } from "../lib/arbolColapsable";
@@ -32,6 +32,10 @@ export default function Horometros() {
   const [fechas, setFechas] = useState({});         // puntoId → fecha de lectura (YYYY-MM-DD)
   const [histAbierto, setHistAbierto] = useState(null);
   const [guardando, setGuardando]     = useState(false);
+  const [ultimoLog,    setUltimoLog]    = useState(null);
+  const [auditViols,   setAuditViols]   = useState(null);   // null = no verificado; [] = sin viols; [...] = viols
+  const [auditLoading, setAuditLoading] = useState(false);
+  const [auditAbierto, setAuditAbierto] = useState(false);
   const puedeOperar = canOperate(profile?.rol);
 
   const cargar = useCallback(async () => {
@@ -47,6 +51,17 @@ export default function Horometros() {
     finally { setLoading(false); }
   }, []);
   useEffect(() => { cargar(); }, [cargar]);
+
+  // Carga el último chequeo automático (cron) para mostrar en el panel supervisor.
+  const cargarUltimoLog = useCallback(async () => {
+    try {
+      const rows = await fetchAll("horometro_health_log", {
+        order: { col: "chequeado_en", asc: false }, limit: 1,
+      });
+      setUltimoLog(rows[0] ?? null);
+    } catch { /* tabla puede no existir en instancias sin migración → silencio */ }
+  }, []);
+  useEffect(() => { cargarUltimoLog(); }, [cargarUltimoLog]);
 
   const byId = useMemo(() => new Map(equipos.map((e) => [e.id, e])), [equipos]);
   const lecturasDe = useCallback((id) => lecturas.filter((l) => l.equipo_id === id), [lecturas]);
@@ -133,6 +148,16 @@ export default function Horometros() {
     finally { setGuardando(false); }
   }
 
+  async function verificarAhora() {
+    setAuditLoading(true);
+    try {
+      const viols = await rpcCall("fn_audit_horometro", { p_empresa_id: profile.empresa_id });
+      setAuditViols(viols);
+      setAuditAbierto(true);
+    } catch (e) { setError("Auditoría de horómetro: " + e.message); }
+    finally { setAuditLoading(false); }
+  }
+
   if (loading) return <div><PageHead kicker="Operación · Datos de Operación" title="Horómetros" /><Card><InlineSpinner label="Cargando horómetros…" /></Card></div>;
 
   return (
@@ -171,6 +196,88 @@ export default function Horometros() {
           </Card>
         ))}
       </div>
+
+      {/* ── Supervisor de integridad del horómetro ─────────────────────── */}
+      {(() => {
+        // Fuente de verdad: live check toma precedencia sobre el log del cron.
+        const tieneVivo  = auditViols !== null;
+        const nViols     = tieneVivo ? auditViols.length : (ultimoLog?.n_violaciones ?? null);
+        const sev        = nViols === null ? null : nViols === 0 ? "ok" : nViols <= 2 ? "aviso" : "critico";
+        const sevColor   = { ok: C.green, aviso: C.yellow, critico: C.red }[sev] ?? C.steel;
+        const sevLabel   = { ok: "Sin violaciones", aviso: `${nViols} aviso(s)`, critico: `${nViols} violación(es) crítica(s)` }[sev];
+        const fechaStr   = tieneVivo ? "ahora"
+          : ultimoLog ? new Date(ultimoLog.chequeado_en).toLocaleString("es-CL", { dateStyle: "short", timeStyle: "short" }) : null;
+        const TIPO_META  = {
+          horas_desincronizadas: { label: "Desincronización", tone: "red" },
+          pm_silenciado:          { label: "PM silenciado",    tone: "yellow" },
+          fuente_huerfana:        { label: "Fuente huérfana",  tone: "red" },
+        };
+        return (
+          <Card style={{ marginBottom: 16, padding: "12px 18px",
+            border: sev && sev !== "ok" ? `1px solid ${tint(sevColor, 40)}` : `1px solid ${C.foam}` }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <ShieldCheck size={16} color={sev ? sevColor : C.steel} />
+                <span style={{ fontSize: 13, fontWeight: 700, color: C.ink }}>Supervisor de Horómetro</span>
+                {sev && <Pill tone={sev === "ok" ? "green" : sev === "aviso" ? "yellow" : "red"}>{sevLabel}</Pill>}
+                {fechaStr && <span style={{ fontSize: 11, color: C.slate }}>· {fechaStr}</span>}
+                {!fechaStr && <span style={{ fontSize: 11.5, color: C.slate }}>Sin historial de chequeos automáticos</span>}
+              </div>
+              <div style={{ display: "flex", gap: 8 }}>
+                {auditAbierto && (
+                  <button onClick={() => { setAuditAbierto(false); setAuditViols(null); }}
+                    style={{ padding: "6px 13px", borderRadius: 8, border: `1px solid ${C.line}`, background: C.surface,
+                      color: C.steel, fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
+                    Cerrar
+                  </button>
+                )}
+                <button onClick={verificarAhora} disabled={auditLoading}
+                  style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 13px", borderRadius: 8,
+                    border: `1px solid ${tint(C.cyan, 40)}`, background: tint(C.cyan, 7), color: C.cyan,
+                    fontSize: 12, fontWeight: 600, cursor: auditLoading ? "default" : "pointer",
+                    fontFamily: "inherit", opacity: auditLoading ? 0.6 : 1 }}>
+                  <ShieldCheck size={13} />{auditLoading ? "Verificando…" : "Verificar ahora"}
+                </button>
+              </div>
+            </div>
+
+            {auditAbierto && auditViols !== null && (
+              <div style={{ marginTop: 12, borderTop: `1px solid ${C.foam}`, paddingTop: 10 }}>
+                {auditViols.length === 0 ? (
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, color: C.green }}>
+                    <CheckCircle2 size={15} />
+                    <span style={{ fontSize: 13, fontWeight: 600 }}>Todo correcto — el flujo de horas no presenta violaciones.</span>
+                  </div>
+                ) : (
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+                    <thead><tr>
+                      {["Tipo", "Equipo", "Actual", "Esperadas", "Detalle"].map((h) => (
+                        <th key={h} style={{ textAlign: "left", padding: "4px 10px", fontSize: 10.5,
+                          textTransform: "uppercase", color: C.slate, letterSpacing: 0.4 }}>{h}</th>
+                      ))}
+                    </tr></thead>
+                    <tbody>
+                      {auditViols.map((v, i) => {
+                        const m = TIPO_META[v.tipo_violacion] ?? { label: v.tipo_violacion, tone: "slate" };
+                        return (
+                          <tr key={i} style={{ borderTop: `1px solid ${C.foam}` }}>
+                            <td style={{ padding: "6px 10px" }}><Pill tone={m.tone}>{m.label}</Pill></td>
+                            <td style={{ padding: "6px 10px", fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, color: C.steel }}>{v.id_visible}</td>
+                            <td style={{ padding: "6px 10px", fontFamily: "'IBM Plex Mono', monospace" }}>{v.horas_actual != null ? `${v.horas_actual} h` : "—"}</td>
+                            <td style={{ padding: "6px 10px", fontFamily: "'IBM Plex Mono', monospace" }}>{v.horas_esperadas != null ? `${v.horas_esperadas} h` : "—"}</td>
+                            <td style={{ padding: "6px 10px", color: C.slate, maxWidth: 280, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                              title={v.detalle}>{v.detalle}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            )}
+          </Card>
+        );
+      })()}
 
       {/* Filtros + vista */}
       <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap", alignItems: "center" }}>
