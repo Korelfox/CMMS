@@ -123,12 +123,19 @@ export default function PlanPM({ onNavigate }) {
       });
     }
   }
+  // Ids de equipos de la nave en foco (o toda la flota). El filtro por nave
+  // aplica a TODO el módulo: árbol del plan, KPIs e historial.
+  const idsNave = useMemo(
+    () => new Set((filtro === "all" ? equipos : equipos.filter((e) => e.embarcacion_id === filtro)).map((e) => e.id)),
+    [equipos, filtro]
+  );
   const lista   = buildEquipoTree(filtro === "all" ? equipos : equipos.filter((e) => e.embarcacion_id === filtro));
+  const historialNave = filtro === "all" ? historial : historial.filter((h) => idsNave.has(h.equipo_id));
 
-  // KPIs globales
+  // KPIs (respetan el filtro por nave)
   const kpis = useMemo(() => {
     let total = 0, vencidos = 0, proximos = 0;
-    planes.filter((p) => p.activo).forEach((p) => {
+    planes.filter((p) => p.activo && idsNave.has(p.equipo_id)).forEach((p) => {
       const eq = equipos.find((e) => e.id === p.equipo_id);
       if (!eq) return;
       let tone;
@@ -141,9 +148,12 @@ export default function PlanPM({ onNavigate }) {
       if (tone === "red")    vencidos++;
       if (tone === "yellow") proximos++;
     });
-    const cumpl = scheduleComplianceCombinado(historial, planes);
+    const cumpl = scheduleComplianceCombinado(
+      historial.filter((h) => idsNave.has(h.equipo_id)),
+      planes.filter((p) => idsNave.has(p.equipo_id))
+    );
     return { total, vencidos, proximos, ok: total - vencidos - proximos, cumplPct: cumpl.pct };
-  }, [planes, equipos, historial]);
+  }, [planes, equipos, historial, idsNave]);
 
   if (loading) return <div><PageHead kicker="Mantenimiento Preventivo" title="Plan Preventivo" /><Card><InlineSpinner label="Cargando plan preventivo…" /></Card></div>;
 
@@ -204,7 +214,7 @@ export default function PlanPM({ onNavigate }) {
           handlersRef={handlersRef} abrirPMWindow={abrirPMWindow} />
       )}
       {tab === "historial" && (
-        <TabHistorial historial={historial} planes={planes} equipos={equipos} embName={embName} />
+        <TabHistorial historial={historialNave} planes={planes} equipos={equipos} embName={embName} />
       )}
     </div>
   );

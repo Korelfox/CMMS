@@ -29,6 +29,7 @@ export default function OrdenesTrabajo({ navParams }) {
   const [error, setError] = useState(null);
   const [usandoCache, setUsandoCache] = useState(false);
   const [filtro, setFiltro] = useState("all");
+  const [embFiltro, setEmbFiltro] = useState("all");  // filtro por embarcación (combinable con el de estado)
   const [otDestacadaId, setOtDestacadaId] = useState(navParams?.otId || null);  // OT abierta desde Alertas
   const [modoCostos, setModoCostos] = useState(false);  // edición de costos por fila
   const [costoOk, setCostoOk] = useState(null);          // feedback "✓ guardado" por OT
@@ -77,6 +78,7 @@ export default function OrdenesTrabajo({ navParams }) {
 
   // Cambiar de filtro manualmente quita el modo "OT señalada".
   function aplicarFiltro(f) { setFiltro(f); setOtDestacadaId(null); }
+  function aplicarEmb(id) { setEmbFiltro(id); setOtDestacadaId(null); }
 
   // Cuando el outbox se vacía (volvió la señal y subió todo), recargamos del servidor.
   useEffect(() => {
@@ -90,10 +92,12 @@ export default function OrdenesTrabajo({ navParams }) {
 
   // Si venimos de una alerta, mostramos solo esa OT; si no, el filtro normal.
   const otDestacada = otDestacadaId ? ots.find((o) => o.id === otDestacadaId) : null;
-  const lista = otDestacada ? [otDestacada] : filtrarOTs(ots, filtro);
+  // Alcance por embarcación; el filtro de estado opera dentro de ese alcance.
+  const otsScope = embFiltro === "all" ? ots : ots.filter((o) => o.embarcacion_id === embFiltro);
+  const lista = otDestacada ? [otDestacada] : filtrarOTs(otsScope, filtro);
 
-  // KPIs rápidos
-  const { abiertas, costoTotal, preventivas, propProactivo } = kpisOT(ots);
+  // KPIs rápidos (respetan el filtro por nave)
+  const { abiertas, costoTotal, preventivas, propProactivo } = kpisOT(otsScope);
 
   async function crear() {
     const err = validarNuevaOT(form);
@@ -328,14 +332,25 @@ export default function OrdenesTrabajo({ navParams }) {
         </div>
       )}
 
+      {embarcaciones.length > 1 && (
+        <div style={{ display: "flex", gap: 8, marginBottom: 10, flexWrap: "wrap", alignItems: "center" }}>
+          <span style={{ fontSize: 11.5, color: C.slate, fontWeight: 600, marginRight: 2 }}>Nave:</span>
+          <FilterBtn active={embFiltro === "all"} onClick={() => aplicarEmb("all")}>Todas</FilterBtn>
+          {embarcaciones.map((v) => (
+            <FilterBtn key={v.id} active={embFiltro === v.id} color={v.color}
+              onClick={() => aplicarEmb(embFiltro === v.id ? "all" : v.id)}>{v.nombre}</FilterBtn>
+          ))}
+        </div>
+      )}
+
       <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
-        <FilterBtn active={!otDestacada && filtro === "all"} onClick={() => aplicarFiltro("all")}>Todas ({ots.length})</FilterBtn>
+        <FilterBtn active={!otDestacada && filtro === "all"} onClick={() => aplicarFiltro("all")}>Todas ({otsScope.length})</FilterBtn>
         {ESTADOS_OT.map((s) => {
-          const n = ots.filter((o) => o.estado === s.value).length;
+          const n = otsScope.filter((o) => o.estado === s.value).length;
           return <FilterBtn key={s.value} active={!otDestacada && filtro === s.value} onClick={() => aplicarFiltro(s.value)}>{s.label} ({n})</FilterBtn>;
         })}
         {(() => {
-          const n = ots.filter(sinValorizar).length;
+          const n = otsScope.filter(sinValorizar).length;
           return n > 0 ? (
             <FilterBtn active={!otDestacada && filtro === "sin_valorizar"} onClick={() => aplicarFiltro("sin_valorizar")}>
               $ Sin valorizar ({n})
