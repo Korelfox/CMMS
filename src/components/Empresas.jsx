@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useMemo } from "react";
-import { Building2, Plus, Ship, Users, Copy, Check, Power, AlertCircle, AlertTriangle, Trash2 } from "lucide-react";
+import { Building2, Plus, Ship, Users, Copy, Check, Power, AlertCircle, AlertTriangle, Trash2, Sparkles } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { fetchAll, logActivity } from "../lib/db";
 import { supabase } from "../lib/supabase";
@@ -44,6 +44,9 @@ export default function Empresas() {
   const [limpConfirm, setLimpConfirm] = useState("");
   const [limpiando, setLimpiando]     = useState(false);
   const [limpMsg, setLimpMsg]         = useState(null);
+  // Flota de demostración
+  const [demoLoading, setDemoLoading] = useState(false);
+  const [demoMsg, setDemoMsg]         = useState(null);
   const soyseuper = isSuperAdmin(profile?.rol);
 
   const cargar = useCallback(async () => {
@@ -140,6 +143,24 @@ export default function Empresas() {
     } catch (e) {
       setError("No se pudo limpiar la flota: " + e.message);
     } finally { setLimpiando(false); }
+  }
+
+  // Genera/regenera la flota de DEMOSTRACIÓN (3 naves con perfiles contrastantes)
+  // vía función SECURITY DEFINER que valida super_admin en el servidor. Es
+  // idempotente y reproducible: reemplaza los datos demo de Don Miguel / Doña
+  // Rosa / San Pedro para probar el CMMS de punta a punta.
+  async function generarFlotaDemo() {
+    if (!window.confirm("¿Generar/regenerar la FLOTA DEMO?\n\nDon Miguel (sana) · Doña Rosa (crítica) · San Pedro (en varada).\n\nReemplaza los datos operativos demo de esas 3 naves con un set reproducible (lecturas, OTs, PdM, fallas, varada, RCA, inventario, mareas). No afecta otras flotas.\n\nRequiere que Don Miguel (DM) ya tenga la plantilla pesquera cargada.")) return;
+    setDemoLoading(true); setError(null); setDemoMsg(null);
+    try {
+      const { error: e } = await supabase.rpc("fn_seed_demo_flota", {});
+      if (e) throw e;
+      setDemoMsg("Flota demo generada: Don Miguel (sana) · Doña Rosa (crítica) · San Pedro (en varada). Recargando…");
+      logActivity(profile, "Generar flota demo", "Don Miguel · Doña Rosa · San Pedro");
+      cargar();
+    } catch (e) {
+      setError("No se pudo generar la flota demo: " + e.message);
+    } finally { setDemoLoading(false); }
   }
 
   if (loading) return <div><PageHead kicker="Administración · Super Admin" title="Empresas & Flotas" /><Card><InlineSpinner label="Cargando empresas…" /></Card></div>;
@@ -282,6 +303,32 @@ export default function Empresas() {
           </div>
         </Card>
       )}
+
+      {/* ── Flota de demostración (solo super admin) ── */}
+      <Card style={{ marginTop: 24, border: `1px solid ${tint(C.cyan, 45)}`, background: tint(C.cyan, 6) }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+          <Sparkles size={20} color={C.cyan} />
+          <div style={{ fontWeight: 800, fontSize: 15, color: C.cyan }}>Flota de demostración</div>
+        </div>
+        <div style={{ fontSize: 12.5, color: C.slate, marginBottom: 14, lineHeight: 1.55 }}>
+          Genera <strong>3 naves contrastantes</strong> para probar el CMMS de punta a punta, clonando la
+          estructura de <strong>Don Miguel</strong> y sembrando historia operacional realista:
+          <br /><strong style={{ color: C.ink }}>Don Miguel</strong> — sana, bien gestionada (supervisor verde) ·{" "}
+          <strong style={{ color: C.ink }}>Doña Rosa</strong> — crítica, PMs vencidos, fallas crónicas y RCA ·{" "}
+          <strong style={{ color: C.ink }}>San Pedro</strong> — en varada, prezarpe bloqueado.
+          <br />Incluye lecturas de horómetro, OTs preventivas/correctivas, mediciones PdM, varada, inventario y
+          mareas. Es <strong>idempotente y reproducible</strong>: puedes volver a generarla cuando quieras.
+        </div>
+        <button onClick={generarFlotaDemo} disabled={demoLoading}
+          style={{ ...primaryBtn, background: C.cyan, borderColor: C.cyan, opacity: demoLoading ? 0.6 : 1 }}>
+          <Sparkles size={15} /> {demoLoading ? "Generando flota…" : "Generar flota demo"}
+        </button>
+        {demoMsg && (
+          <div style={{ marginTop: 12, fontSize: 12.5, color: C.green, fontWeight: 600, display: "flex", alignItems: "center", gap: 6 }}>
+            <Check size={15} /> {demoMsg}
+          </div>
+        )}
+      </Card>
 
       {/* ── Zona peligrosa: Limpiar CMMS de una flota (solo super admin) ── */}
       <Card style={{ marginTop: 24, border: `1px solid ${tint(C.red, 45)}`, background: tint(C.red, 6) }}>
