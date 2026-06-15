@@ -407,9 +407,28 @@ export default function Equipos() {
       }
       for (const hijo of nodo.hijos || []) await insertarNodo(hijo, nodeId, rootNom);
     }
+    // Recopila nodos con fuente: "OTRO-COD" para asignar horas_fuente_id tras crear todo.
+    function collectFuente(nodo, acc = []) {
+      if (nodo.fuente) acc.push({ cod: nodo.cod, fuente: nodo.fuente });
+      for (const h of nodo.hijos || []) collectFuente(h, acc);
+      return acc;
+    }
+
     const sincOriginal = () => setOriginal((o) => { const n = { ...o }; creados.forEach((c) => { n[c.id] = { ...c }; }); return n; });
     try {
       for (const sis of PLANTILLA_PESQUERA) await insertarNodo(sis, null, sis.nom);
+
+      // Asignar horas_fuente_id para nodos que heredan horas de un hermano (ej: PROP-RED/EJE/HEL ← PROP-MTR).
+      // Solo aplica cuando no está ya fijado (idempotente vía migración o corrida previa).
+      for (const { cod, fuente } of PLANTILLA_PESQUERA.flatMap((s) => collectFuente(s))) {
+        const nodeId   = existentesNave.get(`${emb.codigo}-${cod}`);
+        const fuenteId = existentesNave.get(`${emb.codigo}-${fuente}`);
+        if (!nodeId || !fuenteId) continue;
+        const cur = equipos.find((e) => e.id === nodeId) ?? creados.find((e) => e.id === nodeId);
+        if (cur?.horas_fuente_id) continue;
+        await updateRow("equipos", nodeId, { horas_fuente_id: fuenteId });
+      }
+
       setEquipos((p) => [...p, ...creados]); sincOriginal();
       logActivity(profile, "Precargar plantilla pesquera", `${emb.nombre} · modo ${modo} · ${creados.length} nodos · ${itemsCreados.length} repuestos · ${planesCreados.length} planes PM`);
     } catch (e) {

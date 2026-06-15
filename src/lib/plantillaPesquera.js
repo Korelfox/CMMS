@@ -906,7 +906,7 @@ export const PLANTILLA_PESQUERA = [
     hijos: [
       MOTOR_PRINCIPAL,
       {
-        cod: "PROP-RED", nom: "Reductora", crit: "A", tipo: "subsistema",
+        cod: "PROP-RED", nom: "Reductora", crit: "A", tipo: "subsistema", fuente: "PROP-MTR",
         hijos: [
           comp("PROP-RED-ACE", "Aceite y Filtro de Reductora", {
             rep: [["FLT-RED-OEM", "Filtro Reductora (OEM)", "oem"], ["ACE-RED-GEN", "Aceite Reductora (balde)", "generico"]],
@@ -925,7 +925,7 @@ export const PLANTILLA_PESQUERA = [
         ],
       },
       {
-        cod: "PROP-EJE", nom: "Eje y Bocina", crit: "A", tipo: "subsistema",
+        cod: "PROP-EJE", nom: "Eje y Bocina", crit: "A", tipo: "subsistema", fuente: "PROP-MTR",
         hijos: [
           comp("PROP-EJE-EJE", "Eje de Cola", { basico: false, rep: [["EJE-OEM", "Eje de Cola (OEM)", "oem"]] }),
           comp("PROP-EJE-BOC", "Bocina (Stern Tube)", { basico: false, rep: [["BOC-OEM", "Bocina (OEM)", "oem"]] }),
@@ -940,7 +940,7 @@ export const PLANTILLA_PESQUERA = [
         ],
       },
       {
-        cod: "PROP-HEL", nom: "Hélice", crit: "A", tipo: "subsistema",
+        cod: "PROP-HEL", nom: "Hélice", crit: "A", tipo: "subsistema", fuente: "PROP-MTR",
         hijos: [
           comp("PROP-HEL-HEL", "Hélice", { basico: false, rep: [["HEL-OEM", "Hélice (OEM)", "oem"]] }),
           comp("PROP-HEL-ANO", "Ánodos de Eje / Hélice", {
