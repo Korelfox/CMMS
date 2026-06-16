@@ -1,0 +1,28 @@
+# Configuración Supabase CLI — proyecto Korelfox CMMS
+# Uso: npx supabase functions deploy <nombre> --project-ref nbsufgseirkzkmilsxcq
+
+project_id = "nbsufgseirkzkmilsxcq"
+
+[api]
+enabled = true
+
+[functions.pronostico-operacional]
+verify_jwt = false
+
+[functions.informe-ejecutivo]
+verify_jwt = false
+
+[functions.diagnostico-fallas]
+verify_jwt = false
+
+[functions.copiloto-flota]
+verify_jwt = false
+
+[functions.ocr-factura]
+verify_jwt = false
+
+[functions.ingest-horometro]
+verify_jwt = false
+
+[functions.informe-ejecutivo-cron]
+verify_jwt = false
