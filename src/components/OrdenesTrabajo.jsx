@@ -43,6 +43,7 @@ export default function OrdenesTrabajo({ navParams }) {
   const [auditViols, setAuditViols] = useState(null);
   const [auditAbierto, setAuditAbierto] = useState(false);
   const [auditLoading, setAuditLoading] = useState(false);
+  const [ultimoLog, setUltimoLog] = useState(null);  // último chequeo automático (cron)
   const puedeOperar = canOperate(profile?.rol);
   const puedeBorrar = isAdmin(profile?.rol);
   const puedeCostos = isAdmin(profile?.rol);  // valorizar costos: Jefe Mantención y superiores
@@ -72,6 +73,13 @@ export default function OrdenesTrabajo({ navParams }) {
   }, []);
 
   useEffect(() => { cargar(); }, [cargar]);
+
+  // Último chequeo automático del supervisor de conectores (cron diario).
+  useEffect(() => {
+    fetchAll("ot_health_log", { order: { col: "chequeado_en", asc: false }, limit: 1 })
+      .then((rows) => setUltimoLog(rows[0] ?? null))
+      .catch(() => { /* tabla ausente en instancias sin migración */ });
+  }, []);
 
   // Al llegar desde una alerta de OT resaltamos esa orden; si se navega
   // al módulo sin contexto (ej. desde el menú), se limpia la destacada.
@@ -378,6 +386,14 @@ export default function OrdenesTrabajo({ navParams }) {
                 <span style={{ fontSize: 13, fontWeight: 700, color: C.ink }}>Supervisor de conectores OT</span>
                 {sev && <Pill tone={sev === "ok" ? "green" : sev === "aviso" ? "yellow" : "red"}>{sevLabel}</Pill>}
                 <span style={{ fontSize: 11.5, color: C.slate }}>Equipo · nave · varada · confiabilidad</span>
+                {!auditAbierto && ultimoLog && (
+                  <span style={{ fontSize: 11.5, color: C.slate }}>
+                    · auto {new Date(ultimoLog.chequeado_en).toLocaleDateString("es-CL")}:{" "}
+                    <span style={{ fontWeight: 700, color: ultimoLog.severidad === "critico" ? C.red : ultimoLog.severidad === "aviso" ? C.amber : C.green }}>
+                      {ultimoLog.severidad === "ok" ? "sin hallazgos" : `${ultimoLog.n_violaciones} aviso(s)`}
+                    </span>
+                  </span>
+                )}
               </div>
               <div style={{ display: "flex", gap: 8 }}>
                 {auditAbierto && (
