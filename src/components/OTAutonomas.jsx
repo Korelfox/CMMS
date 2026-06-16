@@ -61,6 +61,38 @@ function Chip({ color, bg, border, children }) {
   );
 }
 
+function EmbNaveTag({ emb }) {
+  const col = emb?.color || C.steel;
+  const label = emb?.nombre || "Sin nave";
+  return (
+    <span
+      title={emb?.codigo ? `${emb.nombre} (${emb.codigo})` : label}
+      style={{
+        fontSize: 11,
+        fontWeight: 700,
+        color: col,
+        background: tint(col, 12),
+        border: `1px solid ${tint(col, 32)}`,
+        borderRadius: 6,
+        padding: "2px 8px",
+        whiteSpace: "nowrap",
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 5,
+        flexShrink: 0,
+      }}
+    >
+      <Anchor size={11} style={{ flexShrink: 0 }} />
+      {label}
+      {emb?.codigo && (
+        <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 10, fontWeight: 600, opacity: 0.85 }}>
+          {emb.codigo}
+        </span>
+      )}
+    </span>
+  );
+}
+
 // ── Badges en la paleta de la app ──
 // El "origen" identifica QUÉ disparó la sugerencia → ícono, color y etiqueta.
 const ORIGEN_META = {
@@ -103,6 +135,7 @@ export default function OTAutonomas({ onNavigate }) {
   const puedeOperar = canOperate(profile?.rol);
 
   const [data, setData] = useState({ planes: [], equipos: [], ots: [], lecturas: [] });
+  const [embarcaciones, setEmbarcaciones] = useState([]);
   const [sugerencias, setSugerencias] = useState([]);   // bandeja: ot_sugerencias estado 'sugerida'
   const [cargando, setCargando] = useState(true);
   const [ts, setTs] = useState(null);
@@ -114,14 +147,16 @@ export default function OTAutonomas({ onNavigate }) {
   const cargar = useCallback(async () => {
     setCargando(true);
     try {
-      const [planes, equipos, ots, lecturas, sugs] = await Promise.all([
+      const [planes, equipos, ots, lecturas, embs, sugs] = await Promise.all([
         fetchAll("planes_pm"),
         fetchAll("equipos"),
         fetchAll("ordenes_trabajo"),
         fetchAll("lecturas_horometro"),
+        fetchAll("embarcaciones", { order: { col: "codigo", asc: true } }),
         supabase.from("ot_sugerencias").select("*").eq("estado", "sugerida").order("created_at", { ascending: false }),
       ]);
       setData({ planes: planes || [], equipos: equipos || [], ots: ots || [], lecturas: lecturas || [] });
+      setEmbarcaciones(embs || []);
       setSugerencias(sugs?.data || []);
       setTs(new Date());
     } catch { /* conserva datos previos */ }
@@ -141,6 +176,16 @@ export default function OTAutonomas({ onNavigate }) {
     () => data.planes.filter((p) => p.activo !== false && p.tipo_disparador !== "calendario").length,
     [data.planes]
   );
+
+  const embMap = useMemo(
+    () => Object.fromEntries(embarcaciones.map((e) => [e.id, e])),
+    [embarcaciones],
+  );
+
+  const embDeSug = useCallback((s) => {
+    const id = s.embarcacion_id || data.equipos.find((e) => e.id === s.equipo_id)?.embarcacion_id;
+    return id ? embMap[id] : null;
+  }, [data.equipos, embMap]);
 
   function mensajeError(e) {
     const msg = e?.message || String(e);
@@ -224,7 +269,7 @@ export default function OTAutonomas({ onNavigate }) {
     try {
       await confirmarSug(sug);
       setSugerencias((p) => p.filter((s) => s.id !== sug.id));
-      setAviso(`OT creada y planificada para ${sug.sistema || "el equipo"}.`);
+      setAviso(`OT creada y planificada para ${sug.sistema || "el equipo"}${embDeSug(sug)?.nombre ? ` · ${embDeSug(sug).nombre}` : ""}.`);
     } catch (e) { setError(mensajeError(e)); }
     finally { setConfirmando(null); }
   }
@@ -409,13 +454,21 @@ export default function OTAutonomas({ onNavigate }) {
               const enCurso = confirmando === s.id;
               const meta = ORIGEN_META[s.origen] || ORIGEN_META.cron;
               const OIcon = meta.Icon;
+              const emb = embDeSug(s);
+              const embCol = emb?.color || C.steel;
               return (
-                <div key={s.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px 13px", borderRadius: 10, border: `1px solid ${C.line}`, background: C.surface2 }}>
+                <div key={s.id} style={{ display: "flex", alignItems: "stretch", borderRadius: 10, border: `1px solid ${C.line}`, background: C.surface2, overflow: "hidden" }}>
+                  <div
+                    title={emb?.nombre || "Embarcación"}
+                    style={{ width: 4, flexShrink: 0, background: embCol }}
+                  />
+                  <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px 13px", flex: 1, minWidth: 0, flexWrap: "wrap" }}>
                   <div style={{ width: 34, height: 34, borderRadius: 9, background: tint(meta.color, 12), display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                     <OIcon size={16} color={meta.color} />
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                      <EmbNaveTag emb={emb} />
                       <span style={{ fontSize: 13.5, fontWeight: 700, color: C.abyss }}>{s.sistema || "Equipo"}</span>
                       <TipoBadge origen={s.origen} />
                       <CritBadge nivel={s.criticidad} />
@@ -434,6 +487,7 @@ export default function OTAutonomas({ onNavigate }) {
                       style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, fontWeight: 700, color: sinAccion ? C.slate : "#fff", background: sinAccion ? tint(C.slate, 12) : C.green, border: "none", borderRadius: 8, padding: "7px 13px", cursor: sinAccion || enCurso ? "default" : "pointer", opacity: enCurso ? 0.7 : 1 }}>
                       <ClipboardList size={13} /> {enCurso ? "Creando…" : "Confirmar → OT"}
                     </button>
+                  </div>
                   </div>
                 </div>
               );
