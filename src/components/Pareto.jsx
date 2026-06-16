@@ -7,7 +7,7 @@ import {
 import { useAuth } from "../lib/auth";
 import { fetchAll } from "../lib/db";
 import { C, archivo, clp, num, tint, lk } from "../theme";
-import { MODOS_FALLA_ISO } from "../lib/fallasISO";
+import { modoMeta, codigoLabel } from "../lib/fallasISO";
 import { buildEquipoTree } from "../lib/equipTree";
 import { Card, PageHead, Pill, FilterBtn, thStyle, tdStyle, Empty, ErrorBanner, InlineSpinner } from "../ui";
 
@@ -23,6 +23,7 @@ export default function Pareto() {
   const [filtro, setFiltro] = useState("all");
   const [metrica, setMetrica] = useState("costo");   // "costo" | "fallas"
   const [dim, setDim] = useState("sistema");          // "sistema" | "equipo" | "modo"
+  const [nivelISO, setNivelISO] = useState("codigo"); // "codigo" | "grupo" | "clase" (solo dim="modo")
 
   const cargar = useCallback(async () => {
     setLoading(true); setError(null);
@@ -58,11 +59,12 @@ export default function Pareto() {
 
     const mapa = new Map();
     usar.forEach((o) => {
-      const key = dim === "equipo"
-        ? (eqLabel(o.equipo_id) || o.sistema || "Sin equipo")
-        : dim === "modo"
-          ? (o.modo_falla ? lk(MODOS_FALLA_ISO, o.modo_falla) : "Sin codificar")
-          : (o.sistema || "Sin sistema");
+      let key;
+      if (dim === "equipo") key = eqLabel(o.equipo_id) || o.sistema || "Sin equipo";
+      else if (dim === "modo") {
+        if (!o.modo_falla) key = "Sin codificar";
+        else { const me = modoMeta(o.modo_falla); key = nivelISO === "clase" ? me.clase : nivelISO === "grupo" ? me.grupo : codigoLabel(me.codigo); }
+      } else key = o.sistema || "Sin sistema";
       const val = metrica === "costo" ? (Number(o.costo_mo) || 0) + (Number(o.costo_mat) || 0) : 1;
       mapa.set(key, (mapa.get(key) || 0) + val);
     });
@@ -78,7 +80,7 @@ export default function Pareto() {
     const nv = arr.filter((g) => g.vital).length;
     const pv = arr.filter((g) => g.vital).reduce((s, g) => s + g.value, 0);
     return { grupos: arr, total: tot, vitales: nv, pctVitales: tot ? (pv / tot) * 100 : 0 };
-  }, [ots, equipos, filtro, metrica, dim]); // eslint-disable-line
+  }, [ots, equipos, filtro, metrica, dim, nivelISO]); // eslint-disable-line
 
   const fmt = (v) => (metrica === "costo" ? clp(v) : num(v, 0));
   const chartData = grupos.slice(0, 12).map((g) => ({ ...g, nombreCorto: g.name.length > 16 ? g.name.slice(0, 15) + "…" : g.name }));
@@ -109,6 +111,16 @@ export default function Pareto() {
             <FilterBtn active={dim === "modo"} onClick={() => setDim("modo")}>Modo de falla (ISO 14224)</FilterBtn>
           </div>
         </div>
+        {dim === "modo" && (
+          <div>
+            <div style={{ fontSize: 10.5, letterSpacing: 1, textTransform: "uppercase", color: C.slate, fontWeight: 700, marginBottom: 6 }}>Nivel ISO</div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <FilterBtn active={nivelISO === "clase"} onClick={() => setNivelISO("clase")}>Clase</FilterBtn>
+              <FilterBtn active={nivelISO === "grupo"} onClick={() => setNivelISO("grupo")}>Grupo</FilterBtn>
+              <FilterBtn active={nivelISO === "codigo"} onClick={() => setNivelISO("codigo")}>Código</FilterBtn>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Filtro por embarcación */}

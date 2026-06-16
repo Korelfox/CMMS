@@ -1,37 +1,123 @@
 // ============================================================
-//  Catálogos de codificación de fallas — ISO 14224 (cap. 8, anexo B)
+//  Codificación de fallas — ISO 14224 (cap. 8, anexo B).
 //  Al cerrar una OT correctiva se registra:
-//   - MODO de falla: cómo se manifestó (lo que se observa).
+//   - MODO de falla: cómo se manifestó (lo observado).
 //   - CAUSA de falla: causa raíz (por qué ocurrió).
 //   - MECANISMO: proceso físico/químico del deterioro.
-//  Con fallas codificadas, Pareto / Weibull / MTBF analizan datos
-//  comparables entre equipos y períodos — no texto libre.
+//
+//  El MODO se estructura en 3 NIVELES (ISO 14224) para análisis
+//  estadístico válido y benchmarking de industria:
+//     CLASE  →  GRUPO  →  CÓDIGO (mnemónico ISO)  →  modo local
+//  El "value" local (granular) se guarda en la OT; el código ISO
+//  estandarizado (VIB, ELP, FTS…) permite comparar contra OREDA y
+//  entre flotas. clase/grupo se derivan del value vía modoMeta().
 // ============================================================
 
-// Modos de falla típicos de maquinaria rotativa / naval (ISO 14224 B.6)
-export const MODOS_FALLA_ISO = [
-  { value: "no_arranca",        label: "No arranca / falla al arrancar" },
-  { value: "parada_espuria",    label: "Parada espuria / se detiene solo" },
-  { value: "baja_potencia",     label: "Baja potencia / rendimiento" },
-  { value: "sobrecalentamiento", label: "Sobrecalentamiento" },
-  { value: "fuga_externa_proceso", label: "Fuga externa (combustible/aceite)" },
-  { value: "fuga_externa_refrig",  label: "Fuga externa (agua/refrigerante)" },
-  { value: "fuga_interna",      label: "Fuga interna (sellos, válvulas)" },
-  { value: "vibracion",         label: "Vibración anormal" },
-  { value: "ruido",             label: "Ruido anormal" },
-  { value: "baja_presion",      label: "Baja presión (aceite/hidráulica)" },
-  { value: "alta_presion",      label: "Presión alta / sobrepresión" },
-  { value: "desgaste",          label: "Desgaste excesivo" },
-  { value: "rotura",            label: "Rotura / fractura de componente" },
-  { value: "atasco",            label: "Atasco / bloqueo mecánico" },
-  { value: "deformacion",       label: "Deformación / desalineación" },
-  { value: "corrosion_modo",    label: "Corrosión visible / picaduras" },
-  { value: "falla_electrica",   label: "Falla eléctrica (corto, aislamiento)" },
-  { value: "lectura_anormal",   label: "Lectura/parámetro anormal (instrumento)" },
-  { value: "sin_senal",         label: "Sin señal / no responde (instrumento)" },
-  { value: "consumo_excesivo",  label: "Consumo excesivo (aceite/combustible)" },
-  { value: "otro",              label: "Otro" },
+// Taxonomía de modos de falla: clase → grupo → modos {value, codigo, label}.
+// codigo = mnemónico ISO 14224 (B.6). Varios modos locales pueden compartir
+// código ISO: el value da detalle, el código da la categoría benchmarkable.
+export const FALLA_TAXONOMIA = [
+  {
+    clase: "Función y desempeño",
+    grupos: [
+      { grupo: "Arranque y parada", modos: [
+        { value: "no_arranca",     codigo: "FTS", label: "No arranca / falla al arrancar" },
+        { value: "parada_espuria", codigo: "UST", label: "Parada espuria / se detiene solo" },
+      ]},
+      { grupo: "Capacidad y salida", modos: [
+        { value: "baja_potencia",  codigo: "LOO", label: "Baja potencia / rendimiento" },
+      ]},
+      { grupo: "Parámetros de operación", modos: [
+        { value: "sobrecalentamiento", codigo: "OHE", label: "Sobrecalentamiento" },
+        { value: "baja_presion",       codigo: "PDE", label: "Baja presión (aceite/hidráulica)" },
+        { value: "alta_presion",       codigo: "PDE", label: "Presión alta / sobrepresión" },
+        { value: "consumo_excesivo",   codigo: "PDE", label: "Consumo excesivo (aceite/combustible)" },
+      ]},
+    ],
+  },
+  {
+    clase: "Fugas y contención",
+    grupos: [
+      { grupo: "Fuga externa", modos: [
+        { value: "fuga_externa_proceso", codigo: "ELP", label: "Fuga externa (combustible/aceite)" },
+        { value: "fuga_externa_refrig",  codigo: "ELU", label: "Fuga externa (agua/refrigerante)" },
+      ]},
+      { grupo: "Fuga interna", modos: [
+        { value: "fuga_interna", codigo: "INL", label: "Fuga interna (sellos, válvulas)" },
+      ]},
+    ],
+  },
+  {
+    clase: "Integridad mecánica",
+    grupos: [
+      { grupo: "Vibración y ruido", modos: [
+        { value: "vibracion", codigo: "VIB", label: "Vibración anormal" },
+        { value: "ruido",     codigo: "NOI", label: "Ruido anormal" },
+      ]},
+      { grupo: "Daño estructural", modos: [
+        { value: "rotura",        codigo: "BRD", label: "Rotura / fractura de componente" },
+        { value: "deformacion",   codigo: "STD", label: "Deformación / desalineación" },
+        { value: "desgaste",      codigo: "STD", label: "Desgaste excesivo" },
+        { value: "corrosion_modo", codigo: "STD", label: "Corrosión visible / picaduras" },
+      ]},
+      { grupo: "Obstrucción", modos: [
+        { value: "atasco", codigo: "PLU", label: "Atasco / bloqueo mecánico" },
+      ]},
+    ],
+  },
+  {
+    clase: "Eléctrico e instrumentación",
+    grupos: [
+      { grupo: "Eléctrico", modos: [
+        { value: "falla_electrica", codigo: "ELF", label: "Falla eléctrica (corto, aislamiento)" },
+      ]},
+      { grupo: "Instrumentación", modos: [
+        { value: "lectura_anormal", codigo: "AIR", label: "Lectura/parámetro anormal (instrumento)" },
+        { value: "sin_senal",       codigo: "FTF", label: "Sin señal / no responde (instrumento)" },
+      ]},
+    ],
+  },
+  {
+    clase: "Otros",
+    grupos: [
+      { grupo: "No especificado", modos: [
+        { value: "otro", codigo: "OTH", label: "Otro" },
+      ]},
+    ],
+  },
 ];
+
+// Índice value → { value, codigo, label, grupo, clase } (fuente para roll-up).
+const MODO_INDEX = (() => {
+  const m = new Map();
+  for (const c of FALLA_TAXONOMIA)
+    for (const g of c.grupos)
+      for (const mo of g.modos)
+        m.set(mo.value, { ...mo, grupo: g.grupo, clase: c.clase });
+  return m;
+})();
+
+// Metadatos de un modo por su value (o texto libre heredado → fallback).
+export function modoMeta(value) {
+  if (!value) return { value: "", codigo: "—", label: "Sin codificar", grupo: "Sin codificar", clase: "Sin codificar" };
+  return MODO_INDEX.get(value)
+    || { value, codigo: "—", label: value, grupo: "Sin clasificar", clase: "Sin clasificar" };
+}
+
+// Lista plana (back-compat con quien importe MODOS_FALLA_ISO).
+export const MODOS_FALLA_ISO = [...MODO_INDEX.values()].map((m) => ({ value: m.value, label: m.label }));
+
+// Nombre ISO corto por código (para etiquetas de benchmarking).
+export const CODIGO_ISO = {
+  FTS: "Falla al arrancar", UST: "Parada espuria", LOO: "Baja salida",
+  OHE: "Sobrecalentamiento", PDE: "Desviación de parámetro",
+  ELP: "Fuga externa (proceso)", ELU: "Fuga externa (utilidad)", INL: "Fuga interna",
+  VIB: "Vibración", NOI: "Ruido", BRD: "Rotura / colapso", STD: "Deficiencia estructural",
+  PLU: "Obstrucción", ELF: "Falla eléctrica", AIR: "Lectura anormal",
+  FTF: "Falla de función", OTH: "Otro",
+};
+export const codigoLabel = (codigo) =>
+  (codigo && CODIGO_ISO[codigo]) ? `${codigo} · ${CODIGO_ISO[codigo]}` : (codigo || "—");
 
 // Causas raíz (ISO 14224 B.3)
 export const CAUSAS_FALLA_ISO = [

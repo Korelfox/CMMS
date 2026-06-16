@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { AlertTriangle, X } from "lucide-react";
 import { C, tint } from "../../theme";
 import { primaryBtn, ghostBtn, inputStyle, Field } from "../../ui";
-import { MODOS_FALLA_ISO, CAUSAS_FALLA_ISO, MECANISMOS_FALLA_ISO } from "../../lib/fallasISO";
+import { FALLA_TAXONOMIA, modoMeta, CAUSAS_FALLA_ISO, MECANISMOS_FALLA_ISO } from "../../lib/fallasISO";
 
 // Modal de cierre de OT correctiva: codifica la falla según ISO 14224
 // (modo / causa / mecanismo) para que Pareto, Weibull y MTBF trabajen con
@@ -38,8 +38,23 @@ export default function CierreFallaModal({ ot, onGuardar, onCerrarSinCodificar, 
           <Field label="Modo de falla (qué se observó) *">
             <select value={modo} onChange={(e) => setModo(e.target.value)} style={inputStyle()} autoFocus>
               <option value="">— Selecciona —</option>
-              {MODOS_FALLA_ISO.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
+              {FALLA_TAXONOMIA.map((c) => (
+                <optgroup key={c.clase} label={c.clase}>
+                  {c.grupos.flatMap((g) => g.modos.map((m) => (
+                    <option key={m.value} value={m.value}>{g.grupo} · {m.label} [{m.codigo}]</option>
+                  )))}
+                </optgroup>
+              ))}
             </select>
+            {modo && (() => {
+              const me = modoMeta(modo);
+              return (
+                <div style={{ fontSize: 11.5, color: C.slate, marginTop: 4 }}>
+                  ISO 14224: <strong style={{ color: C.steel }}>{me.clase}</strong> › {me.grupo} ›{" "}
+                  <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, color: C.steel }}>{me.codigo}</span>
+                </div>
+              );
+            })()}
           </Field>
           <Field label="Causa raíz (por qué ocurrió)">
             <select value={causa} onChange={(e) => setCausa(e.target.value)} style={inputStyle()}>
@@ -59,7 +74,7 @@ export default function CierreFallaModal({ ot, onGuardar, onCerrarSinCodificar, 
           {!yaCerrada
             ? <button onClick={onCerrarSinCodificar} style={{ ...ghostBtn, fontSize: 12.5 }} title="Cierra la OT sin códigos; podrás codificarla después">Cerrar sin codificar</button>
             : <span />}
-          <button onClick={() => onGuardar({ modo_falla: modo, causa_falla: causa || null, mecanismo_falla: mecanismo || null })}
+          <button onClick={() => onGuardar({ modo_falla: modo, modo_falla_codigo: modo ? modoMeta(modo).codigo : null, causa_falla: causa || null, mecanismo_falla: mecanismo || null })}
             disabled={!modo} style={{ ...primaryBtn, opacity: modo ? 1 : 0.5 }}>
             {yaCerrada ? "Guardar códigos" : "Codificar y cerrar OT"}
           </button>

@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { MODOS_FALLA_ISO, CAUSAS_FALLA_ISO, MECANISMOS_FALLA_ISO, requiereCodigoFalla } from "../src/lib/fallasISO.js";
+import { MODOS_FALLA_ISO, CAUSAS_FALLA_ISO, MECANISMOS_FALLA_ISO, requiereCodigoFalla,
+  FALLA_TAXONOMIA, modoMeta, codigoLabel } from "../src/lib/fallasISO.js";
 
 const catalogos = [
   ["MODOS_FALLA_ISO", MODOS_FALLA_ISO, 15],
@@ -28,5 +29,37 @@ describe("Catálogos de falla ISO 14224", () => {
     expect(requiereCodigoFalla({ tipo: "preventivo" })).toBe(false);
     expect(requiereCodigoFalla({ tipo: "predictivo" })).toBe(false);
     expect(requiereCodigoFalla(null)).toBeFalsy();
+  });
+});
+
+describe("Taxonomía de modos de falla ISO 14224 (3 niveles)", () => {
+  it("clase → grupo → modo consistente; cada modo con value, código y label", () => {
+    for (const c of FALLA_TAXONOMIA) {
+      expect(c.clase).toBeTruthy();
+      for (const g of c.grupos) {
+        expect(g.grupo).toBeTruthy();
+        for (const m of g.modos) {
+          expect(m.value.length).toBeGreaterThan(0);
+          expect(m.codigo).toMatch(/^[A-Z]{3}$/);  // mnemónico ISO de 3 letras
+          expect(m.label.length).toBeGreaterThan(0);
+          const meta = modoMeta(m.value);
+          expect(meta.clase).toBe(c.clase);
+          expect(meta.grupo).toBe(g.grupo);
+          expect(meta.codigo).toBe(m.codigo);
+        }
+      }
+    }
+  });
+
+  it("modoMeta tolera texto libre / desconocido sin romper el roll-up", () => {
+    const m = modoMeta("texto_libre_legacy");
+    expect(m.codigo).toBe("—");
+    expect(m.clase).toBe("Sin clasificar");
+    expect(modoMeta("").label).toBe("Sin codificar");
+  });
+
+  it("codigoLabel produce una etiqueta ISO legible para benchmarking", () => {
+    expect(codigoLabel("VIB")).toContain("VIB");
+    expect(codigoLabel("VIB")).toContain("Vibración");
   });
 });
