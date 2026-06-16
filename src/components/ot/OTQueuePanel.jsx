@@ -1,5 +1,5 @@
 import React from "react";
-import { Search, X, Clock, AlertTriangle } from "lucide-react";
+import { Search, X, Clock, AlertTriangle, PanelRightOpen } from "lucide-react";
 import { C, clp, lk, tn, tint, TIPOS_OT, PRIORIDADES, ESTADOS_OT } from "../../theme";
 import { Card, Pill, ghostBtn, inputStyle } from "../../ui";
 import { costoOT, sinValorizar } from "../../lib/ot";
@@ -13,11 +13,13 @@ export default function OTQueuePanel({
   embName,
   showEmb,
   embarcaciones,
+  onPopOut,
+  panelHeight = "calc(100vh - 320px)",
 }) {
   const embColor = (id) => embarcaciones?.find((e) => e.id === id)?.color || C.steel;
 
   return (
-    <Card style={{ padding: 16, height: "calc(100vh - 320px)", minHeight: 440, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+    <Card style={{ padding: 16, height: panelHeight, minHeight: 440, display: "flex", flexDirection: "column", overflow: "hidden" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
         <div style={{ position: "relative", flex: 1 }}>
           <Search size={15} color={C.slate} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} />
@@ -68,6 +70,7 @@ export default function OTQueuePanel({
                   background: isSelected ? tint(C.sky, 8) : o._pending ? tint(C.amber, 8) : C.surface,
                   cursor: "pointer",
                   fontFamily: "inherit",
+                  position: "relative",
                 }}
               >
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
@@ -115,6 +118,16 @@ export default function OTQueuePanel({
                     <AlertTriangle size={13} color={C.red} title="Prioridad alta — requiere seguimiento" />
                   )}
                 </div>
+                {onPopOut && (
+                  <button
+                    type="button"
+                    title="Ventana flotante"
+                    onClick={(ev) => { ev.stopPropagation(); onPopOut(o.id); }}
+                    style={{ position: "absolute", top: 10, right: 10, background: tint(C.sky, 8), border: `1px solid ${C.line}`, borderRadius: 6, cursor: "pointer", color: C.slate, padding: 4, display: "flex" }}
+                  >
+                    <PanelRightOpen size={14} />
+                  </button>
+                )}
               </button>
             );
           })

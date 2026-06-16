@@ -10,6 +10,7 @@ import { MODOS_FALLA_ISO, requiereCodigoFalla } from "../../lib/fallasISO";
 import EstadoSelect from "./EstadoSelect";
 import ChecklistOT from "./ChecklistOT";
 import { FotoGaleria } from "../Fotos";
+import { useOTData } from "./otStore";
 
 const TABS = [
   { id: "resumen", label: "Resumen", icon: ClipboardList },
@@ -20,7 +21,8 @@ const TABS = [
 ];
 
 export default function OTDetailPanel({
-  ot,
+  ot: otProp,
+  otId,
   embName,
   embColor,
   puedeOperar,
@@ -38,7 +40,11 @@ export default function OTDetailPanel({
   onCodificarFalla,
   onEliminar,
   usuario,
+  embedded = true,
+  valorizarMode = false,
 }) {
+  const { ots } = useOTData();
+  const ot = otProp ?? (otId ? ots.find((o) => o.id === otId) : null);
   const [tabInternal, setTabInternal] = useState("resumen");
   const tab = activeTab ?? tabInternal;
   const setTab = onTabChange ?? setTabInternal;
@@ -48,15 +54,18 @@ export default function OTDetailPanel({
   }, [ot?.id, activeTab]);
 
   useEffect(() => {
-    if (modoCostos && puedeCostos) setTab("costos");
-  }, [modoCostos, ot?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (valorizarMode && ot) setTab("costos");
+  }, [valorizarMode, ot?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const panelHeight = embedded ? "calc(100vh - 320px)" : "100%";
+  const minH = embedded ? 440 : 0;
 
   const checklistItems = useMemo(() => (Array.isArray(ot?.checklist) ? ot.checklist : []), [ot?.checklist]);
   const checklistHechos = checklistItems.filter((i) => i.ok).length;
 
   if (!ot) {
     return (
-      <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 12, padding: 40, color: C.slate, minHeight: 440, background: C.surface, borderRadius: 12, border: `1px solid ${C.line}` }}>
+      <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 12, padding: 40, color: C.slate, minHeight: minH || 320, background: C.surface, borderRadius: embedded ? 12 : 0, border: embedded ? `1px solid ${C.line}` : "none" }}>
         <ClipboardList size={36} color={C.line} />
         <div style={{ fontSize: 15, fontWeight: 700, color: C.abyss }}>Selecciona una orden</div>
         <p style={{ fontSize: 13, margin: 0, textAlign: "center", maxWidth: 320 }}>
@@ -70,7 +79,7 @@ export default function OTDetailPanel({
   const fieldValue = { fontSize: 13.5, color: C.ink, fontWeight: 600 };
 
   return (
-    <div data-testid="ot-detail" style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 320px)", minHeight: 440, overflow: "hidden", background: C.surface, borderRadius: 12, border: `1px solid ${C.line}` }}>
+    <div data-testid="ot-detail" style={{ display: "flex", flexDirection: "column", height: panelHeight, minHeight: minH, overflow: "hidden", background: C.surface, borderRadius: embedded ? 12 : 0, border: embedded ? `1px solid ${C.line}` : "none" }}>
       <div style={{ padding: "16px 20px 0", borderBottom: `1px solid ${C.foam}`, flexShrink: 0 }}>
         <div style={{ display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 12 }}>
           <div style={{ flex: 1, minWidth: 0 }}>
@@ -198,6 +207,11 @@ export default function OTDetailPanel({
 
         {tab === "costos" && (
           <>
+            {(modoCostos || valorizarMode) && puedeCostos && (
+              <p style={{ fontSize: 12, color: C.slate, margin: "0 0 12px", padding: "8px 10px", background: tint(C.gold, 10), borderRadius: 8 }}>
+                Valorización activa — los costos se guardan al salir del campo con tu firma.
+              </p>
+            )}
             {puedeCostos && !ot._pending && online ? (
               <div style={{ maxWidth: 360 }}>
                 <p style={{ fontSize: 12.5, color: C.slate, margin: "0 0 14px" }}>
