@@ -17,11 +17,12 @@ import {
 import { CRITICIDAD_TONE } from "../lib/plantillaPesquera";
 import { C, archivo, num, lk, tint, TIPOS_OT, PRIORIDADES } from "../theme";
 import { Card, PageHead, Pill, FilterBtn, Empty, ErrorBanner, InlineSpinner, inputStyle, primaryBtn, ghostBtn } from "../ui";
+import EquipoPicker from "./EquipoPicker";
 
 const HOY = () => new Date().toISOString().slice(0, 10);
 
 const FORM_VACIO = { nombre: "", tipo: "varada", embarcacion_id: "", fecha_inicio: "", fecha_fin_estimada: "", presupuesto: "", descripcion: "" };
-const TRAB_VACIO = { sistema: "", descripcion: "", horas_estimadas: "", responsable: "" };
+const TRAB_VACIO = { sistema: "", descripcion: "", horas_estimadas: "", responsable: "", equipo_id: "" };
 
 // ── Icono de estado de trabajo ──────────────────────────────────────────────
 function IconoEstado({ estado }) {
@@ -142,7 +143,7 @@ function ImportarModal({ varada, embarcaciones, onImportar, onClose }) {
 }
 
 // ── Vista detalle de una varada ──────────────────────────────────────────────
-function DetalleVarada({ varada, ots, embarcaciones, empresaId, onBack, onVaradaUpdate, onOTCreada }) {
+function DetalleVarada({ varada, ots, embarcaciones, equipos, empresaId, onBack, onVaradaUpdate, onOTCreada }) {
   const hoy = HOY();
   const [trabajos, setTrabajos]         = useState([]);
   const [loadTrab, setLoadTrab]         = useState(true);
@@ -166,6 +167,10 @@ function DetalleVarada({ varada, ots, embarcaciones, empresaId, onBack, onVarada
   useEffect(() => { cargarTrabajos(); }, [cargarTrabajos]);
 
   const embName = (id) => embarcaciones.find((e) => e.id === id)?.nombre || "—";
+  const equiposNave = useMemo(
+    () => (varada.embarcacion_id ? equipos.filter((e) => e.embarcacion_id === varada.embarcacion_id) : []),
+    [equipos, varada.embarcacion_id],
+  );
   const progreso = calcularProgreso(trabajos);
   const hhTotal  = hhTotalesVarada(trabajos);
   const costo    = costoTotalVarada(ots, varada.id);
@@ -182,9 +187,11 @@ function DetalleVarada({ varada, ots, embarcaciones, empresaId, onBack, onVarada
     setGuardando(true);
     try {
       const maxOrden = trabajos.reduce((m, t) => Math.max(m, t.orden || 0), 0);
+      const eq = formTrab.equipo_id ? equiposNave.find((e) => e.id === formTrab.equipo_id) : null;
       const nuevo = await insertRow("varada_trabajos", empresaId, {
         varada_id: varada.id,
-        sistema: formTrab.sistema?.trim() || null,
+        equipo_id: formTrab.equipo_id || null,
+        sistema: (formTrab.sistema?.trim() || eq?.sistema) || null,
         descripcion: formTrab.descripcion.trim(),
         horas_estimadas: formTrab.horas_estimadas ? Number(formTrab.horas_estimadas) : null,
         responsable: formTrab.responsable?.trim() || null,
@@ -226,6 +233,7 @@ function DetalleVarada({ varada, ots, embarcaciones, empresaId, onBack, onVarada
         const trab = await insertRow("varada_trabajos", empresaId, {
           varada_id: varada.id,
           ot_id: ot.id,
+          equipo_id: ot.equipo_id || null,
           sistema: ot.sistema || null,
           descripcion: ot.descripcion || ot.folio || "OT importada",
           horas_estimadas: ot.mttr_horas ? Number(ot.mttr_horas) : null,
@@ -293,13 +301,15 @@ function DetalleVarada({ varada, ots, embarcaciones, empresaId, onBack, onVarada
     setGuardando(true);
     try {
       const folio = folioOT(ots, true);
+      const eq = trabajo.equipo_id ? equiposNave.find((e) => e.id === trabajo.equipo_id) : null;
       const nuevaOT = await insertRow("ordenes_trabajo", empresaId, {
         folio,
         tipo: "preventivo",
         estado: "planificada",
         prioridad: "media",
         embarcacion_id: varada.embarcacion_id || null,
-        sistema: trabajo.sistema || null,
+        equipo_id: trabajo.equipo_id || null,
+        sistema: trabajo.sistema || eq?.sistema || null,
         descripcion: trabajo.descripcion,
         varada_id: varada.id,
         fecha: hoy,
@@ -511,6 +521,17 @@ function DetalleVarada({ varada, ots, embarcaciones, empresaId, onBack, onVarada
                   value={formTrab.descripcion}
                   onChange={(e) => setFormTrab((f) => ({ ...f, descripcion: e.target.value }))} />
               </div>
+              {varada.embarcacion_id && (
+                <div style={{ gridColumn: "1 / 3" }}>
+                  <label style={labelSt}>Equipo (opcional — conecta con confiabilidad)</label>
+                  <EquipoPicker equipos={equiposNave} value={formTrab.equipo_id}
+                    onChange={(eq) => setFormTrab((f) => ({
+                      ...f,
+                      equipo_id: eq?.id || "",
+                      sistema: eq?.sistema || f.sistema,
+                    }))} />
+                </div>
+              )}
               <div>
                 <label style={labelSt}>Sistema</label>
                 <input style={inputStyle()} placeholder="Motor principal, casco…"
@@ -647,6 +668,7 @@ export default function Varada({ onNavigate }) {
   const empresaId   = profile?.empresa_id;
 
   const [embarcaciones, setEmbarcaciones] = useState([]);
+  const [equipos, setEquipos]             = useState([]);
   const [varadas, setVaradas]             = useState([]);
   const [ots, setOts]                     = useState([]);
   const [loading, setLoading]             = useState(true);
@@ -660,12 +682,14 @@ export default function Varada({ onNavigate }) {
   const cargar = useCallback(async () => {
     setLoading(true); setError(null);
     try {
-      const [embs, vars, otsAll] = await Promise.all([
+      const [embs, eqs, vars, otsAll] = await Promise.all([
         fetchAll("embarcaciones", { order: { col: "codigo", asc: true } }),
+        fetchAll("equipos", { order: { col: "id_visible", asc: true } }),
         fetchAll("varadas", { order: { col: "created_at", asc: false } }),
         fetchAll("ordenes_trabajo"),
       ]);
       setEmbarcaciones(embs);
+      setEquipos(eqs);
       setVaradas(vars);
       setOts(otsAll);
     } catch (e) { setError("No se pudo cargar el módulo. " + e.message); }
@@ -713,6 +737,7 @@ export default function Varada({ onNavigate }) {
         varada={varadaActual}
         ots={ots}
         embarcaciones={embarcaciones}
+        equipos={equipos}
         empresaId={empresaId}
         onBack={() => setVaradaActual(null)}
         onVaradaUpdate={actualizarVarada}

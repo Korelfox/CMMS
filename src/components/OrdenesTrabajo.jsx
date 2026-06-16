@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from "react";
-import { ClipboardList, Plus, Trash2, Download, CloudOff, Clock, DollarSign, Check, Camera, ListChecks, RefreshCw } from "lucide-react";
+import { ClipboardList, Plus, Trash2, Download, CloudOff, Clock, DollarSign, Check, Camera, ListChecks, RefreshCw, ShieldCheck, CheckCircle2 } from "lucide-react";
 import { useAuth } from "../lib/auth";
-import { fetchAll, insertRow, updateRow, deleteRow, logActivity } from "../lib/db";
+import { fetchAll, insertRow, updateRow, deleteRow, logActivity, rpcCall } from "../lib/db";
 import { useOnline, cacheTable, getCached, queueInsert, nuevoId } from "../lib/offline";
 import { subirFotos } from "../lib/fotos";
 import { C, clp, isAdmin, canOperate, TIPOS_OT, PRIORIDADES, ESTADOS_OT, lk, tn, tint } from "../theme";
@@ -40,6 +40,9 @@ export default function OrdenesTrabajo({ navParams }) {
   const [fotosOT, setFotosOT] = useState(null);    // OT cuya galería de fotos está abierta
   const [cierreOT, setCierreOT] = useState(null);  // OT correctiva en proceso de cierre/codificación
   const [checklistOT, setChecklistOT] = useState(null); // OT con el panel de checklist abierto
+  const [auditViols, setAuditViols] = useState(null);
+  const [auditAbierto, setAuditAbierto] = useState(false);
+  const [auditLoading, setAuditLoading] = useState(false);
   const puedeOperar = canOperate(profile?.rol);
   const puedeBorrar = isAdmin(profile?.rol);
   const puedeCostos = isAdmin(profile?.rol);  // valorizar costos: Jefe Mantención y superiores
@@ -247,6 +250,27 @@ export default function OrdenesTrabajo({ navParams }) {
     const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "ordenes_trabajo.csv"; a.click();
   }
 
+  async function verificarConectores() {
+    setAuditLoading(true);
+    try {
+      const viols = await rpcCall("fn_audit_ot", { p_empresa: profile.empresa_id });
+      setAuditViols(viols);
+      setAuditAbierto(true);
+    } catch (e) { setError("Supervisor de OT: " + e.message); }
+    finally { setAuditLoading(false); }
+  }
+
+  const AUDIT_TIPO = {
+    equipo_sin_vinculo:     { label: "Sin equipo",           tone: "yellow" },
+    equipo_huerfano:          { label: "Equipo huérfano",      tone: "red" },
+    nave_inconsistente:       { label: "Nave inconsistente",   tone: "red" },
+    varada_huerfana:          { label: "Varada huérfana",      tone: "red" },
+    solicitud_huerfana:       { label: "Solicitud huérfana",   tone: "yellow" },
+    correctiva_sin_mttr:      { label: "Sin MTTR",             tone: "yellow" },
+    auto_sin_huella:          { label: "Auto sin huella",      tone: "yellow" },
+    trabajo_varada_huerfano:  { label: "Trabajo varada huérfano", tone: "yellow" },
+  };
+
   if (loading) {
     return (
       <ModuleShell kicker="Nivel operativo" title="Órdenes de Trabajo" loading />
@@ -339,6 +363,71 @@ export default function OrdenesTrabajo({ navParams }) {
           { label: "Costo total", value: clp(costoTotal), sub: modoCostos ? "modo valorización activo" : "MO + materiales", icon: DollarSign, tone: C.gold, onClick: puedeCostos ? () => setModoCostos((v) => !v) : undefined },
         ]}
       />
+
+      {(() => {
+        const nViols = auditViols?.length ?? null;
+        const nCrit  = auditViols?.filter((v) => v.severidad === "critico").length ?? 0;
+        const sev    = nViols === null ? null : nViols === 0 ? "ok" : nCrit > 0 ? "critico" : "aviso";
+        const sevColor = { ok: C.green, aviso: C.yellow, critico: C.red }[sev] ?? C.steel;
+        const sevLabel = { ok: "Conectores OK", aviso: `${nViols} aviso(s)`, critico: `${nCrit} crítico(s) · ${nViols} total` }[sev];
+        return (
+          <Card style={{ marginBottom: 16, padding: "12px 18px", border: sev && sev !== "ok" ? `1px solid ${tint(sevColor, 40)}` : `1px solid ${C.foam}` }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                <ShieldCheck size={16} color={sev ? sevColor : C.steel} />
+                <span style={{ fontSize: 13, fontWeight: 700, color: C.ink }}>Supervisor de conectores OT</span>
+                {sev && <Pill tone={sev === "ok" ? "green" : sev === "aviso" ? "yellow" : "red"}>{sevLabel}</Pill>}
+                <span style={{ fontSize: 11.5, color: C.slate }}>Equipo · nave · varada · confiabilidad</span>
+              </div>
+              <div style={{ display: "flex", gap: 8 }}>
+                {auditAbierto && (
+                  <button type="button" onClick={() => { setAuditAbierto(false); setAuditViols(null); }} style={ghostBtn}>Cerrar</button>
+                )}
+                <button type="button" onClick={verificarConectores} disabled={auditLoading}
+                  style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 13px", borderRadius: 8,
+                    border: `1px solid ${tint(C.cyan, 40)}`, background: tint(C.cyan, 7), color: C.cyan,
+                    fontSize: 12, fontWeight: 600, cursor: auditLoading ? "default" : "pointer",
+                    fontFamily: "inherit", opacity: auditLoading ? 0.6 : 1 }}>
+                  <ShieldCheck size={13} />{auditLoading ? "Verificando…" : "Verificar ahora"}
+                </button>
+              </div>
+            </div>
+            {auditAbierto && auditViols !== null && (
+              <div style={{ marginTop: 12, borderTop: `1px solid ${C.foam}`, paddingTop: 10 }}>
+                {auditViols.length === 0 ? (
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, color: C.green }}>
+                    <CheckCircle2 size={15} />
+                    <span style={{ fontSize: 13, fontWeight: 600 }}>Todas las OTs tienen conectores válidos para confiabilidad y costos.</span>
+                  </div>
+                ) : (
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+                    <thead><tr>
+                      {["Severidad", "Tipo", "Folio", "Nave", "Equipo", "Detalle"].map((h) => (
+                        <th key={h} style={{ textAlign: "left", padding: "4px 10px", fontSize: 10.5, textTransform: "uppercase", color: C.slate, letterSpacing: 0.4 }}>{h}</th>
+                      ))}
+                    </tr></thead>
+                    <tbody>
+                      {auditViols.map((v, i) => {
+                        const meta = AUDIT_TIPO[v.tipo_violacion] || { label: v.tipo_violacion, tone: "yellow" };
+                        return (
+                          <tr key={i} style={{ borderTop: `1px solid ${C.foam}` }}>
+                            <td style={{ padding: "6px 10px" }}><Pill tone={v.severidad === "critico" ? "red" : "yellow"}>{v.severidad}</Pill></td>
+                            <td style={{ padding: "6px 10px", fontWeight: 600 }}>{meta.label}</td>
+                            <td style={{ padding: "6px 10px", fontFamily: "'IBM Plex Mono', monospace" }}>{v.folio || "—"}</td>
+                            <td style={{ padding: "6px 10px" }}>{v.embarcacion || "—"}</td>
+                            <td style={{ padding: "6px 10px" }}>{v.equipo || "—"}</td>
+                            <td style={{ padding: "6px 10px", color: C.slate }}>{v.detalle}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            )}
+          </Card>
+        );
+      })()}
 
       {showForm && (
         <Card style={{ marginBottom: 16, background: C.mist }}>

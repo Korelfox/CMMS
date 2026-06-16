@@ -1,0 +1,20 @@
+---
+description: Tras completar cambios de código, hacer commit, push y deploy a Vercel automáticamente.
+alwaysApply: true
+---
+
+# Flujo de entrega (commit + push + deploy)
+
+Al terminar una tarea que modifica código del proyecto:
+
+1. Verificar que lint, tests y build pasen (`npm run lint`, `npm test`, `npm run build`).
+2. Hacer **commit** con mensaje conciso en español (1–2 oraciones, enfoque en el "por qué").
+3. Hacer **push** a `origin main` (o la rama de trabajo acordada).
+4. Ejecutar **`npm run deploy`** para desplegar en Vercel producción.
+
+No esperar a que el usuario lo pida explícitamente: es el flujo estándar de entrega.
+
+Excepciones (no commitear sin confirmación):
+- Archivos con secretos (`.env`, credenciales).
+- Cambios locales experimentales o a medias que el usuario pidió no incluir.
+- Solo commitear archivos relacionados con la tarea completada; no arrastrar cambios no relacionados.
