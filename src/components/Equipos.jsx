@@ -1,11 +1,12 @@
 import React, { useEffect, useState, useCallback, useRef, useMemo } from "react";
-import { Ship, Plus, Trash2, Download, AlertCircle, GitBranch, Layers, Cpu, Wrench, Box, Hash, Check, Package, FileText, Settings2, RefreshCw } from "lucide-react";
+import { Ship, Plus, Trash2, Download, AlertCircle, GitBranch, Layers, Cpu, Wrench, Box, Hash, Check, Package, FileText, Settings2, RefreshCw, Target, Compass, ListChecks } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { fetchAll, insertRow, updateRow, deleteRow, logActivity } from "../lib/db";
 import { C, isAdmin, canOperate, estadoLabel, num, tint, shadow } from "../theme";
 import { buildEquipoTree } from "../lib/equipTree";
 import { useArbolColapsable } from "../lib/arbolColapsable";
 import { PLANTILLA_PESQUERA, nodoIncluido, contarNodosPlantilla, contarRepuestosPlantilla, contarPlanesPMPlantilla, TIPO_NODO_META } from "../lib/plantillaPesquera";
+import { analizarBrechas } from "../lib/equipoBrechas";
 
 import {
   Card, primaryBtn, ghostBtn, exportBtn, inputStyle,
@@ -17,6 +18,8 @@ import { useWindows } from "./windows/WindowManager";
 import EquipoWindow, { RepuestosWindowBody } from "./equipos/EquipoWindow";
 import EquipoTreePanel from "./equipos/EquipoTreePanel";
 import EquipoDetailPanel from "./equipos/EquipoDetailPanel";
+import EquipoOptimizePanel from "./equipos/EquipoOptimizePanel";
+import EquipoExplorePanel from "./equipos/EquipoExplorePanel";
 import { FichaBody } from "./equipos/FichaEquipo";
 import { PropOpBody } from "./equipos/PropOpModal";
 import { equiposStore } from "./equipos/equiposStore";
@@ -35,6 +38,12 @@ const CRITICIDADES = [
   { value: "C", label: "C · Menor" },
 ];
 const ICONO_TIPO = { sistema: Layers, subsistema: GitBranch, componente: Wrench, instrumento: Cpu, equipo: Box };
+const MODO_KEY = "cmms-equipos-modo";
+const MODOS = [
+  { id: "explorar", label: "Explorar", icon: Compass },
+  { id: "gestionar", label: "Gestionar", icon: ListChecks },
+  { id: "optimizar", label: "Optimizar", icon: Target },
+];
 
 function blankForm(embId = "") {
   return { embarcacion_id: embId, id_visible: "", sistema: "", subsistema: "", marca: "", modelo: "", parent_id: "", tipo_nodo: "equipo", criticidad: "" };
@@ -56,6 +65,10 @@ export default function Equipos() {
   const [destinos,    setDestinos]    = useState([]);
   const [busqueda,    setBusqueda]    = useState("");
   const [selectedId,  setSelectedId]  = useState(null);
+  const [modo,        setModo]        = useState("gestionar");
+  const [filtroBrecha, setFiltroBrecha] = useState(null);
+  const [detailTab,   setDetailTab]   = useState("identidad");
+  const modoInicializado = useRef(false);
   const { open } = useWindows();
   const handlersRef = useRef({});
   const arbolRef = useRef(null);
@@ -501,8 +514,51 @@ export default function Equipos() {
     const criticos = scope.filter((e) => e.criticidad === "A").length;
     const indisponibles = scope.filter((e) => e.estado === "fuera_servicio" || e.estado === "en_reparacion").length;
     const sistemas = scope.filter((e) => e.tipo_nodo === "sistema" || !e.parent_id).length;
-    return { total: scope.length, criticos, indisponibles, sistemas, sinGuardar: dirtyIds.length };
-  }, [equipos, filtro, dirtyIds.length]);
+    const analisis = analizarBrechas(scope, destinos);
+    return {
+      total: scope.length,
+      criticos,
+      indisponibles,
+      sistemas,
+      sinGuardar: dirtyIds.length,
+      salud: analisis.salud,
+      brechas: analisis.total,
+      equiposConBrecha: analisis.equiposConBrecha,
+      analisis,
+    };
+  }, [equipos, filtro, destinos, dirtyIds.length]);
+
+  const brechaPorEquipo = useMemo(() => {
+    const m = new Map();
+    kpis.analisis.items.forEach((item) => {
+      if (!m.has(item.equipoId)) m.set(item.equipoId, item);
+    });
+    return m;
+  }, [kpis.analisis.items]);
+
+  useEffect(() => {
+    if (loading || modoInicializado.current) return;
+    modoInicializado.current = true;
+    const saved = localStorage.getItem(MODO_KEY);
+    if (saved && MODOS.some((m) => m.id === saved)) setModo(saved);
+    else if (kpis.brechas > 0) setModo("optimizar");
+  }, [loading, kpis.brechas]);
+
+  useEffect(() => {
+    localStorage.setItem(MODO_KEY, modo);
+  }, [modo]);
+
+  function irABrecha(equipoId, tab, tipoBrecha) {
+    setSelectedId(equipoId);
+    setModo("gestionar");
+    setDetailTab(tab);
+    if (tipoBrecha) setFiltroBrecha(tipoBrecha);
+  }
+
+  function abrirOptimizar(filtro = null) {
+    setModo("optimizar");
+    setFiltroBrecha(filtro);
+  }
 
   async function guardarCambios() {
     setGuardando(true); setError(null);
@@ -577,7 +633,7 @@ export default function Equipos() {
     );
   }
 
-  const heroVariant = kpis.indisponibles > 0 ? "critical" : kpis.criticos > 0 && kpis.sinGuardar > 0 ? "warn" : "ok";
+  const heroVariant = kpis.salud < 70 ? "critical" : kpis.salud < 90 || kpis.indisponibles > 0 ? "warn" : "ok";
 
   // Equipos de la nave seleccionada en el form (para el select de padre)
   const candidatosPadre = equipos.filter((e) => e.embarcacion_id === form.embarcacion_id);
@@ -614,6 +670,20 @@ export default function Equipos() {
               ))}
             </>
           }
+          right={
+            <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+              {MODOS.map((m) => {
+                const Icon = m.icon;
+                return (
+                  <FilterBtn key={m.id} active={modo === m.id} onClick={() => setModo(m.id)}>
+                    <Icon size={14} style={{ display: "inline", verticalAlign: "middle", marginRight: 4 }} />
+                    {m.label}
+                    {m.id === "optimizar" && kpis.brechas > 0 && ` (${kpis.brechas})`}
+                  </FilterBtn>
+                );
+              })}
+            </div>
+          }
         />
       }
     >
@@ -621,17 +691,18 @@ export default function Equipos() {
         hero={
           <HeroStat
             variant={heroVariant}
-            icon={Layers}
-            label="Equipos en alcance"
-            value={kpis.total}
-            sub={`${kpis.sistemas} sistemas raíz · ${kpis.criticos} criticidad A · ${kpis.indisponibles} indisponible${kpis.indisponibles !== 1 ? "s" : ""}`}
+            icon={Target}
+            label="Salud del registro"
+            value={`${kpis.salud}%`}
+            sub={`${kpis.analisis.completos}/${kpis.analisis.evaluables} nodos completos · ${kpis.equiposConBrecha} con brechas`}
+            onClick={() => abrirOptimizar()}
           />
         }
         stats={[
-          { label: "Críticos (A)", value: kpis.criticos, sub: "prioridad máxima", icon: AlertCircle, tone: kpis.criticos ? C.red : C.green },
-          { label: "Sin guardar", value: kpis.sinGuardar, sub: "cambios pendientes", icon: Check, tone: kpis.sinGuardar ? C.amber : C.green },
-          { label: "Indisponibles", value: kpis.indisponibles, sub: "fuera de servicio", icon: Wrench, tone: kpis.indisponibles ? C.red : C.green },
-          { label: "Enlaces rep.", value: destinos.length, sub: "item ↔ equipo", icon: Package, tone: C.steel },
+          { label: "Brechas abiertas", value: kpis.brechas, sub: "acciones pendientes", icon: AlertCircle, tone: kpis.brechas ? C.amber : C.green, onClick: () => abrirOptimizar() },
+          { label: "Críticos (A)", value: kpis.criticos, sub: "prioridad máxima", icon: AlertCircle, tone: kpis.criticos ? C.red : C.green, onClick: () => abrirOptimizar() },
+          { label: "Indisponibles", value: kpis.indisponibles, sub: "fuera de servicio", icon: Wrench, tone: kpis.indisponibles ? C.red : C.green, onClick: () => abrirOptimizar("critico_indisponible") },
+          { label: "Sin guardar", value: kpis.sinGuardar, sub: "cambios pendientes", icon: Check, tone: kpis.sinGuardar ? C.amber : C.green, onClick: () => setModo("gestionar") },
         ]}
       />
 
@@ -756,7 +827,18 @@ export default function Equipos() {
         </Section>
       )}
 
-      <Section title="Árbol y gestión" description="Selecciona un nodo a la izquierda · edita en el panel de tabs a la derecha" padding={0} style={{ marginBottom: 0 }}>
+      <Section
+        title={modo === "optimizar" ? "Árbol y cola de brechas" : modo === "explorar" ? "Árbol y exploración" : "Árbol y gestión"}
+        description={
+          modo === "optimizar"
+            ? "Prioriza cerrar brechas del registro · click en un ítem abre el tab correcto"
+            : modo === "explorar"
+              ? "Navega la jerarquía · resumen a la derecha"
+              : "Selecciona un nodo a la izquierda · edita en el panel de tabs a la derecha"
+        }
+        padding={0}
+        style={{ marginBottom: 0 }}
+      >
         <style>{`
           .eq-split-container {
             display: grid;
@@ -786,6 +868,12 @@ export default function Equipos() {
             border-color: color-mix(in srgb, ${C.sky} 35%, transparent) !important;
           }
           .eq-tree-node-selected .eq-tree-name { color: ${C.sky}; }
+          .eq-tree-node-brecha {
+            border-color: color-mix(in srgb, ${C.amber} 25%, transparent);
+          }
+          .eq-tree-node-brecha:hover {
+            background: color-mix(in srgb, ${C.amber} 6%, transparent);
+          }
           @media (max-width: 1024px) {
             .eq-split-container { grid-template-columns: 1fr; }
           }
@@ -812,17 +900,37 @@ export default function Equipos() {
               onPopOut={abrirEquipoWindow}
               onEliminar={eliminar}
               puedeBorrar={puedeBorrar}
+              brechaPorEquipo={brechaPorEquipo}
             />
-            <EquipoDetailPanel
-              nodeId={selectedId}
-              handlers={handlersRef.current}
-              puedeOperar={puedeOperar}
-              puedeBorrar={puedeBorrar}
-              eqDirty={eqDirty}
-              posInfo={posInfo}
-              onSelectNode={setSelectedId}
-              embedded
-            />
+            {modo === "optimizar" ? (
+              <EquipoOptimizePanel
+                analisis={kpis.analisis}
+                filtroBrecha={filtroBrecha}
+                setFiltroBrecha={setFiltroBrecha}
+                onIrABrecha={irABrecha}
+                embName={filtro === "all" ? embName : null}
+              />
+            ) : modo === "explorar" ? (
+              <EquipoExplorePanel
+                nodeId={selectedId}
+                repsPorEquipo={repsPorEquipo}
+                onGestionar={(id) => { setSelectedId(id); setModo("gestionar"); }}
+                onSelectNode={setSelectedId}
+              />
+            ) : (
+              <EquipoDetailPanel
+                nodeId={selectedId}
+                handlers={handlersRef.current}
+                puedeOperar={puedeOperar}
+                puedeBorrar={puedeBorrar}
+                eqDirty={eqDirty}
+                posInfo={posInfo}
+                onSelectNode={setSelectedId}
+                activeTab={detailTab}
+                onTabChange={setDetailTab}
+                embedded
+              />
+            )}
           </div>
         )}
       </Section>

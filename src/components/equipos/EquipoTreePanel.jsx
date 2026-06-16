@@ -1,6 +1,7 @@
 import React from "react";
-import { Search, X, ChevronDown, ChevronRight, MoreHorizontal, PanelRightOpen, Trash2 } from "lucide-react";
+import { Search, X, ChevronDown, ChevronRight, MoreHorizontal, PanelRightOpen, Trash2, AlertTriangle } from "lucide-react";
 import { C, estadoLabel, estadoTone, num, tint } from "../../theme";
+import { BRECHA_META } from "../../lib/equipoBrechas";
 import { Card, Pill, ghostBtn, inputStyle } from "../../ui";
 import { TipoChip, CritBadge } from "./arbolUI";
 
@@ -8,6 +9,7 @@ export default function EquipoTreePanel({
   busqueda, setBusqueda, arbol, listaVisible, selectedId, onSelect,
   showEmb, embName, repsPorEquipo, eqDirty, esAgrupador,
   onColapsarTodo, onExpandirTodo, onPopOut, onEliminar, puedeBorrar,
+  brechaPorEquipo,
 }) {
   const [menuId, setMenuId] = React.useState(null);
 
@@ -52,11 +54,12 @@ export default function EquipoTreePanel({
             const nSub = arbol.nSubDe(eq);
             const nReps = repsPorEquipo.get(eq.id) || 0;
             const agrup = esAgrupador(eq);
+            const brecha = brechaPorEquipo?.get(eq.id);
 
             return (
               <div
                 key={eq.id}
-                className={`eq-tree-node${isSelected ? " eq-tree-node-selected" : ""}`}
+                className={`eq-tree-node${isSelected ? " eq-tree-node-selected" : ""}${brecha ? " eq-tree-node-brecha" : ""}`}
                 onClick={() => onSelect(eq.id)}
                 style={{ paddingLeft: eq.depth * 16 + 8 }}
               >
@@ -81,6 +84,11 @@ export default function EquipoTreePanel({
                       {eq.sistema || "—"}
                     </span>
                     <CritBadge crit={eq.criticidad} />
+                    {brecha && (
+                      <span title={BRECHA_META[brecha.tipo]?.label || "Brecha"} style={{ display: "inline-flex", flexShrink: 0 }}>
+                        <AlertTriangle size={12} color={brecha.tone === "red" ? C.red : C.amber} />
+                      </span>
+                    )}
                     {eqDirty?.(eq) && <span style={{ width: 6, height: 6, borderRadius: "50%", background: C.gold, flexShrink: 0 }} title="Cambios sin guardar" />}
                   </div>
                   <div style={{ fontSize: 11, color: C.slate, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>

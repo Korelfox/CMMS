@@ -44,10 +44,14 @@ export default function EquipoDetailPanel({
   posInfo,
   onSelectNode,
   embedded = true,
+  activeTab,
+  onTabChange,
 }) {
   const { equipos, items, destinos, embarcaciones } = useEquiposData();
   const node = equipos.find((e) => e.id === nodeId);
-  const [tab, setTab] = useState("identidad");
+  const [tabInternal, setTabInternal] = useState("identidad");
+  const tab = activeTab ?? tabInternal;
+  const setTab = onTabChange ?? setTabInternal;
   const [sysName, setSysName] = useState("");
 
   const esAgrupador = node?.tipo_nodo === "sistema";
@@ -62,9 +66,11 @@ export default function EquipoDetailPanel({
 
   useEffect(() => { if (node) setSysName(node.sistema || ""); }, [node?.id, node?.sistema]);
 
+  useEffect(() => { if (node && activeTab == null) setTabInternal("identidad"); }, [node?.id, activeTab]);
+
   useEffect(() => {
     if (!tabsVisibles.some((t) => t.id === tab)) setTab(tabsVisibles[0]?.id || "identidad");
-  }, [nodeId, tabsVisibles, tab]);
+  }, [nodeId, tabsVisibles, tab, setTab]);
 
   if (!nodeId) {
     return (
