@@ -1,9 +1,6 @@
 import React, { useEffect, useState, useCallback, useMemo, useRef } from "react";
-import { CalendarClock, Check, AlertCircle, Plus, Trash2, Download, Printer, History, ClipboardList, X, ChevronDown, ChevronRight, Edit3, PanelRightOpen, Layers, AlertTriangle, CheckCircle2, Gauge, Info, Bell, RefreshCw } from "lucide-react";
-import { useWindows } from "./windows/WindowManager";
+import { CalendarClock, Check, AlertCircle, Plus, Trash2, Download, Printer, History, ClipboardList, X, ChevronDown, ChevronRight, Edit3, AlertTriangle, CheckCircle2, Gauge, Info, Bell, RefreshCw, List, Columns3, Table2, FolderTree, Search } from "lucide-react";
 import { planpmStore } from "./planpm/planpmStore";
-import PMWindow from "./planpm/PMWindow";
-import PMEstructuraWindow from "./planpm/PMEstructuraWindow";
 import { TipoChip, CritBadge } from "./equipos/arbolUI";
 import { useAuth } from "../lib/auth";
 import { fetchAll, insertRow, updateRow, deleteRow, logActivity } from "../lib/db";
@@ -17,49 +14,25 @@ import {
 } from "../ui";
 import ComboInput from "./ComboInput";
 import { TAREAS_PM } from "../lib/tareasPM";
-import { statusPlan, statusPlanCalendario, diasDesde, DIAS_POR_UNIDAD, LABEL_UNIDAD, labelIntervaloCalendario, scheduleComplianceCombinado } from "../lib/pm";
+import { statusPlan, statusPlanCalendario, diasDesde, DIAS_POR_UNIDAD, LABEL_UNIDAD, labelIntervaloCalendario, scheduleComplianceCombinado, evaluarPlanes } from "../lib/pm";
+import { ordenarPlanesPM } from "../lib/planpmKanban";
+import { useMediaQuery } from "../lib/useMediaQuery";
+import PMKanban from "./planpm/PMKanban";
+import PMQueuePanel from "./planpm/PMQueuePanel";
+import PMPlanDetailPanel from "./planpm/PMPlanDetailPanel";
+import { PMBar, PMBarCalendario } from "./planpm/PMBars";
 import { folioOT } from "../lib/ot";
 
 const HOY = () => new Date().toISOString().slice(0, 10);
 const INTERVALOS_COMUNES = [50, 100, 250, 500, 1000, 2000, 4000, 8000];
 const UNIDADES_CAL = ["diario", "semanal", "mensual", "trimestral", "semestral", "anual"];
-
-// ── Barra de progreso por plan ─────────────────────────────────
-function PMBar({ elapsed, intervalo }) {
-  const pct   = Math.min(100, intervalo > 0 ? (elapsed / intervalo) * 100 : 0);
-  const [tone] = statusPlan(elapsed, intervalo);
-  const color  = tone === "red" ? C.red : tone === "yellow" ? C.amber : C.green;
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 220 }}>
-      <div style={{ flex: 1, height: 7, background: tint(C.slate, 14), borderRadius: 4, position: "relative" }}>
-        <div style={{ height: "100%", width: `${pct}%`, background: color, borderRadius: 4, transition: "width .3s" }} />
-        <div title="90% del intervalo" style={{ position: "absolute", top: -2, left: "90%", width: 2, height: 11, background: C.slate, opacity: 0.35, borderRadius: 1 }} />
-      </div>
-      <span style={{ fontSize: 11.5, color, fontWeight: 700, fontFamily: "'IBM Plex Mono', monospace", minWidth: 90, textAlign: "right" }}>
-        {num(elapsed, 0)}h / {intervalo}h
-      </span>
-    </div>
-  );
-}
-
-function PMBarCalendario({ diasElapsed, unidad, intervalo = 1 }) {
-  const total = (DIAS_POR_UNIDAD[unidad] || 1) * (intervalo || 1);
-  const safe  = Number.isFinite(diasElapsed) ? diasElapsed : total;
-  const pct   = Math.min(100, total > 0 ? (safe / total) * 100 : 0);
-  const [tone] = statusPlanCalendario(safe, unidad, intervalo);
-  const color  = tone === "red" ? C.red : tone === "yellow" ? C.amber : C.green;
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 220 }}>
-      <div style={{ flex: 1, height: 7, background: tint(C.slate, 14), borderRadius: 4, position: "relative" }}>
-        <div style={{ height: "100%", width: `${pct}%`, background: color, borderRadius: 4, transition: "width .3s" }} />
-        <div title="90% del intervalo" style={{ position: "absolute", top: -2, left: "90%", width: 2, height: 11, background: C.slate, opacity: 0.35, borderRadius: 1 }} />
-      </div>
-      <span style={{ fontSize: 11.5, color, fontWeight: 700, fontFamily: "'IBM Plex Mono', monospace", minWidth: 90, textAlign: "right" }}>
-        {Number.isFinite(diasElapsed) ? diasElapsed : "—"}d / {total}d
-      </span>
-    </div>
-  );
-}
+const VISTA_KEY = "cmms-planpm-vista";
+const VISTA_TABLA_KEY = "cmms-planpm-vista-tabla";
+const VISTAS = [
+  { id: "cola", label: "Cola", icon: List },
+  { id: "kanban", label: "Kanban", icon: Columns3 },
+  { id: "tabla", label: "Tabla", icon: Table2 },
+];
 
 export default function PlanPM({ onNavigate }) {
   const { profile } = useAuth();
@@ -73,7 +46,6 @@ export default function PlanPM({ onNavigate }) {
   const [tab,        setTab]        = useState("plan"); // "plan" | "historial"
   const puedeOperar = canOperate(profile?.rol);
   const puedeBorrar = isAdmin(profile?.rol);
-  const { open } = useWindows();
   const handlersRef = useRef({});
 
   const cargar = useCallback(async () => {
@@ -97,34 +69,6 @@ export default function PlanPM({ onNavigate }) {
 
   const embName = (id) => embarcaciones.find((e) => e.id === id)?.nombre || "—";
 
-  function abrirPMWindow(eq) {
-    const esAgrupador = eq.tipo_nodo === "sistema";
-    if (esAgrupador) {
-      open({
-        id: `pm-struct-${eq.id}`,
-        title: eq.sistema,
-        subtitle: `${eq.id_visible} · ${embName(eq.embarcacion_id)}`,
-        icon: Layers,
-        iconColor: C.steel,
-        width: 600,
-        render: () => (
-          <PMEstructuraWindow equipoId={eq.id} handlersRef={handlersRef} />
-        ),
-      });
-    } else {
-      open({
-        id: `pm-${eq.id}`,
-        title: eq.sistema,
-        subtitle: `${eq.id_visible} · ${embName(eq.embarcacion_id)}`,
-        icon: CalendarClock,
-        iconColor: C.cyan,
-        width: 640,
-        render: () => (
-          <PMWindow equipoId={eq.id} handlersRef={handlersRef} puedeOperar={puedeOperar} puedeBorrar={puedeBorrar} />
-        ),
-      });
-    }
-  }
   // Ids de equipos de la nave en foco (o toda la flota). El filtro por nave
   // aplica a TODO el módulo: árbol del plan, KPIs e historial.
   const idsNave = useMemo(
@@ -167,7 +111,7 @@ export default function PlanPM({ onNavigate }) {
     <ModuleShell
       kicker="Mantenimiento preventivo · ISO 14224"
       title="Plan Preventivo"
-      sub="Plan por equipo: cada tarea con su intervalo e historial. Al registrar PM se genera trazabilidad y puede crear OT automáticamente."
+      sub="Kanban por semáforo de vencimiento · cola y detalle inline · árbol por equipo para configurar tareas."
       error={error}
       onRetry={cargar}
       action={
@@ -231,7 +175,7 @@ export default function PlanPM({ onNavigate }) {
             embarcaciones={embarcaciones} embName={embName}
             profile={profile} puedeOperar={puedeOperar} puedeBorrar={puedeBorrar}
             setError={setError} onNavigate={onNavigate}
-            handlersRef={handlersRef} abrirPMWindow={abrirPMWindow}
+            handlersRef={handlersRef}
             kpis={kpis} />
         </>
       )}
@@ -245,8 +189,12 @@ export default function PlanPM({ onNavigate }) {
 // ─────────────────────────────────────────────────────────────────
 // TAB PLAN
 // ─────────────────────────────────────────────────────────────────
-function TabPlan({ lista, equipos, setEquipos, planes, setPlanes, historial, setHistorial, embName, profile, puedeOperar, puedeBorrar, setError, onNavigate, handlersRef, abrirPMWindow, kpis }) {
+function TabPlan({ lista, equipos, setEquipos, planes, setPlanes, historial, setHistorial, embName, profile, puedeOperar, puedeBorrar, setError, onNavigate, handlersRef, kpis }) {
   const [selectedId, setSelectedId] = useState(null);
+  const [selectedPlanId, setSelectedPlanId] = useState(null);
+  const [vista, setVista] = useState("kanban");
+  const [vistaTabla, setVistaTabla] = useState("arbol");
+  const [fEstado, setFEstado] = useState("all");
   const [rightTab, setRightTab] = useState("planes");
   const [addingPlan, setAddingPlan] = useState(false);
   const [busqueda, setBusqueda] = useState("");
@@ -256,8 +204,58 @@ function TabPlan({ lista, equipos, setEquipos, planes, setPlanes, historial, set
   const [editHitoId, setEditHitoId] = useState(null); // plan_pm_id
   const [hitoForm, setHitoForm] = useState({ horas: "", fecha: "" });
 
+  const isMobile = useMediaQuery("(max-width: 1024px)");
+  const isTabla = vista === "tabla";
+
   const arbol = useArbolColapsable(lista);
   const busq = busqueda.trim().toLowerCase();
+
+  useEffect(() => {
+    const saved = localStorage.getItem(VISTA_KEY);
+    const savedTabla = localStorage.getItem(VISTA_TABLA_KEY);
+    if (saved && VISTAS.some((v) => v.id === saved)) setVista(saved);
+    if (savedTabla && ["arbol", "plano"].includes(savedTabla)) setVistaTabla(savedTabla);
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem(VISTA_KEY, vista);
+    if (vista === "tabla") localStorage.setItem(VISTA_TABLA_KEY, vistaTabla);
+  }, [vista, vistaTabla]);
+
+  const idsEnLista = useMemo(() => new Set(lista.map((e) => e.id)), [lista]);
+  const planesActivos = useMemo(
+    () => planes.filter((p) => p.activo && idsEnLista.has(p.equipo_id)),
+    [planes, idsEnLista],
+  );
+  const evaluados = useMemo(
+    () => ordenarPlanesPM(evaluarPlanes(planesActivos, equipos)),
+    [planesActivos, equipos],
+  );
+  const evaluadosFiltrados = useMemo(() => {
+    let list = evaluados;
+    if (fEstado !== "all") list = list.filter((x) => x.tone === fEstado);
+    if (busq) {
+      list = list.filter(({ plan, equipo }) =>
+        plan.descripcion?.toLowerCase().includes(busq) ||
+        equipo?.sistema?.toLowerCase().includes(busq) ||
+        equipo?.id_visible?.toLowerCase().includes(busq),
+      );
+    }
+    return list;
+  }, [evaluados, fEstado, busq]);
+
+  const selectedEval = useMemo(
+    () => evaluadosFiltrados.find((x) => x.plan.id === selectedPlanId) || evaluadosFiltrados[0] || null,
+    [evaluadosFiltrados, selectedPlanId],
+  );
+
+  useEffect(() => {
+    if (selectedPlanId && !evaluados.some((x) => x.plan.id === selectedPlanId)) setSelectedPlanId(null);
+  }, [evaluados, selectedPlanId]);
+
+  useEffect(() => {
+    if (!isTabla && !selectedPlanId && evaluadosFiltrados.length > 0) setSelectedPlanId(evaluadosFiltrados[0].plan.id);
+  }, [vista, fEstado, busqueda, evaluadosFiltrados.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Auto-expand tree when search query is typed
   useEffect(() => {
@@ -517,10 +515,156 @@ tbody td{padding:5px 8px;vertical-align:middle}
   handlersRef.current = {
     registrarPM, guardarHito, agregarPlan, eliminarPlan,
     nombreUsuario: profile?.nombre || "",
-    abrirPMWindowAdaptado: abrirPMWindow,
+  };
+
+  const planDetailProps = {
+    item: selectedEval,
+    embName,
+    profile,
+    puedeOperar,
+    puedeBorrar,
+    registrando,
+    regForm,
+    setRegForm,
+    setRegistrando,
+    editHitoId,
+    hitoForm,
+    setHitoForm,
+    setEditHitoId,
+    onRegistrar: registrarPM,
+    onGuardarHito: guardarHito,
+    onAbrirEditHito: abrirEditHito,
+    onEliminar: eliminarPlan,
+    onVerEquipo: (eqId) => { setSelectedId(eqId); setVista("tabla"); setVistaTabla("arbol"); },
   };
 
   return (
+    <div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 16 }}>
+        <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+          <div style={{ position: "relative", flex: "1 1 240px", maxWidth: 320 }}>
+            <Search size={15} color={C.slate} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} />
+            <input value={busqueda} onChange={(e) => setBusqueda(e.target.value)} placeholder="Buscar tarea o equipo…"
+              style={{ ...inputStyle(), width: "100%", paddingLeft: 32, fontSize: 13 }} />
+          </div>
+          {VISTAS.map((v) => {
+            const Icon = v.icon;
+            return (
+              <FilterBtn key={v.id} active={vista === v.id} onClick={() => setVista(v.id)}>
+                <Icon size={14} style={{ display: "inline", verticalAlign: "middle", marginRight: 4 }} />
+                {v.label}
+              </FilterBtn>
+            );
+          })}
+          {isTabla && (
+            <>
+              <div style={{ width: 1, alignSelf: "stretch", background: C.line, margin: "0 4px" }} />
+              {[["arbol", "Por equipo", FolderTree], ["plano", "Plano", List]].map(([v, lbl, Ico]) => (
+                <FilterBtn key={v} active={vistaTabla === v} onClick={() => setVistaTabla(v)}>
+                  <Ico size={14} style={{ display: "inline", verticalAlign: "middle", marginRight: 4 }} />
+                  {lbl}
+                </FilterBtn>
+              ))}
+            </>
+          )}
+          <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
+            <button type="button" onClick={exportarPlan} style={exportBtn}><Download size={14} /> Exportar</button>
+            <button type="button" onClick={imprimirPlan} style={ghostBtn}><Printer size={14} /> Imprimir</button>
+          </div>
+        </div>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+          <span style={{ fontSize: 11, color: C.slate, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5 }}>Estado</span>
+          {[["all", "Todos", C.slate], ["red", "Vencido", C.red], ["yellow", "Próximo", C.amber], ["green", "OK", C.green]].map(([v, lbl, tone]) => {
+            const n = v === "all" ? null : evaluados.filter((x) => x.tone === v).length;
+            return (
+              <FilterBtn key={v} active={fEstado === v} color={fEstado === v ? tone : undefined} onClick={() => setFEstado(v)}>
+                {lbl}{n != null && n > 0 ? ` (${n})` : ""}
+              </FilterBtn>
+            );
+          })}
+          <span style={{ marginLeft: "auto", fontSize: 12, color: C.slate }}>{evaluadosFiltrados.length} de {evaluados.length} tareas PM</span>
+        </div>
+      </div>
+
+      {!isTabla ? (
+        <Section
+          title={vista === "kanban" ? "Tablero kanban" : "Cola y detalle"}
+          description={vista === "kanban" ? "Columnas por semáforo · click en tarjeta para registrar PM" : isMobile ? "Selecciona una tarea · detalle debajo" : "Cola a la izquierda · acciones a la derecha"}
+          padding={0}
+          style={{ marginBottom: 0 }}
+        >
+          <style>{`
+            .inv-split-container { display: grid; grid-template-columns: minmax(300px, 380px) 1fr; gap: 16px; align-items: start; padding: 16px; }
+            .inv-split-container.inv-split-stack { grid-template-columns: 1fr; }
+            .inv-kanban-with-detail { display: grid; grid-template-columns: 1fr; gap: 0; }
+            @media (min-width: 1025px) { .inv-kanban-with-detail.has-detail { grid-template-columns: 1fr minmax(360px, 420px); } }
+          `}</style>
+          {evaluadosFiltrados.length === 0 ? (
+            <EmptyState icon={CalendarClock} title="Sin tareas PM en este filtro" description="Prueba otro filtro de estado o limpia la búsqueda." />
+          ) : vista === "kanban" ? (
+            <div className={`inv-kanban-with-detail${selectedEval ? " has-detail" : ""}`}>
+              <PMKanban lista={evaluadosFiltrados} selectedId={selectedEval?.plan.id} onSelect={setSelectedPlanId} embName={embName} />
+              {selectedEval && (
+                <div style={{ padding: 16, borderLeft: isMobile ? "none" : `1px solid ${C.foam}`, borderTop: isMobile ? `1px solid ${C.foam}` : "none", minHeight: 420 }}>
+                  <PMPlanDetailPanel {...planDetailProps} />
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className={`inv-split-container${isMobile ? " inv-split-stack" : ""}`}>
+              <PMQueuePanel lista={evaluadosFiltrados} selectedId={selectedEval?.plan.id} onSelect={setSelectedPlanId}
+                busqueda={busqueda} setBusqueda={setBusqueda} embName={embName} panelHeight={isMobile ? "auto" : "calc(100vh - 320px)"} />
+              {(!isMobile || selectedEval) && <PMPlanDetailPanel {...planDetailProps} />}
+            </div>
+          )}
+        </Section>
+      ) : vistaTabla === "plano" ? (
+        <Section title="Tabla completa" description="Todas las tareas PM · click en fila para ver detalle" padding={0}>
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 960 }}>
+              <thead><tr>
+                <th style={thStyle}>Estado</th>
+                <th style={thStyle}>Tarea PM</th>
+                <th style={thStyle}>Equipo</th>
+                <th style={thStyle}>ID</th>
+                <th style={thStyle}>Tipo</th>
+                <th style={thStyle}>Intervalo</th>
+                <th style={thStyle}>Último PM</th>
+                <th style={thStyle}>Progreso</th>
+              </tr></thead>
+              <tbody>
+                {evaluadosFiltrados.length === 0 ? (
+                  <tr><td colSpan={8}><Empty>Sin tareas para los filtros seleccionados.</Empty></td></tr>
+                ) : evaluadosFiltrados.map(({ plan, equipo, esCalendario, elapsed, tone, label }) => (
+                  <tr key={plan.id} onClick={() => setSelectedPlanId(plan.id)}
+                    style={{ cursor: "pointer", background: selectedPlanId === plan.id ? tint(C.sky, 8) : undefined }}>
+                    <td style={tdStyle}><Pill tone={tone}>{label}</Pill></td>
+                    <td style={{ ...tdStyle, fontWeight: 700 }}>{plan.descripcion}</td>
+                    <td style={tdStyle}>{equipo?.sistema || "—"}</td>
+                    <td style={{ ...tdStyle, fontFamily: "monospace", fontSize: 12 }}>{equipo?.id_visible || "—"}</td>
+                    <td style={tdStyle}>{esCalendario ? "Calendario" : "Horas"}</td>
+                    <td style={{ ...tdStyle, fontFamily: "monospace", fontSize: 12 }}>
+                      {esCalendario ? labelIntervaloCalendario(plan.unidad_calendario, plan.intervalo_calendario ?? 1) : `${plan.intervalo_horas}h`}
+                    </td>
+                    <td style={{ ...tdStyle, fontSize: 12 }}>{plan.fecha_ult_pm || "Nunca"}</td>
+                    <td style={tdStyle}>
+                      {esCalendario
+                        ? <PMBarCalendario diasElapsed={elapsed} unidad={plan.unidad_calendario} intervalo={plan.intervalo_calendario ?? 1} />
+                        : <PMBar elapsed={elapsed} intervalo={plan.intervalo_horas} />}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {selectedEval && (
+            <div style={{ padding: 16, borderTop: `1px solid ${C.foam}` }}>
+              <PMPlanDetailPanel {...planDetailProps} />
+            </div>
+          )}
+        </Section>
+      ) : (
+        <Section title="Por equipo" description="Árbol de equipos · configura tareas PM por componente" padding={0}>
     <div className="pm-split-container">
       {/* Estilos locales del rediseño */}
       <style>{`
@@ -737,17 +881,6 @@ tbody td{padding:5px 8px;vertical-align:middle}
                   </span>
                 </div>
 
-                {/* Icono de Ventana Flotante */}
-                <button
-                  onClick={(e) => { e.stopPropagation(); abrirPMWindow(eq); }}
-                  title="Abrir ventana flotante"
-                  style={{ background: "none", border: "none", cursor: "pointer", padding: 4, display: "flex", alignItems: "center", opacity: 0.5, color: C.slate, transition: "opacity 0.2s" }}
-                  onMouseEnter={(e) => e.currentTarget.style.opacity = 1}
-                  onMouseLeave={(e) => e.currentTarget.style.opacity = 0.5}
-                >
-                  <PanelRightOpen size={12} />
-                </button>
-
                 {/* Alertas */}
                 {vencidosEq > 0 && <div className="pm-pulse-dot" title={`${vencidosEq} planes vencidos`} />}
                 {colapsado && nSub > 0 && (
@@ -844,14 +977,6 @@ tbody td{padding:5px 8px;vertical-align:middle}
                     </div>
                     <span style={{ fontSize: 10.5, color: C.slate, fontWeight: 600, textTransform: "uppercase" }}>Horómetro actual</span>
                   </div>
-
-                  <button
-                    onClick={() => abrirPMWindow(eqSeleccionado)}
-                    title="Pop-out a ventana flotante"
-                    style={{ ...ghostBtn, padding: 8, display: "flex", alignItems: "center", justifyContent: "center" }}
-                  >
-                    <PanelRightOpen size={16} />
-                  </button>
                 </div>
               </div>
             </Card>
@@ -1334,6 +1459,9 @@ tbody td{padding:5px 8px;vertical-align:middle}
           </div>
         )}
       </div>
+    </div>
+        </Section>
+      )}
     </div>
   );
 }
