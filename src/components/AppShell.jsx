@@ -201,6 +201,10 @@ export default function AppShell() {
   const [refreshTick, setRefreshTick]       = useState(0);
   const [showRefreshCfg, setShowRefreshCfg] = useState(false);
   const refreshCfgRef = useRef(null);
+  // Historial de módulos visitados → tab bar de acceso rápido
+  const [recientes, setRecientes] = useState(() => {
+    try { return JSON.parse(sessionStorage.getItem("cmms-recientes") || "[]"); } catch { return []; }
+  });
   const [dark, setDark] = useState(() => {
     try { return document.documentElement.dataset.theme === "dark"; } catch { return false; }
   });
@@ -281,6 +285,16 @@ export default function AppShell() {
     if (online) sincronizar();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [online]);
+
+  // Registra el módulo activo en el historial de navegación rápida (máx. 7)
+  useEffect(() => {
+    setRecientes((prev) => {
+      const sinActual = prev.filter((id) => id !== view);
+      const next = [view, ...sinActual].slice(0, 7);
+      try { sessionStorage.setItem("cmms-recientes", JSON.stringify(next)); } catch { /* sessionStorage no disponible */ }
+      return next;
+    });
+  }, [view]);
 
   // Identifica al Armador de la organización: el usuario con rol admin_empresa;
   // si no hay, se usa el Super Admin como respaldo.
@@ -448,6 +462,50 @@ export default function AppShell() {
             </div>
           </div>
         </div>
+
+        {/* ── Tab bar de acceso rápido ─────────────────────────────────── */}
+        {recientes.length > 1 && (
+          <div className="cmms-tabs-bar" role="tablist" aria-label="Módulos recientes">
+            {recientes.map((id) => {
+              const navItem = visibleNav.find((n) => n.id === id);
+              if (!navItem) return null;
+              const active = id === view;
+              const Icon   = navItem.icon;
+              return (
+                <div
+                  key={id}
+                  role="tab"
+                  aria-selected={active}
+                  tabIndex={0}
+                  className={`cmms-tab${active ? " cmms-tab-active" : ""}`}
+                  onClick={() => navegar(id)}
+                  onKeyDown={(e) => e.key === "Enter" && navegar(id)}
+                  title={navItem.label}
+                >
+                  <Icon size={13} strokeWidth={active ? 2.5 : 2} />
+                  <span className="cmms-tab-label">{navItem.label}</span>
+                  {!active && (
+                    <button
+                      className="cmms-tab-close"
+                      title={`Cerrar pestaña ${navItem.label}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setRecientes((prev) => {
+                          const next = prev.filter((x) => x !== id);
+                          try { sessionStorage.setItem("cmms-recientes", JSON.stringify(next)); } catch { /* sessionStorage no disponible */ }
+                          return next;
+                        });
+                      }}
+                    >
+                      ×
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
         <div className="cmms-work-area" style={{ maxWidth: "100%", margin: "0 auto" }}>
           <ErrorBoundary key={view}>
           <Suspense fallback={<InlineSpinner label="Cargando módulo…" />}>
@@ -484,9 +542,90 @@ export default function AppShell() {
       <style>{`
         .cmms-topbar    { padding: 8px 34px; }
         .cmms-work-area { padding: 28px 30px 60px; }
+
+        /* ── Tab bar de módulos recientes ── */
+        .cmms-tabs-bar {
+          display: flex;
+          align-items: stretch;
+          overflow-x: auto;
+          background: var(--c-surface2);
+          border-bottom: 1px solid var(--c-line);
+          padding: 0 20px;
+          min-height: 36px;
+          flex-shrink: 0;
+          gap: 2px;
+          scrollbar-width: none;
+        }
+        .cmms-tabs-bar::-webkit-scrollbar { display: none; }
+
+        .cmms-tab {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          padding: 0 11px;
+          border: none;
+          border-bottom: 2px solid transparent;
+          background: none;
+          cursor: pointer;
+          font-family: inherit;
+          font-size: 12px;
+          font-weight: 500;
+          color: var(--c-slate);
+          white-space: nowrap;
+          min-height: 36px;
+          border-radius: 0;
+          transition: color .15s, border-color .15s, background .15s;
+          position: relative;
+          outline: none;
+        }
+        .cmms-tab:hover {
+          color: var(--c-steel);
+          background: color-mix(in srgb, var(--c-sky) 7%, transparent);
+        }
+        .cmms-tab:focus-visible {
+          outline: 2px solid var(--c-sky);
+          outline-offset: -2px;
+        }
+        .cmms-tab-active {
+          color: var(--c-sky);
+          border-bottom-color: var(--c-sky);
+          font-weight: 700;
+          background: color-mix(in srgb, var(--c-sky) 8%, transparent);
+        }
+        .cmms-tab-label {
+          max-width: 130px;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .cmms-tab-close {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          margin-left: 1px;
+          width: 16px;
+          height: 16px;
+          font-size: 14px;
+          line-height: 1;
+          border: none;
+          background: none;
+          color: var(--c-slate);
+          border-radius: 4px;
+          cursor: pointer;
+          padding: 0;
+          opacity: 0;
+          transition: opacity .12s, color .12s, background .12s;
+          font-family: inherit;
+          flex-shrink: 0;
+        }
+        .cmms-tab:hover .cmms-tab-close  { opacity: 0.65; }
+        .cmms-tab-close:hover             { opacity: 1 !important; color: var(--c-red); background: var(--c-redBg); }
+
         @media (max-width: 760px) {
           .cmms-topbar    { padding: 8px 14px; }
           .cmms-work-area { padding: 18px 12px 48px; }
+          .cmms-tabs-bar  { padding: 0 8px; }
+          .cmms-tab       { padding: 0 8px; font-size: 11.5px; }
+          .cmms-tab-label { max-width: 80px; }
 
           /* Sidebar se convierte en drawer */
           .cmms-sidebar {
@@ -503,6 +642,7 @@ export default function AppShell() {
         @media (max-width: 440px) {
           .cmms-topbar    { padding: 7px 9px; }
           .cmms-work-area { padding: 14px 7px 40px; }
+          .cmms-tab-label { max-width: 60px; font-size: 11px; }
         }
       `}</style>
     </div>

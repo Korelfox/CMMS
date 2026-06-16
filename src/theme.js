@@ -84,6 +84,9 @@ export const shadow = {
 // Radios consistentes
 export const radius = { sm: 6, md: 8, lg: 12, xl: 16, pill: 999 };
 
+// Escala de espaciado (px) — layout y gutters del design system Tier 2
+export const space = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24, xxl: 32, xxxl: 48 };
+
 // Roles y jerarquía (refleja el enum app.rol_usuario del esquema SQL)
 export const ROLES = {
   super_admin: { label: "Super Admin", nivel: 4, color: C.abyss },

@@ -1,13 +1,14 @@
 import React, { useEffect, useState, useCallback } from "react";
-import { ClipboardList, Plus, Trash2, Download, CloudOff, Clock, DollarSign, Check, Camera, ListChecks } from "lucide-react";
+import { ClipboardList, Plus, Trash2, Download, CloudOff, Clock, DollarSign, Check, Camera, ListChecks, RefreshCw } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { fetchAll, insertRow, updateRow, deleteRow, logActivity } from "../lib/db";
 import { useOnline, cacheTable, getCached, queueInsert, nuevoId } from "../lib/offline";
 import { subirFotos } from "../lib/fotos";
 import { C, clp, isAdmin, canOperate, TIPOS_OT, PRIORIDADES, ESTADOS_OT, lk, tn, tint } from "../theme";
 import {
-  Card, PageHead, Pill, primaryBtn, ghostBtn, exportBtn, inputStyle, bluInput,
-  thStyle, tdStyle, FilterBtn, Field, Empty, ErrorBanner, InlineSpinner,
+  Card, Pill, primaryBtn, ghostBtn, exportBtn, inputStyle, bluInput,
+  thStyle, tdStyle, FilterBtn, Field, Empty, InlineSpinner,
+  ModuleShell, StatGrid, Toolbar, Section, EmptyState,
 } from "../ui";
 import { FotoInput, FotoGaleria } from "./Fotos";
 import { blankOT, folioOT, kpisOT, costoOT, filtrarOTs, sinValorizar, validarNuevaOT } from "../lib/ot";
@@ -246,46 +247,98 @@ export default function OrdenesTrabajo({ navParams }) {
     const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "ordenes_trabajo.csv"; a.click();
   }
 
-  if (loading) return <div><PageHead kicker="Nivel Operativo" title="Órdenes de Trabajo" /><Card><InlineSpinner label="Cargando órdenes…" /></Card></div>;
+  if (loading) {
+    return (
+      <ModuleShell kicker="Nivel operativo" title="Órdenes de Trabajo" loading />
+    );
+  }
 
   return (
-    <div>
-      <PageHead kicker="Nivel Operativo · Libbrecht" title="Órdenes de Trabajo"
-        sub="Flujo: Solicitada → Planificada → Programada → En ejecución → Cerrada. Registra costos, MTTR y horas de operación."
-        action={<div style={{ display: "flex", gap: 8 }}>
+    <ModuleShell
+      kicker="Nivel operativo · Libbrecht"
+      title="Órdenes de Trabajo"
+      sub="Flujo: Solicitada → Planificada → Programada → En ejecución → Cerrada. Registra costos, MTTR y trazabilidad ISO 14224."
+      error={error}
+      onRetry={cargar}
+      action={
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           {puedeCostos && (
-            <button onClick={() => setModoCostos((v) => !v)}
-              style={modoCostos
-                ? { ...primaryBtn, background: C.gold, borderColor: C.gold }
-                : { ...exportBtn, color: "#7a5b00", borderColor: C.gold }}>
+            <button type="button" onClick={() => setModoCostos((v) => !v)}
+              style={modoCostos ? { ...primaryBtn, background: C.gold } : exportBtn}>
               <DollarSign size={15} /> {modoCostos ? "Cerrar valorización" : "Valorizar costos"}
             </button>
           )}
-          <button onClick={exportar} style={exportBtn}><Download size={15} /> Exportar</button>
-          {puedeOperar && <button data-testid="ot-nueva" onClick={() => { setShowForm(!showForm); setError(null); }} style={primaryBtn}><Plus size={16} /> Nueva OT</button>}
-        </div>} />
-
-      <ErrorBanner onRetry={cargar}>{error}</ErrorBanner>
-
-      {(!online || usandoCache) && (
-        <div style={{ display: "flex", alignItems: "center", gap: 10, background: C.yellowBg, border: `1px solid ${C.amber}`, color: "#7a5b00", padding: "10px 14px", borderRadius: 10, marginBottom: 14, fontSize: 13 }}>
-          <CloudOff size={17} />
-          <span>
-            {online
-              ? "Mostrando la última copia guardada en este dispositivo."
-              : "Sin conexión. Puedes crear OTs igual: quedarán en este dispositivo y se subirán solas al recuperar señal."}
-          </span>
+          <button type="button" onClick={exportar} style={exportBtn}><Download size={15} /> Exportar</button>
+          {puedeOperar && (
+            <button type="button" data-testid="ot-nueva" onClick={() => { setShowForm(!showForm); setError(null); }} style={primaryBtn}>
+              <Plus size={16} /> Nueva OT
+            </button>
+          )}
+          <button type="button" onClick={cargar} title="Actualizar" data-nofx style={{ ...ghostBtn, padding: "10px 12px", display: "inline-flex", alignItems: "center" }}>
+            <RefreshCw size={15} />
+          </button>
         </div>
-      )}
-
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14, marginBottom: 16 }}>
-        <MiniStat label="OTs Totales" value={ots.length} sub={`${abiertas} abiertas`} />
-        <MiniStat label="Abiertas" value={abiertas} tone={abiertas ? C.yellow : C.green} />
-        <MiniStat label="Proactivo" value={`${propProactivo}%`} tone={propProactivo >= 60 ? C.green : C.yellow} sub={`${preventivas} preventivas`} />
-        <MiniStat label="Costo Total" value={clp(costoTotal)} tone={C.gold}
-          onClick={puedeCostos ? () => setModoCostos((v) => !v) : undefined}
-          hint={modoCostos ? "Cerrar edición" : "Ingresar costos"} />
-      </div>
+      }
+      toolbar={
+        <>
+          {(!online || usandoCache) && (
+            <div style={{
+              display: "flex", alignItems: "center", gap: 10, background: C.yellowBg,
+              border: `1px solid ${C.amber}`, color: "#7a5b00", padding: "10px 14px",
+              borderRadius: 10, marginBottom: 12, fontSize: 13, width: "100%",
+            }}>
+              <CloudOff size={17} />
+              <span>
+                {online
+                  ? "Mostrando la última copia guardada en este dispositivo."
+                  : "Sin conexión. Las OTs nuevas quedan en cola y se suben al recuperar señal."}
+              </span>
+            </div>
+          )}
+          <Toolbar
+            left={
+              <>
+                {embarcaciones.length > 1 && (
+                  <>
+                    <span style={{ fontSize: 11.5, color: C.slate, fontWeight: 600 }}>Nave:</span>
+                    <FilterBtn active={embFiltro === "all"} onClick={() => aplicarEmb("all")}>Todas</FilterBtn>
+                    {embarcaciones.map((v) => (
+                      <FilterBtn key={v.id} active={embFiltro === v.id} color={v.color}
+                        onClick={() => aplicarEmb(embFiltro === v.id ? "all" : v.id)}>{v.nombre}</FilterBtn>
+                    ))}
+                  </>
+                )}
+                <FilterBtn active={!otDestacada && filtro === "all"} onClick={() => aplicarFiltro("all")}>Todas ({otsScope.length})</FilterBtn>
+                {ESTADOS_OT.map((s) => {
+                  const n = otsScope.filter((o) => o.estado === s.value).length;
+                  return (
+                    <FilterBtn key={s.value} active={!otDestacada && filtro === s.value} onClick={() => aplicarFiltro(s.value)}>
+                      {s.label} ({n})
+                    </FilterBtn>
+                  );
+                })}
+                {(() => {
+                  const n = otsScope.filter(sinValorizar).length;
+                  return n > 0 ? (
+                    <FilterBtn active={!otDestacada && filtro === "sin_valorizar"} onClick={() => aplicarFiltro("sin_valorizar")}>
+                      $ Sin valorizar ({n})
+                    </FilterBtn>
+                  ) : null;
+                })()}
+              </>
+            }
+          />
+        </>
+      }
+    >
+      <StatGrid
+        stats={[
+          { label: "OTs totales", value: ots.length, sub: `${abiertas} abiertas`, icon: ClipboardList, tone: C.steel },
+          { label: "Abiertas", value: abiertas, sub: "requieren seguimiento", icon: Clock, tone: abiertas ? C.amber : C.green },
+          { label: "Proactivo", value: `${propProactivo}%`, sub: `${preventivas} preventivas`, icon: Check, tone: propProactivo >= 60 ? C.green : C.amber },
+          { label: "Costo total", value: clp(costoTotal), sub: modoCostos ? "modo valorización activo" : "MO + materiales", icon: DollarSign, tone: C.gold, onClick: puedeCostos ? () => setModoCostos((v) => !v) : undefined },
+        ]}
+      />
 
       {showForm && (
         <Card style={{ marginBottom: 16, background: C.mist }}>
@@ -332,32 +385,6 @@ export default function OrdenesTrabajo({ navParams }) {
         </div>
       )}
 
-      {embarcaciones.length > 1 && (
-        <div style={{ display: "flex", gap: 8, marginBottom: 10, flexWrap: "wrap", alignItems: "center" }}>
-          <span style={{ fontSize: 11.5, color: C.slate, fontWeight: 600, marginRight: 2 }}>Nave:</span>
-          <FilterBtn active={embFiltro === "all"} onClick={() => aplicarEmb("all")}>Todas</FilterBtn>
-          {embarcaciones.map((v) => (
-            <FilterBtn key={v.id} active={embFiltro === v.id} color={v.color}
-              onClick={() => aplicarEmb(embFiltro === v.id ? "all" : v.id)}>{v.nombre}</FilterBtn>
-          ))}
-        </div>
-      )}
-
-      <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
-        <FilterBtn active={!otDestacada && filtro === "all"} onClick={() => aplicarFiltro("all")}>Todas ({otsScope.length})</FilterBtn>
-        {ESTADOS_OT.map((s) => {
-          const n = otsScope.filter((o) => o.estado === s.value).length;
-          return <FilterBtn key={s.value} active={!otDestacada && filtro === s.value} onClick={() => aplicarFiltro(s.value)}>{s.label} ({n})</FilterBtn>;
-        })}
-        {(() => {
-          const n = otsScope.filter(sinValorizar).length;
-          return n > 0 ? (
-            <FilterBtn active={!otDestacada && filtro === "sin_valorizar"} onClick={() => aplicarFiltro("sin_valorizar")}>
-              $ Sin valorizar ({n})
-            </FilterBtn>
-          ) : null;
-        })()}
-      </div>
 
       {modoCostos && (
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, background: C.goldBg || tint(C.gold, 16), border: `1px solid ${C.gold}`, borderRadius: 10, padding: "10px 14px", marginBottom: 14, fontSize: 13 }}>
@@ -368,7 +395,7 @@ export default function OrdenesTrabajo({ navParams }) {
         </div>
       )}
 
-      <Card style={{ padding: 0, overflow: "hidden" }}>
+      <Section title="Registro de órdenes" padding={0} style={{ marginBottom: 0 }}>
         <div style={{ overflowX: "auto" }}>
           <table data-testid="ot-tabla" style={{ width: "100%", borderCollapse: "collapse", minWidth: 960 }}>
             <thead><tr>
@@ -378,7 +405,11 @@ export default function OrdenesTrabajo({ navParams }) {
               <th style={thStyle}>Estado</th><th style={thStyle}></th>
             </tr></thead>
             <tbody>
-              {lista.length === 0 ? <tr><td colSpan={10}><Empty>Sin órdenes en este filtro.</Empty></td></tr> :
+              {lista.length === 0 ? (
+                <tr><td colSpan={10}>
+                  <EmptyState icon={ClipboardList} title="Sin órdenes en este filtro" description="Prueba otro estado o crea una nueva OT." />
+                </td></tr>
+              ) :
                 lista.map((o) => (
                   <React.Fragment key={o.id}>
                   <tr style={o._pending ? { background: C.yellowBg } : undefined}>
@@ -487,7 +518,7 @@ export default function OrdenesTrabajo({ navParams }) {
             </tbody>
           </table>
         </div>
-      </Card>
+      </Section>
 
       {cierreOT && (
         <CierreFallaModal
@@ -497,18 +528,6 @@ export default function OrdenesTrabajo({ navParams }) {
           onClose={() => setCierreOT(null)}
         />
       )}
-    </div>
-  );
-}
-
-function MiniStat({ label, value, tone, sub, onClick, hint }) {
-  return (
-    <Card onClick={onClick} title={onClick ? hint : undefined}
-      style={{ padding: 16, cursor: onClick ? "pointer" : "default" }}>
-      <div style={{ fontSize: 11, letterSpacing: 1, textTransform: "uppercase", color: C.slate, fontWeight: 600 }}>{label}</div>
-      <div style={{ fontFamily: "'Archivo', sans-serif", fontSize: 26, fontWeight: 800, color: tone || C.steel, lineHeight: 1, marginTop: 8 }}>{value}</div>
-      {sub && <div style={{ fontSize: 11.5, color: C.slate, marginTop: 6 }}>{sub}</div>}
-      {onClick && <div style={{ fontSize: 10.5, color: C.gold, fontWeight: 700, marginTop: 6 }}>{hint} ›</div>}
-    </Card>
+    </ModuleShell>
   );
 }

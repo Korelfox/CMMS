@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { C, archivo, shadow, tint } from "./theme";
+import { ChevronRight } from "lucide-react";
+import { C, archivo, shadow, tint, space } from "./theme";
 
 // ============================================================
 //  Focus-following scroll — al enfocar un campo cerca del borde,
@@ -199,6 +200,241 @@ export function ErrorBanner({ children, onRetry }) {
 }
 
 // ============================================================
+//  Design System Tier 2 — layouts de módulo (estándar global)
+// ============================================================
+
+/** Enlace de acción secundaria (Ver todas, Ver bitácora…) */
+export function LinkButton({ children, onClick, icon: Icon = ChevronRight }) {
+  return (
+    <button type="button" onClick={onClick} data-nofx
+      style={{ display: "inline-flex", alignItems: "center", gap: 4, background: "none", border: "none",
+        color: C.steel, cursor: "pointer", fontSize: 12.5, fontWeight: 600, fontFamily: "inherit", padding: "4px 0" }}>
+      {children}
+      <Icon size={14} strokeWidth={2.2} />
+    </button>
+  );
+}
+
+/** Estado vacío con jerarquía visual y CTA opcional */
+export function EmptyState({ icon: Icon, title, description, action }) {
+  return (
+    <div style={{ padding: "48px 24px", textAlign: "center" }}>
+      {Icon && (
+        <div style={{ width: 52, height: 52, borderRadius: 14, background: tint(C.steel, 8),
+          display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}>
+          <Icon size={24} color={C.steel} strokeWidth={1.8} />
+        </div>
+      )}
+      {title && <div style={{ ...archivo, fontSize: 16, fontWeight: 700, color: C.abyss, marginBottom: 6 }}>{title}</div>}
+      {description && <p style={{ margin: 0, fontSize: 13.5, color: C.slate, lineHeight: 1.6, maxWidth: 360, marginInline: "auto" }}>{description}</p>}
+      {action && <div style={{ marginTop: 18 }}>{action}</div>}
+    </div>
+  );
+}
+
+/**
+ * Contenedor estándar de módulo: header premium + toolbar + cuerpo animado.
+ * loading → spinner inline · error → banner con retry
+ */
+export function ModuleShell({ kicker, title, sub, action, toolbar, children, loading, error, onRetry, maxWidth = 1440 }) {
+  return (
+    <div className="cmms-module" style={{ maxWidth, margin: "0 auto", animation: "cmms-fade-in .35s ease both" }}>
+      <header className="cmms-module-header">
+        <div className="cmms-module-header-inner">
+          <div style={{ minWidth: 0, flex: 1 }}>
+            {kicker && <div className="cmms-module-kicker">{kicker}</div>}
+            <h1 className="cmms-module-title">{title}</h1>
+            {sub && <p className="cmms-module-sub">{sub}</p>}
+          </div>
+          {action && <div className="cmms-module-actions">{action}</div>}
+        </div>
+      </header>
+
+      {error && <ErrorBanner onRetry={onRetry}>{error}</ErrorBanner>}
+      {toolbar && <div className="cmms-toolbar-wrap">{toolbar}</div>}
+
+      {loading ? (
+        <Card style={{ padding: 0 }}><InlineSpinner label="Cargando datos…" /></Card>
+      ) : children}
+    </div>
+  );
+}
+
+/** Barra de herramientas: filtros/búsqueda a la izq · acciones a la der */
+export function Toolbar({ left, right, style }) {
+  return (
+    <div className="cmms-toolbar" style={style}>
+      <div className="cmms-toolbar-left">{left}</div>
+      {right && <div className="cmms-toolbar-right">{right}</div>}
+    </div>
+  );
+}
+
+/** Sección dentro de un módulo — título + descripción + contenido en Card */
+export function Section({ title, description, action, children, style, padding = 20 }) {
+  return (
+    <section style={{ marginBottom: space.xl, ...style }}>
+      {(title || action) && (
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, marginBottom: space.md }}>
+          <div>
+            {title && <h2 className="cmms-section-title">{title}</h2>}
+            {description && <p className="cmms-section-desc">{description}</p>}
+          </div>
+          {action}
+        </div>
+      )}
+      <Card style={{ padding }}>{children}</Card>
+    </section>
+  );
+}
+
+/** KPI clickeable — envuelve KPICard con hover estándar */
+export function StatTile({ onClick, highlight, ...kpiProps }) {
+  return (
+    <div
+      className={onClick ? "cmms-stat-tile cmms-clickable" : "cmms-stat-tile"}
+      onClick={onClick}
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onKeyDown={onClick ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick(e); } } : undefined}
+      style={highlight ? { gridColumn: "span 2" } : undefined}
+    >
+      <KPICard {...kpiProps} />
+    </div>
+  );
+}
+
+/**
+ * Tarjeta hero para command centers — gradiente según severidad.
+ * variant: ok | warn | critical
+ */
+export function HeroStat({ variant = "ok", icon: Icon, label, value, sub, onClick }) {
+  const palettes = {
+    ok:       { grad: `linear-gradient(135deg, ${C.green} 0%, ${C.cyan} 100%)`, glow: "rgba(30,158,106,.25)" },
+    warn:     { grad: `linear-gradient(135deg, ${C.amber} 0%, #B8860B 100%)`, glow: "rgba(244,183,64,.28)" },
+    critical: { grad: `linear-gradient(135deg, ${C.red} 0%, #8A2A26 100%)`, glow: "rgba(216,68,60,.28)" },
+  };
+  const p = palettes[variant] || palettes.ok;
+  return (
+    <div
+      className={onClick ? "cmms-hero-stat cmms-clickable" : "cmms-hero-stat"}
+      onClick={onClick}
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onKeyDown={onClick ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick(e); } } : undefined}
+      style={{ background: p.grad, boxShadow: `0 8px 32px ${p.glow}`, cursor: onClick ? "pointer" : "default" }}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+        {Icon && <Icon size={22} color="#fff" strokeWidth={2.2} />}
+        <div style={{ fontSize: 11, letterSpacing: 1.8, textTransform: "uppercase", color: "rgba(255,255,255,.88)", fontWeight: 700 }}>{label}</div>
+      </div>
+      <div style={{ ...archivo, fontSize: 40, fontWeight: 800, color: "#fff", lineHeight: 1, letterSpacing: -1 }}>{value}</div>
+      {sub && <div style={{ fontSize: 12.5, marginTop: 10, color: "rgba(255,255,255,.85)", lineHeight: 1.5 }}>{sub}</div>}
+    </div>
+  );
+}
+
+/** Grid responsivo de KPIs — stats: [{ label, value, sub, icon, tone, onClick, highlight }] */
+export function StatGrid({ stats = [], hero }) {
+  return (
+    <div className="cmms-stat-grid">
+      {hero}
+      {stats.map((s, i) => (
+        <StatTile key={s.id || s.label || i} {...s} />
+      ))}
+    </div>
+  );
+}
+
+/** Lista de acciones prioritarias — items: [{ id, label, detail, tone, onClick }] */
+export function ActionQueue({ title = "Requiere atención", items = [], emptyLabel = "Sin acciones pendientes" }) {
+  if (!items.length) {
+    return (
+      <div className="cmms-action-queue cmms-action-queue-ok">
+        <div style={{ fontSize: 11, letterSpacing: 1.5, textTransform: "uppercase", color: C.green, fontWeight: 700, marginBottom: 8 }}>{title}</div>
+        <div style={{ ...archivo, fontSize: 18, fontWeight: 800, color: C.green }}>{emptyLabel}</div>
+      </div>
+    );
+  }
+  return (
+    <div className="cmms-action-queue">
+      <div style={{ fontSize: 11, letterSpacing: 1.5, textTransform: "uppercase", color: C.slate, fontWeight: 700, marginBottom: 12 }}>{title}</div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        {items.map((item) => {
+          const toneColor = item.tone === "red" ? C.red : item.tone === "amber" ? C.amber : C.steel;
+          return (
+            <button key={item.id} type="button" data-nofx onClick={item.onClick}
+              className="cmms-action-item"
+              style={{ borderLeftColor: toneColor }}>
+              <span style={{ fontWeight: 700, color: C.abyss, fontSize: 13 }}>{item.label}</span>
+              {item.detail && <span style={{ fontSize: 12, color: C.slate }}>{item.detail}</span>}
+              <ChevronRight size={14} color={C.slate} style={{ marginLeft: "auto", flexShrink: 0 }} />
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Tabla de datos enterprise — columns: [{ key, label, width, render }]
+ * rows: array · onRowClick opcional · compact para densidad controlada
+ */
+export function DataTable({ columns = [], rows = [], onRowClick, empty, compact = false }) {
+  if (!rows.length) {
+    return empty || <Empty>Sin registros.</Empty>;
+  }
+  const pad = compact ? "10px 14px" : "13px 18px";
+  return (
+    <div className="cmms-datatable-wrap">
+      <table className="cmms-datatable" style={{ width: "100%", borderCollapse: "collapse" }}>
+        <thead>
+          <tr>
+            {columns.map((col) => (
+              <th key={col.key} style={{ ...thStyle, padding: pad, width: col.width }}>{col.label}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row, ri) => (
+            <tr
+              key={row.id ?? ri}
+              onClick={onRowClick ? () => onRowClick(row) : undefined}
+              style={{ cursor: onRowClick ? "pointer" : "default" }}
+              className={onRowClick ? "cmms-datatable-row-click" : undefined}
+            >
+              {columns.map((col) => (
+                <td key={col.key} style={{ ...tdStyle, padding: pad }}>
+                  {col.render ? col.render(row) : row[col.key]}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+/** Anillo de salud 0–100 para tarjetas de flota */
+export function HealthRing({ value, size = 56, stroke = 5 }) {
+  const v = Math.max(0, Math.min(100, Number(value) || 0));
+  const color = v >= 80 ? C.green : v >= 60 ? C.amber : C.red;
+  const r = (size - stroke) / 2;
+  const circ = 2 * Math.PI * r;
+  const offset = circ - (v / 100) * circ;
+  return (
+    <svg width={size} height={size} style={{ transform: "rotate(-90deg)", flexShrink: 0 }}>
+      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={C.foam} strokeWidth={stroke} />
+      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={color} strokeWidth={stroke}
+        strokeDasharray={circ} strokeDashoffset={offset} strokeLinecap="round"
+        style={{ transition: "stroke-dashoffset .6s ease" }} />
+    </svg>
+  );
+}
+
+// ============================================================
 //  Estilos globales del design system (Tier 1 fundacional)
 //  Se monta una sola vez en App. Usa propiedades que NO se
 //  definen inline (box-shadow, transform, filter, outline) para
@@ -256,6 +492,175 @@ export function DesignSystemStyles() {
       @keyframes cmms-fade-in {
         from { opacity: 0; transform: translateY(4px); }
         to   { opacity: 1; transform: translateY(0); }
+      }
+
+      /* ── Tier 2: ModuleShell ─────────────────────────────────────── */
+      .cmms-module-header {
+        position: relative;
+        margin-bottom: 28px;
+        padding: 28px 28px 24px;
+        border-radius: 16px;
+        background: linear-gradient(135deg,
+          color-mix(in srgb, var(--c-steel) 6%, var(--c-surface)) 0%,
+          var(--c-surface) 45%,
+          color-mix(in srgb, var(--c-gold) 4%, var(--c-surface)) 100%);
+        border: 1px solid var(--c-line);
+        box-shadow: ${shadow.sm};
+        overflow: hidden;
+      }
+      .cmms-module-header::before {
+        content: "";
+        position: absolute;
+        top: -40%;
+        right: -8%;
+        width: 280px;
+        height: 280px;
+        border-radius: 50%;
+        background: radial-gradient(circle, color-mix(in srgb, var(--c-sky) 12%, transparent) 0%, transparent 70%);
+        pointer-events: none;
+      }
+      .cmms-module-header-inner {
+        position: relative;
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-end;
+        gap: 20px;
+        flex-wrap: wrap;
+      }
+      .cmms-module-kicker {
+        font-size: 11px;
+        letter-spacing: 2.5px;
+        text-transform: uppercase;
+        color: var(--c-steel);
+        font-weight: 600;
+        margin-bottom: 8px;
+      }
+      .cmms-module-title {
+        font-family: 'Archivo', sans-serif;
+        font-size: clamp(26px, 4vw, 32px);
+        font-weight: 800;
+        margin: 0;
+        color: var(--c-abyss);
+        letter-spacing: -0.6px;
+        line-height: 1.1;
+      }
+      .cmms-module-sub {
+        margin: 10px 0 0;
+        color: var(--c-slate);
+        font-size: 14px;
+        line-height: 1.55;
+        max-width: 640px;
+      }
+      .cmms-module-actions { display: flex; gap: 10px; flex-shrink: 0; align-items: center; flex-wrap: wrap; }
+
+      /* ── Toolbar ─────────────────────────────────────────────────── */
+      .cmms-toolbar-wrap { margin-bottom: 20px; }
+      .cmms-toolbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+        padding: 12px 16px;
+        background: var(--c-surface2);
+        border: 1px solid var(--c-line);
+        border-radius: 12px;
+      }
+      .cmms-toolbar-left, .cmms-toolbar-right {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+
+      /* ── StatGrid ────────────────────────────────────────────────── */
+      .cmms-stat-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 14px;
+        margin-bottom: 24px;
+      }
+      .cmms-hero-stat {
+        grid-column: span 2;
+        border-radius: 14px;
+        padding: 22px 24px;
+        color: #fff;
+        border: none;
+        text-align: left;
+        font-family: inherit;
+        transition: transform .18s ease, box-shadow .18s ease;
+      }
+      .cmms-stat-tile { min-width: 0; }
+      .cmms-stat-tile > div { height: 100%; }
+
+      /* ── Section titles ──────────────────────────────────────────── */
+      .cmms-section-title {
+        font-family: 'Archivo', sans-serif;
+        font-size: 17px;
+        font-weight: 800;
+        color: var(--c-abyss);
+        margin: 0;
+        letter-spacing: -0.2px;
+      }
+      .cmms-section-desc {
+        margin: 4px 0 0;
+        font-size: 12.5px;
+        color: var(--c-slate);
+        line-height: 1.5;
+      }
+
+      /* ── Action queue ─────────────────────────────────────────────── */
+      .cmms-action-queue {
+        padding: 18px 20px;
+        background: var(--c-surface);
+        border: 1px solid var(--c-line);
+        border-radius: 14px;
+        box-shadow: ${shadow.sm};
+        height: 100%;
+      }
+      .cmms-action-queue-ok {
+        background: color-mix(in srgb, var(--c-green) 6%, var(--c-surface));
+        border-color: color-mix(in srgb, var(--c-green) 25%, var(--c-line));
+      }
+      .cmms-action-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        width: 100%;
+        padding: 11px 14px;
+        background: var(--c-mist);
+        border: 1px solid var(--c-line);
+        border-left-width: 3px;
+        border-radius: 10px;
+        cursor: pointer;
+        text-align: left;
+        font-family: inherit;
+        transition: background .12s ease, border-color .12s ease;
+      }
+      .cmms-action-item:hover {
+        background: color-mix(in srgb, var(--c-sky) 8%, var(--c-mist));
+        border-color: color-mix(in srgb, var(--c-sky) 30%, var(--c-line));
+      }
+
+      /* ── DataTable ───────────────────────────────────────────────── */
+      .cmms-datatable-wrap { overflow-x: auto; margin: -4px -4px 0; }
+      .cmms-datatable thead { position: sticky; top: 0; z-index: 1; background: var(--c-surface); }
+      .cmms-datatable-row-click:hover td { background: color-mix(in srgb, var(--c-sky) 6%, var(--c-mist)) !important; }
+
+      /* ── Layout grids (Tablero / command centers) ─────────────────── */
+      .cmms-grid-2 { display: grid; grid-template-columns: 1.35fr 1fr; gap: 16px; margin-bottom: 24px; }
+      .cmms-grid-fleet { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 16px; }
+
+      @media (max-width: 1100px) {
+        .cmms-stat-grid { grid-template-columns: repeat(2, 1fr); }
+        .cmms-hero-stat { grid-column: span 2; }
+        .cmms-grid-2 { grid-template-columns: 1fr; }
+      }
+      @media (max-width: 600px) {
+        .cmms-module-header { padding: 20px 18px 18px; }
+        .cmms-stat-grid { grid-template-columns: 1fr; }
+        .cmms-hero-stat { grid-column: span 1; }
+        .cmms-grid-fleet { grid-template-columns: 1fr; }
       }
     `}</style>
   );

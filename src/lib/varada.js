@@ -120,6 +120,15 @@ export function estadoVaradaTone(v, hoy) {
   return ["steel",  "Planificación"];
 }
 
+// Trabajos críticos para zarpe que aún no están listos.
+// Son los que deben completarse antes de que la nave pueda zarpar.
+// → filtro: critico_zarpe=true, estado != completado, != cancelado
+export function trabajosBloqueantes(trabajos = []) {
+  return (trabajos || []).filter(
+    (t) => t.critico_zarpe && t.estado !== "completado" && t.estado !== "cancelado"
+  );
+}
+
 // Desvío de presupuesto: costo real vs presupuesto.
 // → { presupuesto, costo, desvio, pct, tone }
 export function desvioPrespuesto(varada, costoReal) {

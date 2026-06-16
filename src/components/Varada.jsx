@@ -2,15 +2,17 @@ import React, { useEffect, useState, useCallback, useMemo } from "react";
 import {
   Anchor, Plus, ChevronLeft, Wrench, Layers, CalendarRange,
   CheckCircle2, Clock, XCircle, AlertCircle, Download, Pencil, Trash2,
+  Flag, ClipboardList, CheckSquare,
 } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { fetchAll, insertRow, updateRow, deleteRow } from "../lib/db";
+import { folioOT } from "../lib/ot";
 import { scoreBacklog } from "../lib/operacional";
 import {
   TIPOS_VARADA, ESTADOS_VARADA, ESTADOS_TRABAJO,
   calcularProgreso, hhTotalesVarada, costoTotalVarada,
   duracionVarada, estadoVaradaTone, desvioPrespuesto,
-  resumenPorSistema,
+  resumenPorSistema, trabajosBloqueantes,
 } from "../lib/varada";
 import { CRITICIDAD_TONE } from "../lib/plantillaPesquera";
 import { C, archivo, num, lk, tint, TIPOS_OT, PRIORIDADES } from "../theme";
@@ -140,16 +142,18 @@ function ImportarModal({ varada, embarcaciones, onImportar, onClose }) {
 }
 
 // ── Vista detalle de una varada ──────────────────────────────────────────────
-function DetalleVarada({ varada, ots, embarcaciones, empresaId, onBack, onVaradaUpdate }) {
+function DetalleVarada({ varada, ots, embarcaciones, empresaId, onBack, onVaradaUpdate, onOTCreada }) {
   const hoy = HOY();
-  const [trabajos, setTrabajos]     = useState([]);
-  const [loadTrab, setLoadTrab]     = useState(true);
-  const [errTrab, setErrTrab]       = useState(null);
-  const [formTrab, setFormTrab]     = useState(null); // null = cerrado, {} = abierto
-  const [guardando, setGuardando]   = useState(false);
+  const [trabajos, setTrabajos]         = useState([]);
+  const [loadTrab, setLoadTrab]         = useState(true);
+  const [errTrab, setErrTrab]           = useState(null);
+  const [formTrab, setFormTrab]         = useState(null); // null = cerrado, {} = abierto
+  const [guardando, setGuardando]       = useState(false);
   const [showImportar, setShowImportar] = useState(false);
-  const [editando, setEditando]     = useState(false);
-  const [editForm, setEditForm]     = useState(null);
+  const [editando, setEditando]         = useState(false);
+  const [editForm, setEditForm]         = useState(null);
+  const [showCierre, setShowCierre]     = useState(false);
+  const [fechaCierre, setFechaCierre]   = useState(hoy);
 
   const cargarTrabajos = useCallback(async () => {
     setLoadTrab(true); setErrTrab(null);
@@ -276,6 +280,54 @@ function DetalleVarada({ varada, ots, embarcaciones, empresaId, onBack, onVarada
     finally { setGuardando(false); }
   }
 
+  // Marcar/desmarcar trabajo como crítico para zarpe
+  async function cambiarCriticoZarpe(id, valor) {
+    const anterior = trabajos;
+    setTrabajos((prev) => prev.map((t) => t.id === id ? { ...t, critico_zarpe: valor } : t));
+    try { await updateRow("varada_trabajos", id, { critico_zarpe: valor }); }
+    catch { setTrabajos(anterior); }
+  }
+
+  // Crear OT planificada desde trabajo sin OT vinculada
+  async function crearOTDesdeTrabajo(trabajo) {
+    setGuardando(true);
+    try {
+      const folio = folioOT(ots, true);
+      const nuevaOT = await insertRow("ordenes_trabajo", empresaId, {
+        folio,
+        tipo: "preventivo",
+        estado: "planificada",
+        prioridad: "media",
+        embarcacion_id: varada.embarcacion_id || null,
+        sistema: trabajo.sistema || null,
+        descripcion: trabajo.descripcion,
+        varada_id: varada.id,
+        fecha: hoy,
+      });
+      await updateRow("varada_trabajos", trabajo.id, { ot_id: nuevaOT.id });
+      setTrabajos((prev) => prev.map((t) => t.id === trabajo.id ? { ...t, ot_id: nuevaOT.id } : t));
+      if (onOTCreada) onOTCreada(nuevaOT);
+    } catch (err) { alert("Error al crear OT: " + err.message); }
+    finally { setGuardando(false); }
+  }
+
+  // Cierre formal de la varada
+  async function confirmarCierre() {
+    setGuardando(true);
+    try {
+      const actualizada = await updateRow("varadas", varada.id, {
+        estado: "cerrada",
+        fecha_fin_real: fechaCierre || hoy,
+      });
+      onVaradaUpdate(actualizada);
+      setShowCierre(false);
+    } catch (err) { alert("Error al cerrar varada: " + err.message); }
+    finally { setGuardando(false); }
+  }
+
+  const bloqueantes = trabajosBloqueantes(trabajos);
+  const pendientesAlCierre = trabajos.filter((t) => t.estado === "pendiente" || t.estado === "en_progreso").length;
+
   return (
     <div>
       {/* Cabecera */}
@@ -290,6 +342,15 @@ function DetalleVarada({ varada, ots, embarcaciones, empresaId, onBack, onVarada
           <h2 style={{ ...archivo, fontSize: 22, fontWeight: 800, margin: "2px 0 0", color: C.abyss }}>{varada.nombre}</h2>
         </div>
         <Pill tone={tone}>{labelEstado}</Pill>
+        {bloqueantes.length > 0 && (
+          <Pill tone="red"><Flag size={11} /> {bloqueantes.length} bloqueo{bloqueantes.length !== 1 ? "s" : ""} zarpe</Pill>
+        )}
+        {varada.estado !== "cerrada" && varada.estado !== "cancelada" && (
+          <button onClick={() => { setShowCierre((s) => !s); setFechaCierre(hoy); }}
+            style={{ ...ghostBtn, display: "inline-flex", alignItems: "center", gap: 5, padding: "7px 12px", borderColor: C.green, color: C.green }}>
+            <CheckSquare size={13} /> Cerrar varada
+          </button>
+        )}
         <button onClick={abrirEdicion} style={{ ...ghostBtn, display: "inline-flex", alignItems: "center", gap: 5, padding: "7px 12px" }}>
           <Pencil size={13} /> Editar
         </button>
@@ -344,6 +405,47 @@ function DetalleVarada({ varada, ots, embarcaciones, empresaId, onBack, onVarada
               <button type="button" onClick={() => setEditando(false)} style={ghostBtn}>Cancelar</button>
             </div>
           </form>
+        </Card>
+      )}
+
+      {/* Panel de cierre formal */}
+      {showCierre && (
+        <Card style={{ marginBottom: 20, border: `1.5px solid ${C.green}`, background: tint(C.green, 5) }}>
+          <div style={{ ...archivo, fontSize: 15, fontWeight: 800, color: C.abyss, marginBottom: 14, display: "flex", alignItems: "center", gap: 8 }}>
+            <CheckSquare size={16} color={C.green} /> Cierre formal de varada
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 12, marginBottom: 14 }}>
+            <ResumenCierre label="Avance físico" value={`${progreso.pct}%`} sub={`${progreso.completados}/${progreso.total} trabajos`}
+              tone={progreso.pct >= 100 ? C.green : C.amber} />
+            <ResumenCierre label="Duración"
+              value={duracion.reales != null ? `${duracion.reales} días` : "—"}
+              sub={duracion.estimados != null ? `estimado: ${duracion.estimados}d ${duracion.desviacion != null ? `(${duracion.desviacion > 0 ? "+" : ""}${duracion.desviacion}d)` : ""}` : "sin estimado"}
+              tone={duracion.desviacion != null && duracion.desviacion > 0 ? C.amber : C.green} />
+            <ResumenCierre label="Costo real vs presupuesto"
+              value={costo > 0 ? `$${num(costo, 0)}` : "—"}
+              sub={presup.presupuesto > 0 ? `${presup.pct}% del presupuesto ($${num(presup.presupuesto, 0)})` : "sin presupuesto"}
+              tone={presup.tone === "red" ? C.red : presup.tone === "yellow" ? C.amber : C.green} />
+          </div>
+          {pendientesAlCierre > 0 && (
+            <div style={{ fontSize: 12.5, color: C.amber, marginBottom: 12, display: "flex", alignItems: "center", gap: 6 }}>
+              <AlertCircle size={14} color={C.amber} />
+              {pendientesAlCierre} trabajo{pendientesAlCierre !== 1 ? "s" : ""} quedan sin completar — quedarán registrados en el historial.
+            </div>
+          )}
+          <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+            <div>
+              <label style={{ ...labelSt, marginBottom: 4 }}>Fecha fin real</label>
+              <input type="date" style={{ ...inputStyle(), width: 180 }} value={fechaCierre}
+                onChange={(e) => setFechaCierre(e.target.value)} />
+            </div>
+            <div style={{ display: "flex", gap: 10, alignItems: "flex-end", paddingBottom: 1 }}>
+              <button disabled={guardando} onClick={confirmarCierre}
+                style={{ ...primaryBtn, background: C.green, opacity: guardando ? 0.6 : 1 }}>
+                <CheckSquare size={14} /> {guardando ? "Cerrando…" : "Confirmar cierre"}
+              </button>
+              <button onClick={() => setShowCierre(false)} style={ghostBtn}>Cancelar</button>
+            </div>
+          </div>
         </Card>
       )}
 
@@ -464,7 +566,12 @@ function DetalleVarada({ varada, ots, embarcaciones, empresaId, onBack, onVarada
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                 {tItems.map((t) => (
-                  <FilaTrabajo key={t.id} trabajo={t} onEstado={cambiarEstadoTrabajo} onEliminar={eliminarTrabajo} />
+                  <FilaTrabajo key={t.id} trabajo={t}
+                    onEstado={cambiarEstadoTrabajo}
+                    onEliminar={eliminarTrabajo}
+                    onCriticoZarpe={cambiarCriticoZarpe}
+                    onCrearOT={crearOTDesdeTrabajo}
+                  />
                 ))}
               </div>
             </Card>
@@ -485,10 +592,13 @@ function DetalleVarada({ varada, ots, embarcaciones, empresaId, onBack, onVarada
 }
 
 // ── Fila de un trabajo ───────────────────────────────────────────────────────
-function FilaTrabajo({ trabajo: t, onEstado, onEliminar }) {
+function FilaTrabajo({ trabajo: t, onEstado, onEliminar, onCriticoZarpe, onCrearOT }) {
   const estadoOpts = ESTADOS_TRABAJO.filter((e) => e.value !== "cancelado");
+  const esBloqueante = t.critico_zarpe && t.estado !== "completado" && t.estado !== "cancelado";
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", borderRadius: 8, background: t.estado === "completado" ? tint(C.green, 6) : t.estado === "cancelado" ? tint(C.slate, 6) : C.surface2 }}>
+    <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", borderRadius: 8,
+      background: t.estado === "completado" ? tint(C.green, 6) : t.estado === "cancelado" ? tint(C.slate, 6) : esBloqueante ? tint(C.red, 5) : C.surface2,
+      border: esBloqueante ? `1px solid ${tint(C.red, 30)}` : "1px solid transparent" }}>
       <IconoEstado estado={t.estado} />
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: 13, fontWeight: 600, color: t.estado === "cancelado" ? C.slate : C.ink, textDecoration: t.estado === "cancelado" ? "line-through" : "none" }}>
@@ -498,8 +608,23 @@ function FilaTrabajo({ trabajo: t, onEstado, onEliminar }) {
           {t.responsable && <span style={{ fontSize: 11.5, color: C.slate }}>{t.responsable}</span>}
           {t.horas_estimadas > 0 && <span style={{ fontSize: 11.5, color: C.slate }}>{num(t.horas_estimadas, 1)}h</span>}
           {t.ot_id && <Pill tone="cyan">OT vinculada</Pill>}
+          {t.critico_zarpe && <Pill tone={esBloqueante ? "red" : "green"}><Flag size={10} /> Crítico zarpe</Pill>}
         </div>
       </div>
+      {/* Toggle crítico para zarpe */}
+      <button title={t.critico_zarpe ? "Quitar marca de crítico para zarpe" : "Marcar como crítico para zarpe"}
+        onClick={() => onCriticoZarpe(t.id, !t.critico_zarpe)}
+        style={{ background: t.critico_zarpe ? tint(C.red, 18) : "none", border: `1px solid ${t.critico_zarpe ? C.red : C.line}`, borderRadius: 6, cursor: "pointer", padding: "3px 7px", display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, color: t.critico_zarpe ? C.red : C.slate, flexShrink: 0 }}>
+        <Flag size={11} /> Zarpe
+      </button>
+      {/* Crear OT si no tiene */}
+      {!t.ot_id && (
+        <button title="Crear Orden de Trabajo para este trabajo"
+          onClick={() => onCrearOT(t)}
+          style={{ background: "none", border: `1px solid ${C.cyan}`, borderRadius: 6, cursor: "pointer", padding: "3px 7px", display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, color: C.cyan, flexShrink: 0 }}>
+          <ClipboardList size={11} /> OT
+        </button>
+      )}
       <select value={t.estado}
         onChange={(e) => onEstado(t.id, e.target.value)}
         style={{ fontSize: 12, padding: "4px 8px", borderRadius: 6, border: `1px solid ${C.line}`, background: C.surface, color: C.ink, cursor: "pointer" }}>
@@ -591,6 +716,7 @@ export default function Varada({ onNavigate }) {
         empresaId={empresaId}
         onBack={() => setVaradaActual(null)}
         onVaradaUpdate={actualizarVarada}
+        onOTCreada={(ot) => setOts((prev) => [...prev, ot])}
       />
     );
   }
@@ -762,5 +888,15 @@ function KPICard({ label, tone, children }) {
       <div style={{ fontSize: 11, letterSpacing: 1, textTransform: "uppercase", color: C.slate, fontWeight: 600, marginBottom: 6 }}>{label}</div>
       <div style={{ color: tone || C.steel }}>{children}</div>
     </Card>
+  );
+}
+
+function ResumenCierre({ label, value, sub, tone }) {
+  return (
+    <div style={{ background: C.surface, borderRadius: 10, padding: "12px 16px", border: `1px solid ${C.line}` }}>
+      <div style={{ fontSize: 10.5, letterSpacing: 0.5, color: C.slate, fontWeight: 600, textTransform: "uppercase", marginBottom: 4 }}>{label}</div>
+      <div style={{ ...archivo, fontSize: 20, fontWeight: 800, color: tone || C.steel }}>{value}</div>
+      {sub && <div style={{ fontSize: 11.5, color: C.slate, marginTop: 3 }}>{sub}</div>}
+    </div>
   );
 }

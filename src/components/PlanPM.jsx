@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useMemo, useRef } from "react";
-import { CalendarClock, Check, AlertCircle, Plus, Trash2, Download, Printer, History, ClipboardList, X, ChevronDown, ChevronRight, Edit3, PanelRightOpen, Layers } from "lucide-react";
+import { CalendarClock, Check, AlertCircle, Plus, Trash2, Download, Printer, History, ClipboardList, X, ChevronDown, ChevronRight, Edit3, PanelRightOpen, Layers, AlertTriangle, CheckCircle2, Gauge, Info, Bell, RefreshCw } from "lucide-react";
 import { useWindows } from "./windows/WindowManager";
 import { planpmStore } from "./planpm/planpmStore";
 import PMWindow from "./planpm/PMWindow";
@@ -9,10 +9,11 @@ import { useAuth } from "../lib/auth";
 import { fetchAll, insertRow, updateRow, deleteRow, logActivity } from "../lib/db";
 import { buildEquipoTree } from "../lib/equipTree";
 import { useArbolColapsable, BotonesColapsar, colorTipo, fondoTipo } from "../lib/arbolColapsable";
-import { C, archivo, num, canOperate, isAdmin, tint } from "../theme";
+import { C, archivo, num, canOperate, isAdmin, tint, shadow } from "../theme";
 import {
-  Card, PageHead, Pill, FilterBtn, primaryBtn, ghostBtn, exportBtn,
-  inputStyle, bluInput, thStyle, tdStyle, Field, Empty, ErrorBanner, InlineSpinner, GuiaColapsable,
+  Card, Pill, FilterBtn, primaryBtn, ghostBtn, exportBtn,
+  inputStyle, bluInput, thStyle, tdStyle, Field, Empty, InlineSpinner, GuiaColapsable,
+  ModuleShell, StatGrid, HeroStat, Toolbar, Section, EmptyState,
 } from "../ui";
 import ComboInput from "./ComboInput";
 import { TAREAS_PM } from "../lib/tareasPM";
@@ -156,93 +157,126 @@ export default function PlanPM({ onNavigate }) {
     return { total, vencidos, proximos, ok: total - vencidos - proximos, cumplPct: cumpl.pct };
   }, [planes, equipos, historial, idsNave]);
 
-  if (loading) return <div><PageHead kicker="Mantenimiento Preventivo" title="Plan Preventivo" /><Card><InlineSpinner label="Cargando plan preventivo…" /></Card></div>;
+  if (loading) {
+    return <ModuleShell kicker="Mantenimiento preventivo" title="Plan Preventivo" loading />;
+  }
+
+  const heroVariant = kpis.vencidos > 0 ? "critical" : kpis.proximos > 0 ? "warn" : "ok";
 
   return (
-    <div>
-      <PageHead kicker="Mantenimiento Preventivo · ISO 14224" title="Plan Preventivo"
-        sub="Plan por equipo: cada tarea con su propio intervalo e historial. Al registrar PM se genera trazabilidad completa." />
-      <ErrorBanner onRetry={cargar}>{error}</ErrorBanner>
-
-      {/* Tabs */}
-      <div style={{ display: "flex", gap: 8, marginBottom: 18, alignItems: "center", flexWrap: "wrap" }}>
-        {[[" plan", CalendarClock, "Plan de Mantenimiento"], ["historial", History, "Historial de PM"]].map(([id, Icon, lbl]) => (
-          <button key={id} onClick={() => setTab(id.trim())}
-            style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "9px 15px", borderRadius: 9, border: `1px solid ${tab === id.trim() ? C.cyan : C.line}`, background: tab === id.trim() ? C.cyan : "#fff", color: tab === id.trim() ? "#fff" : C.slate, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
-            <Icon size={15} />{lbl}
-          </button>
-        ))}
-        <div style={{ flex: 1 }} />
-        {embarcaciones.map((v) => (
-          <FilterBtn key={v.id} active={filtro === v.id} onClick={() => setFiltro(filtro === v.id ? "all" : v.id)} color={v.color}>{v.nombre}</FilterBtn>
-        ))}
-        {filtro !== "all" && <FilterBtn active={false} onClick={() => setFiltro("all")}>Toda la flota</FilterBtn>}
-      </div>
-
-      {/* KPIs */}
-      {tab === "plan" && kpis.total > 0 && (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 12, marginBottom: 18 }}>
-          {[
-            ["Planes activos",  kpis.total,    C.steel,  null],
-            ["Vencidos",        kpis.vencidos, C.red,    "requieren atención inmediata"],
-            ["Próximos",        kpis.proximos, C.amber,  "≥ 90% del intervalo"],
-            ["Al día",          kpis.ok,       C.green,  null],
-          ].map(([lbl, val, tone, sub]) => (
-            <Card key={lbl} style={{ padding: 14 }}>
-              <div style={{ fontSize: 10.5, letterSpacing: 1.5, textTransform: "uppercase", color: C.slate, fontWeight: 700 }}>{lbl}</div>
-              <div style={{ ...archivo, fontSize: 26, fontWeight: 800, color: tone, marginTop: 6 }}>{val}</div>
-              {sub && <div style={{ fontSize: 11, color: C.slate, marginTop: 4 }}>{sub}</div>}
-            </Card>
-          ))}
-          <Card style={{ padding: 14 }}>
-            <div style={{ fontSize: 10.5, letterSpacing: 1.5, textTransform: "uppercase", color: C.slate, fontWeight: 700 }}>Cumplimiento</div>
-            <div style={{ ...archivo, fontSize: 26, fontWeight: 800, color: kpis.cumplPct == null ? C.slate : kpis.cumplPct >= 90 ? C.green : kpis.cumplPct >= 70 ? C.amber : C.red, marginTop: 6 }}>
-              {kpis.cumplPct == null ? "—" : `${Math.round(kpis.cumplPct)}%`}
-            </div>
-            <div style={{ fontSize: 11, color: C.slate, marginTop: 4 }}>PMs a tiempo (SMRP)</div>
-          </Card>
-        </div>
-      )}
-
+    <ModuleShell
+      kicker="Mantenimiento preventivo · ISO 14224"
+      title="Plan Preventivo"
+      sub="Plan por equipo: cada tarea con su intervalo e historial. Al registrar PM se genera trazabilidad y puede crear OT automáticamente."
+      error={error}
+      onRetry={cargar}
+      action={
+        <button type="button" onClick={cargar} title="Actualizar" data-nofx style={{ ...ghostBtn, padding: "10px 12px", display: "inline-flex", alignItems: "center" }}>
+          <RefreshCw size={15} />
+        </button>
+      }
+      toolbar={
+        <Toolbar
+          left={
+            <>
+              {[["plan", CalendarClock, "Plan de mantenimiento"], ["historial", History, "Historial PM"]].map(([id, Icon, lbl]) => (
+                <FilterBtn key={id} active={tab === id} onClick={() => setTab(id)} color={tab === id ? C.cyan : undefined}>
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                    <Icon size={14} /> {lbl}
+                  </span>
+                </FilterBtn>
+              ))}
+            </>
+          }
+          right={
+            <>
+              {embarcaciones.map((v) => (
+                <FilterBtn key={v.id} active={filtro === v.id} onClick={() => setFiltro(filtro === v.id ? "all" : v.id)} color={v.color}>
+                  {v.nombre}
+                </FilterBtn>
+              ))}
+              {filtro !== "all" && <FilterBtn active={false} onClick={() => setFiltro("all")}>Toda la flota</FilterBtn>}
+            </>
+          }
+        />
+      }
+    >
       {tab === "plan" && (
-        <TabPlan
-          lista={lista} equipos={equipos} setEquipos={setEquipos}
-          planes={planes} setPlanes={setPlanes}
-          historial={historial} setHistorial={setHistorial}
-          embarcaciones={embarcaciones} embName={embName}
-          profile={profile} puedeOperar={puedeOperar} puedeBorrar={puedeBorrar}
-          setError={setError} onNavigate={onNavigate}
-          handlersRef={handlersRef} abrirPMWindow={abrirPMWindow} />
+        <>
+          <StatGrid
+            hero={
+              <HeroStat
+                variant={heroVariant}
+                icon={kpis.vencidos > 0 ? AlertTriangle : CalendarClock}
+                label="Estado del plan PM"
+                value={kpis.vencidos > 0 ? `${kpis.vencidos} vencido${kpis.vencidos !== 1 ? "s" : ""}` : "Al día"}
+                sub={`${kpis.total} planes activos · ${kpis.proximos} próximos · cumplimiento ${kpis.cumplPct != null ? Math.round(kpis.cumplPct) : "—"}%`}
+              />
+            }
+            stats={[
+              { label: "Próximos", value: kpis.proximos, sub: "urgencia media", icon: Bell, tone: kpis.proximos ? C.amber : C.green },
+              { label: "Al día", value: kpis.ok, sub: "dentro de intervalo", icon: CheckCircle2, tone: C.green },
+            ]}
+          />
+          <StatGrid
+            stats={[
+              { label: "Planes activos", value: kpis.total, sub: "tareas programadas", icon: CalendarClock, tone: C.steel },
+              { label: "Cumplimiento", value: kpis.cumplPct != null ? `${Math.round(kpis.cumplPct)}%` : "—", sub: "meta SMRP ≥ 90%", icon: Gauge, tone: kpis.cumplPct >= 90 ? C.green : kpis.cumplPct >= 70 ? C.amber : C.red },
+            ]}
+          />
+          <TabPlan
+            lista={lista} equipos={equipos} setEquipos={setEquipos}
+            planes={planes} setPlanes={setPlanes}
+            historial={historial} setHistorial={setHistorial}
+            embarcaciones={embarcaciones} embName={embName}
+            profile={profile} puedeOperar={puedeOperar} puedeBorrar={puedeBorrar}
+            setError={setError} onNavigate={onNavigate}
+            handlersRef={handlersRef} abrirPMWindow={abrirPMWindow}
+            kpis={kpis} />
+        </>
       )}
       {tab === "historial" && (
         <TabHistorial historial={historialNave} planes={planes} equipos={equipos} embName={embName} />
       )}
-    </div>
+    </ModuleShell>
   );
 }
 
 // ─────────────────────────────────────────────────────────────────
 // TAB PLAN
 // ─────────────────────────────────────────────────────────────────
-function TabPlan({ lista, equipos, setEquipos, planes, setPlanes, setHistorial, embName, profile, puedeOperar, puedeBorrar, setError, onNavigate, handlersRef, abrirPMWindow }) {
-  const [addingFor,   setAddingFor]   = useState(null); // equipo_id
-  const [newPlan,     setNewPlan]     = useState({ descripcion: "", tipo_disparador: "horas", intervalo_horas: 250, unidad_calendario: "mensual", intervalo_calendario: 1, horas_ult_pm: "", fecha_ult_pm: "" });
+function TabPlan({ lista, equipos, setEquipos, planes, setPlanes, historial, setHistorial, embName, profile, puedeOperar, puedeBorrar, setError, onNavigate, handlersRef, abrirPMWindow, kpis }) {
+  const [selectedId, setSelectedId] = useState(null);
+  const [rightTab, setRightTab] = useState("planes");
+  const [addingPlan, setAddingPlan] = useState(false);
+  const [busqueda, setBusqueda] = useState("");
+  const [newPlan, setNewPlan] = useState({ descripcion: "", tipo_disparador: "horas", intervalo_horas: 250, unidad_calendario: "mensual", intervalo_calendario: 1, horas_ult_pm: "", fecha_ult_pm: "" });
   const [registrando, setRegistrando] = useState(null); // plan_pm_id
-  const [regForm,     setRegForm]     = useState({ realizado_por: "", notas: "", crearOT: false });
-  const [editHitoId,  setEditHitoId]  = useState(null); // plan_pm_id en edición de hito
-  const [hitoForm,    setHitoForm]    = useState({ horas: "", fecha: "" });
-  const [busqueda,    setBusqueda]    = useState("");
-  // Colapso por nodo a cualquier nivel (helper compartido en todo el CMMS).
+  const [regForm, setRegForm] = useState({ realizado_por: "", notas: "", crearOT: false });
+  const [editHitoId, setEditHitoId] = useState(null); // plan_pm_id
+  const [hitoForm, setHitoForm] = useState({ horas: "", fecha: "" });
+
   const arbol = useArbolColapsable(lista);
-  const busq  = busqueda.trim().toLowerCase();
+  const busq = busqueda.trim().toLowerCase();
+
+  // Auto-expand tree when search query is typed
+  useEffect(() => {
+    if (busq && arbol.colapsarTodo) {
+      arbol.colapsarTodo(false);
+    }
+  }, [busq]);
+
   const listaVisible = lista.filter((eq) => {
     if (!arbol.visible(eq)) return false;
     if (!busq) return true;
-    // Mostrar nodo si él mismo, su id_visible, o alguno de sus planes coincide
     if (eq.sistema?.toLowerCase().includes(busq)) return true;
     if (eq.id_visible?.toLowerCase().includes(busq)) return true;
     return planes.some((p) => p.equipo_id === eq.id && p.activo && p.descripcion?.toLowerCase().includes(busq));
   });
+
+  const eqSeleccionado = selectedId ? equipos.find((e) => e.id === selectedId) : null;
+  const planesEq = eqSeleccionado ? planes.filter((p) => p.equipo_id === eqSeleccionado.id && p.activo) : [];
+  const historialEq = eqSeleccionado ? historial.filter((h) => h.equipo_id === eqSeleccionado.id) : [];
 
   if (lista.length === 0) return (
     <Card><Empty>
@@ -250,6 +284,16 @@ function TabPlan({ lista, equipos, setEquipos, planes, setPlanes, setHistorial, 
       No hay equipos. Ve a <strong>Equipos</strong> y carga la maquinaria de tu flota.
     </Empty></Card>
   );
+
+  const obtenerBreadcrumbs = (eq) => {
+    const crumbs = [];
+    let cur = eq.parent_id ? equipos.find((e) => e.id === eq.parent_id) : null;
+    while (cur) {
+      crumbs.unshift(cur.sistema);
+      cur = cur.parent_id ? equipos.find((e) => e.id === cur.parent_id) : null;
+    }
+    return crumbs.join(" > ");
+  };
 
   async function agregarPlan(equipoId, planData) {
     if (!planData.descripcion.trim()) return;
@@ -275,8 +319,6 @@ function TabPlan({ lista, equipos, setEquipos, planes, setPlanes, setHistorial, 
     } catch (e) { setError("No se pudo crear el plan: " + e.message); throw e; }
   }
 
-  // Ajusta el hito (último servicio) de un plan existente sin crear un PM nuevo.
-  // Se usa para corregir datos históricos o inicializar planes en onboarding de flota.
   function abrirEditHito(plan) {
     setEditHitoId(plan.id);
     setHitoForm({
@@ -324,7 +366,6 @@ function TabPlan({ lista, equipos, setEquipos, planes, setPlanes, setHistorial, 
     let otId = null;
 
     try {
-      // 1) Generar OT si se pidió
       if (form.crearOT && eq) {
         const [tone] = esCalendario
           ? statusPlanCalendario(elapsed, plan.unidad_calendario, plan.intervalo_calendario ?? 1)
@@ -342,16 +383,13 @@ function TabPlan({ lista, equipos, setEquipos, planes, setPlanes, setHistorial, 
         });
         otId = ot.id;
       }
-      // 2) Actualizar contador del plan
       const pmUpdate = esCalendario ? { fecha_ult_pm: fecha } : { horas_ult_pm: horas, fecha_ult_pm: fecha };
       await updateRow("planes_pm", plan.id, pmUpdate);
       setPlanes((p) => p.map((x) => x.id === plan.id ? { ...x, ...pmUpdate } : x));
-      // 3) Actualizar horas_ult_pm del equipo
       if (eq) {
         await updateRow("equipos", eq.id, { horas_ult_pm: horas, fecha_ult_pm: fecha });
         setEquipos((p) => p.map((e) => e.id === eq.id ? { ...e, horas_ult_pm: horas, fecha_ult_pm: fecha } : e));
       }
-      // 4) Registrar en historial
       const registro = await insertRow("historial_pm", profile.empresa_id, {
         plan_pm_id: plan.id, equipo_id: plan.equipo_id,
         horas_realizacion: horas, fecha_realizacion: fecha,
@@ -361,12 +399,10 @@ function TabPlan({ lista, equipos, setEquipos, planes, setPlanes, setHistorial, 
       });
       setHistorial((p) => [registro, ...p]);
       logActivity(profile, "Registrar PM", `${eq?.sistema} · ${plan.descripcion} · ${num(horas)}h`);
-      // 5) Navegar a la OT si se creó
       if (otId && form.crearOT) onNavigate?.("ots", { otId });
     } catch (e) { setError("No se pudo registrar el PM: " + e.message); throw e; }
   }
 
-  // ── Exportar plan PM completo a CSV ─────────────────────────────
   function exportarPlan() {
     const filas = [
       ["Equipo", "ID visible", "Disparador", "Tarea PM", "Intervalo", "Último PM (h)", "Última fecha PM", "Estado"],
@@ -399,7 +435,6 @@ function TabPlan({ lista, equipos, setEquipos, planes, setPlanes, setHistorial, 
     const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "plan_pm.csv"; a.click();
   }
 
-  // ── Imprimir / Guardar como PDF ──────────────────────────────────
   function imprimirPlan() {
     const fechaHoy = new Date().toLocaleDateString("es-CL", { day: "2-digit", month: "long", year: "numeric" });
     const SC = { red: "#ef4444", yellow: "#f59e0b", green: "#22c55e" };
@@ -479,7 +514,6 @@ tbody td{padding:5px 8px;vertical-align:middle}
     w.document.close();
   }
 
-  // Expone handlers al ref para que PMWindow los llame desde fuera del árbol.
   handlersRef.current = {
     registrarPM, guardarHito, agregarPlan, eliminarPlan,
     nombreUsuario: profile?.nombre || "",
@@ -487,317 +521,819 @@ tbody td{padding:5px 8px;vertical-align:middle}
   };
 
   return (
-    <div>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12, flexWrap: "wrap" }}>
-        <BotonesColapsar conHijos={arbol.conHijos} colapsarTodo={arbol.colapsarTodo} />
-        <input
-          value={busqueda}
-          onChange={(e) => setBusqueda(e.target.value)}
-          placeholder="Buscar equipo o tarea…"
-          style={{ ...inputStyle(), minWidth: 220, flex: 1, maxWidth: 340 }} />
-        {busqueda && (
-          <button onClick={() => setBusqueda("")} style={{ background: "none", border: "none", cursor: "pointer", color: C.slate, padding: "0 4px", fontSize: 13 }}>
-            <X size={14} />
+    <div className="pm-split-container">
+      {/* Estilos locales del rediseño */}
+      <style>{`
+        .pm-split-container {
+          display: grid;
+          grid-template-columns: 360px 1fr;
+          gap: 24px;
+          align-items: start;
+          margin-top: 12px;
+        }
+        .pm-tree-node {
+          position: relative;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          padding: 8px 12px;
+          margin-bottom: 4px;
+          border-radius: 8px;
+          border: 1px solid transparent;
+          cursor: pointer;
+          background: transparent;
+          transition: all 0.2s ease;
+        }
+        .pm-tree-node:hover {
+          background: color-mix(in srgb, ${C.sky} 4%, transparent);
+          border-color: color-mix(in srgb, ${C.line} 50%, transparent);
+        }
+        .pm-tree-node-selected {
+          background: color-mix(in srgb, ${C.sky} 8%, transparent) !important;
+          border-color: color-mix(in srgb, ${C.sky} 35%, transparent) !important;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.02);
+        }
+        .pm-tree-node-selected .pm-tree-name {
+          color: ${C.sky} !important;
+          font-weight: 700;
+        }
+        .pm-tree-line-v {
+          position: absolute;
+          top: 0;
+          bottom: 0;
+          width: 1px;
+          border-left: 1px dashed ${C.line};
+          opacity: 0.55;
+        }
+        .pm-tree-line-h {
+          position: absolute;
+          top: 18px;
+          height: 1px;
+          border-bottom: 1px dashed ${C.line};
+          opacity: 0.55;
+        }
+        .pm-preset-chip {
+          padding: 5px 11px;
+          border-radius: 20px;
+          border: 1px solid ${C.line};
+          background: ${C.surface};
+          color: ${C.slate};
+          font-size: 11.5px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.15s ease;
+        }
+        .pm-preset-chip:hover {
+          border-color: ${C.sky};
+          background: color-mix(in srgb, ${C.sky} 6%, transparent);
+          color: ${C.sky};
+        }
+        .pm-preset-chip-active {
+          border-color: ${C.sky};
+          background: ${C.sky};
+          color: #fff;
+        }
+        .pm-slider-toggle {
+          display: flex;
+          background: ${C.surface2};
+          border: 1px solid ${C.line};
+          border-radius: 10px;
+          padding: 3px;
+          gap: 2px;
+        }
+        .pm-slider-btn {
+          flex: 1;
+          padding: 6px 12px;
+          border: none;
+          background: transparent;
+          color: ${C.slate};
+          font-size: 12.5px;
+          font-weight: 600;
+          border-radius: 7px;
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
+        .pm-slider-btn-active {
+          background: ${C.surface};
+          color: ${C.abyss};
+          box-shadow: ${shadow.sm};
+        }
+        .pm-pulse-dot {
+          width: 7px;
+          height: 7px;
+          border-radius: 50%;
+          background: ${C.red};
+          box-shadow: 0 0 0 2px rgba(216, 68, 60, 0.3);
+          animation: pm-pulse 1.6s infinite;
+        }
+        @keyframes pm-pulse {
+          0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(216, 68, 60, 0.5); }
+          70% { transform: scale(1); box-shadow: 0 0 0 5px rgba(216, 68, 60, 0); }
+          100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(216, 68, 60, 0); }
+        }
+        @media (max-width: 1024px) {
+          .pm-split-container {
+            grid-template-columns: 1fr;
+          }
+        }
+      `}</style>
+
+      {/* PANEL IZQUIERDO: ÁRBOLES Y BÚSQUEDA */}
+      <Card style={{ padding: 16, height: "calc(100vh - 230px)", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+          <input
+            value={busqueda}
+            onChange={(e) => setBusqueda(e.target.value)}
+            placeholder="Buscar equipo o tarea…"
+            style={{ ...inputStyle(), padding: "8px 12px", fontSize: 13, flex: 1 }} />
+          {busqueda && (
+            <button onClick={() => setBusqueda("")} style={{ background: "none", border: "none", cursor: "pointer", color: C.slate, padding: 4 }}>
+              <X size={14} />
+            </button>
+          )}
+        </div>
+
+        <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
+          <button onClick={() => arbol.colapsarTodo(true)}
+            style={{ ...ghostBtn, padding: "5px 10px", fontSize: 11.5, flex: 1, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 4 }}>
+            <ChevronRight size={13} /> Colapsar todo
           </button>
-        )}
-        <div style={{ flex: 1 }} />
-        <button onClick={exportarPlan} style={exportBtn}><Download size={14} /> Exportar CSV</button>
-        <button onClick={imprimirPlan} style={{ ...exportBtn, marginLeft: 6 }}><Printer size={14} /> Imprimir / PDF</button>
-      </div>
-      {listaVisible.map((eq) => {
-        const planesEq = planes.filter((p) =>
-          p.equipo_id === eq.id && p.activo &&
-          (!busq || p.descripcion?.toLowerCase().includes(busq) || eq.sistema?.toLowerCase().includes(busq) || eq.id_visible?.toLowerCase().includes(busq))
-        );
-        const vencidosEq = planesEq.filter((p) => {
-          if (p.tipo_disparador === "calendario")
-            return statusPlanCalendario(diasDesde(p.fecha_ult_pm), p.unidad_calendario, p.intervalo_calendario ?? 1)[0] === "red";
-          return statusPlan((eq.horas_actual || 0) - (p.horas_ult_pm || 0), p.intervalo_horas)[0] === "red";
-        }).length;
-        const tieneHijos = arbol.tieneHijos(eq);
-        const colapsado = arbol.estaColapsado(eq);
-        const nSub = arbol.nSubDe(eq);
-        const esAgrupador = eq.tipo_nodo === "sistema";
+          <button onClick={() => arbol.colapsarTodo(false)}
+            style={{ ...ghostBtn, padding: "5px 10px", fontSize: 11.5, flex: 1, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 4 }}>
+            <ChevronDown size={13} /> Expandir todo
+          </button>
+        </div>
 
-        return (
-          <Card key={eq.id} style={{ marginBottom: 10, paddingBottom: 8, ...(vencidosEq > 0 ? { borderLeft: `3px solid ${C.red}` } : {}) }}>
-            {/* ── Cabecera del equipo ── */}
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: planesEq.length > 0 ? 12 : 4, paddingLeft: eq.depth * 18 }}>
-              {tieneHijos ? (
-                <button onClick={() => arbol.toggle(eq.id)} title={colapsado ? "Expandir" : "Colapsar"}
-                  style={{ background: "none", border: "none", cursor: "pointer", color: C.slate, padding: 0, display: "flex", alignItems: "center", flexShrink: 0 }}>
-                  {colapsado ? <ChevronRight size={18} /> : <ChevronDown size={18} />}
-                </button>
-              ) : <span style={{ width: 18, flexShrink: 0 }} />}
-              <TipoChip tipo={eq.tipo_nodo} size={28} />
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                  <button onClick={() => abrirPMWindow(eq)} className="cmms-clickable"
-                    style={{ background: "none", border: "none", cursor: "pointer", padding: 0, display: "inline-flex", alignItems: "center", gap: 6, fontFamily: "inherit" }}>
-                    <span style={{ fontWeight: 700, fontSize: 14, color: C.abyss }}>{eq.sistema}</span>
-                    <PanelRightOpen size={13} color={C.slate} style={{ opacity: 0.6 }} />
+        <div style={{ flex: 1, overflowY: "auto", paddingRight: 4, marginTop: 4 }}>
+          {listaVisible.map((eq) => {
+            const isSelected = selectedId === eq.id;
+            const tieneHijos = arbol.tieneHijos(eq);
+            const colapsado = arbol.estaColapsado(eq);
+            const nSub = arbol.nSubDe(eq);
+            const esAgrupador = eq.tipo_nodo === "sistema";
+
+            // Calculo de planes vencidos de este equipo
+            const planesEqCount = planes.filter((p) => p.equipo_id === eq.id && p.activo);
+            const vencidosEq = planesEqCount.filter((p) => {
+              if (p.tipo_disparador === "calendario") {
+                return statusPlanCalendario(diasDesde(p.fecha_ult_pm), p.unidad_calendario, p.intervalo_calendario ?? 1)[0] === "red";
+              }
+              return statusPlan((eq.horas_actual || 0) - (p.horas_ult_pm || 0), p.intervalo_horas)[0] === "red";
+            }).length;
+
+            return (
+              <div
+                key={eq.id}
+                className={`pm-tree-node${isSelected ? " pm-tree-node-selected" : ""}`}
+                onClick={() => setSelectedId(eq.id)}
+                style={{
+                  paddingLeft: eq.depth * 20 + 12,
+                  minHeight: 40,
+                }}
+              >
+                {/* Conectores visuales del árbol */}
+                {Array.from({ length: eq.depth }).map((_, idx) => (
+                  <div
+                    key={idx}
+                    className="pm-tree-line-v"
+                    style={{ left: idx * 20 + 10 }}
+                  />
+                ))}
+                {eq.depth > 0 && (
+                  <div
+                    className="pm-tree-line-h"
+                    style={{
+                      left: (eq.depth - 1) * 20 + 10,
+                      width: 10,
+                    }}
+                  />
+                )}
+
+                {/* Chevron para colapso */}
+                {tieneHijos ? (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); arbol.toggle(eq.id); }}
+                    style={{ background: "none", border: "none", cursor: "pointer", color: C.slate, padding: 0, display: "flex", alignItems: "center", zIndex: 5 }}
+                  >
+                    {colapsado ? <ChevronRight size={15} /> : <ChevronDown size={15} />}
                   </button>
-                  <CritBadge crit={eq.criticidad} />
-                  {colapsado && nSub > 0 && <span style={{ fontSize: 11.5, color: C.steel, fontWeight: 600 }} title={`${nSub} elemento(s) ocultos`}>▸ {nSub}</span>}
-                </div>
-                <div style={{ fontSize: 11.5, color: C.slate, marginTop: 1 }}>
-                  <span style={{ fontFamily: "'IBM Plex Mono', monospace" }}>{eq.id_visible}</span> · {embName(eq.embarcacion_id)}
-                </div>
-              </div>
-              {!esAgrupador && (
-                <div style={{ fontSize: 12.5, color: C.slate, flexShrink: 0, whiteSpace: "nowrap" }}>
-                  {num(eq.horas_actual || 0, 0)} h
-                </div>
-              )}
-              {!esAgrupador && vencidosEq > 0 && <Pill tone="red">{vencidosEq} vencido{vencidosEq > 1 && "s"}</Pill>}
-              {puedeOperar && !esAgrupador && (
-                <button onClick={() => setAddingFor(addingFor === eq.id ? null : eq.id)}
-                  style={{ ...ghostBtn, padding: "4px 10px", fontSize: 12 }}>
-                  <Plus size={13} /> Plan
-                </button>
-              )}
-            </div>
+                ) : (
+                  <span style={{ width: 15 }} />
+                )}
 
-            {/* ── Planes del equipo / nota agrupador ── */}
-            {esAgrupador ? (
-              <div style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 12, color: C.slate, paddingLeft: eq.depth * 16 + 8, paddingBottom: 2, fontStyle: "italic" }}>
-                <Layers size={13} color={C.line} />
-                {nSub > 0
-                  ? `Sistema agrupador · ${nSub} equipo${nSub !== 1 ? "s" : ""} — haz clic en el nombre para ver su PM`
-                  : "Sistema agrupador — sin equipos dentro"}
-              </div>
-            ) : (
-              planesEq.length === 0 && addingFor !== eq.id && (
-                <div style={{ fontSize: 12.5, color: C.slate, paddingLeft: eq.depth * 16 + 8, fontStyle: "italic" }}>
-                  Sin planes de PM — agrega el primero con el botón "+ Plan"
-                </div>
-              )
-            )}
+                {/* Tipo de Nodo */}
+                <TipoChip tipo={eq.tipo_nodo} size={22} style={{ flexShrink: 0 }} />
 
-            {planesEq.map((plan) => {
-              const esCalendario = plan.tipo_disparador === "calendario";
-              const elapsed = esCalendario
-                ? diasDesde(plan.fecha_ult_pm)
-                : (eq.horas_actual || 0) - (plan.horas_ult_pm || 0);
-              const [tone, label] = esCalendario
-                ? statusPlanCalendario(elapsed, plan.unidad_calendario, plan.intervalo_calendario ?? 1)
-                : statusPlan(elapsed, plan.intervalo_horas);
-              const isReg = registrando === plan.id;
-
-              return (
-                <div key={plan.id} style={{ marginLeft: eq.depth * 16 + 8, marginBottom: 6 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", borderRadius: 8, background: tone === "red" ? tint(C.red, 8) : tone === "yellow" ? tint(C.amber, 10) : tint(C.steel, 6), border: `1px solid ${tone === "red" ? C.red + "30" : tone === "yellow" ? C.amber + "30" : C.line}` }}>
-                    <Pill tone={tone}>{label}</Pill>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: C.abyss }}>{plan.descripcion}</div>
-                      <div style={{ fontSize: 11, color: C.slate, marginTop: 1 }}>
-                        {esCalendario
-                          ? <span>Cada <strong>{labelIntervaloCalendario(plan.unidad_calendario, plan.intervalo_calendario ?? 1)}</strong></span>
-                          : <span>Cada <strong>{plan.intervalo_horas}h</strong></span>}
-                        {plan.fecha_ult_pm
-                          ? <span> · Último: {new Date(plan.fecha_ult_pm + "T00:00:00").toLocaleDateString("es-CL")}{!esCalendario && ` (${num(plan.horas_ult_pm || 0)}h)`}</span>
-                          : !esCalendario && plan.horas_ult_pm > 0
-                            ? <span> · Base: {num(plan.horas_ult_pm)}h</span>
-                            : <span style={{ color: C.amber }}> · Nunca realizado</span>}
-                        {puedeOperar && (
-                          <button onClick={() => editHitoId === plan.id ? setEditHitoId(null) : abrirEditHito(plan)}
-                            title="Ajustar hito inicial (último servicio)"
-                            style={{ marginLeft: 7, background: "none", border: "none", cursor: "pointer", color: editHitoId === plan.id ? C.steel : C.slate, padding: "0 2px", display: "inline-flex", verticalAlign: "middle", lineHeight: 1 }}>
-                            <Edit3 size={11} />
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                    <div style={{ minWidth: 240 }}>
-                      {esCalendario
-                        ? <PMBarCalendario diasElapsed={elapsed} unidad={plan.unidad_calendario} intervalo={plan.intervalo_calendario ?? 1} />
-                        : <PMBar elapsed={elapsed} intervalo={plan.intervalo_horas} />}
-                    </div>
-                    {puedeOperar && (
-                      <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
-                        <button onClick={() => { setRegistrando(isReg ? null : plan.id); setRegForm({ realizado_por: profile.nombre || "", notas: "", crearOT: false }); }}
-                          title="Registrar PM realizado"
-                          style={{ ...primaryBtn, padding: "5px 10px", fontSize: 12, background: isReg ? C.slate : C.green, borderColor: isReg ? C.slate : C.green }}>
-                          <Check size={13} /> {isReg ? "Cancelar" : "Registrar PM"}
-                        </button>
-                        {tone === "red" && !regForm.crearOT && (
-                          <button onClick={() => { setRegistrando(plan.id); setRegForm({ realizado_por: profile.nombre || "", notas: "", crearOT: true }); }}
-                            title="Crear OT y registrar PM"
-                            style={{ ...ghostBtn, padding: "5px 10px", fontSize: 12, borderColor: C.red, color: C.red }}>
-                            <ClipboardList size={13} /> Crear OT
-                          </button>
-                        )}
-                        {puedeBorrar && (
-                          <button onClick={() => eliminarPlan(plan.id)} style={{ background: "none", border: "none", cursor: "pointer", color: C.slate, padding: 4 }}>
-                            <Trash2 size={14} />
-                          </button>
-                        )}
-                      </div>
-                    )}
+                {/* Nombre y datos del equipo */}
+                <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <span className="pm-tree-name" style={{ fontSize: 13, fontWeight: 600, color: C.abyss, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {eq.sistema}
+                    </span>
+                    <CritBadge crit={eq.criticidad} />
                   </div>
-
-                  {/* ── Ajuste de hito inicial ── */}
-                  {editHitoId === plan.id && (
-                    <div style={{ margin: "6px 0 4px 12px", padding: "12px 14px", background: tint(C.steel, 7), border: `1px solid ${C.steel}30`, borderRadius: 8 }}>
-                      <div style={{ fontSize: 12, fontWeight: 700, color: C.abyss, marginBottom: 4 }}>
-                        Ajustar hito · <em style={{ fontWeight: 400 }}>{plan.descripcion}</em>
-                      </div>
-                      <div style={{ fontSize: 11.5, color: C.slate, marginBottom: 10, lineHeight: 1.5 }}>
-                        Corrige cuándo se realizó el último servicio. <strong>No registra un PM nuevo</strong> — solo ajusta el punto de partida del semáforo y la barra de progreso.
-                      </div>
-                      <div style={{ display: "grid", gridTemplateColumns: plan.tipo_disparador === "calendario" ? "1fr" : "1fr 1fr", gap: 10 }}>
-                        {plan.tipo_disparador !== "calendario" && (
-                          <Field label="Último servicio a (h)">
-                            <input type="number" value={hitoForm.horas}
-                              onFocus={(e) => e.target.select()} onChange={(ev) => setHitoForm((p) => ({ ...p, horas: ev.target.value }))}
-                              placeholder="0 — nunca realizado"
-                              style={{ ...inputStyle(), fontFamily: "'IBM Plex Mono', monospace" }} />
-                          </Field>
-                        )}
-                        <Field label="Fecha del último servicio">
-                          <input type="date" value={hitoForm.fecha}
-                            onChange={(ev) => setHitoForm((p) => ({ ...p, fecha: ev.target.value }))}
-                            style={inputStyle()} />
-                        </Field>
-                      </div>
-                      <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
-                        <button onClick={async () => { try { await guardarHito(plan, hitoForm); setEditHitoId(null); } catch { setEditHitoId(plan.id); } }} style={primaryBtn}>
-                          <Check size={14} /> Guardar hito
-                        </button>
-                        <button onClick={() => setEditHitoId(null)} style={ghostBtn}><X size={13} /> Cancelar</button>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* ── Formulario de registro ── */}
-                  {isReg && (
-                    <div style={{ margin: "6px 0 4px 12px", padding: "12px 14px", background: tint(C.green, 9), border: `1px solid ${C.green}40`, borderRadius: 8 }}>
-                      <div style={{ fontSize: 12, fontWeight: 700, color: C.abyss, marginBottom: 10 }}>
-                        Registrar PM: <em style={{ fontWeight: 400 }}>{plan.descripcion}</em> a las {num(eq.horas_actual || 0, 0)}h
-                      </div>
-                      <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr auto", gap: 10, alignItems: "flex-end" }}>
-                        <Field label="Realizado por">
-                          <input value={regForm.realizado_por}
-                            onChange={(e) => setRegForm((p) => ({ ...p, realizado_por: e.target.value }))}
-                            style={inputStyle()} />
-                        </Field>
-                        <Field label="Notas (opcional)">
-                          <input value={regForm.notas}
-                            onChange={(e) => setRegForm((p) => ({ ...p, notas: e.target.value }))}
-                            placeholder="Qué se revisó, observaciones…"
-                            style={inputStyle()} />
-                        </Field>
-                        <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, cursor: "pointer", marginBottom: 2, whiteSpace: "nowrap" }}>
-                          <input type="checkbox" checked={regForm.crearOT}
-                            onChange={(e) => setRegForm((p) => ({ ...p, crearOT: e.target.checked }))}
-                            style={{ width: 15, height: 15, accentColor: C.steel }} />
-                          Crear OT de cierre
-                        </label>
-                      </div>
-                      <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
-                        <button onClick={async () => { try { await registrarPM(plan, regForm); setRegistrando(null); setRegForm({ realizado_por: "", notas: "", crearOT: false }); } catch { /* error manejado por registrarPM */ } }} style={primaryBtn}>
-                          <Check size={14} /> Confirmar PM{regForm.crearOT ? " + OT" : ""}
-                        </button>
-                        <button onClick={() => setRegistrando(null)} style={ghostBtn}><X size={13} /> Cancelar</button>
-                      </div>
-                    </div>
-                  )}
+                  <span style={{ fontSize: 10.5, color: C.slate, fontFamily: "monospace" }}>
+                    {eq.id_visible} {!esAgrupador && `· ${num(eq.horas_actual || 0, 0)}h`}
+                  </span>
                 </div>
-              );
-            })}
 
-            {/* ── Formulario nuevo plan ── */}
-            {addingFor === eq.id && (
-              <div style={{ marginLeft: eq.depth * 16 + 8, marginTop: 8, padding: "12px 14px", background: C.mist, borderRadius: 8, border: `1px solid ${C.line}` }}>
-                {/* ── Tipo de disparador ── */}
-                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-                  <span style={{ fontSize: 11.5, color: C.slate, fontWeight: 600 }}>Disparador:</span>
-                  {[["horas", "Por Horas"], ["calendario", "Calendario"]].map(([val, lbl]) => (
-                    <button key={val} onClick={() => setNewPlan((p) => ({ ...p, tipo_disparador: val }))}
-                      style={{ padding: "4px 12px", borderRadius: 6, border: `1px solid ${newPlan.tipo_disparador === val ? C.steel : C.line}`, background: newPlan.tipo_disparador === val ? C.steel : "transparent", color: newPlan.tipo_disparador === val ? "#fff" : C.slate, fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
-                      {lbl}
-                    </button>
+                {/* Icono de Ventana Flotante */}
+                <button
+                  onClick={(e) => { e.stopPropagation(); abrirPMWindow(eq); }}
+                  title="Abrir ventana flotante"
+                  style={{ background: "none", border: "none", cursor: "pointer", padding: 4, display: "flex", alignItems: "center", opacity: 0.5, color: C.slate, transition: "opacity 0.2s" }}
+                  onMouseEnter={(e) => e.currentTarget.style.opacity = 1}
+                  onMouseLeave={(e) => e.currentTarget.style.opacity = 0.5}
+                >
+                  <PanelRightOpen size={12} />
+                </button>
+
+                {/* Alertas */}
+                {vencidosEq > 0 && <div className="pm-pulse-dot" title={`${vencidosEq} planes vencidos`} />}
+                {colapsado && nSub > 0 && (
+                  <span style={{ fontSize: 10, color: C.steel, fontWeight: 700 }}>▸{nSub}</span>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </Card>
+
+      {/* PANEL DERECHO: DETALLE DE TRABAJO O RESUMEN GLOBAL */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 16, minWidth: 0 }}>
+        {!eqSeleccionado ? (
+          /* MODO RESUMEN GLOBAL (NADA SELECCIONADO) */
+          <Card style={{ padding: 24, minHeight: "calc(100vh - 230px)", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+            <div>
+              <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
+                <div style={{ width: 44, height: 44, borderRadius: 12, background: tint(C.steel, 10), display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <CalendarClock size={24} color={C.steel} />
+                </div>
+                <div>
+                  <h2 style={{ ...archivo, fontSize: 18, fontWeight: 800, color: C.abyss, margin: 0 }}>Planificación Preventiva Flota</h2>
+                  <p style={{ fontSize: 12.5, color: C.slate, margin: "2px 0 0" }}>Selecciona un equipo en el árbol para configurar tareas y registrar mantenimientos.</p>
+            </div>
+          </div>
+
+              {/* Guía de Intervalos */}
+              <div style={{ borderTop: `1px dashed ${C.line}`, paddingTop: 20 }}>
+                <h3 style={{ ...archivo, fontSize: 14, fontWeight: 700, color: C.abyss, marginBottom: 12 }}>Guía Práctica de Intervalos PM (ISO 14224)</h3>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                  {[
+                    { h: "250 horas", d: "Sistemas críticos con uso intensivo (hidráulico de pesca, combustible, generadores principales)." },
+                    { h: "500 horas", d: "Motor principal y reductores: cambio de aceite, filtros y chequeo general de tolerancias." },
+                    { h: "1000 horas", d: "Análisis espectrométrico de aceites, calibración de válvulas e inspección de intercambiador." },
+                    { h: "2000+ horas", d: "Revisión mayor de componentes rotativos pesados (turboalimentador, bombas de agua salada, gobierno)." },
+                  ].map((x, i) => (
+                    <div key={i} style={{ padding: 12, background: C.surface2, border: `1px solid ${C.line}`, borderRadius: 10 }}>
+                      <strong style={{ display: "block", fontSize: 12.5, color: C.steel, fontFamily: "monospace", marginBottom: 3 }}>{x.h}</strong>
+                      <span style={{ fontSize: 12, color: C.slate, lineHeight: 1.4 }}>{x.d}</span>
+                    </div>
                   ))}
                 </div>
-                <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr auto auto", gap: 10, alignItems: "flex-end" }}>
-                  <Field label="Tarea de mantenimiento">
-                    <ComboInput value={newPlan.descripcion}
-                      onChange={(v) => setNewPlan((p) => ({ ...p, descripcion: v }))}
-                      options={TAREAS_PM}
-                      placeholder="Buscar tarea… (Cambio de aceite, Análisis de aceite…)"
-                      autoFocus />
-                  </Field>
-                  {newPlan.tipo_disparador === "horas" ? (
-                    <Field label="Intervalo (horas)">
-                      <input type="number" value={newPlan.intervalo_horas} list="intervalosnums"
-                        onFocus={(e) => e.target.select()} onChange={(e) => setNewPlan((p) => ({ ...p, intervalo_horas: +e.target.value }))}
-                        style={{ ...bluInput, width: "100%" }} />
-                      <datalist id="intervalosnums">{INTERVALOS_COMUNES.map((v) => <option key={v} value={v} />)}</datalist>
-                    </Field>
-                  ) : (
-                    <div>
-                      <div style={{ fontSize: 11.5, color: C.slate, fontWeight: 600, marginBottom: 4 }}>Intervalo calendario</div>
-                      <div style={{ display: "flex", gap: 6 }}>
-                        <input type="number" min={1} value={newPlan.intervalo_calendario}
-                          onFocus={(e) => e.target.select()} onChange={(e) => setNewPlan((p) => ({ ...p, intervalo_calendario: +e.target.value }))}
-                          style={{ ...bluInput, width: 56 }} />
-                        <select value={newPlan.unidad_calendario}
-                          onChange={(e) => setNewPlan((p) => ({ ...p, unidad_calendario: e.target.value }))}
-                          style={{ ...inputStyle(), flex: 1 }}>
-                          {UNIDADES_CAL.map((u) => <option key={u} value={u}>{u.charAt(0).toUpperCase() + u.slice(1)}</option>)}
-                        </select>
-                      </div>
-                    </div>
-                  )}
-                  <button onClick={async () => { try { await agregarPlan(eq.id, newPlan); setNewPlan({ descripcion: "", tipo_disparador: "horas", intervalo_horas: 250, unidad_calendario: "mensual", intervalo_calendario: 1, horas_ult_pm: "", fecha_ult_pm: "" }); setAddingFor(null); } catch { /* error manejado por agregarPlan */ } }} style={{ ...primaryBtn, marginTop: 22 }}>Guardar</button>
-                  <button onClick={() => setAddingFor(null)} style={{ ...ghostBtn, marginTop: 22 }}><X size={13} /></button>
-                </div>
-                {/* ── Hito inicial (opcional) ── */}
-                <div style={{ marginTop: 10, paddingTop: 10, borderTop: `1px dashed ${C.line}`, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                  {newPlan.tipo_disparador === "horas" && (
-                    <Field label="Último servicio a (h) · opcional">
-                      <input type="number" value={newPlan.horas_ult_pm}
-                        onFocus={(e) => e.target.select()} onChange={(e) => setNewPlan((p) => ({ ...p, horas_ult_pm: e.target.value }))}
-                        placeholder="0 — nunca realizado"
-                        style={{ ...bluInput, width: "100%" }} />
-                    </Field>
-                  )}
-                  <Field label="Fecha del último servicio · opcional">
-                    <input type="date" value={newPlan.fecha_ult_pm}
-                      onChange={(e) => setNewPlan((p) => ({ ...p, fecha_ult_pm: e.target.value }))}
-                      style={inputStyle()} />
-                  </Field>
-                </div>
-                <div style={{ fontSize: 11, color: C.slate, marginTop: 4, lineHeight: 1.5 }}>
-                  Rellena si el componente ya fue serviciado antes de crear este plan — el semáforo y la barra partirán del valor correcto desde el primer día.
-                </div>
-                <GuiaColapsable titulo="¿Cómo elegir el intervalo?" icon={CalendarClock}>
-                  <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 8 }}>
-                    <tbody>
-                      {[
-                        ["250 h", "Sistemas críticos de uso intenso: hidráulico de pesca, generador, inyección"],
-                        ["500 h", "Motor principal: cambio de aceite y filtros, revisión general"],
-                        ["1000 h", "Análisis de aceite, limpieza de radiador/intercambiador, válvulas"],
-                        ["2000 h", "Revisión mayor: turbo, bombas, mangueras de alta presión"],
-                      ].map(([h, d]) => (
-                        <tr key={h}>
-                          <td style={{ padding: "4px 8px", fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, color: C.steel, whiteSpace: "nowrap", verticalAlign: "top", borderBottom: `1px solid ${C.foam}` }}>{h}</td>
-                          <td style={{ padding: "4px 8px", color: C.slate, borderBottom: `1px solid ${C.foam}` }}>{d}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                  <div style={{ color: C.slate }}>
-                    <strong style={{ color: C.abyss }}>Regla práctica:</strong> a mayor criticidad y uso, menor intervalo.
-                    Para PM que dependen del <strong>calendario</strong> (ánodos, inspección de tablero, certificados, gobierno)
-                    usa el toggle <em>Calendario</em> y elige la unidad: Semanal, Mensual, etc.
+              </div>
+            </div>
+
+            <div style={{ background: tint(C.cyan, 5), border: `1px solid ${tint(C.cyan, 20)}`, borderRadius: 10, padding: 12, display: "flex", gap: 10, alignItems: "center", marginTop: 20 }}>
+              <Info size={16} color={C.cyan} style={{ flexShrink: 0 }} />
+              <span style={{ fontSize: 11.5, color: C.ink, lineHeight: 1.4 }}>
+                <strong>Tip:</strong> Puedes filtrar los equipos de la izquierda por embarcación usando las cápsulas de colores arriba, o buscar directamente por nombre o tarea de mantenimiento preventivo.
+              </span>
+            </div>
+          </Card>
+        ) : (
+          /* MODO EQUIPO SELECCIONADO */
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            {/* Cabecera del Ficha del Equipo */}
+            <Card style={{ padding: 18 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16, flexWrap: "wrap" }}>
+                <div>
+                  {/* Breadcrumbs */}
+                  <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 10.5, color: C.slate, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 4 }}>
+                    <span>Flota</span>
+                    <span>/</span>
+                    <span>{embName(eqSeleccionado.embarcacion_id)}</span>
+                    {eqSeleccionado.parent_id && (
+                      <>
+                        <span>/</span>
+                        <span style={{ maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {obtenerBreadcrumbs(eqSeleccionado)}
+                        </span>
+                      </>
+                    )}
                   </div>
-                </GuiaColapsable>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <h2 style={{ ...archivo, fontSize: 20, fontWeight: 800, color: C.abyss, margin: 0 }}>
+                      {eqSeleccionado.sistema}
+                    </h2>
+                    <CritBadge crit={eqSeleccionado.criticidad} />
+                    <Pill tone={eqSeleccionado.estado === "operativo" ? "green" : eqSeleccionado.estado === "desgaste" ? "yellow" : "red"}>
+                      {eqSeleccionado.estado || "Operativo"}
+                    </Pill>
+                  </div>
+                  <div style={{ fontSize: 12, color: C.slate, marginTop: 4, fontFamily: "monospace" }}>
+                    ID: {eqSeleccionado.id_visible}
+                  </div>
+                </div>
+
+                <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
+                  <div style={{ textAlign: "right" }}>
+                    <div style={{ ...archivo, fontSize: 26, fontWeight: 900, color: C.abyss, fontFamily: "monospace", lineHeight: 1 }}>
+                      {num(eqSeleccionado.horas_actual || 0, 0)}
+                      <span style={{ fontSize: 13, color: C.slate, fontWeight: 400 }}> h</span>
+                    </div>
+                    <span style={{ fontSize: 10.5, color: C.slate, fontWeight: 600, textTransform: "uppercase" }}>Horómetro actual</span>
+                  </div>
+
+                  <button
+                    onClick={() => abrirPMWindow(eqSeleccionado)}
+                    title="Pop-out a ventana flotante"
+                    style={{ ...ghostBtn, padding: 8, display: "flex", alignItems: "center", justifyContent: "center" }}
+                  >
+                    <PanelRightOpen size={16} />
+                  </button>
+                </div>
+              </div>
+            </Card>
+
+            {/* Sub-Tabs de Ficha */}
+            <div style={{ display: "flex", gap: 2, background: C.surface, border: `1px solid ${C.line}`, borderRadius: 10, padding: 3, width: "fit-content" }}>
+              <button
+                onClick={() => setRightTab("planes")}
+                style={{
+                  border: "none",
+                  background: rightTab === "planes" ? tint(C.sky, 10) : "transparent",
+                  color: rightTab === "planes" ? C.sky : C.slate,
+                  padding: "6px 16px",
+                  borderRadius: 8,
+                  fontSize: 12.5,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                  fontFamily: "inherit"
+                }}
+              >
+                Tareas Preventivas ({planesEq.length})
+              </button>
+              <button
+                onClick={() => setRightTab("historial")}
+                style={{
+                  border: "none",
+                  background: rightTab === "historial" ? tint(C.sky, 10) : "transparent",
+                  color: rightTab === "historial" ? C.sky : C.slate,
+                  padding: "6px 16px",
+                  borderRadius: 8,
+                  fontSize: 12.5,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                  fontFamily: "inherit"
+                }}
+              >
+                Historial de Servicio ({historialEq.length})
+              </button>
+            </div>
+
+            {/* CONTENIDO SUB-TABS */}
+            {rightTab === "planes" && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                {planesEq.length === 0 ? (
+                  <Card style={{ padding: 20, textAlign: "center" }}>
+                    <div style={{ color: C.slate, fontSize: 13, fontStyle: "italic" }}>
+                      Este equipo no tiene planes preventivos programados.
+                    </div>
+                  </Card>
+                ) : (
+                  planesEq.map((plan) => {
+                    const esCalendario = plan.tipo_disparador === "calendario";
+                    const elapsed = esCalendario
+                      ? diasDesde(plan.fecha_ult_pm)
+                      : (eqSeleccionado.horas_actual || 0) - (plan.horas_ult_pm || 0);
+                    const [tone, label] = esCalendario
+                      ? statusPlanCalendario(elapsed, plan.unidad_calendario, plan.intervalo_calendario ?? 1)
+                      : statusPlan(elapsed, plan.intervalo_horas);
+                    const isReg = registrando === plan.id;
+                    const isHito = editHitoId === plan.id;
+
+                    const barColor = tone === "red" ? C.red : tone === "yellow" ? C.amber : C.green;
+
+                    return (
+                      <Card
+                        key={plan.id}
+                        style={{
+                          padding: 16,
+                          borderLeft: `4px solid ${barColor}`,
+                          position: "relative",
+                          transition: "box-shadow 0.2s",
+                        }}
+                      >
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, marginBottom: 10 }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                            <Pill tone={tone}>{label}</Pill>
+                            <span style={{ fontSize: 14.5, fontWeight: 700, color: C.abyss }}>{plan.descripcion}</span>
+                          </div>
+                          <span style={{ fontSize: 11, color: C.slate, fontFamily: "monospace" }}>
+                            {esCalendario
+                              ? `Cada ${labelIntervaloCalendario(plan.unidad_calendario, plan.intervalo_calendario ?? 1)}`
+                              : `Cada ${plan.intervalo_horas}h`}
+                          </span>
+                        </div>
+
+                        {/* Barra de progreso */}
+                        <div style={{ marginBottom: 12 }}>
+                          {esCalendario ? (
+                            <PMBarCalendario diasElapsed={elapsed} unidad={plan.unidad_calendario} intervalo={plan.intervalo_calendario ?? 1} />
+                          ) : (
+                            <PMBar elapsed={elapsed} intervalo={plan.intervalo_horas} />
+                          )}
+                          <div style={{ fontSize: 10.5, color: C.slate, marginTop: 4, display: "flex", justifyContent: "space-between" }}>
+                            <span>
+                              {plan.fecha_ult_pm
+                                ? `Último PM: ${new Date(plan.fecha_ult_pm + "T00:00:00").toLocaleDateString("es-CL")}${!esCalendario ? ` (${num(plan.horas_ult_pm || 0)}h)` : ""}`
+                                : "Nunca realizado"}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Botones de acción del plan */}
+                        {puedeOperar && (
+                          <div style={{ display: "flex", gap: 6, borderTop: `1px solid ${C.foam}`, paddingTop: 10, marginTop: 10 }}>
+                            <button
+                              onClick={() => { setRegistrando(isReg ? null : plan.id); setRegForm({ realizado_por: profile.nombre || "", notas: "", crearOT: false }); }}
+                              style={{
+                                ...primaryBtn,
+                                padding: "6px 12px",
+                                fontSize: 12,
+                                background: isReg ? C.slate : C.green,
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: 4
+                              }}
+                            >
+                              <Check size={13} /> {isReg ? "Cancelar" : "Registrar PM"}
+                            </button>
+                            {tone === "red" && !isReg && (
+                              <button
+                                onClick={() => { setRegistrando(plan.id); setRegForm({ realizado_por: profile.nombre || "", notas: "", crearOT: true }); }}
+                                style={{
+                                  ...ghostBtn,
+                                  padding: "6px 12px",
+                                  fontSize: 12,
+                                  borderColor: C.red,
+                                  color: C.red,
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  gap: 4
+                                }}
+                              >
+                                <ClipboardList size={13} /> Crear OT
+                              </button>
+                            )}
+                            <button
+                              onClick={() => isHito ? setEditHitoId(null) : abrirEditHito(plan)}
+                              style={{
+                                ...ghostBtn,
+                                padding: "6px 12px",
+                                fontSize: 12,
+                                color: isHito ? C.steel : C.slate,
+                                borderColor: isHito ? C.steel : C.line,
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: 4
+                              }}
+                            >
+                              <Edit3 size={13} /> Ajustar Hito
+                            </button>
+                            {puedeBorrar && (
+                              <button
+                                onClick={() => eliminarPlan(plan.id)}
+                                style={{ background: "none", border: "none", cursor: "pointer", color: C.slate, padding: 4, marginLeft: "auto" }}
+                              >
+                                <Trash2 size={13} />
+                              </button>
+                            )}
+                          </div>
+                        )}
+
+                        {/* FORMULARIO REGISTRO PM IN-PLACE */}
+                        {isReg && (
+                          <div style={{ marginTop: 12, padding: 14, background: tint(C.green, 8), border: `1px solid ${C.green}40`, borderRadius: 10 }}>
+                            <div style={{ fontSize: 12, fontWeight: 700, color: C.abyss, marginBottom: 10 }}>
+                              Registrar realización de: <em>{plan.descripcion}</em>
+                            </div>
+                            <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: 10, marginBottom: 10 }}>
+                              <Field label="Realizado por">
+                                <input value={regForm.realizado_por}
+                                  onChange={(e) => setRegForm((p) => ({ ...p, realizado_por: e.target.value }))}
+                                  style={inputStyle()} />
+                              </Field>
+                              <Field label="Notas y observaciones">
+                                <input value={regForm.notas}
+                                  onChange={(e) => setRegForm((p) => ({ ...p, notas: e.target.value }))}
+                                  placeholder="Detalles del trabajo..."
+                                  style={inputStyle()} />
+                              </Field>
+                            </div>
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
+                              <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, cursor: "pointer" }}>
+                                <input type="checkbox" checked={regForm.crearOT}
+                                  onChange={(e) => setRegForm((p) => ({ ...p, crearOT: e.target.checked }))}
+                                  style={{ width: 14, height: 14, accentColor: C.steel }} />
+                                Generar OT de cierre
+                              </label>
+                              <div style={{ display: "flex", gap: 6 }}>
+                                <button
+                                  onClick={async () => {
+                                    try {
+                                      await registrarPM(plan, regForm);
+                                      setRegistrando(null);
+                                      setRegForm({ realizado_por: "", notas: "", crearOT: false });
+                                    } catch { /* error manejado */ }
+                                  }}
+                                  style={{ ...primaryBtn, padding: "6px 14px", fontSize: 12 }}
+                                >
+                                  Confirmar Registro
+                                </button>
+                                <button onClick={() => setRegistrando(null)} style={{ ...ghostBtn, padding: "6px 12px", fontSize: 12 }}>
+                                  Cancelar
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* FORMULARIO HITO IN-PLACE */}
+                        {isHito && (
+                          <div style={{ marginTop: 12, padding: 14, background: tint(C.steel, 8), border: `1px solid ${C.steel}40`, borderRadius: 10 }}>
+                            <div style={{ fontSize: 12, fontWeight: 700, color: C.abyss, marginBottom: 4 }}>
+                              Ajustar hito inicial · <em>{plan.descripcion}</em>
+                            </div>
+                            <div style={{ fontSize: 11, color: C.slate, marginBottom: 10 }}>
+                              Ajusta el punto de partida del semáforo. No genera un registro histórico.
+                            </div>
+                            <div style={{ display: "grid", gridTemplateColumns: plan.tipo_disparador === "calendario" ? "1fr" : "1fr 1fr", gap: 10, marginBottom: 12 }}>
+                              {plan.tipo_disparador !== "calendario" && (
+                                <Field label="Último PM registrado a (h)">
+                                  <input type="number" value={hitoForm.horas}
+                                    onFocus={(e) => e.target.select()}
+                                    onChange={(ev) => setHitoForm((p) => ({ ...p, horas: ev.target.value }))}
+                                    style={{ ...inputStyle(), fontFamily: "monospace" }} />
+                                </Field>
+                              )}
+                              <Field label="Fecha del último PM">
+                                <input type="date" value={hitoForm.fecha}
+                                  onChange={(ev) => setHitoForm((p) => ({ ...p, fecha: ev.target.value }))}
+                                  style={inputStyle()} />
+                              </Field>
+                            </div>
+                            <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
+                              <button
+                                onClick={async () => {
+                                  try {
+                                    await guardarHito(plan, hitoForm);
+                                    setEditHitoId(null);
+                                  } catch { /* error manejado */ }
+                                }}
+                                style={{ ...primaryBtn, padding: "6px 14px", fontSize: 12 }}
+                              >
+                                Guardar Hito
+                              </button>
+                              <button onClick={() => setEditHitoId(null)} style={{ ...ghostBtn, padding: "6px 12px", fontSize: 12 }}>
+                                Cancelar
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </Card>
+                    );
+                  })
+                )}
+
+                {/* FORMULARIO AGREGAR TAREA PM */}
+                {puedeOperar && (
+                  <Card style={{ padding: 18, marginTop: 8, background: C.surface2, borderStyle: "dashed", borderWidth: 1.5 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                      <span style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.6, color: C.steel }}>
+                        + Agregar Tarea Preventiva
+                      </span>
+                      {addingPlan ? (
+                        <button onClick={() => setAddingPlan(false)} style={{ background: "none", border: "none", color: C.slate, cursor: "pointer" }}>
+                          <X size={16} />
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => setAddingPlan(true)}
+                          style={{ ...primaryBtn, padding: "5px 12px", fontSize: 11.5, background: C.steel }}
+                        >
+                          Configurar Tarea
+                        </button>
+                      )}
+                    </div>
+
+                    {addingPlan && (
+                      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                        {/* Selector de tipo de disparador (Slider style) */}
+                        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                          <span style={{ fontSize: 11, fontWeight: 600, color: C.slate, textTransform: "uppercase" }}>Tipo de Disparador</span>
+                          <div className="pm-slider-toggle" style={{ maxWidth: 280 }}>
+                            <button
+                              type="button"
+                              className={`pm-slider-btn${newPlan.tipo_disparador === "horas" ? " pm-slider-btn-active" : ""}`}
+                              onClick={() => setNewPlan((p) => ({ ...p, tipo_disparador: "horas" }))}
+                            >
+                              Por Horas
+                            </button>
+                            <button
+                              type="button"
+                              className={`pm-slider-btn${newPlan.tipo_disparador === "calendario" ? " pm-slider-btn-active" : ""}`}
+                              onClick={() => setNewPlan((p) => ({ ...p, tipo_disparador: "calendario" }))}
+                            >
+                              Calendario
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Descripción de Tarea */}
+                        <Field label="Tarea PM a Programar">
+                          <ComboInput
+                            value={newPlan.descripcion}
+                            onChange={(v) => setNewPlan((p) => ({ ...p, descripcion: v }))}
+                            options={TAREAS_PM}
+                            placeholder="Ej. Cambio de aceite, Limpieza de inyectores..."
+                          />
+                        </Field>
+
+                        {/* Inputs de Intervalo */}
+                        {newPlan.tipo_disparador === "horas" ? (
+                          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                            <Field label="Intervalo de horas">
+                              <input
+                                type="number"
+                                value={newPlan.intervalo_horas}
+                                onChange={(e) => setNewPlan((p) => ({ ...p, intervalo_horas: +e.target.value }))}
+                                style={{ ...bluInput, width: "100%" }}
+                              />
+                            </Field>
+                            {/* Chips con accesos directos */}
+                            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 2 }}>
+                              {[100, 250, 500, 1000, 2000].map((h) => (
+                                <button
+                                  key={h}
+                                  type="button"
+                                  className={`pm-preset-chip${newPlan.intervalo_horas === h ? " pm-preset-chip-active" : ""}`}
+                                  onClick={() => setNewPlan((p) => ({ ...p, intervalo_horas: h }))}
+                                >
+                                  {h}h
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        ) : (
+                          <div style={{ display: "grid", gridTemplateColumns: "100px 1fr", gap: 10 }}>
+                            <Field label="Cada (N)">
+                              <input
+                                type="number"
+                                min={1}
+                                value={newPlan.intervalo_calendario}
+                                onChange={(e) => setNewPlan((p) => ({ ...p, intervalo_calendario: +e.target.value }))}
+                                style={{ ...bluInput, width: "100%" }}
+                              />
+                            </Field>
+                            <Field label="Frecuencia">
+                              <select
+                                value={newPlan.unidad_calendario}
+                                onChange={(e) => setNewPlan((p) => ({ ...p, unidad_calendario: e.target.value }))}
+                                style={inputStyle()}
+                              >
+                                {UNIDADES_CAL.map((u) => (
+                                  <option key={u} value={u}>{u.charAt(0).toUpperCase() + u.slice(1)}</option>
+                                ))}
+                              </select>
+                            </Field>
+                          </div>
+                        )}
+
+                        {/* Hito Inicial */}
+                        <div style={{ borderTop: `1px dashed ${C.line}`, paddingTop: 12, marginTop: 4 }}>
+                          <span style={{ fontSize: 11, fontWeight: 700, color: C.slate, textTransform: "uppercase", display: "block", marginBottom: 8 }}>
+                            Hito inicial (Opcional - Historial previo)
+                          </span>
+                          <div style={{ display: "grid", gridTemplateColumns: newPlan.tipo_disparador === "horas" ? "1fr 1fr" : "1fr", gap: 10 }}>
+                            {newPlan.tipo_disparador === "horas" && (
+                              <Field label="Último PM a las (h)">
+                                <input
+                                  type="number"
+                                  placeholder="0h"
+                                  value={newPlan.horas_ult_pm}
+                                  onChange={(e) => setNewPlan((p) => ({ ...p, horas_ult_pm: e.target.value }))}
+                                  style={{ ...inputStyle(), fontFamily: "monospace" }}
+                                />
+                              </Field>
+                            )}
+                            <Field label="Fecha del último PM">
+                              <input
+                                type="date"
+                                value={newPlan.fecha_ult_pm}
+                                onChange={(e) => setNewPlan((p) => ({ ...p, fecha_ult_pm: e.target.value }))}
+                                style={inputStyle()}
+                              />
+                            </Field>
+                          </div>
+                          <p style={{ fontSize: 11, color: C.slate, margin: "6px 0 0", lineHeight: 1.4 }}>
+                            Registra esto si el equipo ya fue serviciado anteriormente. El semáforo partirá de la fecha/horas correctas en lugar de comenzar de cero.
+                          </p>
+                        </div>
+
+                        {/* Botones de guardar plan */}
+                        <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              try {
+                                await agregarPlan(eqSeleccionado.id, newPlan);
+                                setNewPlan({ descripcion: "", tipo_disparador: "horas", intervalo_horas: 250, unidad_calendario: "mensual", intervalo_calendario: 1, horas_ult_pm: "", fecha_ult_pm: "" });
+                                setAddingPlan(false);
+                              } catch { /* error manejado */ }
+                            }}
+                            disabled={!newPlan.descripcion.trim()}
+                            style={{ ...primaryBtn, padding: "8px 16px", fontSize: 13 }}
+                          >
+                            Guardar Tarea PM
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => { setAddingPlan(false); setNewPlan({ descripcion: "", tipo_disparador: "horas", intervalo_horas: 250, unidad_calendario: "mensual", intervalo_calendario: 1, horas_ult_pm: "", fecha_ult_pm: "" }); }}
+                            style={ghostBtn}
+                          >
+                            Cancelar
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </Card>
+                )}
               </div>
             )}
-          </Card>
-        );
-      })}
+
+            {rightTab === "historial" && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {historialEq.length === 0 ? (
+                  <Card style={{ padding: 20, textAlign: "center" }}>
+                    <div style={{ color: C.slate, fontSize: 13, fontStyle: "italic" }}>
+                      Este equipo aún no registra eventos de mantenimiento preventivo.
+                    </div>
+                  </Card>
+                ) : (
+                  historialEq.map((hLog) => {
+                    const p = planes.find((x) => x.id === hLog.plan_pm_id);
+                    const intLabel = p
+                      ? p.tipo_disparador === "calendario"
+                        ? labelIntervaloCalendario(p.unidad_calendario, p.intervalo_calendario ?? 1)
+                        : `${p.intervalo_horas}h`
+                      : "";
+
+                    return (
+                      <Card key={hLog.id} style={{ padding: 14 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, marginBottom: 6 }}>
+                          <div>
+                            <span style={{ fontSize: 13.5, fontWeight: 700, color: C.abyss }}>
+                              {p?.descripcion || "Tarea PM"}
+                            </span>
+                            {intLabel && (
+                              <span style={{ fontSize: 10.5, color: C.slate, background: C.surface2, border: `1px solid ${C.line}`, borderRadius: 4, padding: "1px 6px", marginLeft: 8, fontFamily: "monospace" }}>
+                                {intLabel}
+                              </span>
+                            )}
+                          </div>
+                          <div style={{ textAlign: "right" }}>
+                            <span style={{ fontSize: 11, color: C.slate, fontFamily: "monospace", display: "block" }}>
+                              {hLog.fecha_realizacion}
+                            </span>
+                            {hLog.horas_realizacion != null && (
+                              <span style={{ fontSize: 11, color: C.steel, fontFamily: "monospace", fontWeight: 700 }}>
+                                {num(hLog.horas_realizacion, 0)}h
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        {hLog.notas && (
+                          <p style={{ fontSize: 12.5, color: C.ink, margin: "6px 0", lineHeight: 1.4, padding: "8px 10px", background: C.surface2, borderRadius: 6, borderLeft: `3px solid ${C.line}` }}>
+                            {hLog.notas}
+                          </p>
+                        )}
+
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 8, fontSize: 11, color: C.slate }}>
+                          <span>Realizado por: <strong>{hLog.realizado_por || "—"}</strong></span>
+                          {hLog.ot_id && <Pill tone="green">Vía OT</Pill>}
+                        </div>
+                      </Card>
+                    );
+                  })
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import {
   Check, Plus, Trash2, Edit3, X, ClipboardList, History, AlertCircle,
 } from "lucide-react";
-import { C, tint, num } from "../../theme";
+import { C, tint, num, shadow } from "../../theme";
 import { Pill, primaryBtn, ghostBtn, inputStyle, bluInput, Field } from "../../ui";
 import ComboInput from "../ComboInput";
 import { TAREAS_PM } from "../../lib/tareasPM";
@@ -356,20 +356,80 @@ export default function PMWindow({ equipoId, handlersRef, puedeOperar, puedeBorr
 
         {/* ── Formulario agregar plan ── */}
         {addingPlan && (
-          <div style={{ marginTop: 4, marginBottom: 16, padding: "16px 16px 14px", background: C.mist, borderRadius: 10, border: `1px solid ${C.line}` }}>
-            <div style={{ fontSize: 10.5, letterSpacing: 0.7, textTransform: "uppercase", color: C.steel, fontWeight: 700, marginBottom: 14 }}>
+          <div style={{ marginTop: 4, marginBottom: 16, padding: "16px 16px 14px", background: C.surface2, borderRadius: 10, border: `1px solid ${C.line}` }}>
+            <style>{`
+              .pm-win-slider-toggle {
+                display: flex;
+                background: ${C.mist};
+                border: 1px solid ${C.line};
+                border-radius: 10px;
+                padding: 3px;
+                gap: 2px;
+                max-width: 260px;
+                margin-bottom: 12px;
+              }
+              .pm-win-slider-btn {
+                flex: 1;
+                padding: 5px 10px;
+                border: none;
+                background: transparent;
+                color: ${C.slate};
+                font-size: 12px;
+                font-weight: 600;
+                border-radius: 7px;
+                cursor: pointer;
+                transition: all 0.2s ease;
+              }
+              .pm-win-slider-btn-active {
+                background: ${C.surface};
+                color: ${C.abyss};
+                box-shadow: ${shadow.sm};
+              }
+              .pm-win-preset-chip {
+                padding: 4px 10px;
+                border-radius: 20px;
+                border: 1px solid ${C.line};
+                background: ${C.surface};
+                color: ${C.slate};
+                font-size: 11px;
+                font-weight: 600;
+                cursor: pointer;
+                transition: all 0.15s ease;
+              }
+              .pm-win-preset-chip:hover {
+                border-color: ${C.sky};
+                background: color-mix(in srgb, ${C.sky} 6%, transparent);
+                color: ${C.sky};
+              }
+              .pm-win-preset-chip-active {
+                border-color: ${C.sky};
+                background: ${C.sky};
+                color: #fff;
+              }
+            `}</style>
+            <div style={{ fontSize: 10.5, letterSpacing: 0.7, textTransform: "uppercase", color: C.steel, fontWeight: 700, marginBottom: 12 }}>
               Nuevo plan de mantenimiento
             </div>
 
-            {/* Tipo disparador */}
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
-              <span style={{ fontSize: 11.5, color: C.slate, fontWeight: 600 }}>Disparador:</span>
-              {[["horas", "Por Horas"], ["calendario", "Calendario"]].map(([val, lbl]) => (
-                <button key={val} onClick={() => setNewPlan((p) => ({ ...p, tipo_disparador: val }))}
-                  style={{ padding: "4px 12px", borderRadius: 6, border: `1px solid ${newPlan.tipo_disparador === val ? C.steel : C.line}`, background: newPlan.tipo_disparador === val ? C.steel : "transparent", color: newPlan.tipo_disparador === val ? "#fff" : C.slate, fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
-                  {lbl}
+            {/* Tipo disparador (Slider Toggle) */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              <span style={{ fontSize: 11, fontWeight: 600, color: C.slate, textTransform: "uppercase", marginBottom: 2 }}>Disparador</span>
+              <div className="pm-win-slider-toggle">
+                <button
+                  type="button"
+                  className={`pm-win-slider-btn${newPlan.tipo_disparador === "horas" ? " pm-win-slider-btn-active" : ""}`}
+                  onClick={() => setNewPlan((p) => ({ ...p, tipo_disparador: "horas" }))}
+                >
+                  Por Horas
                 </button>
-              ))}
+                <button
+                  type="button"
+                  className={`pm-win-slider-btn${newPlan.tipo_disparador === "calendario" ? " pm-win-slider-btn-active" : ""}`}
+                  onClick={() => setNewPlan((p) => ({ ...p, tipo_disparador: "calendario" }))}
+                >
+                  Calendario
+                </button>
+              </div>
             </div>
 
             <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 12, marginBottom: 12 }}>
@@ -381,15 +441,14 @@ export default function PMWindow({ equipoId, handlersRef, puedeOperar, puedeBorr
                   autoFocus />
               </Field>
               {newPlan.tipo_disparador === "horas" ? (
-                <Field label="Intervalo (horas)">
-                  <input type="number" value={newPlan.intervalo_horas} list="pm-win-intervalos"
-                    onFocus={(e) => e.target.select()}
-                    onChange={(e) => setNewPlan((p) => ({ ...p, intervalo_horas: +e.target.value }))}
-                    style={{ ...bluInput, width: "100%" }} />
-                  <datalist id="pm-win-intervalos">
-                    {INTERVALOS_COMUNES.map((v) => <option key={v} value={v} />)}
-                  </datalist>
-                </Field>
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  <Field label="Intervalo (horas)">
+                    <input type="number" value={newPlan.intervalo_horas}
+                      onFocus={(e) => e.target.select()}
+                      onChange={(e) => setNewPlan((p) => ({ ...p, intervalo_horas: +e.target.value }))}
+                      style={{ ...bluInput, width: "100%" }} />
+                  </Field>
+                </div>
               ) : (
                 <div>
                   <div style={{ fontSize: 11.5, color: C.slate, fontWeight: 600, marginBottom: 4 }}>Intervalo calendario</div>
@@ -408,6 +467,22 @@ export default function PMWindow({ equipoId, handlersRef, puedeOperar, puedeBorr
               )}
             </div>
 
+            {/* Chips de Intervalos (solo si es horas) */}
+            {newPlan.tipo_disparador === "horas" && (
+              <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginBottom: 12, marginTop: -4 }}>
+                {[100, 250, 500, 1000, 2000].map((h) => (
+                  <button
+                    key={h}
+                    type="button"
+                    className={`pm-win-preset-chip${newPlan.intervalo_horas === h ? " pm-win-preset-chip-active" : ""}`}
+                    onClick={() => setNewPlan((p) => ({ ...p, intervalo_horas: h }))}
+                  >
+                    {h}h
+                  </button>
+                ))}
+              </div>
+            )}
+
             {/* Hito inicial */}
             <div style={{ display: "grid", gridTemplateColumns: newPlan.tipo_disparador === "horas" ? "1fr 1fr" : "1fr", gap: 12, marginBottom: 14, paddingTop: 12, borderTop: `1px dashed ${C.line}` }}>
               {newPlan.tipo_disparador === "horas" && (
@@ -425,7 +500,7 @@ export default function PMWindow({ equipoId, handlersRef, puedeOperar, puedeBorr
                   style={inputStyle()} />
               </Field>
             </div>
-            <div style={{ fontSize: 11.5, color: C.slate, marginBottom: 14, lineHeight: 1.5 }}>
+            <div style={{ fontSize: 11, color: C.slate, marginBottom: 14, lineHeight: 1.4 }}>
               Si el equipo ya fue serviciado, ingresa el hito para que el semáforo arranque desde el valor correcto.
             </div>
 
