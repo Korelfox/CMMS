@@ -7,6 +7,8 @@ import {
   etiquetaClima,
   resumirPorDia,
   PUERTOS_CHILE,
+  listaPuertos,
+  puertoInicial,
 } from "../src/lib/clima.js";
 
 describe("normalizarPuerto", () => {
@@ -92,5 +94,23 @@ describe("resumirPorDia", () => {
     expect(dias[0].vientoMaxKn).toBe(25);
     expect(dias[0].evaluacion.nivel).toBe("ambar");
     expect(dias[1].evaluacion.nivel).toBe("verde");
+  });
+});
+
+describe("listaPuertos y puertoInicial", () => {
+  it("lista puertos ordenados alfabéticamente", () => {
+    const lista = listaPuertos();
+    expect(lista.length).toBeGreaterThan(10);
+    expect(lista).toContain("Puerto Montt");
+    expect(lista).toContain("Quellón");
+    expect([...lista].sort((a, b) => a.localeCompare(b, "es"))).toEqual(lista);
+  });
+
+  it("puertoInicial usa guardado si es válido", () => {
+    expect(puertoInicial("Puerto Montt", "Castro")).toBe("Castro");
+  });
+
+  it("puertoInicial resuelve desde puerto_base si guardado inválido", () => {
+    expect(puertoInicial("Talcahuano", "Puerto Inventado")).toBe("Talcahuano");
   });
 });

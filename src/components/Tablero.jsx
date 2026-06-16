@@ -319,7 +319,11 @@ export default function Tablero({ onNavigate }) {
 
           {/* ── Pronóstico marítimo + brief IA ────────────────────────── */}
           <div style={{ marginBottom: 24 }}>
-            <PronosticoWidget puertoBase={empresa?.puerto_base} contextoOps={contextoClima} />
+            <PronosticoWidget
+              puertoBase={empresa?.puerto_base}
+              empresaId={empresa?.id}
+              contextoOps={contextoClima}
+            />
           </div>
 
           {/* ── Segunda fila KPIs ───────────────────────────────────── */}

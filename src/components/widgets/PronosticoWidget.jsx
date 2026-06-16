@@ -7,9 +7,10 @@ import { supabase } from "../../lib/supabase";
 import {
   resolverCoordenadas, evaluarCondiciones, resumirPorDia,
   formatearDia, etiquetaClima, direccionViento,
+  listaPuertos, puertoInicial, storageKeyPuertoClima,
 } from "../../lib/clima";
 import { C, tint, archivo } from "../../theme";
-import { Pill, InlineSpinner, ghostBtn, primaryBtn } from "../../ui";
+import { Pill, InlineSpinner, ghostBtn, primaryBtn, inputStyle } from "../../ui";
 import { renderMarkdown } from "../Markdown";
 
 const TONE_COLOR = { green: C.green, yellow: C.amber, red: C.red };
@@ -46,8 +47,8 @@ async function leerSSE(resp, onChunk) {
   }
 }
 
-export default function PronosticoWidget({ puertoBase, contextoOps = {} }) {
-  const coords = useMemo(() => resolverCoordenadas(puertoBase), [puertoBase]);
+export default function PronosticoWidget({ puertoBase, empresaId, contextoOps = {} }) {
+  const puertos = useMemo(() => listaPuertos(), []);
   const [datos, setDatos]       = useState(null);
   const [loading, setLoading]   = useState(true);
   const [error, setError]       = useState(null);
@@ -55,6 +56,28 @@ export default function PronosticoWidget({ puertoBase, contextoOps = {} }) {
   const [genBrief, setGenBrief] = useState(false);
   const [briefError, setBriefError] = useState(null);
   const abortRef = useRef(null);
+  const [puertoSel, setPuertoSel] = useState(() => {
+    try {
+      const guardado = localStorage.getItem(storageKeyPuertoClima(empresaId));
+      return puertoInicial(puertoBase, guardado);
+    } catch {
+      return puertoInicial(puertoBase);
+    }
+  });
+
+  useEffect(() => {
+    try {
+      const guardado = localStorage.getItem(storageKeyPuertoClima(empresaId));
+      setPuertoSel(puertoInicial(puertoBase, guardado));
+    } catch {
+      setPuertoSel(puertoInicial(puertoBase));
+    }
+    setBrief("");
+    setDatos(null);
+  }, [empresaId, puertoBase]);
+
+  const coords = useMemo(() => resolverCoordenadas(puertoSel), [puertoSel]);
+  const puertoEmpresa = useMemo(() => resolverCoordenadas(puertoBase).label, [puertoBase]);
 
   const cargar = useCallback(async () => {
     setLoading(true);
@@ -72,7 +95,7 @@ export default function PronosticoWidget({ puertoBase, contextoOps = {} }) {
           apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
         },
         body: JSON.stringify({
-          puerto_base: puertoBase || coords.label,
+          puerto_base: puertoSel,
           lat: coords.lat,
           lon: coords.lon,
         }),
@@ -88,7 +111,16 @@ export default function PronosticoWidget({ puertoBase, contextoOps = {} }) {
     } finally {
       setLoading(false);
     }
-  }, [puertoBase, coords]);
+  }, [puertoSel, coords]);
+
+  const cambiarPuerto = useCallback((label) => {
+    setPuertoSel(label);
+    setBrief("");
+    setDatos(null);
+    try {
+      localStorage.setItem(storageKeyPuertoClima(empresaId), label);
+    } catch { /* sin almacenamiento local */ }
+  }, [empresaId]);
 
   useEffect(() => { cargar(); }, [cargar]);
   useEffect(() => () => { if (abortRef.current) abortRef.current.abort(); }, []);
@@ -113,7 +145,7 @@ export default function PronosticoWidget({ puertoBase, contextoOps = {} }) {
           apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
         },
         body: JSON.stringify({
-          puerto_base: datos.puerto || puertoBase,
+          puerto_base: datos.puerto || puertoSel,
           lat: datos.coords?.lat ?? coords.lat,
           lon: datos.coords?.lon ?? coords.lon,
           generarBrief: true,
@@ -140,7 +172,7 @@ export default function PronosticoWidget({ puertoBase, contextoOps = {} }) {
       setGenBrief(false);
       abortRef.current = null;
     }
-  }, [datos, puertoBase, coords, contextoOps]);
+  }, [datos, puertoSel, coords, contextoOps]);
 
   const actual = datos?.actual;
   const evalActual = actual?.evaluacion || evaluarCondiciones({
@@ -151,12 +183,7 @@ export default function PronosticoWidget({ puertoBase, contextoOps = {} }) {
   const colorEval = TONE_COLOR[tone] || C.green;
   const dias = useMemo(() => resumirPorDia(datos?.horario || [], 3), [datos]);
 
-  const puertoLabel = datos?.puerto || coords.label || "Puerto base";
-  const origenNote = coords.origen === "defecto" && puertoBase
-    ? " · ubicación aproximada"
-    : coords.origen === "parcial"
-      ? " · coincidencia parcial"
-      : "";
+  const distintoEmpresa = puertoBase && puertoSel !== puertoEmpresa;
 
   return (
     <div style={{
@@ -172,11 +199,36 @@ export default function PronosticoWidget({ puertoBase, contextoOps = {} }) {
               Pronóstico marítimo
             </span>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-            <MapPin size={14} color={C.slate} />
-            <span style={{ ...archivo, fontSize: 16, fontWeight: 800, color: C.abyss }}>{puertoLabel}</span>
-            {origenNote && <span style={{ fontSize: 11, color: C.slate }}>{origenNote}</span>}
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            <MapPin size={14} color={C.slate} style={{ flexShrink: 0 }} />
+            <select
+              value={puertoSel}
+              onChange={(e) => cambiarPuerto(e.target.value)}
+              disabled={loading}
+              aria-label="Seleccionar puerto para pronóstico"
+              style={{
+                ...inputStyle(),
+                width: "auto",
+                minWidth: 160,
+                maxWidth: "100%",
+                ...archivo,
+                fontSize: 15,
+                fontWeight: 800,
+                color: C.abyss,
+                padding: "8px 12px",
+                cursor: loading ? "wait" : "pointer",
+              }}
+            >
+              {puertos.map((p) => (
+                <option key={p} value={p}>{p}</option>
+              ))}
+            </select>
           </div>
+          {distintoEmpresa && (
+            <div style={{ fontSize: 11, color: C.slate, marginTop: 6, marginLeft: 22 }}>
+              Puerto empresa: {puertoEmpresa}
+            </div>
+          )}
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           {!loading && actual && (

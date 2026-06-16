@@ -123,3 +123,26 @@ export function formatearDia(fechaISO) {
   const d = new Date(fechaISO + "T12:00:00");
   return d.toLocaleDateString("es-CL", { weekday: "short", day: "numeric", month: "short" });
 }
+
+/** Lista ordenada de puertos disponibles en el selector. */
+export function listaPuertos() {
+  return Object.values(PUERTOS_CHILE)
+    .map((p) => p.label)
+    .sort((a, b) => a.localeCompare(b, "es"));
+}
+
+/** true si la etiqueta coincide con un puerto del catálogo. */
+export function esPuertoConocido(label) {
+  return listaPuertos().includes(label);
+}
+
+/** Puerto inicial: preferencia guardada válida, o resolución desde puerto_base. */
+export function puertoInicial(puertoBase, guardado = null) {
+  if (guardado && esPuertoConocido(guardado)) return guardado;
+  return resolverCoordenadas(puertoBase).label;
+}
+
+/** Clave localStorage para preferencia de puerto por empresa. */
+export function storageKeyPuertoClima(empresaId) {
+  return empresaId ? `cmms-puerto-clima-${empresaId}` : "cmms-puerto-clima";
+}
