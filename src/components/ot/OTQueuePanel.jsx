@@ -1,5 +1,5 @@
 import React from "react";
-import { Search, X, Clock, AlertTriangle, PanelRightOpen } from "lucide-react";
+import { Search, X, Clock, AlertTriangle } from "lucide-react";
 import { C, clp, lk, tn, tint, TIPOS_OT, PRIORIDADES, ESTADOS_OT } from "../../theme";
 import { Card, Pill, ghostBtn, inputStyle } from "../../ui";
 import { costoOT, sinValorizar } from "../../lib/ot";
@@ -13,7 +13,6 @@ export default function OTQueuePanel({
   embName,
   showEmb,
   embarcaciones,
-  onPopOut,
   panelHeight = "calc(100vh - 320px)",
 }) {
   const embColor = (id) => embarcaciones?.find((e) => e.id === id)?.color || C.steel;
@@ -92,16 +91,6 @@ export default function OTQueuePanel({
             <AlertTriangle size={13} color={C.red} title="Prioridad alta — requiere seguimiento" />
           )}
         </div>
-        {onPopOut && (
-          <button
-            type="button"
-            title="Ventana flotante"
-            onClick={(ev) => { ev.stopPropagation(); onPopOut(o.id); }}
-            style={{ position: "absolute", top: 10, right: 10, background: tint(C.sky, 8), border: `1px solid ${C.line}`, borderRadius: 6, cursor: "pointer", color: C.slate, padding: 4, display: "flex" }}
-          >
-            <PanelRightOpen size={14} />
-          </button>
-        )}
       </button>
     );
   }

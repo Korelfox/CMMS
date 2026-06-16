@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useMemo, useRef } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 import { ClipboardList, Plus, Download, CloudOff, DollarSign, Check, RefreshCw, ShieldCheck, CheckCircle2, AlertTriangle, List, Columns3 } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { fetchAll, insertRow, updateRow, deleteRow, logActivity, rpcCall } from "../lib/db";
@@ -19,9 +19,7 @@ import OTQueuePanel from "./ot/OTQueuePanel";
 import OTDetailPanel from "./ot/OTDetailPanel";
 import OTKanban from "./ot/OTKanban";
 import OTValorizarPanel from "./ot/OTValorizarPanel";
-import OTWindow from "./ot/OTWindow";
 import { otStore } from "./ot/otStore";
-import { useWindows } from "./windows/WindowManager";
 import { useMediaQuery } from "../lib/useMediaQuery";
 
 const HOY = () => new Date().toISOString().slice(0, 10);
@@ -60,8 +58,6 @@ export default function OrdenesTrabajo({ navParams }) {
   const puedeOperar = canOperate(profile?.rol);
   const puedeBorrar = isAdmin(profile?.rol);
   const puedeCostos = isAdmin(profile?.rol);
-  const { open } = useWindows();
-  const handlersRef = useRef({});
   const isMobile = useMediaQuery("(max-width: 1024px)");
   const isValorizar = vista === "valorizar";
 
@@ -161,34 +157,10 @@ export default function OrdenesTrabajo({ navParams }) {
     [ots, selectedId, listaVista],
   );
 
-  function abrirOTWindow(otId, tab = detailTab) {
-    const ot = ots.find((o) => o.id === otId);
-    if (!ot) return;
-    open({
-      id: `ot-${otId}`,
-      title: ot.folio,
-      subtitle: `${ot.sistema || "OT"} · ${embName(ot.embarcacion_id)}`,
-      icon: ClipboardList,
-      width: 620,
-      render: () => (
-        <OTWindow
-          otId={otId}
-          handlersRef={handlersRef}
-          puedeOperar={puedeOperar}
-          puedeBorrar={puedeBorrar}
-          puedeCostos={puedeCostos}
-          initialTab={tab}
-          valorizarMode={isValorizar}
-        />
-      ),
-    });
-  }
-
   function seleccionarOT(id, tab) {
     setSelectedId(id);
     setOtDestacadaId(null);
     if (tab) setDetailTab(tab);
-    if (isMobile) abrirOTWindow(id, tab || detailTab);
   }
 
   useEffect(() => {
@@ -209,9 +181,6 @@ export default function OrdenesTrabajo({ navParams }) {
     if (first && !selectedId) setSelectedId(first.id);
   }
 
-  useEffect(() => {
-    if (navParams?.otId && isMobile) abrirOTWindow(navParams.otId, "resumen");
-  }, [navParams?.otId, isMobile]); // eslint-disable-line react-hooks/exhaustive-deps
   const nSinCodificar = otsScope.filter((o) => requiereCodigoFalla(o) && o.estado === "cerrada" && !o.modo_falla).length;
   const nPendSync = otsScope.filter((o) => o._pending).length;
   const nCriticasAbiertas = otsScope.filter((o) => o.estado !== "cerrada" && (o.prioridad === "critica" || o.prioridad === "alta")).length;
@@ -402,17 +371,6 @@ export default function OrdenesTrabajo({ navParams }) {
       setTimeout(() => setCostoOk((c) => (c === ot.id ? null : c)), 2000);
     } catch (e) { setError("No se pudieron guardar los costos: " + e.message); cargar(); }
   }
-
-  handlersRef.current = {
-    cambiarEstado,
-    guardarChecklist,
-    editarCosto,
-    guardarCosto,
-    eliminar,
-    onCodificarFalla: setCierreOT,
-    abrirOTWindow,
-    usuario: profile?.nombre || "",
-  };
 
   function exportar() {
     const filas = [["Folio", "Fecha", "Embarcación", "Sistema", "Tipo", "Prioridad", "Descripción", "MTTR", "Costo MO", "Costo Mat", "Estado"],
@@ -686,7 +644,7 @@ export default function OrdenesTrabajo({ navParams }) {
             : vista === "valorizar"
               ? "OTs cerradas pendientes de MO/Mat · edita costos en el panel derecho"
               : isMobile
-                ? "Selecciona una OT · se abre en ventana flotante"
+                ? "Selecciona una OT · el detalle aparece debajo"
                 : "Selecciona una OT a la izquierda · gestiona ejecución, costos y fotos a la derecha"
         }
         padding={0}
@@ -700,7 +658,7 @@ export default function OrdenesTrabajo({ navParams }) {
             align-items: start;
             padding: 16px;
           }
-          .ot-split-container.ot-split-mobile-detail-hidden {
+          .ot-split-container.ot-split-stack {
             grid-template-columns: 1fr;
           }
           .ot-kanban-with-detail {
@@ -730,7 +688,7 @@ export default function OrdenesTrabajo({ navParams }) {
             description={isValorizar ? "Todas las OTs cerradas en alcance tienen costos." : "Prueba otro estado, limpia la búsqueda o crea una nueva OT."}
           />
         ) : vista === "kanban" ? (
-          <div className={`ot-kanban-with-detail${selectedOT && !isMobile ? " has-detail" : ""}`}>
+          <div className={`ot-kanban-with-detail${selectedOT ? " has-detail" : ""}`}>
             <OTKanban
               lista={lista}
               selectedId={selectedOT?.id}
@@ -738,8 +696,8 @@ export default function OrdenesTrabajo({ navParams }) {
               embName={embName}
               embarcaciones={embarcaciones}
             />
-            {selectedOT && !isMobile && (
-              <div style={{ padding: 16, borderLeft: `1px solid ${C.foam}`, minHeight: 420 }}>
+            {selectedOT && (
+              <div style={{ padding: 16, borderLeft: isMobile ? "none" : `1px solid ${C.foam}`, borderTop: isMobile ? `1px solid ${C.foam}` : "none", minHeight: 420 }}>
                 <OTDetailPanel
                   ot={selectedOT}
                   embName={embName}
@@ -764,7 +722,7 @@ export default function OrdenesTrabajo({ navParams }) {
             )}
           </div>
         ) : (
-          <div className={`ot-split-container${isMobile ? " ot-split-mobile-detail-hidden" : ""}`}>
+          <div className={`ot-split-container${isMobile ? " ot-split-stack" : ""}`}>
             <OTQueuePanel
               lista={listaVista}
               selectedId={selectedOT?.id}
@@ -774,10 +732,9 @@ export default function OrdenesTrabajo({ navParams }) {
               embName={embName}
               showEmb={embFiltro === "all"}
               embarcaciones={embarcaciones}
-              onPopOut={!isMobile ? (id) => abrirOTWindow(id) : undefined}
-              panelHeight={isValorizar ? "calc(100vh - 420px)" : "calc(100vh - 320px)"}
+              panelHeight={isMobile ? "auto" : isValorizar ? "calc(100vh - 420px)" : "calc(100vh - 320px)"}
             />
-            {!isMobile && (
+            {(!isMobile || selectedOT) && (
               <OTDetailPanel
                 ot={selectedOT}
                 embName={embName}
