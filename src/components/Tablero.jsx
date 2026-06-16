@@ -15,6 +15,7 @@ import {
   ModuleShell, StatGrid, HeroStat, ActionQueue, Section, DataTable,
   LinkButton, Pill, EmptyState, HealthRing, ghostBtn, primaryBtn,
 } from "../ui";
+import PronosticoWidget from "./widgets/PronosticoWidget";
 
 const ESTADO_COLOR = {
   solicitada: C.slate, planificada: C.purple, programada: C.steel,
@@ -191,6 +192,17 @@ export default function Tablero({ onNavigate }) {
 
   const heroVariant = !m ? "ok" : m.totalAlertas === 0 ? "ok" : m.totalAlertas <= 3 ? "warn" : "critical";
 
+  const contextoClima = useMemo(() => {
+    if (!m) return {};
+    return {
+      pmVencidos: m.pmVencidos,
+      otsAbiertas: m.otsAbiertas,
+      otsCriticas: m.otsCriticas,
+      varadasActivas: m.varadasActivas,
+      totalAlertas: m.totalAlertas,
+    };
+  }, [m]);
+
   const otColumns = [
     {
       key: "folio",
@@ -303,6 +315,11 @@ export default function Tablero({ onNavigate }) {
               items={actionItems}
               emptyLabel="Flota en condiciones normales"
             />
+          </div>
+
+          {/* ── Pronóstico marítimo + brief IA ────────────────────────── */}
+          <div style={{ marginBottom: 24 }}>
+            <PronosticoWidget puertoBase={empresa?.puerto_base} contextoOps={contextoClima} />
           </div>
 
           {/* ── Segunda fila KPIs ───────────────────────────────────── */}
