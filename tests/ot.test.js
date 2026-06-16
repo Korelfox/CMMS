@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { blankOT, folioOT, costoOT, kpisOT, filtrarOTs, validarNuevaOT } from "../src/lib/ot.js";
+import { blankOT, folioOT, costoOT, kpisOT, filtrarOTs, buscarOTs, validarNuevaOT } from "../src/lib/ot.js";
 
 describe("OT · folio", () => {
   it("online: máximo existente + 1 con padding a 3", () => {
@@ -65,6 +65,19 @@ describe("OT · validación de OT nueva", () => {
   });
   it("válida cuando tiene ambas", () => {
     expect(validarNuevaOT({ embarcacion_id: "n", descripcion: "cambio aceite" })).toBeNull();
+  });
+});
+
+describe("OT · búsqueda", () => {
+  it("filtra por folio, sistema o descripción", () => {
+    const ots = [
+      { folio: "OT-001", sistema: "Motor", descripcion: "cambio aceite", embarcacion_id: "a" },
+      { folio: "OT-002", sistema: "Bomba", descripcion: "fuga sello", embarcacion_id: "b" },
+    ];
+    expect(buscarOTs(ots, "motor").length).toBe(1);
+    expect(buscarOTs(ots, "OT-002").length).toBe(1);
+    expect(buscarOTs(ots, "fuga").length).toBe(1);
+    expect(buscarOTs(ots, "", () => "Aurora").length).toBe(2);
   });
 });
 

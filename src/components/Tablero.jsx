@@ -455,7 +455,7 @@ export default function Tablero({ onNavigate }) {
             <DataTable
               columns={otColumns}
               rows={m.otsRec || []}
-              onRowClick={() => nav("ots")}
+              onRowClick={(o) => onNavigate?.("ots", { otId: o.id })}
               compact
               empty={
                 <EmptyState

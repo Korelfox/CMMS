@@ -1,22 +1,22 @@
-import React, { useEffect, useState, useCallback } from "react";
-import { ClipboardList, Plus, Trash2, Download, CloudOff, Clock, DollarSign, Check, Camera, ListChecks, RefreshCw, ShieldCheck, CheckCircle2 } from "lucide-react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
+import { ClipboardList, Plus, Download, CloudOff, DollarSign, Check, RefreshCw, ShieldCheck, CheckCircle2, AlertTriangle } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { fetchAll, insertRow, updateRow, deleteRow, logActivity, rpcCall } from "../lib/db";
 import { useOnline, cacheTable, getCached, queueInsert, nuevoId } from "../lib/offline";
 import { subirFotos } from "../lib/fotos";
-import { C, clp, isAdmin, canOperate, TIPOS_OT, PRIORIDADES, ESTADOS_OT, lk, tn, tint } from "../theme";
+import { C, clp, isAdmin, canOperate, TIPOS_OT, PRIORIDADES, ESTADOS_OT, lk, tint } from "../theme";
 import {
   Card, Pill, primaryBtn, ghostBtn, exportBtn, inputStyle, bluInput,
-  thStyle, tdStyle, FilterBtn, Field, Empty, InlineSpinner,
-  ModuleShell, StatGrid, Toolbar, Section, EmptyState,
+  FilterBtn, Field, EmptyState,
+  ModuleShell, StatGrid, HeroStat, ActionQueue, Toolbar, Section,
 } from "../ui";
-import { FotoInput, FotoGaleria } from "./Fotos";
-import { blankOT, folioOT, kpisOT, costoOT, filtrarOTs, sinValorizar, validarNuevaOT } from "../lib/ot";
+import { FotoInput } from "./Fotos";
+import { blankOT, folioOT, kpisOT, filtrarOTs, buscarOTs, sinValorizar, validarNuevaOT } from "../lib/ot";
 import { MODOS_FALLA_ISO, requiereCodigoFalla } from "../lib/fallasISO";
-import EstadoSelect from "./ot/EstadoSelect";
 import CierreFallaModal from "./ot/CierreFallaModal";
-import ChecklistOT from "./ot/ChecklistOT";
 import EquipoPicker from "./EquipoPicker";
+import OTQueuePanel from "./ot/OTQueuePanel";
+import OTDetailPanel from "./ot/OTDetailPanel";
 
 const HOY = () => new Date().toISOString().slice(0, 10);
 
@@ -36,10 +36,11 @@ export default function OrdenesTrabajo({ navParams }) {
   const [costoOk, setCostoOk] = useState(null);          // feedback "✓ guardado" por OT
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(blank());
-  const [fotos, setFotos] = useState([]);          // fotos en memoria para la nueva OT
-  const [fotosOT, setFotosOT] = useState(null);    // OT cuya galería de fotos está abierta
-  const [cierreOT, setCierreOT] = useState(null);  // OT correctiva en proceso de cierre/codificación
-  const [checklistOT, setChecklistOT] = useState(null); // OT con el panel de checklist abierto
+  const [fotos, setFotos] = useState([]);
+  const [cierreOT, setCierreOT] = useState(null);
+  const [selectedId, setSelectedId] = useState(navParams?.otId || null);
+  const [busqueda, setBusqueda] = useState("");
+  const [detailTab, setDetailTab] = useState("resumen");
   const [auditViols, setAuditViols] = useState(null);
   const [auditAbierto, setAuditAbierto] = useState(false);
   const [auditLoading, setAuditLoading] = useState(false);
@@ -84,8 +85,14 @@ export default function OrdenesTrabajo({ navParams }) {
   // Al llegar desde una alerta de OT resaltamos esa orden; si se navega
   // al módulo sin contexto (ej. desde el menú), se limpia la destacada.
   useEffect(() => {
-    if (navParams?.otId) { setOtDestacadaId(navParams.otId); setFiltro("all"); }
-    else { setOtDestacadaId(null); }
+    if (navParams?.otId) {
+      setOtDestacadaId(navParams.otId);
+      setSelectedId(navParams.otId);
+      setFiltro("all");
+      setDetailTab("resumen");
+    } else {
+      setOtDestacadaId(null);
+    }
   }, [navParams]);
 
   // Cambiar de filtro manualmente quita el modo "OT señalada".
@@ -104,12 +111,79 @@ export default function OrdenesTrabajo({ navParams }) {
 
   // Si venimos de una alerta, mostramos solo esa OT; si no, el filtro normal.
   const otDestacada = otDestacadaId ? ots.find((o) => o.id === otDestacadaId) : null;
-  // Alcance por embarcación; el filtro de estado opera dentro de ese alcance.
   const otsScope = embFiltro === "all" ? ots : ots.filter((o) => o.embarcacion_id === embFiltro);
-  const lista = otDestacada ? [otDestacada] : filtrarOTs(otsScope, filtro);
+  const listaBase = otDestacada ? [otDestacada] : filtrarOTs(otsScope, filtro);
+  const lista = useMemo(
+    () => buscarOTs(listaBase, busqueda, (id) => embarcaciones.find((e) => e.id === id)?.nombre || ""),
+    [listaBase, busqueda, embarcaciones],
+  );
 
-  // KPIs rápidos (respetan el filtro por nave)
+  const selectedOT = useMemo(
+    () => ots.find((o) => o.id === selectedId) || lista[0] || null,
+    [ots, selectedId, lista],
+  );
+
+  useEffect(() => {
+    if (selectedId && !ots.some((o) => o.id === selectedId)) setSelectedId(null);
+  }, [ots, selectedId]);
+
+  useEffect(() => {
+    if (!selectedId && lista.length > 0) setSelectedId(lista[0].id);
+  }, [filtro, embFiltro, lista.length]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const { abiertas, costoTotal, preventivas, propProactivo } = kpisOT(otsScope);
+  const nSinValorizar = otsScope.filter(sinValorizar).length;
+  const nSinCodificar = otsScope.filter((o) => requiereCodigoFalla(o) && o.estado === "cerrada" && !o.modo_falla).length;
+  const nPendSync = otsScope.filter((o) => o._pending).length;
+  const nCriticasAbiertas = otsScope.filter((o) => o.estado !== "cerrada" && (o.prioridad === "critica" || o.prioridad === "alta")).length;
+
+  const actionItems = useMemo(() => {
+    const items = [];
+    otsScope
+      .filter((o) => o.estado !== "cerrada" && (o.prioridad === "critica" || o.prioridad === "alta"))
+      .slice(0, 4)
+      .forEach((o) => items.push({
+        id: `crit-${o.id}`,
+        label: `${o.folio} · ${o.sistema || "OT"}`,
+        detail: `${lk(PRIORIDADES, o.prioridad)} · ${lk(ESTADOS_OT, o.estado)}`,
+        tone: "red",
+        onClick: () => { setSelectedId(o.id); setDetailTab("ejecucion"); setOtDestacadaId(null); },
+      }));
+    if (nSinValorizar > 0) {
+      items.push({
+        id: "sin-valorizar",
+        label: `${nSinValorizar} OT${nSinValorizar > 1 ? "s" : ""} sin valorizar`,
+        detail: "Cerradas sin costos MO/Mat",
+        tone: "amber",
+        onClick: () => { aplicarFiltro("sin_valorizar"); setModoCostos(true); setDetailTab("costos"); },
+      });
+    }
+    if (nSinCodificar > 0) {
+      items.push({
+        id: "sin-codificar",
+        label: `${nSinCodificar} correctiva${nSinCodificar > 1 ? "s" : ""} sin codificar`,
+        detail: "Falta modo de falla ISO 14224",
+        tone: "amber",
+        onClick: () => {
+          const o = otsScope.find((x) => requiereCodigoFalla(x) && x.estado === "cerrada" && !x.modo_falla);
+          if (o) { setSelectedId(o.id); setCierreOT(o); setDetailTab("resumen"); }
+        },
+      });
+    }
+    if (nPendSync > 0) {
+      items.push({
+        id: "pending-sync",
+        label: `${nPendSync} pendiente${nPendSync > 1 ? "s" : ""} de sync`,
+        detail: "Creadas offline",
+        tone: "amber",
+        onClick: () => {
+          const o = otsScope.find((x) => x._pending);
+          if (o) setSelectedId(o.id);
+        },
+      });
+    }
+    return items;
+  }, [otsScope, nSinValorizar, nSinCodificar, nPendSync]);
 
   async function crear() {
     const err = validarNuevaOT(form);
@@ -287,7 +361,7 @@ export default function OrdenesTrabajo({ navParams }) {
 
   return (
     <ModuleShell
-      kicker="Nivel operativo · Libbrecht"
+      kicker="Nivel operativo · Mantenimiento"
       title="Órdenes de Trabajo"
       sub="Flujo: Solicitada → Planificada → Programada → En ejecución → Cerrada. Registra costos, MTTR y trazabilidad ISO 14224."
       error={error}
@@ -363,14 +437,30 @@ export default function OrdenesTrabajo({ navParams }) {
         </>
       }
     >
-      <StatGrid
-        stats={[
-          { label: "OTs totales", value: ots.length, sub: `${abiertas} abiertas`, icon: ClipboardList, tone: C.steel },
-          { label: "Abiertas", value: abiertas, sub: "requieren seguimiento", icon: Clock, tone: abiertas ? C.amber : C.green },
-          { label: "Proactivo", value: `${propProactivo}%`, sub: `${preventivas} preventivas`, icon: Check, tone: propProactivo >= 60 ? C.green : C.amber },
-          { label: "Costo total", value: clp(costoTotal), sub: modoCostos ? "modo valorización activo" : "MO + materiales", icon: DollarSign, tone: C.gold, onClick: puedeCostos ? () => setModoCostos((v) => !v) : undefined },
-        ]}
-      />
+      <div className="cmms-grid-2" style={{ marginBottom: 24 }}>
+        <StatGrid
+          hero={
+            <HeroStat
+              variant={nCriticasAbiertas > 0 ? "critical" : abiertas > 0 ? "warn" : "ok"}
+              icon={nCriticasAbiertas > 0 ? AlertTriangle : ClipboardList}
+              label="Backlog operativo"
+              value={abiertas}
+              sub={`${otsScope.length} OTs en alcance · ${nSinValorizar} sin valorizar · ${propProactivo}% proactivo`}
+              onClick={() => aplicarFiltro(abiertas ? "en_ejecucion" : "all")}
+            />
+          }
+          stats={[
+            { label: "Críticas / altas", value: nCriticasAbiertas, sub: "abiertas", icon: AlertTriangle, tone: nCriticasAbiertas ? C.red : C.green, onClick: () => { aplicarFiltro("all"); setDetailTab("ejecucion"); } },
+            { label: "Sin valorizar", value: nSinValorizar, sub: "cerradas sin costo", icon: DollarSign, tone: nSinValorizar ? C.amber : C.green, onClick: () => { aplicarFiltro("sin_valorizar"); setModoCostos(true); setDetailTab("costos"); } },
+            { label: "Costo acumulado", value: clp(costoTotal), sub: modoCostos ? "valorización activa" : "MO + materiales", icon: DollarSign, tone: C.gold, onClick: puedeCostos ? () => { setModoCostos((v) => !v); setDetailTab("costos"); } : undefined },
+          ]}
+        />
+        <ActionQueue
+          title="Requiere atención"
+          items={actionItems}
+          emptyLabel="Backlog en condiciones normales"
+        />
+      </div>
 
       {(() => {
         const nViols = auditViols?.length ?? null;
@@ -485,144 +575,71 @@ export default function OrdenesTrabajo({ navParams }) {
 
       {otDestacada && (
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, background: C.mist, border: `1px solid ${C.line}`, borderRadius: 10, padding: "10px 14px", marginBottom: 14, fontSize: 13 }}>
-          <span style={{ color: C.steel }}>Mostrando la orden <strong>{otDestacada.folio}</strong> señalada desde Alertas. Cambia su estado en la columna Estado.</span>
+          <span style={{ color: C.steel }}>Orden <strong>{otDestacada.folio}</strong> señalada desde Alertas — gestiona en el panel de detalle.</span>
           <button onClick={() => setOtDestacadaId(null)} style={{ ...ghostBtn, padding: "5px 12px", fontSize: 12.5, whiteSpace: "nowrap" }}>Ver todas</button>
         </div>
       )}
 
-
       {modoCostos && (
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, background: C.goldBg || tint(C.gold, 16), border: `1px solid ${C.gold}`, borderRadius: 10, padding: "10px 14px", marginBottom: 14, fontSize: 13 }}>
           <span style={{ display: "inline-flex", alignItems: "center", gap: 8, color: "#7a5b00" }}>
-            <DollarSign size={16} /> Valorización de costos: ingresa mano de obra (MO) y materiales (Mat) de cada orden — también en OTs cerradas, para el cierre de costos posterior. Se guarda al salir del campo con tu firma.
+            <DollarSign size={16} /> Modo valorización: edita costos en el tab <strong>Costos</strong> del panel derecho. Se guarda al salir del campo con tu firma.
           </span>
           <button onClick={() => setModoCostos(false)} style={{ ...ghostBtn, padding: "5px 12px", fontSize: 12.5, whiteSpace: "nowrap" }}>Listo</button>
         </div>
       )}
 
-      <Section title="Registro de órdenes" padding={0} style={{ marginBottom: 0 }}>
-        <div style={{ overflowX: "auto" }}>
-          <table data-testid="ot-tabla" style={{ width: "100%", borderCollapse: "collapse", minWidth: 960 }}>
-            <thead><tr>
-              <th style={thStyle}>Folio</th><th style={thStyle}>Fecha</th><th style={thStyle}>Embarcación</th>
-              <th style={thStyle}>Sistema</th><th style={thStyle}>Tipo</th><th style={thStyle}>Prioridad</th>
-              <th style={thStyle}>Descripción</th><th style={{ ...thStyle, textAlign: "right" }}>Costo</th>
-              <th style={thStyle}>Estado</th><th style={thStyle}></th>
-            </tr></thead>
-            <tbody>
-              {lista.length === 0 ? (
-                <tr><td colSpan={10}>
-                  <EmptyState icon={ClipboardList} title="Sin órdenes en este filtro" description="Prueba otro estado o crea una nueva OT." />
-                </td></tr>
-              ) :
-                lista.map((o) => (
-                  <React.Fragment key={o.id}>
-                  <tr style={o._pending ? { background: C.yellowBg } : undefined}>
-                    <td style={{ ...tdStyle, fontFamily: "'IBM Plex Mono', monospace", fontWeight: 600, color: C.steel }}>
-                      {o.folio}
-                      {o._pending && <span title="Pendiente de sincronizar" style={{ display: "inline-flex", alignItems: "center", gap: 3, marginLeft: 6, fontSize: 10, fontFamily: "'Archivo',sans-serif", fontWeight: 700, color: "#7a5b00", background: C.amber, padding: "1px 6px", borderRadius: 20 }}><Clock size={9} /> Pendiente</span>}
-                    </td>
-                    <td style={{ ...tdStyle, fontFamily: "'IBM Plex Mono', monospace", fontSize: 12 }}>{o.fecha}</td>
-                    <td style={tdStyle}>{embName(o.embarcacion_id)}</td>
-                    <td style={tdStyle}>{o.sistema}</td>
-                    <td style={tdStyle}><Pill tone={tn(TIPOS_OT, o.tipo)}>{lk(TIPOS_OT, o.tipo)}</Pill></td>
-                    <td style={tdStyle}><Pill tone={tn(PRIORIDADES, o.prioridad)}>{lk(PRIORIDADES, o.prioridad)}</Pill></td>
-                    <td style={{ ...tdStyle, maxWidth: 220 }}>
-                      {o.descripcion}
-                      {o.modo_falla && (
-                        <div style={{ fontSize: 10.5, color: C.red, fontWeight: 600, marginTop: 3 }} title="Codificación de falla ISO 14224">
-                          ⚠ {lk(MODOS_FALLA_ISO, o.modo_falla)}
-                        </div>
-                      )}
-                    </td>
-                    {modoCostos && puedeCostos && !o._pending && online ? (
-                      <td style={tdStyle}>
-                        <div style={{ display: "flex", flexDirection: "column", gap: 4, alignItems: "flex-end" }}>
-                          <label style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 10, color: C.slate, fontWeight: 600 }}>
-                            MO <input type="number" step={1000} value={o.costo_mo || 0}
-                              onFocus={(e) => e.target.select()} onChange={(e) => editarCosto(o.id, "costo_mo", +e.target.value)} onBlur={() => guardarCosto(o)}
-                              style={{ ...bluInput, width: 96, padding: "4px 7px", fontSize: 12 }} /></label>
-                          <label style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 10, color: C.slate, fontWeight: 600 }}>
-                            Mat <input type="number" step={1000} value={o.costo_mat || 0}
-                              onFocus={(e) => e.target.select()} onChange={(e) => editarCosto(o.id, "costo_mat", +e.target.value)} onBlur={() => guardarCosto(o)}
-                              style={{ ...bluInput, width: 96, padding: "4px 7px", fontSize: 12 }} /></label>
-                          {costoOk === o.id && <span style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: 10, color: C.green, fontWeight: 600 }}><Check size={11} /> guardado</span>}
-                        </div>
-                      </td>
-                    ) : (
-                      <td style={{ ...tdStyle, textAlign: "right" }}>
-                        <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontWeight: 600 }}>{clp(costoOT(o))}</div>
-                        {sinValorizar(o) && (
-                          <span style={{ display: "inline-block", fontSize: 9.5, fontWeight: 700, color: "#7a5b00", background: tint(C.amber, 18), border: `1px solid ${C.amber}`, borderRadius: 20, padding: "1px 7px", marginTop: 3, whiteSpace: "nowrap" }}
-                            title="OT cerrada sin costos — pendiente de valorización del armador">
-                            $ por valorizar
-                          </span>
-                        )}
-                        {o.costos_por && costoOT(o) > 0 && (
-                          <div style={{ fontSize: 9.5, color: C.slate, marginTop: 3, whiteSpace: "nowrap" }} title="Firma de valorización de costos">
-                            $ {o.costos_por}{o.costos_fecha ? ` · ${new Date(o.costos_fecha).toLocaleDateString("es-CL")}` : ""}
-                          </div>
-                        )}
-                      </td>
-                    )}
-                    <td style={tdStyle}>
-                      {puedeOperar && !o._pending && online
-                        ? <EstadoSelect estado={o.estado} onChange={(nuevo) => cambiarEstado(o, nuevo)} />
-                        : <Pill tone={tn(ESTADOS_OT, o.estado)}>{lk(ESTADOS_OT, o.estado)}</Pill>}
-                      {o.estado === "cerrada" && o.cerrada_por && (
-                        <div style={{ fontSize: 10, color: C.slate, marginTop: 3 }} title="Firma de cierre">
-                          ✍ {o.cerrada_por}{o.cerrada_fecha ? ` · ${new Date(o.cerrada_fecha).toLocaleDateString("es-CL")}` : ""}
-                        </div>
-                      )}
-                    </td>
-                    <td style={tdStyle}>
-                      <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                        {puedeOperar && !o._pending && online && o.estado === "cerrada" && requiereCodigoFalla(o) && !o.modo_falla && (
-                          <button onClick={() => setCierreOT(o)} title="Correctiva cerrada SIN codificar — registra el modo de falla (ISO 14224)"
-                            style={{ background: tint(C.amber, 16), border: `1px solid ${C.amber}`, borderRadius: 6, cursor: "pointer", color: "#7a5b00", padding: "2px 7px", fontSize: 10.5, fontWeight: 700 }}>
-                            Codificar falla
-                          </button>
-                        )}
-                        {!o._pending && online && (() => {
-                          const items = Array.isArray(o.checklist) ? o.checklist : [];
-                          const hechos = items.filter((i) => i.ok).length;
-                          const abierto = checklistOT === o.id;
-                          return (
-                            <button onClick={() => setChecklistOT(abierto ? null : o.id)}
-                              title={items.length ? `Checklist: ${hechos}/${items.length} tareas` : "Crear checklist de tareas"}
-                              style={{ background: abierto ? C.steel : "none", border: "none", cursor: "pointer", color: abierto ? "#fff" : (items.length ? (hechos === items.length ? C.green : C.steel) : C.slate), display: "inline-flex", alignItems: "center", gap: 3, borderRadius: 5, padding: "2px 4px" }}>
-                              <ListChecks size={15} />
-                              {items.length > 0 && <span style={{ fontSize: 10, fontWeight: 700 }}>{hechos}/{items.length}</span>}
-                            </button>
-                          );
-                        })()}
-                        {!o._pending && online && (
-                          <button onClick={() => setFotosOT(fotosOT === o.id ? null : o.id)} title="Fotos" style={{ background: "none", border: "none", cursor: "pointer", color: fotosOT === o.id ? C.steel : C.slate }}><Camera size={15} /></button>
-                        )}
-                        {puedeBorrar && !o._pending && <button onClick={() => eliminar(o.id)} title="Eliminar" style={{ background: "none", border: "none", cursor: "pointer", color: C.slate }}><Trash2 size={15} /></button>}
-                      </div>
-                    </td>
-                  </tr>
-                  {checklistOT === o.id && (
-                    <tr>
-                      <td colSpan={10} style={{ ...tdStyle, background: C.mist }}>
-                        <ChecklistOT ot={o} puedeOperar={puedeOperar} usuario={profile?.nombre || ""}
-                          onSave={(items) => guardarChecklist(o, items)} />
-                      </td>
-                    </tr>
-                  )}
-                  {fotosOT === o.id && (
-                    <tr>
-                      <td colSpan={10} style={{ ...tdStyle, background: C.mist }}>
-                        <div style={{ fontSize: 11, color: C.slate, fontWeight: 600, marginBottom: 8 }}>Fotos de {o.folio}</div>
-                        <FotoGaleria entidad="ot" entidadId={o.id} puedeAgregar={puedeOperar} puedeBorrar={puedeBorrar} online={online} />
-                      </td>
-                    </tr>
-                  )}
-                  </React.Fragment>))}
-            </tbody>
-          </table>
-        </div>
+      <Section title="Cola y detalle" description="Selecciona una OT a la izquierda · gestiona ejecución, costos y fotos a la derecha" padding={0} style={{ marginBottom: 0 }}>
+        <style>{`
+          .ot-split-container {
+            display: grid;
+            grid-template-columns: minmax(300px, 380px) 1fr;
+            gap: 16px;
+            align-items: start;
+            padding: 16px;
+          }
+          .ot-queue-item-selected .ot-queue-item-title { color: ${C.sky}; }
+          @media (max-width: 1024px) {
+            .ot-split-container { grid-template-columns: 1fr; }
+          }
+        `}</style>
+
+        {lista.length === 0 && !loading ? (
+          <EmptyState icon={ClipboardList} title="Sin órdenes en este filtro" description="Prueba otro estado, limpia la búsqueda o crea una nueva OT." />
+        ) : (
+          <div className="ot-split-container">
+            <OTQueuePanel
+              lista={lista}
+              selectedId={selectedOT?.id}
+              onSelect={(id) => { setSelectedId(id); setOtDestacadaId(null); }}
+              busqueda={busqueda}
+              setBusqueda={setBusqueda}
+              embName={embName}
+              showEmb={embFiltro === "all"}
+              embarcaciones={embarcaciones}
+            />
+            <OTDetailPanel
+              ot={selectedOT}
+              embName={embName}
+              embColor={embarcaciones.find((e) => e.id === selectedOT?.embarcacion_id)?.color}
+              puedeOperar={puedeOperar}
+              puedeBorrar={puedeBorrar}
+              puedeCostos={puedeCostos}
+              online={online}
+              modoCostos={modoCostos}
+              costoOk={costoOk}
+              activeTab={detailTab}
+              onTabChange={setDetailTab}
+              onCambiarEstado={cambiarEstado}
+              onGuardarChecklist={guardarChecklist}
+              onEditarCosto={editarCosto}
+              onGuardarCosto={guardarCosto}
+              onCodificarFalla={setCierreOT}
+              onEliminar={eliminar}
+              usuario={profile?.nombre || ""}
+            />
+          </div>
+        )}
       </Section>
 
       {cierreOT && (

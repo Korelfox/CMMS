@@ -50,6 +50,18 @@ export function filtrarOTs(ots = [], filtro = "all") {
   return ots.filter((o) => o.embarcacion_id === filtro);
 }
 
+/** Búsqueda por folio, sistema, descripción o nombre de nave. */
+export function buscarOTs(ots = [], query = "", embNameFn) {
+  const q = String(query || "").trim().toLowerCase();
+  if (!q) return ots;
+  return ots.filter((o) =>
+    o.folio?.toLowerCase().includes(q)
+    || o.descripcion?.toLowerCase().includes(q)
+    || o.sistema?.toLowerCase().includes(q)
+    || embNameFn?.(o.embarcacion_id)?.toLowerCase().includes(q),
+  );
+}
+
 // Validación de una OT nueva. Devuelve mensaje de error o null si es válida.
 export function validarNuevaOT(form) {
   if (!form?.descripcion?.trim() || !form?.embarcacion_id) {
