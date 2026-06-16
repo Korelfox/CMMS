@@ -1,24 +1,24 @@
 import React, { useEffect, useState, useCallback, useRef, useMemo } from "react";
-import { Ship, Plus, Trash2, Download, AlertCircle, GitBranch, Layers, Cpu, Wrench, Box, Hash, ChevronDown, ChevronRight, ChevronUp, Check, Package, X, Rows3, FileText, Settings2, PanelRightOpen, RefreshCw, Activity } from "lucide-react";
+import { Ship, Plus, Trash2, Download, AlertCircle, GitBranch, Layers, Cpu, Wrench, Box, Hash, Check, Package, FileText, Settings2, RefreshCw } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { fetchAll, insertRow, updateRow, deleteRow, logActivity } from "../lib/db";
-import { C, isAdmin, canOperate, ESTADOS_EQUIPO, estadoLabel, estadoTone, num, tint, shadow } from "../theme";
+import { C, isAdmin, canOperate, estadoLabel, num, tint, shadow } from "../theme";
 import { buildEquipoTree } from "../lib/equipTree";
-import { fondoTipo, colorTipo } from "../lib/arbolColapsable";
-import { PLANTILLA_PESQUERA, nodoIncluido, contarNodosPlantilla, contarRepuestosPlantilla, contarPlanesPMPlantilla, TIPO_NODO_META, CRITICIDAD_TONE } from "../lib/plantillaPesquera";
+import { useArbolColapsable } from "../lib/arbolColapsable";
+import { PLANTILLA_PESQUERA, nodoIncluido, contarNodosPlantilla, contarRepuestosPlantilla, contarPlanesPMPlantilla, TIPO_NODO_META } from "../lib/plantillaPesquera";
 
 import {
-  Card, Pill, primaryBtn, ghostBtn, exportBtn, inputStyle,
-  FilterBtn, Field, Empty, InlineSpinner, GuiaColapsable,
+  Card, primaryBtn, ghostBtn, exportBtn, inputStyle,
+  FilterBtn, Field, Empty, GuiaColapsable,
   ModuleShell, StatGrid, HeroStat, Toolbar, Section, EmptyState,
 } from "../ui";
 import NotaJerarquia from "./equipos/NotaJerarquia";
-import RepuestoPanel from "./equipos/RepuestoPanel";
-import { FichaBody, fichaTieneDatos } from "./equipos/FichaEquipo";
-import { PropOpBody } from "./equipos/PropOpModal";
 import { useWindows } from "./windows/WindowManager";
 import EquipoWindow, { RepuestosWindowBody } from "./equipos/EquipoWindow";
-import { TipoChip, CritBadge } from "./equipos/arbolUI";
+import EquipoTreePanel from "./equipos/EquipoTreePanel";
+import EquipoDetailPanel from "./equipos/EquipoDetailPanel";
+import { FichaBody } from "./equipos/FichaEquipo";
+import { PropOpBody } from "./equipos/PropOpModal";
 import { equiposStore } from "./equipos/equiposStore";
 
 const TIPO_NODOS = [
@@ -36,17 +36,6 @@ const CRITICIDADES = [
 ];
 const ICONO_TIPO = { sistema: Layers, subsistema: GitBranch, componente: Wrench, instrumento: Cpu, equipo: Box };
 
-// Encabezado de tabla (compacto, estático).
-const thE = { textAlign: "left", padding: "7px 7px", fontSize: 10.5, letterSpacing: 0.4, textTransform: "uppercase", color: C.slate, fontWeight: 600, borderBottom: `2px solid ${C.line}`, whiteSpace: "nowrap" };
-// Presets de densidad: la ALTURA DE FILA es ajustable por el usuario (se recuerda
-// en localStorage). cell = padding de celda; inp = padding de inputs; font = fuente.
-const DENSIDADES = {
-  compacta: { label: "Compacta", cell: "1px 7px", inp: "2px 8px",  font: 12 },
-  media:    { label: "Media",    cell: "3px 7px", inp: "4px 8px",  font: 12.5 },
-  amplia:   { label: "Amplia",   cell: "7px 8px", inp: "8px 10px", font: 13.5 },
-};
-
-
 function blankForm(embId = "") {
   return { embarcacion_id: embId, id_visible: "", sistema: "", subsistema: "", marca: "", modelo: "", parent_id: "", tipo_nodo: "equipo", criticidad: "" };
 }
@@ -61,39 +50,23 @@ export default function Equipos() {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm]         = useState(blankForm());
   const [precargando, setPrecargando] = useState(false);
-  const [colapsados,  setColapsados]  = useState(() => new Set());
-  const [initColapso, setInitColapso] = useState(false);
-  const [original,    setOriginal]    = useState({}); // snapshot por id para guardar/descartar
+  const [original,    setOriginal]    = useState({});
   const [guardando,   setGuardando]   = useState(false);
-  const [items,       setItems]       = useState([]); // inventario_items (repuestos)
-  const [destinos,    setDestinos]    = useState([]); // inventario_item_destinos (item↔equipo)
-  const [repuestoPanel, setRepuestoPanel] = useState(null); // equipo id con panel de repuestos abierto
-  const [menuHijo, setMenuHijo] = useState(null);     // equipo id con el menú "agregar (tipo)" abierto
+  const [items,       setItems]       = useState([]);
+  const [destinos,    setDestinos]    = useState([]);
+  const [busqueda,    setBusqueda]    = useState("");
+  const [selectedId,  setSelectedId]  = useState(null);
   const { open } = useWindows();
-  const handlersRef = useRef({}); // callbacks vivos que consumen las ventanas
+  const handlersRef = useRef({});
+  const arbolRef = useRef(null);
 
   // Espeja el estado a la fuente viva que leen las ventanas (drill-down).
   useEffect(() => {
     equiposStore.set({ equipos, items, destinos, embarcaciones });
   }, [equipos, items, destinos, embarcaciones]);
-  const [densidad, setDensidad] = useState(() => {
-    try { return localStorage.getItem("equipos_densidad") || "media"; } catch { return "media"; }
-  });
-  function cambiarDensidad(d) {
-    setDensidad(d);
-    try { localStorage.setItem("equipos_densidad", d); } catch { /* sin persistencia */ }
-  }
-  const D = DENSIDADES[densidad] || DENSIDADES.media;
-  // Estilos de celda/input dependientes de la densidad elegida (altura de fila).
-  const tdE  = { padding: D.cell, fontSize: D.font, borderBottom: `1px solid ${C.foam}`, color: C.ink };
-  const bluC = { width: "100%", border: `1px solid ${tint(C.sky, 28)}`, borderRadius: 7, background: tint(C.sky, 9), outline: "none", padding: D.inp, fontSize: D.font, color: C.steel, fontWeight: 600, fontFamily: "'IBM Plex Mono', monospace" };
-  const inC  = (w) => ({ width: w || "100%", border: `1px solid ${C.line}`, borderRadius: 7, background: C.surface, outline: "none", padding: D.inp, fontSize: D.font, color: C.ink });
+
   const puedeOperar = canOperate(profile?.rol);
   const puedeBorrar = isAdmin(profile?.rol);
-  const hasActions  = puedeOperar || puedeBorrar;
-  // Nº de columnas (para colSpan de filas vacías y del panel de repuestos):
-  // 13 base + Orden (si puede operar) + Acción (si hay acciones).
-  const NCOLS = 11 + (puedeOperar ? 1 : 0) + (hasActions ? 1 : 0);
 
   const cargar = useCallback(async () => {
     setLoading(true); setError(null);
@@ -120,73 +93,45 @@ export default function Equipos() {
   const baseList = filtro === "all" ? equipos : equipos.filter((e) => e.embarcacion_id === filtro);
   const lista    = buildEquipoTree(baseList);
 
-  // ── Colapso por nodo (a cualquier nivel) ──
-  // conHijos: ids de nodos que tienen al menos un hijo (sistemas, subsistemas, …).
-  const conHijos = new Set();
-  lista.forEach((e) => { if (e.parent_id) conHijos.add(e.parent_id); });
-
-  // descCount: total de descendientes por nodo (para el badge "▸ N" al colapsar).
-  const descCount = new Map();
-  {
-    const pila = [];
-    for (const e of lista) {
-      while (pila.length && pila[pila.length - 1].depth >= e.depth) pila.pop();
-      pila.forEach((a) => descCount.set(a.id, (descCount.get(a.id) || 0) + 1));
-      pila.push(e);
-    }
-  }
-
-  // Grupos de hermanos (mismo padre + nave) en el orden mostrado, para mover
-  // arriba/abajo. posInfo: id → { first, last } dentro de su grupo.
   const grupoKey = (e) => `${e.parent_id ?? "root"}|${e.embarcacion_id}`;
-  const posInfo = new Map();
-  {
+  const posInfo = useMemo(() => {
+    const info = new Map();
     const grupos = new Map();
     lista.forEach((e) => { const k = grupoKey(e); if (!grupos.has(k)) grupos.set(k, []); grupos.get(k).push(e); });
-    grupos.forEach((arr) => arr.forEach((e, i) => posInfo.set(e.id, { first: i === 0, last: i === arr.length - 1 })));
-  }
+    grupos.forEach((arr) => arr.forEach((e, i) => info.set(e.id, { first: i === 0, last: i === arr.length - 1 })));
+    return info;
+  }, [lista]);
 
-  // Visibilidad: un nodo se oculta si CUALQUIER ancestro está colapsado.
-  // Recorre en pre-orden (padre antes que hijos) llevando la profundidad del
-  // ancestro colapsado activo; mientras esté activo, se saltan los más profundos.
-  const listaVisible = [];
-  {
-    let colapsadoEnDepth = null;
-    for (const e of lista) {
-      if (colapsadoEnDepth !== null && e.depth > colapsadoEnDepth) continue; // oculto
-      colapsadoEnDepth = null; // salimos del subárbol colapsado
-      listaVisible.push(e);
-      if (colapsados.has(e.id)) colapsadoEnDepth = e.depth; // colapsa sus descendientes
-    }
-  }
+  const arbol = useArbolColapsable(lista);
+  arbolRef.current = arbol;
 
-  // Contraer TODOS los nodos con hijos por defecto (una sola vez, al cargar):
-  // se ve solo el nivel raíz y se va abriendo hacia los componentes.
+  const repsPorEquipo = useMemo(() => {
+    const m = new Map();
+    destinos.forEach((d) => m.set(d.equipo_id, (m.get(d.equipo_id) || 0) + 1));
+    return m;
+  }, [destinos]);
+
+  const busq = busqueda.trim().toLowerCase();
   useEffect(() => {
-    if (!initColapso && conHijos.size > 0) {
-      setColapsados(new Set([...conHijos]));
-      setInitColapso(true);
-    }
-  }, [lista]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (busq && arbol.colapsarTodo) arbol.colapsarTodo(false);
+  }, [busq]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  function toggleColapso(nodeId) {
-    setColapsados((prev) => {
-      const n = new Set(prev);
-      n.has(nodeId) ? n.delete(nodeId) : n.add(nodeId);
-      return n;
-    });
-  }
-  const colapsarTodo = (v) => setColapsados(v ? new Set([...conHijos]) : new Set());
+  const listaVisible = useMemo(() => lista.filter((eq) => {
+    if (!arbol.visible(eq)) return false;
+    if (!busq) return true;
+    return eq.sistema?.toLowerCase().includes(busq) || eq.id_visible?.toLowerCase().includes(busq)
+      || eq.marca?.toLowerCase().includes(busq) || eq.modelo?.toLowerCase().includes(busq);
+  }), [lista, arbol, busq]);
 
-  // Padres disponibles para un equipo (misma nave, no él mismo ni sus hijos)
-  function padresDisponibles(eqId, embId) {
-    const candidatos = equipos.filter((e) => e.embarcacion_id === embId && e.id !== eqId);
-    // Excluir descendientes del equipo actual (para no crear ciclos)
-    const descendants = new Set();
-    function markDesc(id) { equipos.filter((c) => c.parent_id === id).forEach((c) => { descendants.add(c.id); markDesc(c.id); }); }
-    if (eqId) markDesc(eqId);
-    return candidatos.filter((c) => !descendants.has(c.id));
-  }
+  useEffect(() => {
+    if (selectedId && !equipos.some((e) => e.id === selectedId)) setSelectedId(null);
+  }, [equipos, selectedId]);
+
+  useEffect(() => {
+    if (!selectedId && listaVisible.length > 0) setSelectedId(listaVisible[0].id);
+  }, [filtro]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const esAgrupador = (e) => e.tipo_nodo === "sistema";
 
   async function agregar() {
     if (!form.embarcacion_id || !form.sistema.trim()) return;
@@ -218,8 +163,6 @@ export default function Equipos() {
   // Agrega un hijo directamente desde el árbol (ej. un filtro extra bajo "Combustible").
   // Crea el nodo al instante (con id y padre) y queda editable inline; expande el padre.
   async function agregarHijo(parent, tipoElegido) {
-    setMenuHijo(null);
-    // Tipo del hijo: el elegido por el usuario, o el sugerido según el padre.
     const childTipo = tipoElegido || TIPO_HIJO[parent.tipo_nodo] || "componente";
     const nombreNuevo = { subsistema: "Nuevo subsistema", componente: "Nuevo componente", instrumento: "Nuevo instrumento" }[childTipo] || "Nuevo componente";
     // Código auto: ruta del padre (sin la secuencia final) + correlativo único.
@@ -239,7 +182,8 @@ export default function Equipos() {
       });
       setEquipos((p) => [...p, nuevo]);
       setOriginal((o) => ({ ...o, [nuevo.id]: { ...nuevo } }));
-      setColapsados((prev) => { const n = new Set(prev); n.delete(parent.id); return n; }); // expandir el padre
+      if (arbolRef.current?.estaColapsado?.(parent)) arbolRef.current.toggle(parent.id);
+      setSelectedId(nuevo.id);
       logActivity(profile, "Crear equipo", `${idVis} (sub de ${parent.id_visible})`);
     } catch (e) { setError("No se pudo agregar el subnodo: " + e.message); }
   }
@@ -268,12 +212,6 @@ export default function Equipos() {
   }
 
   // ── Repuestos enlazados a un nodo (inventario_item_destinos) ──
-  function repuestosDe(equipoId) {
-    return destinos.filter((d) => d.equipo_id === equipoId)
-      .map((d) => ({ destino: d, item: items.find((i) => i.id === d.item_id) }))
-      .filter((r) => r.item);
-  }
-
   async function enlazarRepuesto(equipoId, itemId) {
     if (!itemId || destinos.some((d) => d.equipo_id === equipoId && d.item_id === itemId)) return;
     try {
@@ -476,7 +414,9 @@ export default function Equipos() {
     });
   }
   // Abre la ventana de navegación/estructura de un nodo (drill-down apilable).
-  function abrirEquipoWindow(node) {
+  function abrirEquipoWindow(nodeOrId) {
+    const node = typeof nodeOrId === "string" ? equipos.find((e) => e.id === nodeOrId) : nodeOrId;
+    if (!node) return;
     const meta = TIPO_NODO_META[node.tipo_nodo] || TIPO_NODO_META.equipo;
     const nave = embarcaciones.find((v) => v.id === node.embarcacion_id);
     open({
@@ -486,7 +426,9 @@ export default function Equipos() {
       icon: ICONO_TIPO[node.tipo_nodo] || ICONO_TIPO.equipo,
       iconColor: meta.color,
       width: 600,
-      render: ({ setTitle }) => <EquipoWindow nodeId={node.id} handlersRef={handlersRef} puedeOperar={puedeOperar} setTitle={setTitle} />,
+      render: () => (
+        <EquipoWindow nodeId={node.id} handlersRef={handlersRef} puedeOperar={puedeOperar} puedeBorrar={puedeBorrar} posInfo={posInfo} />
+      ),
     });
   }
   // Abre la ventana de repuestos de un componente (apilada).
@@ -507,8 +449,8 @@ export default function Equipos() {
   handlersRef.current = {
     agregarHijo, abrirEquipoWindow, abrirFicha, abrirPropOp, abrirRepuestos,
     enlazarRepuesto, desenlazarRepuesto, crearYEnlazarRepuesto,
-    renombrar: (id, nombre) => { onChangeLocal(id, "sistema", nombre); commit(id, "sistema", nombre); },
     editar: (id, campo, valor) => onChangeLocal(id, campo, valor),
+    guardarPropOp, guardarFicha, moverNodo,
   };
 
   // Guarda inmediatamente los atributos operacionales (horómetro / consume aceite / nivel).
@@ -547,8 +489,6 @@ export default function Equipos() {
   }
 
   function onChangeLocal(id, campo, valor) { setEquipos((p) => p.map((e) => e.id === id ? { ...e, [campo]: valor } : e)); }
-  // Edición LOCAL — no persiste hasta pulsar "Guardar cambios"
-  const commit = onChangeLocal;
 
   // horas_ult_pm ya no se edita aquí: lo escribe Plan Preventivo al registrar
   // cada PM (el hito real por plan vive en planes_pm.horas_ult_pm).
@@ -674,18 +614,6 @@ export default function Equipos() {
               ))}
             </>
           }
-          right={
-            conHijos.size > 0 ? (
-              <>
-                <button type="button" onClick={() => colapsarTodo(true)} style={{ ...ghostBtn, fontSize: 12, padding: "6px 12px" }}>
-                  <ChevronRight size={13} /> Colapsar
-                </button>
-                <button type="button" onClick={() => colapsarTodo(false)} style={{ ...ghostBtn, fontSize: 12, padding: "6px 12px" }}>
-                  <ChevronDown size={13} /> Expandir
-                </button>
-              </>
-            ) : null
-          }
         />
       }
     >
@@ -702,15 +630,8 @@ export default function Equipos() {
         stats={[
           { label: "Críticos (A)", value: kpis.criticos, sub: "prioridad máxima", icon: AlertCircle, tone: kpis.criticos ? C.red : C.green },
           { label: "Sin guardar", value: kpis.sinGuardar, sub: "cambios pendientes", icon: Check, tone: kpis.sinGuardar ? C.amber : C.green },
-        ]}
-      />
-
-      <StatGrid
-        stats={[
-          { label: "Indisponibles", value: kpis.indisponibles, sub: "fuera de servicio / reparación", icon: Wrench, tone: kpis.indisponibles ? C.red : C.green },
-          { label: "Repuestos", value: destinos.length, sub: "enlaces item ↔ equipo", icon: Package, tone: C.steel },
-          { label: "Naves", value: embarcaciones.length, sub: filtro === "all" ? "vista flota completa" : embName(filtro), icon: Ship, tone: C.cyan },
-          { label: "Visible", value: listaVisible.length, sub: "nodos en el árbol", icon: Activity, tone: C.steel },
+          { label: "Indisponibles", value: kpis.indisponibles, sub: "fuera de servicio", icon: Wrench, tone: kpis.indisponibles ? C.red : C.green },
+          { label: "Enlaces rep.", value: destinos.length, sub: "item ↔ equipo", icon: Package, tone: C.steel },
         ]}
       />
 
@@ -835,132 +756,73 @@ export default function Equipos() {
         </Section>
       )}
 
-      <Section title="Árbol de equipos" description="Jerarquía ISO 14224 editable inline · doble clic en ventana flotante para detalle" padding={0} style={{ marginBottom: 0 }}>
+      <Section title="Árbol y gestión" description="Selecciona un nodo a la izquierda · edita en el panel de tabs a la derecha" padding={0} style={{ marginBottom: 0 }}>
         <style>{`
-          .eq-row:hover { background: ${tint(C.steel, 5)}; }
-          .eq-row:hover .eq-actions { opacity: 1; }
-          .eq-actions { opacity: .55; transition: opacity .12s; }
-          @media (hover: none) { .eq-actions { opacity: 1; } }
+          .eq-split-container {
+            display: grid;
+            grid-template-columns: minmax(280px, 360px) 1fr;
+            gap: 16px;
+            align-items: start;
+            padding: 16px;
+          }
+          .eq-tree-node {
+            position: relative;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 7px 10px;
+            margin-bottom: 3px;
+            border-radius: 8px;
+            border: 1px solid transparent;
+            cursor: pointer;
+            transition: all 0.15s ease;
+          }
+          .eq-tree-node:hover {
+            background: color-mix(in srgb, ${C.sky} 5%, transparent);
+            border-color: color-mix(in srgb, ${C.line} 50%, transparent);
+          }
+          .eq-tree-node-selected {
+            background: color-mix(in srgb, ${C.sky} 10%, transparent) !important;
+            border-color: color-mix(in srgb, ${C.sky} 35%, transparent) !important;
+          }
+          .eq-tree-node-selected .eq-tree-name { color: ${C.sky}; }
+          @media (max-width: 1024px) {
+            .eq-split-container { grid-template-columns: 1fr; }
+          }
         `}</style>
-        {listaVisible.length === 0 ? (
-          <Empty>{equipos.length === 0 ? <NotaJerarquia /> : "Sin equipos para este filtro."}</Empty>
+
+        {equipos.length === 0 ? (
+          <Empty><NotaJerarquia /></Empty>
         ) : (
-          <div style={{ display: "flex", flexDirection: "column" }}>
-            {listaVisible.map((e) => {
-              const tieneHijos   = conHijos.has(e.id);
-              const colapsado    = colapsados.has(e.id);
-              const nDesc        = descCount.get(e.id) || 0;
-              const esComponente = e.tipo_nodo === "componente" || e.tipo_nodo === "instrumento" || !tieneHijos;
-              const nReps        = destinos.filter((d) => d.equipo_id === e.id).length;
-              const pos          = posInfo.get(e.id) || { first: true, last: true };
-              const esAgrupador  = e.tipo_nodo === "sistema";
-              const conFicha     = fichaTieneDatos(e.ficha);
-              const iconBtn = { background: "none", border: `1px solid ${C.line}`, borderRadius: 7, cursor: "pointer", color: C.steel, padding: "4px 6px", display: "flex", alignItems: "center", flexShrink: 0 };
-              return (
-                <div key={e.id} className="eq-row"
-                  style={{ display: "flex", alignItems: "center", gap: 9, padding: "8px 14px", borderBottom: `1px solid ${C.foam}`, transition: "background .12s",
-                    background: eqDirty(e) ? tint(C.gold, 12) : "transparent" }}>
-
-                  {/* Indentación + disclosure */}
-                  <div style={{ display: "flex", alignItems: "center", flexShrink: 0, paddingLeft: e.depth * 20 }}>
-                    {tieneHijos ? (
-                      <button onClick={() => toggleColapso(e.id)} title={colapsado ? "Expandir" : "Colapsar"} className="cmms-clickable"
-                        style={{ background: "none", border: "none", cursor: "pointer", color: C.slate, padding: 2, display: "flex", alignItems: "center" }}>
-                        {colapsado ? <ChevronRight size={18} /> : <ChevronDown size={18} />}
-                      </button>
-                    ) : <span style={{ width: 22, flexShrink: 0 }} />}
-                  </div>
-
-                  <TipoChip tipo={e.tipo_nodo} size={30} />
-
-                  {/* Identidad */}
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                      <button onClick={() => abrirEquipoWindow(e)} className="cmms-clickable"
-                        style={{ background: "none", border: "none", padding: 0, cursor: "pointer", fontFamily: "inherit", textAlign: "left",
-                          fontSize: 14, fontWeight: e.depth === 0 ? 700 : 600, color: C.abyss, maxWidth: 380, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        {e.sistema || "—"}
-                      </button>
-                      <CritBadge crit={e.criticidad} />
-                      {!esAgrupador && e.estado && <Pill tone={estadoTone(e.estado)}>{estadoLabel(e.estado)}</Pill>}
-                      {colapsado && nDesc > 0 && <span style={{ fontSize: 11.5, color: C.steel, fontWeight: 600 }} title={`${nDesc} elemento(s) ocultos`}>▸ {nDesc}</span>}
-                      {!esAgrupador && (e.horometro === "propio" || e.horometro === "no" || e.consume_aceite || (e.nivel_tipo && e.nivel_tipo !== "ninguno")) && (
-                        <span style={{ display: "inline-flex", gap: 3, alignItems: "center" }}>
-                          {e.horometro === "propio" && <span title="Horómetro propio" style={{ width: 6, height: 6, borderRadius: "50%", background: C.steel }} />}
-                          {e.horometro === "no"     && <span title="Sin horómetro" style={{ width: 6, height: 6, borderRadius: "50%", background: C.slate }} />}
-                          {e.consume_aceite         && <span title="Consume aceite" style={{ width: 6, height: 6, borderRadius: "50%", background: C.gold }} />}
-                          {e.nivel_tipo && e.nivel_tipo !== "ninguno" && <span title={`Nivel prezarpe: ${e.nivel_tipo === "aceite" ? "Solo aceite" : "Aceite + agua"}`} style={{ width: 6, height: 6, borderRadius: "50%", background: C.green }} />}
-                        </span>
-                      )}
-                    </div>
-                    <div style={{ fontSize: 11.5, color: C.slate, marginTop: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                      <span style={{ fontFamily: "'IBM Plex Mono', monospace" }}>{e.id_visible}</span>
-                      {filtro === "all" && <span> · {embName(e.embarcacion_id)}</span>}
-                      {(e.marca || e.modelo) && <span> · {[e.marca, e.modelo].filter(Boolean).join(" ")}</span>}
-                    </div>
-                  </div>
-
-                  {/* Horas */}
-                  {!esAgrupador && (
-                    <div style={{ flexShrink: 0, textAlign: "right", fontFamily: "'IBM Plex Mono', monospace", fontSize: 12.5, fontWeight: 700, color: C.steel, minWidth: 56 }}>
-                      {e.horometro === "no" ? <span style={{ color: C.line }}>—</span> : `${num(e.horas_actual || 0)} h`}
-                    </div>
-                  )}
-
-                  {/* Acciones (al hover en desktop; siempre en táctil) */}
-                  <div className="eq-actions" style={{ display: "flex", alignItems: "center", gap: 5, flexShrink: 0 }}>
-                    {puedeOperar && (
-                      <div style={{ display: "inline-flex", flexDirection: "column", marginRight: 1 }}>
-                        <button onClick={() => moverNodo(e, "up")} disabled={pos.first} title="Subir (mayor prioridad)"
-                          style={{ background: "none", border: "none", cursor: pos.first ? "default" : "pointer", color: pos.first ? C.line : C.slate, padding: 0, display: "flex", lineHeight: 1 }}><ChevronUp size={14} strokeWidth={2.5} /></button>
-                        <button onClick={() => moverNodo(e, "down")} disabled={pos.last} title="Bajar (menor prioridad)"
-                          style={{ background: "none", border: "none", cursor: pos.last ? "default" : "pointer", color: pos.last ? C.line : C.slate, padding: 0, display: "flex", lineHeight: 1 }}><ChevronDown size={14} strokeWidth={2.5} /></button>
-                      </div>
-                    )}
-                    {puedeOperar && (
-                      <span style={{ position: "relative", display: "inline-flex" }}>
-                        <button onClick={() => setMenuHijo(menuHijo === e.id ? null : e.id)} title={`Agregar dentro de "${e.sistema}"`}
-                          style={{ ...iconBtn, border: `1px solid ${tint(C.cyan, 45)}`, color: menuHijo === e.id ? "#fff" : C.cyan, background: menuHijo === e.id ? C.cyan : "none" }}>
-                          <Plus size={14} strokeWidth={2.5} />
-                        </button>
-                        {menuHijo === e.id && (
-                          <>
-                            <div onClick={() => setMenuHijo(null)} style={{ position: "fixed", inset: 0, zIndex: 30 }} />
-                            <div style={{ position: "absolute", top: "100%", right: 0, marginTop: 4, zIndex: 31, background: C.surface, border: `1px solid ${C.line}`, borderRadius: 8, boxShadow: shadow.lg, overflow: "hidden", minWidth: 170 }}>
-                              <div style={{ padding: "6px 10px", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, color: C.slate, fontWeight: 700, borderBottom: `1px solid ${C.foam}` }}>Agregar dentro</div>
-                              {[["subsistema", "Subsistema", GitBranch], ["componente", "Componente", Wrench], ["instrumento", "Instrumento / sensor", Cpu]].map(([tipo, label, Ico]) => (
-                                <button key={tipo} onClick={() => agregarHijo(e, tipo)}
-                                  style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", textAlign: "left", background: "none", border: "none", cursor: "pointer", padding: "8px 11px", fontSize: 12.5, color: C.ink }}
-                                  onMouseEnter={(ev) => (ev.currentTarget.style.background = tint(C.cyan, 10))}
-                                  onMouseLeave={(ev) => (ev.currentTarget.style.background = "none")}>
-                                  <Ico size={14} color={colorTipo({ tipo_nodo: tipo })} /> {label}
-                                </button>
-                              ))}
-                            </div>
-                          </>
-                        )}
-                      </span>
-                    )}
-                    <button onClick={() => abrirEquipoWindow(e)} title="Abrir panel" style={iconBtn}><PanelRightOpen size={14} /></button>
-                    {puedeOperar && !esAgrupador && (
-                      <button onClick={() => abrirPropOp(e)} title="Configuración operacional" style={{ ...iconBtn, color: C.slate }}><Settings2 size={14} /></button>
-                    )}
-                    {!esAgrupador && (
-                      <button onClick={() => abrirFicha(e)} title={`Ficha técnica${conFicha ? " (con datos)" : ""}`}
-                        style={{ ...iconBtn, background: conFicha ? tint(C.steel, 14) : "none", border: `1px solid ${conFicha ? C.steel : C.line}` }}><FileText size={14} /></button>
-                    )}
-                    {puedeOperar && esComponente && (
-                      <button onClick={() => abrirRepuestos(e)} title={`Repuestos${nReps ? ` (${nReps})` : ""}`} style={iconBtn}>
-                        <Package size={14} />{nReps > 0 && <span style={{ fontSize: 10.5, fontWeight: 700, marginLeft: 3 }}>{nReps}</span>}
-                      </button>
-                    )}
-                    {puedeBorrar && (
-                      <button onClick={() => eliminar(e.id)} title="Eliminar" style={{ background: "none", border: "none", cursor: "pointer", color: C.slate, display: "flex", alignItems: "center", padding: 2 }}><Trash2 size={15} /></button>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
+          <div className="eq-split-container">
+            <EquipoTreePanel
+              busqueda={busqueda}
+              setBusqueda={setBusqueda}
+              arbol={arbol}
+              listaVisible={listaVisible}
+              selectedId={selectedId}
+              onSelect={setSelectedId}
+              showEmb={filtro === "all"}
+              embName={embName}
+              repsPorEquipo={repsPorEquipo}
+              eqDirty={eqDirty}
+              esAgrupador={esAgrupador}
+              onColapsarTodo={() => arbol.colapsarTodo(true)}
+              onExpandirTodo={() => arbol.colapsarTodo(false)}
+              onPopOut={abrirEquipoWindow}
+              onEliminar={eliminar}
+              puedeBorrar={puedeBorrar}
+            />
+            <EquipoDetailPanel
+              nodeId={selectedId}
+              handlers={handlersRef.current}
+              puedeOperar={puedeOperar}
+              puedeBorrar={puedeBorrar}
+              eqDirty={eqDirty}
+              posInfo={posInfo}
+              onSelectNode={setSelectedId}
+              embedded
+            />
           </div>
         )}
       </Section>
@@ -968,5 +830,3 @@ export default function Equipos() {
     </ModuleShell>
   );
 }
-
-// ── Nota de ejemplo: nueva jerarquía de sistemas ──────────────────

@@ -35,7 +35,9 @@ export default function RepuestoPanel({ node, repuestos, items, puedeBorrar, onE
             Repuestos de <span style={{ fontFamily: "'IBM Plex Mono', monospace", color: C.steel }}>{node.id_visible}</span> · {node.sistema}
           </span>
         </div>
-        <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: C.slate, padding: 4, display: "flex" }}><X size={16} /></button>
+        {onClose && (
+          <button type="button" onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: C.slate, padding: 4, display: "flex" }}><X size={16} /></button>
+        )}
       </div>
 
       {/* Lista de repuestos enlazados */}
