@@ -1,17 +1,19 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import {
   Cloud, Wind, Waves, Sparkles, RefreshCw, AlertTriangle, CheckCircle2,
-  Thermometer, MapPin,
+  Thermometer, MapPin, Droplets,
 } from "lucide-react";
 import { supabase } from "../../lib/supabase";
 import {
   resolverCoordenadas, evaluarCondiciones, resumirPorDia,
   formatearDia, etiquetaClima, direccionViento,
   listaPuertos, puertoInicial, storageKeyPuertoClima,
+  etiquetaModeloOleaje, precipProximasHoras,
 } from "../../lib/clima";
 import { C, tint, archivo } from "../../theme";
 import { Pill, InlineSpinner, ghostBtn, primaryBtn, inputStyle } from "../../ui";
 import { renderMarkdown } from "../Markdown";
+import PronosticoGrafico, { FlechaViento } from "./PronosticoGrafico";
 
 const TONE_COLOR = { green: C.green, yellow: C.amber, red: C.red };
 
@@ -184,6 +186,13 @@ export default function PronosticoWidget({ puertoBase, empresaId, contextoOps = 
   const dias = useMemo(() => resumirPorDia(datos?.horario || [], 3), [datos]);
 
   const distintoEmpresa = puertoBase && puertoSel !== puertoEmpresa;
+  const precip6h = useMemo(() => precipProximasHoras(datos?.horario, 6), [datos]);
+  const oleajeDetalle = actual?.oleajeVientoM != null || actual?.oleajeSwellM != null
+    ? [
+        actual?.oleajeVientoM != null ? `viento ${actual.oleajeVientoM.toFixed(1)} m` : null,
+        actual?.oleajeSwellM != null ? `swell ${actual.oleajeSwellM.toFixed(1)} m` : null,
+      ].filter(Boolean).join(" · ")
+    : null;
 
   return (
     <div style={{
@@ -262,16 +271,31 @@ export default function PronosticoWidget({ puertoBase, empresaId, contextoOps = 
         <>
           {/* Condiciones actuales */}
           <div style={{
-            display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(100px, 1fr))",
+            display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(90px, 1fr))",
             gap: 12, marginBottom: 16, padding: 14, borderRadius: 10,
             background: tint(colorEval, 6), border: `1px solid ${tint(colorEval, 22)}`,
           }}>
             <Metrica icon={Thermometer} label="Temp." value={actual.tempC != null ? `${Math.round(actual.tempC)}°C` : "—"} />
-            <Metrica icon={Wind} label="Viento" value={actual.vientoKn != null ? `${Math.round(actual.vientoKn)} kn` : "—"}
-              sub={actual.vientoDir != null ? direccionViento(actual.vientoDir) : null} />
-            <Metrica icon={Waves} label="Oleaje" value={actual.oleajeM != null ? `${actual.oleajeM.toFixed(1)} m` : "—"} />
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 4, alignSelf: "flex-start" }}>
+                <Wind size={13} color={C.slate} />
+                <span style={{ fontSize: 10, fontWeight: 700, color: C.slate, textTransform: "uppercase", letterSpacing: 0.5 }}>Viento</span>
+              </div>
+              <FlechaViento
+                grados={actual.vientoDir}
+                kn={actual.vientoKn}
+                label={actual.vientoDirLabel || direccionViento(actual.vientoDir)}
+                size={48}
+              />
+            </div>
+            <Metrica icon={Waves} label="Oleaje" value={actual.oleajeM != null ? `${actual.oleajeM.toFixed(1)} m` : "—"}
+              sub={oleajeDetalle} />
+            <Metrica icon={Droplets} label="Lluvia" value={precip6h > 0 ? `${precip6h.toFixed(1)} mm` : "0 mm"}
+              sub="próx. 6 h" compact />
             <Metrica icon={Cloud} label="Cielo" value={etiquetaClima(actual.climaCode)} compact />
           </div>
+
+          <PronosticoGrafico horario={datos?.horario} />
 
           {/* Próximos días */}
           {dias.length > 0 && (
@@ -334,6 +358,9 @@ export default function PronosticoWidget({ puertoBase, empresaId, contextoOps = 
 
             <div style={{ fontSize: 10.5, color: C.slate, marginTop: 10, lineHeight: 1.4 }}>
               Apoyo a la decisión operacional. No reemplaza avisos oficiales de Directemar.
+              {datos.modelos?.oleaje && (
+                <span> · Oleaje: {etiquetaModeloOleaje(datos.modelos.oleaje)}</span>
+              )}
               {datos.actualizado && (
                 <span> · Actualizado {new Date(datos.actualizado).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" })}</span>
               )}

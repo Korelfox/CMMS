@@ -146,3 +146,37 @@ export function puertoInicial(puertoBase, guardado = null) {
 export function storageKeyPuertoClima(empresaId) {
   return empresaId ? `cmms-puerto-clima-${empresaId}` : "cmms-puerto-clima";
 }
+
+/** Hora corta desde ISO horario Open-Meteo. */
+export function formatearHoraCorta(iso) {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  return d.toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" });
+}
+
+/** Serie para gráfico 48 h (viento, oleaje, precipitación). */
+export function serieGrafico48h(horario = []) {
+  return (horario || []).slice(0, 48).map((h) => ({
+    hora: formatearHoraCorta(h.time),
+    vientoKn: h.vientoKn ?? null,
+    oleajeM: h.oleajeM ?? null,
+    precipMm: h.precipMm ?? null,
+  }));
+}
+
+/** Etiqueta legible del modelo de oleaje Open-Meteo. */
+export function etiquetaModeloOleaje(slug) {
+  const map = {
+    ncep_gfswave016: "GFS Wave 16 km",
+    ecmwf_wam: "ECMWF WAM",
+    meteofrance_mfwam: "MeteoFrance",
+  };
+  return map[slug] || slug || "—";
+}
+
+/** Precipitación acumulada próximas N horas. */
+export function precipProximasHoras(horario = [], horas = 6) {
+  return (horario || []).slice(0, horas).reduce(
+    (s, h) => s + (Number(h.precipMm) || 0), 0,
+  );
+}

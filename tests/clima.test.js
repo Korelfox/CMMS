@@ -9,6 +9,10 @@ import {
   PUERTOS_CHILE,
   listaPuertos,
   puertoInicial,
+  serieGrafico48h,
+  precipProximasHoras,
+  formatearHoraCorta,
+  etiquetaModeloOleaje,
 } from "../src/lib/clima.js";
 
 describe("normalizarPuerto", () => {
@@ -112,5 +116,34 @@ describe("listaPuertos y puertoInicial", () => {
 
   it("puertoInicial resuelve desde puerto_base si guardado inválido", () => {
     expect(puertoInicial("Talcahuano", "Puerto Inventado")).toBe("Talcahuano");
+  });
+});
+
+describe("serieGrafico48h y precipitación", () => {
+  const horario = [
+    { time: "2026-06-16T08:00", vientoKn: 15, oleajeM: 1.2, precipMm: 0.5 },
+    { time: "2026-06-16T09:00", vientoKn: 18, oleajeM: 1.4, precipMm: 1.2 },
+    { time: "2026-06-16T10:00", vientoKn: 20, oleajeM: 1.5, precipMm: 0 },
+  ];
+
+  it("formatearHoraCorta devuelve hora local", () => {
+    expect(formatearHoraCorta("2026-06-16T14:00")).toMatch(/\d{1,2}:\d{2}/);
+  });
+
+  it("serieGrafico48h mapea campos del gráfico", () => {
+    const s = serieGrafico48h(horario);
+    expect(s).toHaveLength(3);
+    expect(s[0].vientoKn).toBe(15);
+    expect(s[0].oleajeM).toBe(1.2);
+    expect(s[0].precipMm).toBe(0.5);
+  });
+
+  it("precipProximasHoras suma mm", () => {
+    expect(precipProximasHoras(horario, 2)).toBeCloseTo(1.7);
+  });
+
+  it("etiquetaModeloOleaje traduce slugs", () => {
+    expect(etiquetaModeloOleaje("ecmwf_wam")).toBe("ECMWF WAM");
+    expect(etiquetaModeloOleaje("ncep_gfswave016")).toBe("GFS Wave 16 km");
   });
 });
