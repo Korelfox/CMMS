@@ -4,6 +4,7 @@ import { useWindows } from "./windows/WindowManager";
 import { planpmStore } from "./planpm/planpmStore";
 import PMWindow from "./planpm/PMWindow";
 import PMEstructuraWindow from "./planpm/PMEstructuraWindow";
+import { TipoChip, CritBadge } from "./equipos/arbolUI";
 import { useAuth } from "../lib/auth";
 import { fetchAll, insertRow, updateRow, deleteRow, logActivity } from "../lib/db";
 import { buildEquipoTree } from "../lib/equipTree";
@@ -519,29 +520,33 @@ tbody td{padding:5px 8px;vertical-align:middle}
         const esAgrupador = eq.tipo_nodo === "sistema";
 
         return (
-          <Card key={eq.id} style={{ marginBottom: 10, borderLeft: `4px solid ${vencidosEq > 0 ? C.red : colorTipo(eq)}`, background: fondoTipo(eq), paddingBottom: 8 }}>
+          <Card key={eq.id} style={{ marginBottom: 10, paddingBottom: 8, ...(vencidosEq > 0 ? { borderLeft: `3px solid ${C.red}` } : {}) }}>
             {/* ── Cabecera del equipo ── */}
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: planesEq.length > 0 ? 12 : 4, paddingLeft: eq.depth * 16 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: planesEq.length > 0 ? 12 : 4, paddingLeft: eq.depth * 18 }}>
               {tieneHijos ? (
                 <button onClick={() => arbol.toggle(eq.id)} title={colapsado ? "Expandir" : "Colapsar"}
-                  style={{ background: "none", border: "none", cursor: "pointer", color: C.steel, padding: 0, display: "flex", alignItems: "center" }}>
-                  {colapsado ? <ChevronRight size={17} /> : <ChevronDown size={17} />}
+                  style={{ background: "none", border: "none", cursor: "pointer", color: C.slate, padding: 0, display: "flex", alignItems: "center", flexShrink: 0 }}>
+                  {colapsado ? <ChevronRight size={18} /> : <ChevronDown size={18} />}
                 </button>
-              ) : eq.depth > 0 ? <span style={{ color: C.slate, fontSize: 13 }}>└─</span> : <span style={{ width: 17 }} />}
+              ) : <span style={{ width: 18, flexShrink: 0 }} />}
+              <TipoChip tipo={eq.tipo_nodo} size={28} />
               <div style={{ flex: 1, minWidth: 0 }}>
-                <button onClick={() => abrirPMWindow(eq)} className="cmms-clickable"
-                  style={{ background: "none", border: "none", cursor: "pointer", padding: 0, display: "inline-flex", alignItems: "center", gap: 6, fontFamily: "inherit" }}>
-                  <span style={{ fontWeight: 700, fontSize: 14, color: C.abyss }}>{eq.sistema}</span>
-                  <PanelRightOpen size={13} color={C.slate} style={{ opacity: 0.6 }} />
-                </button>
-                {eq.criticidad && <span style={{ marginLeft: 7 }}><Pill tone={{ A: "red", B: "yellow", C: "green" }[eq.criticidad]}>{eq.criticidad}</Pill></span>}
-                <span style={{ fontSize: 11.5, color: C.slate, marginLeft: 8, fontFamily: "'IBM Plex Mono', monospace" }}>{eq.id_visible}</span>
-                <span style={{ fontSize: 11.5, color: C.slate, marginLeft: 6 }}>· {embName(eq.embarcacion_id)}</span>
-                {colapsado && nSub > 0 && <span style={{ fontSize: 11.5, color: C.steel, marginLeft: 8, fontWeight: 600 }} title={`${nSub} elemento(s) ocultos`}>▸ {nSub}</span>}
+                <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                  <button onClick={() => abrirPMWindow(eq)} className="cmms-clickable"
+                    style={{ background: "none", border: "none", cursor: "pointer", padding: 0, display: "inline-flex", alignItems: "center", gap: 6, fontFamily: "inherit" }}>
+                    <span style={{ fontWeight: 700, fontSize: 14, color: C.abyss }}>{eq.sistema}</span>
+                    <PanelRightOpen size={13} color={C.slate} style={{ opacity: 0.6 }} />
+                  </button>
+                  <CritBadge crit={eq.criticidad} />
+                  {colapsado && nSub > 0 && <span style={{ fontSize: 11.5, color: C.steel, fontWeight: 600 }} title={`${nSub} elemento(s) ocultos`}>▸ {nSub}</span>}
+                </div>
+                <div style={{ fontSize: 11.5, color: C.slate, marginTop: 1 }}>
+                  <span style={{ fontFamily: "'IBM Plex Mono', monospace" }}>{eq.id_visible}</span> · {embName(eq.embarcacion_id)}
+                </div>
               </div>
               {!esAgrupador && (
-                <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, color: C.slate }}>
-                  {num(eq.horas_actual || 0, 0)}h actuales
+                <div style={{ fontSize: 12.5, color: C.slate, flexShrink: 0, whiteSpace: "nowrap" }}>
+                  {num(eq.horas_actual || 0, 0)} h
                 </div>
               )}
               {!esAgrupador && vencidosEq > 0 && <Pill tone="red">{vencidosEq} vencido{vencidosEq > 1 && "s"}</Pill>}

@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback, useRef } from "react";
 import { Ship, Plus, Trash2, Download, AlertCircle, GitBranch, Layers, Cpu, Wrench, Box, Hash, ChevronDown, ChevronRight, ChevronUp, Check, Package, X, Rows3, FileText, Settings2, PanelRightOpen } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { fetchAll, insertRow, updateRow, deleteRow, logActivity } from "../lib/db";
-import { C, isAdmin, canOperate, ESTADOS_EQUIPO, estadoLabel, tint, shadow } from "../theme";
+import { C, isAdmin, canOperate, ESTADOS_EQUIPO, estadoLabel, estadoTone, num, tint, shadow } from "../theme";
 import { buildEquipoTree } from "../lib/equipTree";
 import { fondoTipo, colorTipo } from "../lib/arbolColapsable";
 import { PLANTILLA_PESQUERA, nodoIncluido, contarNodosPlantilla, contarRepuestosPlantilla, contarPlanesPMPlantilla, TIPO_NODO_META, CRITICIDAD_TONE } from "../lib/plantillaPesquera";
@@ -17,6 +17,7 @@ import { FichaBody, fichaTieneDatos } from "./equipos/FichaEquipo";
 import { PropOpBody } from "./equipos/PropOpModal";
 import { useWindows } from "./windows/WindowManager";
 import EquipoWindow, { RepuestosWindowBody } from "./equipos/EquipoWindow";
+import { TipoChip, CritBadge } from "./equipos/arbolUI";
 import { equiposStore } from "./equipos/equiposStore";
 
 const TIPO_NODOS = [
@@ -506,6 +507,7 @@ export default function Equipos() {
     agregarHijo, abrirEquipoWindow, abrirFicha, abrirPropOp, abrirRepuestos,
     enlazarRepuesto, desenlazarRepuesto, crearYEnlazarRepuesto,
     renombrar: (id, nombre) => { onChangeLocal(id, "sistema", nombre); commit(id, "sistema", nombre); },
+    editar: (id, campo, valor) => onChangeLocal(id, campo, valor),
   };
 
   // Guarda inmediatamente los atributos operacionales (horómetro / consume aceite / nivel).
@@ -660,20 +662,6 @@ export default function Equipos() {
             <button onClick={() => colapsarTodo(false)} style={{ ...ghostBtn, fontSize: 12, padding: "6px 12px" }}><ChevronDown size={13} /> Expandir todo</button>
           </>
         )}
-        {/* Altura de fila ajustable (se recuerda en el navegador) */}
-        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 4 }} title="Ajusta la altura de las filas de la tabla">
-          <Rows3 size={14} color={C.slate} style={{ marginRight: 2 }} />
-          <span style={{ fontSize: 11.5, color: C.slate, fontWeight: 600, marginRight: 4 }}>Altura de fila</span>
-          {Object.entries(DENSIDADES).map(([k, v]) => (
-            <button key={k} onClick={() => cambiarDensidad(k)} title={`Filas ${v.label.toLowerCase()}`}
-              style={{ fontSize: 11.5, padding: "5px 11px", borderRadius: 7, cursor: "pointer", fontWeight: 600,
-                border: `1px solid ${densidad === k ? C.steel : C.line}`,
-                background: densidad === k ? tint(C.steel, 14) : C.surface,
-                color: densidad === k ? C.steel : C.slate }}>
-              {v.label}
-            </button>
-          ))}
-        </div>
       </div>
 
       {/* Precarga de plantilla ISO 14224. Visible al seleccionar una nave, o
@@ -788,278 +776,133 @@ export default function Equipos() {
       )}
 
       <Card style={{ padding: 0, overflow: "hidden" }}>
-        <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 1280 }}>
-            <thead><tr>
-              {puedeOperar && <th style={{ ...thE, textAlign: "center" }} title="Reordenar por prioridad">Orden</th>}
-              <th style={thE}>ID</th>
-              <th style={thE}>Nave</th>
-              <th style={thE}>Sistema / Equipo</th>
-              <th style={thE}>Subsistema de</th>
-              <th style={thE}>Marca</th>
-              <th style={thE}>Modelo</th>
-              <th style={{ ...thE, textAlign: "right" }}>Horas</th>
-              <th style={{ ...thE, textAlign: "right" }} title="Horas del último PM registrado — lo actualiza Plan Preventivo, no se edita aquí">Últ. PM</th>
-              <th style={{ ...thE, textAlign: "right" }} title="MTBF objetivo (horas)">MTBF</th>
-              <th style={thE}>Estado</th>
-              <th style={{ ...thE, textAlign: "center" }}>Prezarpe</th>
-              {hasActions && <th style={{ ...thE, textAlign: "center" }}>Acción</th>}
-            </tr></thead>
-            <tbody>
-              {lista.length === 0
-                ? <tr><td colSpan={NCOLS}><Empty>{equipos.length === 0 ? <NotaJerarquia /> : "Sin equipos para este filtro."}</Empty></td></tr>
-                : listaVisible.map((e) => {
-                  const padres = padresDisponibles(e.id, e.embarcacion_id);
-                  const tieneHijos = conHijos.has(e.id);
-                  const colapsado = colapsados.has(e.id);
-                  const nDesc = descCount.get(e.id) || 0;
-                  // Los repuestos se enlazan a componentes/instrumentos (o nodos hoja).
-                  const esComponente = e.tipo_nodo === "componente" || e.tipo_nodo === "instrumento" || !tieneHijos;
-                  const nReps = destinos.filter((d) => d.equipo_id === e.id).length;
-                  const panelAbierto = repuestoPanel === e.id;
-                  const pos = posInfo.get(e.id) || { first: true, last: true };
-                  const esAgrupador = e.tipo_nodo === "sistema";
-                  return ([
-                    <tr key={e.id} style={{ background: eqDirty(e) ? tint(C.gold, 14) : fondoTipo(e) }}>
+        <style>{`
+          .eq-row:hover { background: ${tint(C.steel, 5)}; }
+          .eq-row:hover .eq-actions { opacity: 1; }
+          .eq-actions { opacity: .55; transition: opacity .12s; }
+          @media (hover: none) { .eq-actions { opacity: 1; } }
+        `}</style>
+        {listaVisible.length === 0 ? (
+          <Empty>{equipos.length === 0 ? <NotaJerarquia /> : "Sin equipos para este filtro."}</Empty>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column" }}>
+            {listaVisible.map((e) => {
+              const tieneHijos   = conHijos.has(e.id);
+              const colapsado    = colapsados.has(e.id);
+              const nDesc        = descCount.get(e.id) || 0;
+              const esComponente = e.tipo_nodo === "componente" || e.tipo_nodo === "instrumento" || !tieneHijos;
+              const nReps        = destinos.filter((d) => d.equipo_id === e.id).length;
+              const pos          = posInfo.get(e.id) || { first: true, last: true };
+              const esAgrupador  = e.tipo_nodo === "sistema";
+              const conFicha     = fichaTieneDatos(e.ficha);
+              const iconBtn = { background: "none", border: `1px solid ${C.line}`, borderRadius: 7, cursor: "pointer", color: C.steel, padding: "4px 6px", display: "flex", alignItems: "center", flexShrink: 0 };
+              return (
+                <div key={e.id} className="eq-row"
+                  style={{ display: "flex", alignItems: "center", gap: 9, padding: "8px 14px", borderBottom: `1px solid ${C.foam}`, transition: "background .12s",
+                    background: eqDirty(e) ? tint(C.gold, 12) : "transparent" }}>
 
-                      {/* Orden (reordenar entre hermanos) */}
-                      {puedeOperar && (
-                        <td style={{ ...tdE, textAlign: "center", whiteSpace: "nowrap", padding: "4px 6px" }}>
-                          <div style={{ display: "inline-flex", flexDirection: "column", gap: 1 }}>
-                            <button onClick={() => moverNodo(e, "up")} disabled={pos.first} title="Subir (mayor prioridad)"
-                              style={{ background: "none", border: "none", cursor: pos.first ? "default" : "pointer", color: pos.first ? C.line : C.steel, padding: 0, display: "flex", lineHeight: 1 }}>
-                              <ChevronUp size={15} strokeWidth={2.5} />
-                            </button>
-                            <button onClick={() => moverNodo(e, "down")} disabled={pos.last} title="Bajar (menor prioridad)"
-                              style={{ background: "none", border: "none", cursor: pos.last ? "default" : "pointer", color: pos.last ? C.line : C.steel, padding: 0, display: "flex", lineHeight: 1 }}>
-                              <ChevronDown size={15} strokeWidth={2.5} />
-                            </button>
-                          </div>
-                        </td>
+                  {/* Indentación + disclosure */}
+                  <div style={{ display: "flex", alignItems: "center", flexShrink: 0, paddingLeft: e.depth * 20 }}>
+                    {tieneHijos ? (
+                      <button onClick={() => toggleColapso(e.id)} title={colapsado ? "Expandir" : "Colapsar"} className="cmms-clickable"
+                        style={{ background: "none", border: "none", cursor: "pointer", color: C.slate, padding: 2, display: "flex", alignItems: "center" }}>
+                        {colapsado ? <ChevronRight size={18} /> : <ChevronDown size={18} />}
+                      </button>
+                    ) : <span style={{ width: 22, flexShrink: 0 }} />}
+                  </div>
+
+                  <TipoChip tipo={e.tipo_nodo} size={30} />
+
+                  {/* Identidad */}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                      <button onClick={() => abrirEquipoWindow(e)} className="cmms-clickable"
+                        style={{ background: "none", border: "none", padding: 0, cursor: "pointer", fontFamily: "inherit", textAlign: "left",
+                          fontSize: 14, fontWeight: e.depth === 0 ? 700 : 600, color: C.abyss, maxWidth: 380, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {e.sistema || "—"}
+                      </button>
+                      <CritBadge crit={e.criticidad} />
+                      {!esAgrupador && e.estado && <Pill tone={estadoTone(e.estado)}>{estadoLabel(e.estado)}</Pill>}
+                      {colapsado && nDesc > 0 && <span style={{ fontSize: 11.5, color: C.steel, fontWeight: 600 }} title={`${nDesc} elemento(s) ocultos`}>▸ {nDesc}</span>}
+                      {!esAgrupador && (e.horometro === "propio" || e.horometro === "no" || e.consume_aceite || (e.nivel_tipo && e.nivel_tipo !== "ninguno")) && (
+                        <span style={{ display: "inline-flex", gap: 3, alignItems: "center" }}>
+                          {e.horometro === "propio" && <span title="Horómetro propio" style={{ width: 6, height: 6, borderRadius: "50%", background: C.steel }} />}
+                          {e.horometro === "no"     && <span title="Sin horómetro" style={{ width: 6, height: 6, borderRadius: "50%", background: C.slate }} />}
+                          {e.consume_aceite         && <span title="Consume aceite" style={{ width: 6, height: 6, borderRadius: "50%", background: C.gold }} />}
+                          {e.nivel_tipo && e.nivel_tipo !== "ninguno" && <span title={`Nivel prezarpe: ${e.nivel_tipo === "aceite" ? "Solo aceite" : "Aceite + agua"}`} style={{ width: 6, height: 6, borderRadius: "50%", background: C.green }} />}
+                        </span>
                       )}
+                    </div>
+                    <div style={{ fontSize: 11.5, color: C.slate, marginTop: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                      <span style={{ fontFamily: "'IBM Plex Mono', monospace" }}>{e.id_visible}</span>
+                      {filtro === "all" && <span> · {embName(e.embarcacion_id)}</span>}
+                      {(e.marca || e.modelo) && <span> · {[e.marca, e.modelo].filter(Boolean).join(" ")}</span>}
+                    </div>
+                  </div>
 
-                      {/* ID */}
-                      <td style={tdE}>
-                        <input value={e.id_visible} disabled={!puedeOperar} title={e.id_visible}
-                          onChange={(ev) => onChangeLocal(e.id, "id_visible", ev.target.value)}
-                          onBlur={(ev) => commit(e.id, "id_visible", ev.target.value)}
-                          style={{ ...bluC, width: 150 }} />
-                      </td>
+                  {/* Horas */}
+                  {!esAgrupador && (
+                    <div style={{ flexShrink: 0, textAlign: "right", fontFamily: "'IBM Plex Mono', monospace", fontSize: 12.5, fontWeight: 700, color: C.steel, minWidth: 56 }}>
+                      {e.horometro === "no" ? <span style={{ color: C.line }}>—</span> : `${num(e.horas_actual || 0)} h`}
+                    </div>
+                  )}
 
-                      {/* Nave */}
-                      <td style={tdE}>
-                        <select value={e.embarcacion_id} disabled={!puedeOperar}
-                          onChange={(ev) => commit(e.id, "embarcacion_id", ev.target.value)}
-                          style={{ ...inC(125), fontWeight: 600, color: embColor(e.embarcacion_id) }}>
-                          {embarcaciones.map((v) => <option key={v.id} value={v.id}>{v.nombre}</option>)}
-                        </select>
-                      </td>
-
-                      {/* Sistema — colapsable + indentación de árbol + tipo + criticidad */}
-                      <td style={tdE}>
-                        <div style={{ display: "flex", alignItems: "center" }}>
-                          {tieneHijos ? (
-                            <button onClick={() => toggleColapso(e.id)} title={colapsado ? "Expandir" : "Colapsar"}
-                              className="cmms-clickable"
-                              style={{ background: colapsado ? tint(C.cyan, 10) : C.foam, border: `1px solid ${colapsado ? tint(C.cyan, 30) : C.line}`, cursor: "pointer", color: colapsado ? C.cyan : C.steel, padding: "3px 5px", borderRadius: 7, marginLeft: e.depth * 14, marginRight: 6, display: "flex", alignItems: "center", flexShrink: 0 }}>
-                              {colapsado ? <ChevronRight size={18} strokeWidth={2.5} /> : <ChevronDown size={18} strokeWidth={2.5} />}
-                            </button>
-                          ) : e.depth > 0 ? (
-                            <span style={{ marginLeft: e.depth * 14, marginRight: 5, color: C.slate, fontSize: 13, flexShrink: 0 }}>└─</span>
-                          ) : <span style={{ width: 20, flexShrink: 0 }} />}
-                          {(() => {
-                            const Ico = ICONO_TIPO[e.tipo_nodo] || ICONO_TIPO.equipo;
-                            const meta = TIPO_NODO_META[e.tipo_nodo] || TIPO_NODO_META.equipo;
-                            if (esAgrupador) {
-                              return (
-                                <button onClick={() => abrirEquipoWindow(e)} title="Abrir"
-                                  className="cmms-clickable"
-                                  style={{ background: "none", border: "none", cursor: "pointer", padding: "2px 4px 2px 0", display: "flex", alignItems: "center", gap: 7, fontFamily: "inherit", fontSize: 13.5, fontWeight: 700, color: C.abyss, flex: 1, minWidth: 0, textAlign: "left", borderRadius: 5 }}>
-                                  <Ico size={13} color={meta.color} style={{ flexShrink: 0 }} />
-                                  <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{e.sistema}</span>
+                  {/* Acciones (al hover en desktop; siempre en táctil) */}
+                  <div className="eq-actions" style={{ display: "flex", alignItems: "center", gap: 5, flexShrink: 0 }}>
+                    {puedeOperar && (
+                      <div style={{ display: "inline-flex", flexDirection: "column", marginRight: 1 }}>
+                        <button onClick={() => moverNodo(e, "up")} disabled={pos.first} title="Subir (mayor prioridad)"
+                          style={{ background: "none", border: "none", cursor: pos.first ? "default" : "pointer", color: pos.first ? C.line : C.slate, padding: 0, display: "flex", lineHeight: 1 }}><ChevronUp size={14} strokeWidth={2.5} /></button>
+                        <button onClick={() => moverNodo(e, "down")} disabled={pos.last} title="Bajar (menor prioridad)"
+                          style={{ background: "none", border: "none", cursor: pos.last ? "default" : "pointer", color: pos.last ? C.line : C.slate, padding: 0, display: "flex", lineHeight: 1 }}><ChevronDown size={14} strokeWidth={2.5} /></button>
+                      </div>
+                    )}
+                    {puedeOperar && (
+                      <span style={{ position: "relative", display: "inline-flex" }}>
+                        <button onClick={() => setMenuHijo(menuHijo === e.id ? null : e.id)} title={`Agregar dentro de "${e.sistema}"`}
+                          style={{ ...iconBtn, border: `1px solid ${tint(C.cyan, 45)}`, color: menuHijo === e.id ? "#fff" : C.cyan, background: menuHijo === e.id ? C.cyan : "none" }}>
+                          <Plus size={14} strokeWidth={2.5} />
+                        </button>
+                        {menuHijo === e.id && (
+                          <>
+                            <div onClick={() => setMenuHijo(null)} style={{ position: "fixed", inset: 0, zIndex: 30 }} />
+                            <div style={{ position: "absolute", top: "100%", right: 0, marginTop: 4, zIndex: 31, background: C.surface, border: `1px solid ${C.line}`, borderRadius: 8, boxShadow: shadow.lg, overflow: "hidden", minWidth: 170 }}>
+                              <div style={{ padding: "6px 10px", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, color: C.slate, fontWeight: 700, borderBottom: `1px solid ${C.foam}` }}>Agregar dentro</div>
+                              {[["subsistema", "Subsistema", GitBranch], ["componente", "Componente", Wrench], ["instrumento", "Instrumento / sensor", Cpu]].map(([tipo, label, Ico]) => (
+                                <button key={tipo} onClick={() => agregarHijo(e, tipo)}
+                                  style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", textAlign: "left", background: "none", border: "none", cursor: "pointer", padding: "8px 11px", fontSize: 12.5, color: C.ink }}
+                                  onMouseEnter={(ev) => (ev.currentTarget.style.background = tint(C.cyan, 10))}
+                                  onMouseLeave={(ev) => (ev.currentTarget.style.background = "none")}>
+                                  <Ico size={14} color={colorTipo({ tipo_nodo: tipo })} /> {label}
                                 </button>
-                              );
-                            }
-                            return (
-                              <>
-                                <button onClick={() => abrirEquipoWindow(e)} title={`Abrir ventana · ${meta.label}`}
-                                  style={{ background: "none", border: "none", padding: 0, marginRight: 5, cursor: "pointer", display: "flex", alignItems: "center", flexShrink: 0 }}>
-                                  <Ico size={13} color={meta.color} />
-                                </button>
-                                <input value={e.sistema} disabled={!puedeOperar} title={e.sistema}
-                                  onChange={(ev) => onChangeLocal(e.id, "sistema", ev.target.value)}
-                                  onBlur={(ev) => commit(e.id, "sistema", ev.target.value)}
-                                  style={{ ...bluC, width: Math.max(172, 262 - e.depth * 12), fontFamily: "inherit", color: e.depth === 0 ? C.abyss : C.ink, fontWeight: e.depth === 0 ? 700 : 400 }} />
-                              </>
-                            );
-                          })()}
-                          {puedeOperar && (
-                            <span style={{ position: "relative", display: "inline-flex", flexShrink: 0 }}>
-                              <button onClick={() => setMenuHijo(menuHijo === e.id ? null : e.id)} title={`Agregar dentro de "${e.sistema}"`}
-                                style={{ marginLeft: 6, background: menuHijo === e.id ? C.cyan : "none", border: `1px solid ${tint(C.cyan, 45)}`, borderRadius: 6, cursor: "pointer", color: menuHijo === e.id ? "#fff" : C.cyan, padding: "1px 4px", display: "flex", alignItems: "center" }}>
-                                <Plus size={13} strokeWidth={2.5} />
-                              </button>
-                              {menuHijo === e.id && (
-                                <>
-                                  <div onClick={() => setMenuHijo(null)} style={{ position: "fixed", inset: 0, zIndex: 30 }} />
-                                  <div style={{ position: "absolute", top: "100%", left: 6, marginTop: 4, zIndex: 31, background: C.surface, border: `1px solid ${C.line}`, borderRadius: 8, boxShadow: "0 8px 24px rgba(8,20,32,.18)", overflow: "hidden", minWidth: 150 }}>
-                                    <div style={{ padding: "6px 10px", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, color: C.slate, fontWeight: 700, borderBottom: `1px solid ${C.foam}` }}>Agregar dentro</div>
-                                    {[["subsistema", "Subsistema", GitBranch], ["componente", "Componente", Wrench], ["instrumento", "Instrumento / sensor", Cpu]].map(([tipo, label, Ico]) => (
-                                      <button key={tipo} onClick={() => agregarHijo(e, tipo)}
-                                        style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", textAlign: "left", background: "none", border: "none", cursor: "pointer", padding: "8px 11px", fontSize: 12.5, color: C.ink }}
-                                        onMouseEnter={(ev) => (ev.currentTarget.style.background = tint(C.cyan, 10))}
-                                        onMouseLeave={(ev) => (ev.currentTarget.style.background = "none")}>
-                                        <Ico size={14} color={colorTipo({ tipo_nodo: tipo })} /> {label}
-                                      </button>
-                                    ))}
-                                  </div>
-                                </>
-                              )}
-                            </span>
-                          )}
-                          {e.criticidad && <span style={{ marginLeft: 6, flexShrink: 0 }}><Pill tone={CRITICIDAD_TONE[e.criticidad]}>{e.criticidad}</Pill></span>}
-                          {colapsado && nDesc > 0 && <span style={{ marginLeft: 8, fontSize: 11.5, color: C.steel, fontWeight: 600, flexShrink: 0 }} title={`${nDesc} elemento(s) ocultos`}>▸ {nDesc}</span>}
-                          {/* Indicadores operacionales: punto propio (azul), sin horómetro (gris), aceite (dorado), nivel (verde) */}
-                          {!esAgrupador && (e.horometro === "propio" || e.horometro === "no" || e.consume_aceite || (e.nivel_tipo && e.nivel_tipo !== "ninguno")) && (
-                            <span style={{ display: "inline-flex", gap: 2, marginLeft: 5, flexShrink: 0, alignItems: "center" }}>
-                              {e.horometro === "propio" && <span title="Horómetro propio"    style={{ width: 6, height: 6, borderRadius: "50%", background: C.steel, display: "inline-block" }} />}
-                              {e.horometro === "no"     && <span title="Sin horómetro"       style={{ width: 6, height: 6, borderRadius: "50%", background: C.slate, display: "inline-block" }} />}
-                              {e.consume_aceite         && <span title="Consume aceite"      style={{ width: 6, height: 6, borderRadius: "50%", background: C.gold,  display: "inline-block" }} />}
-                              {e.nivel_tipo && e.nivel_tipo !== "ninguno" && <span title={`Nivel prezarpe: ${e.nivel_tipo === "aceite" ? "Solo aceite" : "Aceite + agua"}`} style={{ width: 6, height: 6, borderRadius: "50%", background: C.green, display: "inline-block" }} />}
-                            </span>
-                          )}
-                        </div>
-                      </td>
-
-                      {/* Subsistema de (padre inline editable) */}
-                      <td style={tdE}>
-                        <select value={e.parent_id || ""} disabled={!puedeOperar}
-                          onChange={(ev) => commit(e.id, "parent_id", ev.target.value || null)}
-                          style={{ ...inC(205), color: e.parent_id ? C.steel : C.line }}>
-                          <option value="">— Raíz —</option>
-                          {padres.map((p) => <option key={p.id} value={p.id}>{p.id_visible} · {p.sistema}</option>)}
-                        </select>
-                      </td>
-
-                      {/* Marca / Modelo */}
-                      {esAgrupador ? <td style={tdE} /> : <td style={tdE}><input value={e.marca || ""} disabled={!puedeOperar} title={e.marca || ""} onChange={(ev) => onChangeLocal(e.id, "marca", ev.target.value)} onBlur={(ev) => commit(e.id, "marca", ev.target.value)} style={inC(90)} /></td>}
-                      {esAgrupador ? <td style={tdE} /> : <td style={tdE}><input value={e.modelo || ""} disabled={!puedeOperar} title={e.modelo || ""} onChange={(ev) => onChangeLocal(e.id, "modelo", ev.target.value)} onBlur={(ev) => commit(e.id, "modelo", ev.target.value)} style={inC(90)} /></td>}
-
-                      {/* Horas */}
-                      {esAgrupador
-                        ? <td style={{ ...tdE, textAlign: "right" }}><span style={{ color: C.line }}>—</span></td>
-                        : <td style={{ ...tdE, textAlign: "right" }}>
-                            <input type="number" value={e.horas_actual} disabled={!puedeOperar}
-                              onFocus={(ev) => ev.target.select()} onChange={(ev) => onChangeLocal(e.id, "horas_actual", +ev.target.value)}
-                              onBlur={(ev) => commit(e.id, "horas_actual", +ev.target.value)}
-                              style={{ ...bluC, width: 76, textAlign: "right" }} />
-                          </td>}
-                      {/* Último PM: solo lectura — lo escribe Plan Preventivo al registrar */}
-                      {esAgrupador
-                        ? <td style={{ ...tdE, textAlign: "right" }}><span style={{ color: C.line }}>—</span></td>
-                        : <td style={{ ...tdE, textAlign: "right" }} title="Se actualiza al registrar un PM en Plan Preventivo">
-                            <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 12, color: C.slate }}>
-                              {e.horas_ult_pm ? `${e.horas_ult_pm}h` : "—"}
-                            </span>
-                          </td>}
-
-                      {/* MTBF objetivo (horas) */}
-                      {esAgrupador
-                        ? <td style={{ ...tdE, textAlign: "right" }}><span style={{ color: C.line }}>—</span></td>
-                        : <td style={{ ...tdE, textAlign: "right" }}>
-                            <input type="number" value={e.mtbf_objetivo ?? ""} disabled={!puedeOperar}
-                              placeholder="—"
-                              onFocus={(ev) => ev.target.select()} onChange={(ev) => onChangeLocal(e.id, "mtbf_objetivo", ev.target.value === "" ? null : +ev.target.value)}
-                              onBlur={(ev) => commit(e.id, "mtbf_objetivo", ev.target.value === "" ? null : +ev.target.value)}
-                              style={{ ...bluC, width: 76, textAlign: "right" }} />
-                          </td>}
-
-                      {/* Estado */}
-                      {esAgrupador
-                        ? <td style={tdE} />
-                        : <td style={tdE}>
-                            <select value={e.estado} disabled={!puedeOperar}
-                              onChange={(ev) => commit(e.id, "estado", ev.target.value)}
-                              style={inC(104)}>
-                              {ESTADOS_EQUIPO.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
-                            </select>
-                          </td>}
-
-                      {/* Prezarpe */}
-                      {esAgrupador
-                        ? <td style={{ ...tdE, textAlign: "center" }} />
-                        : <td style={{ ...tdE, textAlign: "center" }}>
-                            <input type="checkbox" checked={!!e.prezarpe} disabled={!puedeOperar}
-                              onChange={(ev) => commit(e.id, "prezarpe", ev.target.checked)}
-                              title="Incluir en inspección de prezarpe"
-                              style={{ width: 16, height: 16, cursor: puedeOperar ? "pointer" : "default", accentColor: C.steel }} />
-                          </td>}
-
-                      {hasActions && (
-                        <td style={tdE}>
-                          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
-                            {!esAgrupador && (
-                              <button onClick={() => abrirEquipoWindow(e)} title={`Abrir ventana de "${e.sistema}"`}
-                                style={{ background: "none", border: `1px solid ${C.line}`, borderRadius: 6, cursor: "pointer", color: C.steel, padding: "2px 5px", display: "flex", alignItems: "center", flexShrink: 0 }}>
-                                <PanelRightOpen size={14} />
-                              </button>
-                            )}
-                            {puedeOperar && !esAgrupador && (
-                              <button onClick={() => abrirPropOp(e)}
-                                title={`Config. operacional de "${e.sistema}"`}
-                                style={{ background: "none", border: `1px solid ${C.line}`, borderRadius: 6, cursor: "pointer", color: C.slate, padding: "2px 5px", display: "flex", alignItems: "center", flexShrink: 0 }}>
-                                <Settings2 size={14} />
-                              </button>
-                            )}
-                            {!esAgrupador && (() => {
-                              const conFicha = fichaTieneDatos(e.ficha);
-                              return (
-                                <button onClick={() => abrirFicha(e)}
-                                  title={`Ficha técnica de "${e.sistema}"${conFicha ? " (con datos)" : ""}`}
-                                  style={{ background: conFicha ? tint(C.steel, 14) : "none", border: `1px solid ${conFicha ? C.steel : C.line}`, borderRadius: 6, cursor: "pointer", color: C.steel, padding: "2px 5px", display: "flex", alignItems: "center", flexShrink: 0 }}>
-                                  <FileText size={14} />
-                                </button>
-                              );
-                            })()}
-                            {puedeOperar && esComponente && (
-                              <button onClick={() => setRepuestoPanel(panelAbierto ? null : e.id)}
-                                title={`Repuestos de "${e.sistema}"${nReps ? ` (${nReps})` : ""}`}
-                                style={{ background: panelAbierto ? C.steel : "none", border: `1px solid ${panelAbierto ? C.steel : C.line}`, borderRadius: 6, cursor: "pointer", color: panelAbierto ? "#fff" : C.steel, padding: "2px 5px", display: "flex", alignItems: "center", gap: 3, flexShrink: 0 }}>
-                                <Package size={14} />
-                                {nReps > 0 && <span style={{ fontSize: 10.5, fontWeight: 700 }}>{nReps}</span>}
-                              </button>
-                            )}
-                            {puedeBorrar && (
-                              <button onClick={() => eliminar(e.id)} title="Eliminar" style={{ background: "none", border: "none", cursor: "pointer", color: C.slate, display: "flex", alignItems: "center" }}>
-                                <Trash2 size={15} />
-                              </button>
-                            )}
-                          </div>
-                        </td>
-                      )}
-                    </tr>,
-                    panelAbierto && (
-                      <tr key={e.id + "-rep"}>
-                        <td colSpan={NCOLS} style={{ padding: 0, background: tint(C.steel, 6), borderBottom: `1px solid ${C.line}` }}>
-                          <RepuestoPanel
-                            node={e}
-                            repuestos={repuestosDe(e.id)}
-                            items={items}
-                            destinos={destinos}
-                            puedeBorrar={puedeBorrar}
-                            onEnlazar={(itemId) => enlazarRepuesto(e.id, itemId)}
-                            onDesenlazar={desenlazarRepuesto}
-                            onCrear={(datos) => crearYEnlazarRepuesto(e.id, datos)}
-                            onClose={() => setRepuestoPanel(null)}
-                          />
-                        </td>
-                      </tr>
-                    )
-                  ]);
-                })}
-            </tbody>
-          </table>
-        </div>
+                              ))}
+                            </div>
+                          </>
+                        )}
+                      </span>
+                    )}
+                    <button onClick={() => abrirEquipoWindow(e)} title="Abrir panel" style={iconBtn}><PanelRightOpen size={14} /></button>
+                    {puedeOperar && !esAgrupador && (
+                      <button onClick={() => abrirPropOp(e)} title="Configuración operacional" style={{ ...iconBtn, color: C.slate }}><Settings2 size={14} /></button>
+                    )}
+                    {!esAgrupador && (
+                      <button onClick={() => abrirFicha(e)} title={`Ficha técnica${conFicha ? " (con datos)" : ""}`}
+                        style={{ ...iconBtn, background: conFicha ? tint(C.steel, 14) : "none", border: `1px solid ${conFicha ? C.steel : C.line}` }}><FileText size={14} /></button>
+                    )}
+                    {puedeOperar && esComponente && (
+                      <button onClick={() => abrirRepuestos(e)} title={`Repuestos${nReps ? ` (${nReps})` : ""}`} style={iconBtn}>
+                        <Package size={14} />{nReps > 0 && <span style={{ fontSize: 10.5, fontWeight: 700, marginLeft: 3 }}>{nReps}</span>}
+                      </button>
+                    )}
+                    {puedeBorrar && (
+                      <button onClick={() => eliminar(e.id)} title="Eliminar" style={{ background: "none", border: "none", cursor: "pointer", color: C.slate, display: "flex", alignItems: "center", padding: 2 }}><Trash2 size={15} /></button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </Card>
 
     </div>
