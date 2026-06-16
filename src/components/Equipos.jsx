@@ -1,5 +1,5 @@
-import React, { useEffect, useState, useCallback, useRef } from "react";
-import { Ship, Plus, Trash2, Download, AlertCircle, GitBranch, Layers, Cpu, Wrench, Box, Hash, ChevronDown, ChevronRight, ChevronUp, Check, Package, X, Rows3, FileText, Settings2, PanelRightOpen } from "lucide-react";
+import React, { useEffect, useState, useCallback, useRef, useMemo } from "react";
+import { Ship, Plus, Trash2, Download, AlertCircle, GitBranch, Layers, Cpu, Wrench, Box, Hash, ChevronDown, ChevronRight, ChevronUp, Check, Package, X, Rows3, FileText, Settings2, PanelRightOpen, RefreshCw, Activity } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { fetchAll, insertRow, updateRow, deleteRow, logActivity } from "../lib/db";
 import { C, isAdmin, canOperate, ESTADOS_EQUIPO, estadoLabel, estadoTone, num, tint, shadow } from "../theme";
@@ -8,8 +8,9 @@ import { fondoTipo, colorTipo } from "../lib/arbolColapsable";
 import { PLANTILLA_PESQUERA, nodoIncluido, contarNodosPlantilla, contarRepuestosPlantilla, contarPlanesPMPlantilla, TIPO_NODO_META, CRITICIDAD_TONE } from "../lib/plantillaPesquera";
 
 import {
-  Card, PageHead, Pill, primaryBtn, ghostBtn, exportBtn, inputStyle,
-  FilterBtn, Field, Empty, ErrorBanner, InlineSpinner, GuiaColapsable,
+  Card, Pill, primaryBtn, ghostBtn, exportBtn, inputStyle,
+  FilterBtn, Field, Empty, InlineSpinner, GuiaColapsable,
+  ModuleShell, StatGrid, HeroStat, Toolbar, Section, EmptyState,
 } from "../ui";
 import NotaJerarquia from "./equipos/NotaJerarquia";
 import RepuestoPanel from "./equipos/RepuestoPanel";
@@ -555,6 +556,14 @@ export default function Equipos() {
   const eqDirty = (e) => { const o = original[e.id]; return o && CAMPOS_EDIT.some((c) => (e[c] ?? null) !== (o[c] ?? null)); };
   const dirtyIds = equipos.filter(eqDirty).map((e) => e.id);
 
+  const kpis = useMemo(() => {
+    const scope = filtro === "all" ? equipos : equipos.filter((e) => e.embarcacion_id === filtro);
+    const criticos = scope.filter((e) => e.criticidad === "A").length;
+    const indisponibles = scope.filter((e) => e.estado === "fuera_servicio" || e.estado === "en_reparacion").length;
+    const sistemas = scope.filter((e) => e.tipo_nodo === "sistema" || !e.parent_id).length;
+    return { total: scope.length, criticos, indisponibles, sistemas, sinGuardar: dirtyIds.length };
+  }, [equipos, filtro, dirtyIds.length]);
+
   async function guardarCambios() {
     setGuardando(true); setError(null);
     try {
@@ -605,36 +614,106 @@ export default function Equipos() {
     const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "equipos.csv"; a.click();
   }
 
-  if (loading) return <div><PageHead kicker="Taxonomía ISO 14224" title="Registro de Equipos" /><Card><InlineSpinner label="Cargando equipos…" /></Card></div>;
+  if (loading) {
+    return <ModuleShell kicker="Taxonomía ISO 14224" title="Registro de Equipos" loading />;
+  }
 
-  if (!loading && embarcaciones.length === 0) {
+  if (embarcaciones.length === 0) {
     return (
-      <div>
-        <PageHead kicker="Taxonomía ISO 14224" title="Registro de Equipos" />
-        <ErrorBanner onRetry={cargar}>{error}</ErrorBanner>
-        <Card><Empty>
-          <AlertCircle size={32} color={C.amber} style={{ marginBottom: 10 }} /><br />
-          Primero debes registrar al menos una <strong>embarcación</strong>. Ve al módulo <strong>Embarcaciones</strong> y agrega tu flota.
-        </Empty></Card>
-      </div>
+      <ModuleShell
+        kicker="Taxonomía ISO 14224"
+        title="Registro de Equipos"
+        error={error}
+        onRetry={cargar}
+      >
+        <Section title="Flota requerida" padding={0}>
+          <EmptyState
+            icon={AlertCircle}
+            title="Primero registra embarcaciones"
+            description="El árbol de equipos se organiza por nave. Ve al módulo Embarcaciones y agrega al menos una embarcación."
+          />
+        </Section>
+      </ModuleShell>
     );
   }
+
+  const heroVariant = kpis.indisponibles > 0 ? "critical" : kpis.criticos > 0 && kpis.sinGuardar > 0 ? "warn" : "ok";
 
   // Equipos de la nave seleccionada en el form (para el select de padre)
   const candidatosPadre = equipos.filter((e) => e.embarcacion_id === form.embarcacion_id);
 
   return (
-    <div>
-      <PageHead kicker="Taxonomía ISO 14224 · Jerarquía funcional" title="Registro de Equipos"
-        sub="Estructura árbol: sistema raíz → subsistemas. Las horas alimentan el Plan Preventivo, Criticidad y Costo Global."
-        action={<div style={{ display: "flex", gap: 8 }}>
-          <button onClick={exportar} style={exportBtn}><Download size={15} /> Exportar CSV</button>
-          {puedeOperar && <button onClick={() => setShowForm(!showForm)} style={primaryBtn}><Plus size={16} /> Agregar Equipo</button>}
-        </div>} />
+    <ModuleShell
+      kicker="Taxonomía ISO 14224 · Jerarquía funcional"
+      title="Registro de Equipos"
+      sub="Árbol ISO 14224: sistema → subsistema → componente → instrumento. Las horas alimentan Plan PM, criticidad y costos."
+      error={error}
+      onRetry={cargar}
+      action={
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <button type="button" onClick={exportar} style={exportBtn}><Download size={15} /> Exportar CSV</button>
+          {puedeOperar && (
+            <button type="button" onClick={() => setShowForm(!showForm)} style={primaryBtn}>
+              <Plus size={16} /> Agregar equipo
+            </button>
+          )}
+          <button type="button" onClick={cargar} title="Actualizar" data-nofx style={{ ...ghostBtn, padding: "10px 12px", display: "inline-flex", alignItems: "center" }}>
+            <RefreshCw size={15} />
+          </button>
+        </div>
+      }
+      toolbar={
+        <Toolbar
+          left={
+            <>
+              <FilterBtn active={filtro === "all"} onClick={() => setFiltro("all")}>Todas ({equipos.length})</FilterBtn>
+              {embarcaciones.map((v) => (
+                <FilterBtn key={v.id} active={filtro === v.id} onClick={() => setFiltro(v.id)} color={v.color}>
+                  {v.nombre} ({equipos.filter((e) => e.embarcacion_id === v.id).length})
+                </FilterBtn>
+              ))}
+            </>
+          }
+          right={
+            conHijos.size > 0 ? (
+              <>
+                <button type="button" onClick={() => colapsarTodo(true)} style={{ ...ghostBtn, fontSize: 12, padding: "6px 12px" }}>
+                  <ChevronRight size={13} /> Colapsar
+                </button>
+                <button type="button" onClick={() => colapsarTodo(false)} style={{ ...ghostBtn, fontSize: 12, padding: "6px 12px" }}>
+                  <ChevronDown size={13} /> Expandir
+                </button>
+              </>
+            ) : null
+          }
+        />
+      }
+    >
+      <StatGrid
+        hero={
+          <HeroStat
+            variant={heroVariant}
+            icon={Layers}
+            label="Equipos en alcance"
+            value={kpis.total}
+            sub={`${kpis.sistemas} sistemas raíz · ${kpis.criticos} criticidad A · ${kpis.indisponibles} indisponible${kpis.indisponibles !== 1 ? "s" : ""}`}
+          />
+        }
+        stats={[
+          { label: "Críticos (A)", value: kpis.criticos, sub: "prioridad máxima", icon: AlertCircle, tone: kpis.criticos ? C.red : C.green },
+          { label: "Sin guardar", value: kpis.sinGuardar, sub: "cambios pendientes", icon: Check, tone: kpis.sinGuardar ? C.amber : C.green },
+        ]}
+      />
 
-      <ErrorBanner onRetry={cargar}>{error}</ErrorBanner>
+      <StatGrid
+        stats={[
+          { label: "Indisponibles", value: kpis.indisponibles, sub: "fuera de servicio / reparación", icon: Wrench, tone: kpis.indisponibles ? C.red : C.green },
+          { label: "Repuestos", value: destinos.length, sub: "enlaces item ↔ equipo", icon: Package, tone: C.steel },
+          { label: "Naves", value: embarcaciones.length, sub: filtro === "all" ? "vista flota completa" : embName(filtro), icon: Ship, tone: C.cyan },
+          { label: "Visible", value: listaVisible.length, sub: "nodos en el árbol", icon: Activity, tone: C.steel },
+        ]}
+      />
 
-      {/* Barra de guardado explícito (aparece al haber cambios sin guardar) */}
       {dirtyIds.length > 0 && (
         <div style={{ position: "sticky", top: 8, zIndex: 15, display: "flex", alignItems: "center", gap: 12, background: tint(C.gold, 16), border: `1px solid ${C.gold}`, borderRadius: 10, padding: "10px 16px", marginBottom: 14, boxShadow: shadow.md }}>
           <span style={{ fontSize: 13, fontWeight: 700, color: C.abyss }}>
@@ -648,24 +727,6 @@ export default function Equipos() {
         </div>
       )}
 
-      <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
-        <FilterBtn active={filtro === "all"} onClick={() => setFiltro("all")}>Todas ({equipos.length})</FilterBtn>
-        {embarcaciones.map((v) => (
-          <FilterBtn key={v.id} active={filtro === v.id} onClick={() => setFiltro(v.id)} color={v.color}>
-            {v.nombre} ({equipos.filter((e) => e.embarcacion_id === v.id).length})
-          </FilterBtn>
-        ))}
-        {conHijos.size > 0 && (
-          <>
-            <div style={{ width: 1, alignSelf: "stretch", background: C.line, margin: "0 2px" }} />
-            <button onClick={() => colapsarTodo(true)} style={{ ...ghostBtn, fontSize: 12, padding: "6px 12px" }}><ChevronRight size={13} /> Colapsar todo</button>
-            <button onClick={() => colapsarTodo(false)} style={{ ...ghostBtn, fontSize: 12, padding: "6px 12px" }}><ChevronDown size={13} /> Expandir todo</button>
-          </>
-        )}
-      </div>
-
-      {/* Precarga de plantilla ISO 14224. Visible al seleccionar una nave, o
-          cuando aún no hay equipos (para que sea fácil de encontrar). */}
       {puedeOperar && (filtro !== "all" || equipos.length === 0) && (() => {
         const navePrecarga = filtro !== "all" ? filtro : (embarcaciones.length === 1 ? embarcaciones[0].id : "");
         const lista = !navePrecarga;
@@ -697,8 +758,7 @@ export default function Equipos() {
       })()}
 
       {showForm && (
-        <Card style={{ marginBottom: 16, background: C.mist }}>
-          <div style={{ fontWeight: 700, fontSize: 15, color: C.abyss, marginBottom: 14 }}>Nuevo Equipo / Subsistema</div>
+        <Section title="Nuevo equipo / subsistema" padding={20} style={{ marginBottom: 24 }}>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 12, marginBottom: 12 }}>
             <Field label="Embarcación">
               <select value={form.embarcacion_id}
@@ -769,13 +829,13 @@ export default function Equipos() {
           </GuiaColapsable>
 
           <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
-            <button onClick={agregar} style={primaryBtn}>Guardar</button>
-            <button onClick={() => setShowForm(false)} style={ghostBtn}>Cancelar</button>
+            <button type="button" onClick={agregar} style={primaryBtn}>Guardar</button>
+            <button type="button" onClick={() => setShowForm(false)} style={ghostBtn}>Cancelar</button>
           </div>
-        </Card>
+        </Section>
       )}
 
-      <Card style={{ padding: 0, overflow: "hidden" }}>
+      <Section title="Árbol de equipos" description="Jerarquía ISO 14224 editable inline · doble clic en ventana flotante para detalle" padding={0} style={{ marginBottom: 0 }}>
         <style>{`
           .eq-row:hover { background: ${tint(C.steel, 5)}; }
           .eq-row:hover .eq-actions { opacity: 1; }
@@ -903,9 +963,9 @@ export default function Equipos() {
             })}
           </div>
         )}
-      </Card>
+      </Section>
 
-    </div>
+    </ModuleShell>
   );
 }
 

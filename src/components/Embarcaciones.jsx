@@ -1,17 +1,16 @@
-import React, { useEffect, useState, useCallback } from "react";
-import { Ship, Plus, Trash2, Anchor, Wifi, Copy } from "lucide-react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
+import { Ship, Plus, Trash2, Anchor, Wifi, Copy, RefreshCw, Waves } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { fetchAll, insertRow, updateRow, deleteRow, logActivity } from "../lib/db";
-import { C, archivo, isAdmin, canOperate } from "../theme";
+import { C, archivo, isAdmin, canOperate, tint } from "../theme";
 import { estadoOperacionalNave } from "../lib/operacional";
 import {
-  Card, PageHead, Pill, primaryBtn, ghostBtn, inputStyle, bluInput,
-  thStyle, tdStyle, Field, Empty, ErrorBanner, InlineSpinner,
+  Card, Pill, primaryBtn, ghostBtn, inputStyle, Field,
+  ModuleShell, StatGrid, HeroStat, Section, EmptyState, Toolbar,
 } from "../ui";
 
 const COLORES = ["#0B2A4A", "#1C5C9B", "#127C8A", "#1E9E6A", "#6C4FA3", "#8A5A2B", "#E0A526", "#D8443C"];
 
-// Endpoint del webhook de telemetría de horómetro (CMMS autónomo · Salto 3).
 const FUNCTIONS_URL = (import.meta.env.VITE_SUPABASE_URL || "") + "/functions/v1/ingest-horometro";
 
 export default function Embarcaciones() {
@@ -28,20 +27,38 @@ export default function Embarcaciones() {
   const puedeBorrar = isAdmin(profile?.rol);
 
   const cargar = useCallback(async () => {
-    setLoading(true); setError(null);
+    setLoading(true);
+    setError(null);
     try {
       const [embs, ms, vds] = await Promise.all([
         fetchAll("embarcaciones", { order: { col: "codigo", asc: true } }),
         fetchAll("mareas", { order: { col: "zarpe_at", asc: false } }),
         fetchAll("varadas"),
       ]);
-      setRows(embs); setMareas(ms); setVaradas(vds);
+      setRows(embs);
+      setMareas(ms);
+      setVaradas(vds);
     } catch (e) {
       setError("No se pudieron cargar las embarcaciones. " + e.message);
-    } finally { setLoading(false); }
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => { cargar(); }, [cargar]);
+
+  const stats = useMemo(() => {
+    let enMar = 0;
+    let enVarada = 0;
+    let activas = 0;
+    rows.forEach((e) => {
+      if (e.activa) activas++;
+      const op = estadoOperacionalNave(e.id, { mareas, varadas });
+      if (op.label?.toLowerCase().includes("mar") || op.label?.toLowerCase().includes("naveg")) enMar++;
+      if (op.label?.toLowerCase().includes("varada") || op.label?.toLowerCase().includes("mantenimiento")) enVarada++;
+    });
+    return { total: rows.length, activas, enMar, enVarada, inactivas: rows.length - activas };
+  }, [rows, mareas, varadas]);
 
   async function agregar() {
     if (!form.codigo.trim() || !form.nombre.trim()) return;
@@ -61,7 +78,6 @@ export default function Embarcaciones() {
     }
   }
 
-  // Persiste un cambio de campo (optimista, con reversión si falla)
   async function commit(id, campo, valor) {
     const previo = rows.find((r) => r.id === id)?.[campo];
     setRows((p) => p.map((r) => (r.id === id ? { ...r, [campo]: valor } : r)));
@@ -87,100 +103,176 @@ export default function Embarcaciones() {
     }
   }
 
+  const heroVariant = stats.total === 0 ? "warn" : stats.inactivas > 0 ? "warn" : "ok";
+
   return (
-    <div>
-      <PageHead kicker="Flota · Gestión Dinámica" title="Embarcaciones"
-        sub="Administra las naves de tu flota. Cada embarcación que agregues queda disponible para Equipos, OTs, Inventario y todos los módulos."
-        action={puedeOperar && <button onClick={() => setShowForm(!showForm)} style={primaryBtn}><Plus size={16} /> Agregar Embarcación</button>} />
+    <ModuleShell
+      kicker="Flota · Registro de naves"
+      title="Embarcaciones"
+      sub="Administra las naves de tu empresa. Cada embarcación habilita equipos, OTs, inventario, horómetros y telemetría autónoma."
+      loading={loading}
+      error={error}
+      onRetry={cargar}
+      action={
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          {puedeOperar && (
+            <button type="button" onClick={() => setShowForm(!showForm)} style={primaryBtn}>
+              <Plus size={16} /> Agregar embarcación
+            </button>
+          )}
+          <button type="button" onClick={cargar} title="Actualizar" data-nofx style={{ ...ghostBtn, padding: "10px 12px", display: "inline-flex", alignItems: "center" }}>
+            <RefreshCw size={15} />
+          </button>
+        </div>
+      }
+    >
+      {!loading && (
+        <>
+          <StatGrid
+            hero={
+              <HeroStat
+                variant={heroVariant}
+                icon={Ship}
+                label="Flota registrada"
+                value={stats.total === 0 ? "Sin naves" : stats.total}
+                sub={stats.total === 0
+                  ? "Agrega tu primera embarcación para activar el CMMS"
+                  : `${stats.activas} activa${stats.activas !== 1 ? "s" : ""} · ${stats.enMar} en operación · ${stats.enVarada} en mantenimiento`}
+              />
+            }
+            stats={[
+              { label: "En servicio", value: stats.activas, sub: "marcadas activas", icon: Anchor, tone: C.green },
+              { label: "En el mar", value: stats.enMar, sub: "según mareas/varadas", icon: Waves, tone: C.cyan },
+            ]}
+          />
 
-      <ErrorBanner onRetry={cargar}>{error}</ErrorBanner>
-
-      {showForm && (
-        <Card style={{ marginBottom: 16, background: C.mist }}>
-          <div style={{ ...archivo, fontWeight: 700, fontSize: 15, color: C.abyss, marginBottom: 14 }}>Nueva Embarcación</div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr 2fr", gap: 12, alignItems: "end" }}>
-            <Field label="Código"><input value={form.codigo} onChange={(e) => setForm({ ...form, codigo: e.target.value })} style={inputStyle()} placeholder="DM" maxLength={8} /></Field>
-            <Field label="Nombre"><input value={form.nombre} onChange={(e) => setForm({ ...form, nombre: e.target.value })} style={inputStyle()} placeholder="Don Miguel" /></Field>
-            <Field label="Color">
-              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                {COLORES.map((c) => (
-                  <button key={c} onClick={() => setForm({ ...form, color: c })} style={{ width: 28, height: 28, borderRadius: 7, background: c, border: form.color === c ? `3px solid ${C.abyss}` : `1px solid ${C.line}`, cursor: "pointer" }} />
-                ))}
+          {showForm && (
+            <Section title="Nueva embarcación" padding={20} style={{ marginBottom: 24 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr 2fr", gap: 12, alignItems: "end" }}>
+                <Field label="Código">
+                  <input value={form.codigo} onChange={(e) => setForm({ ...form, codigo: e.target.value })} style={inputStyle()} placeholder="DM" maxLength={8} />
+                </Field>
+                <Field label="Nombre">
+                  <input value={form.nombre} onChange={(e) => setForm({ ...form, nombre: e.target.value })} style={inputStyle()} placeholder="Don Miguel" />
+                </Field>
+                <Field label="Color identificador">
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                    {COLORES.map((c) => (
+                      <button key={c} type="button" onClick={() => setForm({ ...form, color: c })}
+                        style={{ width: 28, height: 28, borderRadius: 7, background: c, border: form.color === c ? `3px solid ${C.abyss}` : `1px solid ${C.line}`, cursor: "pointer" }} />
+                    ))}
+                  </div>
+                </Field>
               </div>
-            </Field>
-          </div>
-          <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
-            <button onClick={agregar} style={primaryBtn}>Guardar</button>
-            <button onClick={() => setShowForm(false)} style={ghostBtn}>Cancelar</button>
-          </div>
-        </Card>
-      )}
+              <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
+                <button type="button" onClick={agregar} style={primaryBtn}>Guardar</button>
+                <button type="button" onClick={() => setShowForm(false)} style={ghostBtn}>Cancelar</button>
+              </div>
+            </Section>
+          )}
 
-      {loading ? <Card><InlineSpinner label="Cargando embarcaciones…" /></Card> :
-        rows.length === 0 ? (
-          <Card><Empty>
-            <Anchor size={32} color={C.line} style={{ marginBottom: 10 }} /><br />
-            Aún no hay embarcaciones. {puedeOperar ? "Agrega la primera para comenzar." : "Pide a un administrador que registre la flota."}
-          </Empty></Card>
-        ) : (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 14 }}>
-            {rows.map((e) => (
-              <Card key={e.id} style={{ padding: 0, overflow: "hidden" }}>
-                <div style={{ height: 6, background: e.color }} />
-                <div style={{ padding: 18 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 14 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                      <div style={{ width: 40, height: 40, borderRadius: 10, background: e.color, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                        <Ship size={22} color="#fff" />
-                      </div>
-                      <div>
-                        <input value={e.nombre} disabled={!puedeOperar} onChange={(ev) => setRows((p) => p.map((r) => r.id === e.id ? { ...r, nombre: ev.target.value } : r))} onBlur={(ev) => commit(e.id, "nombre", ev.target.value)}
-                          style={{ ...archivo, fontSize: 16, fontWeight: 700, color: C.abyss, border: "none", background: "transparent", outline: "none", width: "100%", padding: 0 }} />
-                        <div style={{ fontSize: 11.5, color: C.slate, fontFamily: "'IBM Plex Mono', monospace" }}>{e.codigo}</div>
-                      </div>
-                    </div>
-                    {puedeBorrar && <button onClick={() => eliminar(e.id)} style={{ background: "none", border: "none", cursor: "pointer", color: C.slate }}><Trash2 size={16} /></button>}
-                  </div>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                      {(() => { const op = estadoOperacionalNave(e.id, { mareas, varadas }); return <Pill tone={op.tone}>{op.label}</Pill>; })()}
-                      <Pill tone={e.activa ? "green" : "slate"}>{e.activa ? "Activa" : "Inactiva"}</Pill>
-                    </div>
-                    {puedeOperar && (
-                      <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: C.slate, cursor: "pointer" }}>
-                        <input type="checkbox" checked={e.activa} onChange={(ev) => commit(e.id, "activa", ev.target.checked)} />
-                        En servicio
-                      </label>
-                    )}
-                  </div>
-
-                  {puedeBorrar && (
-                    <div style={{ marginTop: 14, paddingTop: 12, borderTop: `1px solid ${C.foam}` }}>
-                      <button onClick={() => setTokenAbierto(tokenAbierto === e.id ? null : e.id)}
-                        style={{ display: "flex", alignItems: "center", gap: 6, background: "none", border: "none", cursor: "pointer", color: C.steel, fontSize: 12, fontWeight: 600, padding: 0 }}>
-                        <Wifi size={13} /> Telemetría de horómetro {tokenAbierto === e.id ? "▲" : "▼"}
-                      </button>
-                      {tokenAbierto === e.id && (
-                        <div style={{ marginTop: 10 }}>
-                          <div style={{ fontSize: 10.5, color: C.slate, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 }}>Endpoint (POST)</div>
-                          <div style={{ fontSize: 11, fontFamily: "'IBM Plex Mono', monospace", color: C.ink, background: C.mist, border: `1px solid ${C.line}`, borderRadius: 6, padding: "6px 8px", wordBreak: "break-all", marginBottom: 8 }}>{FUNCTIONS_URL}</div>
-                          <div style={{ fontSize: 10.5, color: C.slate, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 }}>Token de esta nave</div>
-                          <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                            <code style={{ flex: 1, fontSize: 11, fontFamily: "'IBM Plex Mono', monospace", color: C.ink, background: C.mist, border: `1px solid ${C.line}`, borderRadius: 6, padding: "6px 8px", wordBreak: "break-all" }}>{e.telemetria_token}</code>
-                            <button onClick={() => navigator.clipboard?.writeText(e.telemetria_token)} title="Copiar token" style={{ ...ghostBtn, padding: "6px 9px" }}><Copy size={13} /></button>
+          {rows.length === 0 ? (
+            <Section title="Tu flota" padding={0}>
+              <EmptyState
+                icon={Anchor}
+                title="Aún no hay embarcaciones"
+                description={puedeOperar
+                  ? "Registra la primera nave para comenzar a cargar equipos, OTs y planes preventivos."
+                  : "Pide a un administrador que registre la flota de la empresa."}
+                action={puedeOperar && (
+                  <button type="button" onClick={() => setShowForm(true)} style={primaryBtn}>
+                    <Plus size={15} /> Agregar primera embarcación
+                  </button>
+                )}
+              />
+            </Section>
+          ) : (
+            <Section
+              title="Naves registradas"
+              description="Edita nombre y estado inline. Los administradores pueden configurar telemetría de horómetro."
+              padding={0}
+              style={{ marginBottom: 0 }}
+            >
+              <div className="cmms-grid-fleet" style={{ padding: 16 }}>
+                {rows.map((e) => {
+                  const op = estadoOperacionalNave(e.id, { mareas, varadas });
+                  return (
+                    <Card key={e.id} style={{ padding: 0, overflow: "hidden" }}>
+                      <div style={{ height: 5, background: e.color }} />
+                      <div style={{ padding: 18 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 14 }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+                            <div style={{
+                              width: 44, height: 44, borderRadius: 12, background: e.color,
+                              display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+                            }}>
+                              <Ship size={22} color="#fff" />
+                            </div>
+                            <div style={{ minWidth: 0 }}>
+                              <input
+                                value={e.nombre}
+                                disabled={!puedeOperar}
+                                onChange={(ev) => setRows((p) => p.map((r) => r.id === e.id ? { ...r, nombre: ev.target.value } : r))}
+                                onBlur={(ev) => commit(e.id, "nombre", ev.target.value)}
+                                style={{
+                                  ...archivo, fontSize: 16, fontWeight: 700, color: C.abyss,
+                                  border: "none", background: "transparent", outline: "none", width: "100%", padding: 0,
+                                }}
+                              />
+                              <div style={{ fontSize: 11.5, color: C.slate, fontFamily: "'IBM Plex Mono', monospace" }}>{e.codigo}</div>
+                            </div>
                           </div>
-                          <div style={{ fontSize: 11, color: C.slate, marginTop: 8, lineHeight: 1.5 }}>
-                            El emisor a bordo hace POST con <code style={{ fontSize: 10.5 }}>{"{ token, equipo_id, horas }"}</code>. La lectura entra con fuente telemetría y se propaga al subárbol del horómetro. Token secreto — trátalo como una credencial.
-                          </div>
+                          {puedeBorrar && (
+                            <button type="button" onClick={() => eliminar(e.id)} style={{ background: "none", border: "none", cursor: "pointer", color: C.slate, flexShrink: 0 }}>
+                              <Trash2 size={16} />
+                            </button>
+                          )}
                         </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </Card>
-            ))}
-          </div>
-        )}
-    </div>
+
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
+                          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                            <Pill tone={op.tone}>{op.label}</Pill>
+                            <Pill tone={e.activa ? "green" : "slate"}>{e.activa ? "Activa" : "Inactiva"}</Pill>
+                          </div>
+                          {puedeOperar && (
+                            <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: C.slate, cursor: "pointer" }}>
+                              <input type="checkbox" checked={e.activa} onChange={(ev) => commit(e.id, "activa", ev.target.checked)} />
+                              En servicio
+                            </label>
+                          )}
+                        </div>
+
+                        {puedeBorrar && (
+                          <div style={{ marginTop: 14, paddingTop: 12, borderTop: `1px solid ${C.foam}` }}>
+                            <button type="button" onClick={() => setTokenAbierto(tokenAbierto === e.id ? null : e.id)}
+                              style={{ display: "flex", alignItems: "center", gap: 6, background: "none", border: "none", cursor: "pointer", color: C.steel, fontSize: 12, fontWeight: 600, padding: 0 }}>
+                              <Wifi size={13} /> Telemetría de horómetro {tokenAbierto === e.id ? "▲" : "▼"}
+                            </button>
+                            {tokenAbierto === e.id && (
+                              <div style={{ marginTop: 10 }}>
+                                <div style={{ fontSize: 10.5, color: C.slate, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 }}>Endpoint (POST)</div>
+                                <div style={{ fontSize: 11, fontFamily: "'IBM Plex Mono', monospace", color: C.ink, background: C.mist, border: `1px solid ${C.line}`, borderRadius: 6, padding: "6px 8px", wordBreak: "break-all", marginBottom: 8 }}>{FUNCTIONS_URL}</div>
+                                <div style={{ fontSize: 10.5, color: C.slate, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 }}>Token de esta nave</div>
+                                <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                                  <code style={{ flex: 1, fontSize: 11, fontFamily: "'IBM Plex Mono', monospace", color: C.ink, background: C.mist, border: `1px solid ${C.line}`, borderRadius: 6, padding: "6px 8px", wordBreak: "break-all" }}>{e.telemetria_token}</code>
+                                  <button type="button" onClick={() => navigator.clipboard?.writeText(e.telemetria_token)} title="Copiar token" style={{ ...ghostBtn, padding: "6px 9px" }}><Copy size={13} /></button>
+                                </div>
+                                <div style={{ fontSize: 11, color: C.slate, marginTop: 8, lineHeight: 1.5 }}>
+                                  POST con <code style={{ fontSize: 10.5 }}>{"{ token, equipo_id, horas }"}</code>. Trata el token como credencial secreta.
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </Card>
+                  );
+                })}
+              </div>
+            </Section>
+          )}
+        </>
+      )}
+    </ModuleShell>
   );
 }
