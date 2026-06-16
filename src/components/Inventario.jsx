@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useMemo } from "react";
-import { Package, Plus, Trash2, Download, X, Pencil, Check, Tag, Search, ChevronDown, ChevronRight, List, FolderTree, Layers } from "lucide-react";
+import { Package, Plus, Trash2, Download, X, Pencil, Check, Tag, Search, ChevronDown, ChevronRight, List, FolderTree, Layers, Columns3, Table2, AlertTriangle } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { fetchAll, insertRow, updateRow, deleteRow, upsertRow, logActivity } from "../lib/db";
 import { C, clp, isAdmin, canOperate, tint } from "../theme";
@@ -16,9 +16,15 @@ const TIPOS_REPUESTO = [
   { value: "generico",    label: "Genérico" },
 ];
 import {
-  Card, PageHead, Pill, FilterBtn, primaryBtn, ghostBtn, exportBtn, inputStyle, bluInput,
+  Card, Pill, FilterBtn, primaryBtn, ghostBtn, exportBtn, inputStyle, bluInput,
   thStyle, tdStyle, Field, Empty, ErrorBanner, InlineSpinner, GuiaColapsable,
+  ModuleShell, StatGrid, HeroStat, Toolbar, Section, EmptyState,
 } from "../ui";
+import InventarioQueuePanel from "./inventario/InventarioQueuePanel";
+import InventarioKanban from "./inventario/InventarioKanban";
+import InventarioDetailPanel from "./inventario/InventarioDetailPanel";
+import { ordenarItemsInv } from "../lib/inventarioKanban";
+import { useMediaQuery } from "../lib/useMediaQuery";
 
 // Prefijos de tipo de repuesto para el código (SKU). Formato: TIPO-SUBTIPO-ESPEC
 const PREFIJOS_SKU = [
@@ -54,6 +60,14 @@ const CATEGORIAS_MATERIAL = [
 
 const skey = (item_id, bodega_id) => `${item_id}::${bodega_id}`;
 
+const VISTA_KEY = "cmms-inv-vista";
+const VISTA_TABLA_KEY = "cmms-inv-vista-tabla";
+const VISTAS = [
+  { id: "cola", label: "Cola", icon: List },
+  { id: "kanban", label: "Kanban", icon: Columns3 },
+  { id: "tabla", label: "Tabla", icon: Table2 },
+];
+
 export default function Inventario() {
   const { profile } = useAuth();
   const [items, setItems] = useState([]);
@@ -67,7 +81,10 @@ export default function Inventario() {
   const [form, setForm] = useState(blank());
   const [destinoPanel, setDestinoPanel] = useState(null); // item_id | null
   const [codigoEdit, setCodigoEdit] = useState({ id: null, valor: "" });
-  const [vista, setVista] = useState("plano");        // plano | categoria | jerarquia
+  const [vista, setVista] = useState("kanban");
+  const [vistaTabla, setVistaTabla] = useState("plano");
+  const [selectedId, setSelectedId] = useState(null);
+  const [detailTab, setDetailTab] = useState("resumen");
   const [busqueda, setBusqueda] = useState("");
   const [filtroABC, setFiltroABC] = useState("all");   // all | A | B | C
   const [filtroStock, setFiltroStock] = useState("all"); // all | bajo | revisar | ok
@@ -78,6 +95,8 @@ export default function Inventario() {
   const [stockPanel, setStockPanel] = useState(null); // item_id | null
   const puedeOperar = canOperate(profile?.rol);
   const puedeBorrar = isAdmin(profile?.rol);
+  const isMobile = useMediaQuery("(max-width: 1024px)");
+  const isTabla = vista === "tabla";
   const NCOLS = 12 + (puedeOperar ? 1 : 0) + (puedeBorrar ? 1 : 0);
 
   function blank() {
@@ -100,6 +119,23 @@ export default function Inventario() {
     finally { setLoading(false); }
   }, []);
   useEffect(() => { cargar(); }, [cargar]);
+
+  useEffect(() => {
+    const saved = localStorage.getItem(VISTA_KEY);
+    const savedTabla = localStorage.getItem(VISTA_TABLA_KEY);
+    if (saved === "plano" || saved === "categoria" || saved === "jerarquia") {
+      setVista("tabla");
+      setVistaTabla(saved);
+    } else if (saved && VISTAS.some((v) => v.id === saved)) {
+      setVista(saved);
+    }
+    if (savedTabla && ["plano", "categoria", "jerarquia"].includes(savedTabla)) setVistaTabla(savedTabla);
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem(VISTA_KEY, vista);
+    if (vista === "tabla") localStorage.setItem(VISTA_TABLA_KEY, vistaTabla);
+  }, [vista, vistaTabla]);
 
   function totalStock(itemId) {
     return stockEntries.filter((s) => s.item_id === itemId).reduce((sum, s) => sum + (Number(s.cantidad) || 0), 0);
@@ -169,6 +205,26 @@ export default function Inventario() {
   const hayFiltro = filtroABC !== "all" || filtroStock !== "all" || !!q;
   const limpiarFiltros = () => { setFiltroABC("all"); setFiltroStock("all"); setBusqueda(""); };
   const toggleGrupo = (k) => setGruposCol((p) => { const n = new Set(p); n.has(k) ? n.delete(k) : n.add(k); return n; });
+
+  const listaOrdenada = useMemo(() => ordenarItemsInv(lista), [lista]);
+  const selectedItem = useMemo(
+    () => conABC.find((i) => i.id === selectedId) || listaOrdenada[0] || null,
+    [conABC, selectedId, listaOrdenada],
+  );
+  const nBajoMin = conABC.filter((x) => estadoStock(x).key === "bajo").length;
+
+  useEffect(() => {
+    if (selectedId && !conABC.some((i) => i.id === selectedId)) setSelectedId(null);
+  }, [conABC, selectedId]);
+
+  useEffect(() => {
+    if (!isTabla && !selectedId && listaOrdenada.length > 0) setSelectedId(listaOrdenada[0].id);
+  }, [vista, filtroABC, filtroStock, busqueda, soloConStock, listaOrdenada.length]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  function seleccionarItem(id, tab) {
+    setSelectedId(id);
+    if (tab) setDetailTab(tab);
+  }
 
   // ── Destinos ─────────────────────────────────────────────────
   function destinosDeItem(itemId) { return destinos.filter((d) => d.item_id === itemId); }
@@ -297,6 +353,7 @@ export default function Inventario() {
     setItems((p) => p.filter((i) => i.id !== id));
     setDestinos((p) => p.filter((d) => d.item_id !== id));
     if (destinoPanel === id) setDestinoPanel(null);
+    if (selectedId === id) setSelectedId(null);
     try { await deleteRow("inventario_items", id); logActivity(profile, "Eliminar ítem", `${it?.codigo} · ${it?.descripcion}`); }
     catch (e) { setItems(respaldo); setError("No se pudo eliminar: " + e.message); }
   }
@@ -322,83 +379,156 @@ export default function Inventario() {
 
   const itemPanel = destinoPanel ? items.find((i) => i.id === destinoPanel) : null;
 
-  if (loading) return <div><PageHead kicker="Repuestos" title="Inventario" /><Card><InlineSpinner label="Cargando inventario…" /></Card></div>;
+  if (loading) {
+    return (
+      <ModuleShell kicker="Repuestos · ABC + Min-Máx" title="Inventario de Repuestos" loading />
+    );
+  }
+
+  const detailProps = {
+    item: selectedItem,
+    puedeOperar,
+    puedeBorrar,
+    isDirty: selectedItem ? filasEditando.has(selectedItem.id) : false,
+    bodegas,
+    stockMap,
+    skey,
+    destinos,
+    equipos,
+    embarcaciones,
+    categoriasSugeridas,
+    codigoEdit,
+    onIniciarEditCodigo: iniciarEditCodigo,
+    onConfirmarCodigo: confirmarCodigo,
+    onCancelarCodigo: cancelarCodigo,
+    onCodigoEditChange: (v) => setCodigoEdit((p) => ({ ...p, valor: v })),
+    onChangeLocal,
+    onMarcarDirty: marcarDirty,
+    onGuardar: guardarFila,
+    onCancelar: cancelarFila,
+    onEliminar: eliminar,
+    onSetCantidad: setCantidadInv,
+    onAgregarDestino: agregarDestino,
+    onQuitarDestino: quitarDestino,
+    embColor,
+    embName,
+    activeTab: detailTab,
+    onTabChange: setDetailTab,
+  };
 
   return (
-    <div>
-      <PageHead kicker="ABC + Min-Máx · Libbrecht" title="Inventario de Repuestos"
-        sub="Catálogo maestro de repuestos. Clase ABC automática según valor. El stock se gestiona en Almacén & Compras."
-        action={<div style={{ display: "flex", gap: 8 }}>
-          <button onClick={exportar} style={exportBtn}><Download size={15} /> Exportar</button>
-          {puedeOperar && <button onClick={() => { setShowForm(!showForm); setError(null); }} style={primaryBtn}><Plus size={16} /> Agregar Ítem</button>}
-        </div>} />
-
-      <ErrorBanner onRetry={cargar}>{error}</ErrorBanner>
-
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14, marginBottom: 16 }}>
-        <MiniStat label="Valor Total" value={clp(totalValor)} tone={C.gold} />
-        <MiniStat label="Ítems Clase A" value={conABC.filter((x) => x.abc === "A").length} tone={C.red} sub="control estricto" />
-        <MiniStat label="Bajo Mínimo" value={conABC.filter((x) => estadoStock(x).key === "bajo").length} tone={C.red} />
-        <MiniStat label="Total Ítems" value={items.length} />
-      </div>
-
-      {/* ── Barra de filtros + vista ── */}
-      {items.length > 0 && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 14 }}>
-          {/* Fila 1: buscador + toggle de vista */}
-          <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-            <div style={{ position: "relative", flex: "1 1 280px", maxWidth: 360 }}>
-              <Search size={15} color={C.slate} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)" }} />
-              <input value={busqueda} onChange={(e) => setBusqueda(e.target.value)}
-                placeholder="Buscar código, descripción o proveedor…"
-                style={{ ...inputStyle(), width: "100%", paddingLeft: 32, fontSize: 13 }} />
-            </div>
-            <div style={{ display: "flex", gap: 0, border: `1px solid ${C.line}`, borderRadius: 8, overflow: "hidden" }}>
-              {[["plano", "Plano", List], ["categoria", "Categoría", FolderTree], ["jerarquia", "Jerarquía", Layers]].map(([v, lbl, Ico]) => (
-                <button key={v} onClick={() => setVista(v)}
-                  style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 12px", border: "none", borderLeft: v !== "plano" ? `1px solid ${C.line}` : "none", background: vista === v ? C.steel : "#fff", color: vista === v ? "#fff" : C.slate, fontSize: 12.5, fontWeight: 600, cursor: "pointer" }}>
-                  <Ico size={14} /> {lbl}
-                </button>
-              ))}
-            </div>
-            <span style={{ marginLeft: "auto", fontSize: 12, color: C.slate }}>
-              {lista.length} de {soloConStock ? itemsConStock : items.length} {soloConStock ? "en stock" : "en catálogo"}
-              {soloConStock && items.length > itemsConStock && <span style={{ color: C.slate, opacity: 0.6, marginLeft: 4 }}>({items.length - itemsConStock} sin stock ocultos)</span>}
-            </span>
-            {hayFiltro && (
-              <button onClick={limpiarFiltros} style={{ padding: "6px 10px", borderRadius: 7, border: `1px solid ${C.line}`, background: "none", color: C.slate, fontSize: 12, cursor: "pointer" }}>
-                <X size={13} style={{ display: "inline", verticalAlign: "middle" }} /> Limpiar
-              </button>
-            )}
-          </div>
-
-          {/* Fila 2: toggle catálogo + ABC + estado de stock */}
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-            <button onClick={() => setSoloConStock((v) => !v)} style={{ padding: "5px 13px", borderRadius: 7, border: `1px solid ${soloConStock ? C.cyan : C.line}`, background: soloConStock ? tint(C.cyan, 14) : "#fff", color: soloConStock ? C.cyan : C.slate, fontSize: 12.5, fontWeight: 700, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 5 }}>
-              <span style={{ width: 7, height: 7, borderRadius: "50%", background: soloConStock ? C.cyan : C.line, display: "inline-block" }} />
-              {soloConStock ? "En stock" : "Catálogo completo"}
+    <ModuleShell
+      kicker="Repuestos · ABC + Min-Máx · Libbrecht"
+      title="Inventario de Repuestos"
+      sub="Catálogo maestro de repuestos. Clase ABC automática según valor. Kanban por estado de stock; tabla completa para edición masiva."
+      error={error}
+      onRetry={cargar}
+      action={
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <button type="button" onClick={exportar} style={exportBtn}><Download size={15} /> Exportar</button>
+          {puedeOperar && (
+            <button type="button" onClick={() => { setShowForm(!showForm); setError(null); }} style={primaryBtn}>
+              <Plus size={16} /> Agregar Ítem
             </button>
-            <div style={{ width: 1, alignSelf: "stretch", background: C.line, margin: "0 2px" }} />
-            <span style={{ fontSize: 11, color: C.slate, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5 }}>ABC</span>
-            {[["all", "Todos", C.slate], ["A", "A", C.red], ["B", "B", C.amber], ["C", "C", C.green]].map(([v, lbl, tone]) => {
-              const active = filtroABC === v;
-              return <button key={v} onClick={() => setFiltroABC(v)} style={{ padding: "5px 12px", borderRadius: 7, border: `1px solid ${active ? tone : C.line}`, background: active ? tone : "#fff", color: active ? "#fff" : C.slate, fontSize: 12.5, fontWeight: 600, cursor: "pointer" }}>{lbl}</button>;
-            })}
-            <div style={{ width: 1, alignSelf: "stretch", background: C.line, margin: "0 4px" }} />
-            <span style={{ fontSize: 11, color: C.slate, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5 }}>Stock</span>
-            {[["all", "Todos", C.slate], ["bajo", "Bajo mínimo", C.red], ["revisar", "Por revisar", C.amber], ["ok", "OK", C.green]].map(([v, lbl, tone]) => {
-              const active = filtroStock === v;
-              const n = v === "all" ? null : conABC.filter((i) => stockStatus(i) === v).length;
-              return <button key={v} onClick={() => setFiltroStock(v)} style={{ padding: "5px 12px", borderRadius: 7, border: `1px solid ${active ? tone : C.line}`, background: active ? tone : "#fff", color: active ? "#fff" : C.slate, fontSize: 12.5, fontWeight: 600, cursor: "pointer" }}>{lbl}{n != null && <span style={{ opacity: 0.7, marginLeft: 4, fontSize: 11 }}>({n})</span>}</button>;
-            })}
-          </div>
+          )}
+        </div>
+      }
+      toolbar={
+        items.length > 0 ? (
+          <Toolbar
+            left={
+              <>
+                <div style={{ position: "relative", flex: "1 1 220px", maxWidth: 320 }}>
+                  <Search size={15} color={C.slate} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} />
+                  <input value={busqueda} onChange={(e) => setBusqueda(e.target.value)}
+                    placeholder="Buscar código, descripción…"
+                    style={{ ...inputStyle(), width: "100%", paddingLeft: 32, fontSize: 13 }} />
+                </div>
+                {VISTAS.map((v) => {
+                  const Icon = v.icon;
+                  return (
+                    <FilterBtn key={v.id} active={vista === v.id} onClick={() => setVista(v.id)}>
+                      <Icon size={14} style={{ display: "inline", verticalAlign: "middle", marginRight: 4 }} />
+                      {v.label}
+                    </FilterBtn>
+                  );
+                })}
+                {isTabla && (
+                  <>
+                    <div style={{ width: 1, alignSelf: "stretch", background: C.line, margin: "0 4px" }} />
+                    {[["plano", "Plano", List], ["categoria", "Categoría", FolderTree], ["jerarquia", "Jerarquía", Layers]].map(([v, lbl, Ico]) => (
+                      <FilterBtn key={v} active={vistaTabla === v} onClick={() => setVistaTabla(v)}>
+                        <Ico size={14} style={{ display: "inline", verticalAlign: "middle", marginRight: 4 }} />
+                        {lbl}
+                      </FilterBtn>
+                    ))}
+                  </>
+                )}
+              </>
+            }
+            right={
+              <>
+                <button type="button" onClick={() => setSoloConStock((v) => !v)}
+                  style={{ padding: "5px 13px", borderRadius: 7, border: `1px solid ${soloConStock ? C.cyan : C.line}`, background: soloConStock ? tint(C.cyan, 14) : "#fff", color: soloConStock ? C.cyan : C.slate, fontSize: 12.5, fontWeight: 700, cursor: "pointer" }}>
+                  {soloConStock ? "En stock" : "Catálogo completo"}
+                </button>
+                {hayFiltro && (
+                  <button type="button" onClick={limpiarFiltros} style={{ ...ghostBtn, padding: "6px 10px", fontSize: 12 }}>
+                    <X size={13} /> Limpiar
+                  </button>
+                )}
+              </>
+            }
+          />
+        ) : null
+      }
+    >
+      <StatGrid
+        hero={
+          <HeroStat
+            variant={nBajoMin > 0 ? "critical" : "ok"}
+            icon={nBajoMin > 0 ? AlertTriangle : Package}
+            label="Valor inventario"
+            value={clp(totalValor)}
+            sub={`${items.length} ítems · ${nBajoMin} bajo mínimo · ${conABC.filter((x) => x.abc === "A").length} clase A`}
+            onClick={() => { setVista("kanban"); setFiltroStock("bajo"); }}
+          />
+        }
+        stats={[
+          { label: "Bajo mínimo", value: nBajoMin, sub: "requieren reposición", icon: AlertTriangle, tone: nBajoMin ? C.red : C.green, onClick: () => { setVista("kanban"); setFiltroStock("bajo"); } },
+          { label: "Clase A", value: conABC.filter((x) => x.abc === "A").length, sub: "control estricto", icon: Package, tone: C.red, onClick: () => { setFiltroABC("A"); setVista("cola"); } },
+          { label: "En alcance", value: lista.length, sub: soloConStock ? "con stock" : "catálogo filtrado", icon: Package, tone: C.steel },
+        ]}
+      />
 
-          {/* Colapsar / expandir todo (solo en vistas agrupadas) */}
-          {vista !== "plano" && (
-            <div style={{ display: "flex", gap: 8 }}>
-              <button onClick={() => { vista === "categoria" ? setGruposCol(new Set(construirGruposCategoria().map((x) => x.key))) : arbolInv.colapsarTodo(true); }} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, padding: "5px 12px", borderRadius: 8, border: `1px solid ${C.line}`, background: "#fff", color: C.slate, cursor: "pointer", fontWeight: 600 }}><ChevronRight size={13} /> Colapsar todo</button>
-              <button onClick={() => { vista === "categoria" ? setGruposCol(new Set()) : arbolInv.colapsarTodo(false); }} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, padding: "5px 12px", borderRadius: 8, border: `1px solid ${C.line}`, background: "#fff", color: C.slate, cursor: "pointer", fontWeight: 600 }}><ChevronDown size={13} /> Expandir todo</button>
-            </div>
+      {items.length > 0 && (
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 16 }}>
+          <span style={{ fontSize: 11, color: C.slate, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5 }}>ABC</span>
+          {[["all", "Todos", C.slate], ["A", "A", C.red], ["B", "B", C.amber], ["C", "C", C.green]].map(([v, lbl, tone]) => {
+            const active = filtroABC === v;
+            return <FilterBtn key={v} active={active} color={active ? tone : undefined} onClick={() => setFiltroABC(v)}>{lbl}</FilterBtn>;
+          })}
+          <div style={{ width: 1, alignSelf: "stretch", background: C.line, margin: "0 4px" }} />
+          <span style={{ fontSize: 11, color: C.slate, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5 }}>Stock</span>
+          {[["all", "Todos"], ["bajo", "Bajo mínimo"], ["revisar", "Por revisar"], ["ok", "OK"]].map(([v, lbl]) => {
+            const active = filtroStock === v;
+            const n = v === "all" ? null : conABC.filter((i) => stockStatus(i) === v).length;
+            return (
+              <FilterBtn key={v} active={active} onClick={() => setFiltroStock(v)}>
+                {lbl}{n != null && n > 0 ? ` (${n})` : ""}
+              </FilterBtn>
+            );
+          })}
+          <span style={{ marginLeft: "auto", fontSize: 12, color: C.slate }}>
+            {lista.length} de {soloConStock ? itemsConStock : items.length} ítems
+          </span>
+          {isTabla && vistaTabla !== "plano" && (
+            <>
+              <button type="button" onClick={() => { vistaTabla === "categoria" ? setGruposCol(new Set(construirGruposCategoria().map((x) => x.key))) : arbolInv.colapsarTodo(true); }}
+                style={{ ...ghostBtn, padding: "5px 12px", fontSize: 12 }}><ChevronRight size={13} /> Colapsar</button>
+              <button type="button" onClick={() => { vistaTabla === "categoria" ? setGruposCol(new Set()) : arbolInv.colapsarTodo(false); }}
+                style={{ ...ghostBtn, padding: "5px 12px", fontSize: 12 }}><ChevronDown size={13} /> Expandir</button>
+            </>
           )}
         </div>
       )}
@@ -493,8 +623,8 @@ export default function Inventario() {
         </Card>
       )}
 
-      {/* ── Panel de destinos (editor inline) ── */}
-      {itemPanel && (
+      {/* ── Panel de destinos (solo vista tabla) ── */}
+      {isTabla && itemPanel && (
         <Card style={{ marginBottom: 16, borderLeft: `4px solid ${C.steel}`, background: tint(C.steel, 8) }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
             <div>
@@ -543,8 +673,8 @@ export default function Inventario() {
         </Card>
       )}
 
-      {/* ── Panel ajuste de stock ── */}
-      {stockPanel && (() => {
+      {/* ── Panel ajuste de stock (solo vista tabla) ── */}
+      {isTabla && stockPanel && (() => {
         const panelItem = items.find((i) => i.id === stockPanel);
         if (!panelItem) return null;
         const panelTotal = stockEntries.filter((s) => s.item_id === stockPanel).reduce((s, x) => s + (Number(x.cantidad) || 0), 0);
@@ -590,14 +720,89 @@ export default function Inventario() {
         );
       })()}
 
-      {/* ── Tabla principal ── */}
+      {/* ── Catálogo: cola / kanban / tabla ── */}
       {items.length === 0 ? (
-        <Card><Empty>
-          <Package size={32} color={C.line} style={{ marginBottom: 10 }} /><br />
-          Aún no hay ítems en el inventario. {puedeOperar ? "Agrega el primero para comenzar." : "Pide a un administrador que registre los repuestos."}
-        </Empty></Card>
+        <Section title="Catálogo" padding={24}>
+          <EmptyState
+            icon={Package}
+            title="Sin ítems en inventario"
+            description={puedeOperar ? "Agrega el primer repuesto para comenzar." : "Pide a un administrador que registre los repuestos."}
+          />
+        </Section>
+      ) : !isTabla ? (
+        <Section
+          title={vista === "kanban" ? "Tablero kanban" : "Cola y detalle"}
+          description={
+            vista === "kanban"
+              ? "Columnas por estado de stock · click en tarjeta para gestionar"
+              : isMobile
+                ? "Selecciona un ítem · el detalle aparece debajo"
+                : "Selecciona un ítem a la izquierda · edita stock y destinos a la derecha"
+          }
+          padding={0}
+          style={{ marginBottom: 0 }}
+        >
+          <style>{`
+            .inv-split-container {
+              display: grid;
+              grid-template-columns: minmax(300px, 380px) 1fr;
+              gap: 16px;
+              align-items: start;
+              padding: 16px;
+            }
+            .inv-split-container.inv-split-stack {
+              grid-template-columns: 1fr;
+            }
+            .inv-kanban-with-detail {
+              display: grid;
+              grid-template-columns: 1fr;
+              gap: 0;
+            }
+            @media (min-width: 1025px) {
+              .inv-kanban-with-detail.has-detail {
+                grid-template-columns: 1fr minmax(360px, 420px);
+              }
+            }
+          `}</style>
+
+          {listaOrdenada.length === 0 ? (
+            <EmptyState
+              icon={Package}
+              title="Sin ítems en este filtro"
+              description="Prueba otro filtro ABC/stock o limpia la búsqueda."
+            />
+          ) : vista === "kanban" ? (
+            <div className={`inv-kanban-with-detail${selectedItem ? " has-detail" : ""}`}>
+              <InventarioKanban
+                lista={listaOrdenada}
+                selectedId={selectedItem?.id}
+                onSelect={(id) => seleccionarItem(id)}
+              />
+              {selectedItem && (
+                <div style={{ padding: 16, borderLeft: isMobile ? "none" : `1px solid ${C.foam}`, borderTop: isMobile ? `1px solid ${C.foam}` : "none", minHeight: 420 }}>
+                  <InventarioDetailPanel {...detailProps} />
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className={`inv-split-container${isMobile ? " inv-split-stack" : ""}`}>
+              <InventarioQueuePanel
+                lista={listaOrdenada}
+                selectedId={selectedItem?.id}
+                onSelect={(id) => seleccionarItem(id)}
+                busqueda={busqueda}
+                setBusqueda={setBusqueda}
+                panelHeight={isMobile ? "auto" : "calc(100vh - 320px)"}
+              />
+              {(!isMobile || selectedItem) && (
+                <InventarioDetailPanel {...detailProps} />
+              )}
+            </div>
+          )}
+        </Section>
       ) : (
-        <Card style={{ padding: 0, overflow: "hidden" }}>
+        <Section title="Tabla completa" description="Edición inline masiva · plano, por categoría o jerarquía de equipos" padding={0}>
+      {/* ── Tabla principal ── */}
           <div style={{ overflowX: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 1320 }}>
               <thead><tr>
@@ -793,12 +998,12 @@ export default function Inventario() {
                 const vacio = <tr><td colSpan={NCOLS} style={{ textAlign: "center", padding: 24, color: C.slate, fontSize: 13 }}>Sin ítems para los filtros seleccionados.</td></tr>;
 
                 // ── Vista PLANO ──
-                if (vista === "plano") {
+                if (vistaTabla === "plano") {
                   return lista.length ? lista.map((i) => filaItem(i)) : vacio;
                 }
 
                 // ── Vista POR CATEGORÍA (grupos planos colapsables) ──
-                if (vista === "categoria") {
+                if (vistaTabla === "categoria") {
                   const grupos = construirGruposCategoria();
                   if (!grupos.length) return vacio;
                   return grupos.map((g) => {
@@ -869,7 +1074,7 @@ export default function Inventario() {
               </tbody>
             </table>
           </div>
-        </Card>
+        </Section>
       )}
       <datalist id="inv-categorias">
         {categoriasSugeridas.map((c) => <option key={c} value={c} />)}
@@ -898,16 +1103,6 @@ export default function Inventario() {
           </button>
         </div>
       )}
-    </div>
-  );
-}
-
-function MiniStat({ label, value, tone, sub }) {
-  return (
-    <Card style={{ padding: 16 }}>
-      <div style={{ fontSize: 11, letterSpacing: 1, textTransform: "uppercase", color: C.slate, fontWeight: 600 }}>{label}</div>
-      <div style={{ fontFamily: "'Archivo', sans-serif", fontSize: 26, fontWeight: 800, color: tone || C.steel, lineHeight: 1, marginTop: 8 }}>{value}</div>
-      {sub && <div style={{ fontSize: 11.5, color: C.slate, marginTop: 6 }}>{sub}</div>}
-    </Card>
+    </ModuleShell>
   );
 }
