@@ -11,7 +11,7 @@ import {
   ModuleShell, StatGrid, HeroStat, ActionQueue, Toolbar, Section,
 } from "../ui";
 import { FotoInput } from "./Fotos";
-import { blankOT, folioOT, kpisOT, filtrarOTs, buscarOTs, sinValorizar, validarNuevaOT } from "../lib/ot";
+import { blankOT, folioOT, kpisOT, filtrarOTs, buscarOTs, ordenarOTs, sinValorizar, validarNuevaOT } from "../lib/ot";
 import { MODOS_FALLA_ISO, requiereCodigoFalla } from "../lib/fallasISO";
 import CierreFallaModal from "./ot/CierreFallaModal";
 import EquipoPicker from "./EquipoPicker";
@@ -145,12 +145,12 @@ export default function OrdenesTrabajo({ navParams }) {
   const otsScope = embFiltro === "all" ? ots : ots.filter((o) => o.embarcacion_id === embFiltro);
   const listaBase = otDestacada ? [otDestacada] : filtrarOTs(otsScope, filtro);
   const lista = useMemo(
-    () => buscarOTs(listaBase, busqueda, embNameFn),
+    () => ordenarOTs(buscarOTs(listaBase, busqueda, embNameFn)),
     [listaBase, busqueda, embarcaciones],
   );
 
   const listaValorizar = useMemo(
-    () => buscarOTs(otsScope.filter(sinValorizar), busqueda, embNameFn),
+    () => ordenarOTs(buscarOTs(otsScope.filter(sinValorizar), busqueda, embNameFn)),
     [otsScope, busqueda, embarcaciones],
   );
 

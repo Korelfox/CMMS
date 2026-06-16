@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { blankOT, folioOT, costoOT, kpisOT, filtrarOTs, buscarOTs, validarNuevaOT } from "../src/lib/ot.js";
+import { blankOT, folioOT, costoOT, kpisOT, filtrarOTs, buscarOTs, ordenarOTs, validarNuevaOT } from "../src/lib/ot.js";
 
 describe("OT · folio", () => {
   it("online: máximo existente + 1 con padding a 3", () => {
@@ -65,6 +65,26 @@ describe("OT · validación de OT nueva", () => {
   });
   it("válida cuando tiene ambas", () => {
     expect(validarNuevaOT({ embarcacion_id: "n", descripcion: "cambio aceite" })).toBeNull();
+  });
+});
+
+describe("OT · orden de lista", () => {
+  it("abiertas primero, cerradas al final", () => {
+    const ots = [
+      { id: 1, estado: "cerrada", prioridad: "media", fecha: "2026-06-01" },
+      { id: 2, estado: "solicitada", prioridad: "baja", fecha: "2026-06-05" },
+      { id: 3, estado: "en_ejecucion", prioridad: "critica", fecha: "2026-06-03" },
+      { id: 4, estado: "cerrada", prioridad: "alta", fecha: "2026-06-02" },
+    ];
+    expect(ordenarOTs(ots).map((o) => o.id)).toEqual([3, 2, 4, 1]);
+  });
+  it("dentro de abiertas prioriza criticidad y fecha", () => {
+    const ots = [
+      { id: "a", estado: "solicitada", prioridad: "media", fecha: "2026-06-01" },
+      { id: "b", estado: "planificada", prioridad: "alta", fecha: "2026-06-02" },
+      { id: "c", estado: "programada", prioridad: "alta", fecha: "2026-06-05" },
+    ];
+    expect(ordenarOTs(ots).map((o) => o.id)).toEqual(["c", "b", "a"]);
   });
 });
 

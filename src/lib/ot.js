@@ -42,6 +42,33 @@ export function sinValorizar(ot) {
   return ot.estado === "cerrada" && !(ot.costo_mo || 0) && !(ot.costo_mat || 0);
 }
 
+const PRIORIDAD_RANK = { critica: 0, alta: 1, media: 2, baja: 3 };
+
+function cmpAbiertas(a, b) {
+  const pa = PRIORIDAD_RANK[a.prioridad] ?? 9;
+  const pb = PRIORIDAD_RANK[b.prioridad] ?? 9;
+  if (pa !== pb) return pa - pb;
+  return String(b.fecha || "").localeCompare(String(a.fecha || ""));
+}
+
+function cmpCerradas(a, b) {
+  const da = a.cerrada_fecha || a.fecha || "";
+  const db = b.cerrada_fecha || b.fecha || "";
+  return String(db).localeCompare(String(da));
+}
+
+/** Abiertas primero, cerradas al final — sin mezclar grupos. */
+export function ordenarOTs(ots = []) {
+  const abiertas = [];
+  const cerradas = [];
+  for (const o of ots) {
+    (o.estado === "cerrada" ? cerradas : abiertas).push(o);
+  }
+  abiertas.sort(cmpAbiertas);
+  cerradas.sort(cmpCerradas);
+  return [...abiertas, ...cerradas];
+}
+
 // Aplica el filtro de la lista de OTs (por estado, valorización o embarcación).
 export function filtrarOTs(ots = [], filtro = "all") {
   if (filtro === "all") return ots;
