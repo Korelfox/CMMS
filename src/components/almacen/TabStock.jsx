@@ -1,12 +1,25 @@
-import React, { useState, useMemo } from "react";
-import { Search, List, FolderTree, Layers, ChevronRight, ChevronDown, X, Check, Pencil, AlertCircle } from "lucide-react";
+import React, { useState, useMemo, useEffect } from "react";
+import { Search, List, FolderTree, Layers, ChevronRight, ChevronDown, X, Check, Pencil, AlertCircle, Columns3, Table2 } from "lucide-react";
 import { updateRow, upsertRow } from "../../lib/db";
 import { buildEquipoTree } from "../../lib/equipTree";
 import { useArbolColapsable, EquipoNodoLabel, fondoTipo } from "../../lib/arbolColapsable";
 import { estadoStock as estadoStockOf } from "../../lib/stock";
 import { C, archivo, clp, canOperate, tint } from "../../theme";
-import { Card, Pill, inputStyle, bluInput, thStyle, tdStyle, Empty } from "../../ui";
+import { Card, Pill, FilterBtn, inputStyle, bluInput, thStyle, tdStyle, Empty, Section, EmptyState } from "../../ui";
+import InventarioKanban from "../inventario/InventarioKanban";
+import InventarioQueuePanel from "../inventario/InventarioQueuePanel";
+import AlmacenStockDetailPanel from "./AlmacenStockDetailPanel";
+import { ordenarItemsInv } from "../../lib/inventarioKanban";
+import { useMediaQuery } from "../../lib/useMediaQuery";
 import { skey } from "./util";
+
+const VISTA_KEY = "cmms-almacen-stock-vista";
+const VISTA_TABLA_KEY = "cmms-almacen-stock-tabla";
+const VISTAS = [
+  { id: "cola", label: "Cola", icon: List },
+  { id: "kanban", label: "Kanban", icon: Columns3 },
+  { id: "tabla", label: "Tabla", icon: Table2 },
+];
 
 export default function TabStock({ profile, items, setItems, bodegas, stockMap, stock, setStock, setError, onReponer, equipos = [], destinos = [], embarcaciones = [] }) {
   const puedeOperar = canOperate(profile?.rol);
@@ -16,8 +29,13 @@ export default function TabStock({ profile, items, setItems, bodegas, stockMap, 
   const [filtroABC, setFiltroABC] = useState("all");
   const [soloConStock, setSoloConStock] = useState(true);
   const [busqueda, setBusqueda]   = useState("");
-  const [vista, setVista]         = useState("plano");      // plano | categoria | jerarquia
+  const [vista, setVista]         = useState("kanban");
+  const [vistaTabla, setVistaTabla] = useState("plano");
+  const [selectedId, setSelectedId] = useState(null);
+  const [detailTab, setDetailTab] = useState("bodegas");
   const [gruposCol, setGruposCol] = useState(() => new Set());
+  const isMobile = useMediaQuery("(max-width: 1024px)");
+  const isTabla = vista === "tabla";
 
   // ── Stock ────────────────────────────────────────────────────
   async function setCantidad(item_id, bodega_id, v) {
@@ -132,8 +150,71 @@ export default function TabStock({ profile, items, setItems, bodegas, stockMap, 
   const arbolInv = useArbolColapsable(treeJerarquia); // colapso por nodo (como Registro de Equipos)
   const sinAsignar = itemsFiltrados.filter((i) => !destinos.some((d) => d.item_id === i.id));
 
+  useEffect(() => {
+    const saved = localStorage.getItem(VISTA_KEY);
+    const savedTabla = localStorage.getItem(VISTA_TABLA_KEY);
+    if (saved === "plano" || saved === "categoria" || saved === "jerarquia") {
+      setVista("tabla");
+      setVistaTabla(saved);
+    } else if (saved && VISTAS.some((v) => v.id === saved)) setVista(saved);
+    if (savedTabla && ["plano", "categoria", "jerarquia"].includes(savedTabla)) setVistaTabla(savedTabla);
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem(VISTA_KEY, vista);
+    if (vista === "tabla") localStorage.setItem(VISTA_TABLA_KEY, vistaTabla);
+  }, [vista, vistaTabla]);
+
+  const itemsEnriquecidos = useMemo(
+    () => itemsFiltrados.map((i) => ({
+      ...i,
+      total: totalItem(i.id),
+      valor: totalItem(i.id) * (i.precio || 0),
+      abc: conABC.get(i.id),
+    })),
+    [itemsFiltrados, stockMap, items, conABC],
+  );
+  const listaOrdenada = useMemo(() => ordenarItemsInv(itemsEnriquecidos), [itemsEnriquecidos]);
+  const selectedItem = useMemo(
+    () => itemsEnriquecidos.find((i) => i.id === selectedId) || listaOrdenada[0] || null,
+    [itemsEnriquecidos, selectedId, listaOrdenada],
+  );
+  const nBajoMin = items.filter((i) => estadoStock(i).key === "bajo").length;
+
+  useEffect(() => {
+    if (selectedId && !items.some((i) => i.id === selectedId)) setSelectedId(null);
+  }, [items, selectedId]);
+
+  useEffect(() => {
+    if (!isTabla && !selectedId && listaOrdenada.length > 0) setSelectedId(listaOrdenada[0].id);
+  }, [vista, filtroSt, filtroABC, busqueda, soloConStock, listaOrdenada.length]); // eslint-disable-line react-hooks/exhaustive-deps
+
   if (bodegas.length === 0) return <Card><Empty><AlertCircle size={28} color={C.amber} /><br/>Primero crea bodegas en la pestaña <strong>Bodegas</strong>.</Empty></Card>;
   if (items.length === 0)   return <Card><Empty><AlertCircle size={28} color={C.amber} /><br/>Primero carga ítems en <strong>Inventario</strong>.</Empty></Card>;
+
+  const detailProps = {
+    item: selectedItem,
+    abc: selectedItem ? conABC.get(selectedItem.id) : null,
+    total: selectedItem ? totalItem(selectedItem.id) : 0,
+    bodegas,
+    stockMap,
+    minMap,
+    puedeOperar,
+    stockEdit,
+    descEdit,
+    onIniciarEditStock: iniciarEditStock,
+    onConfirmarStock: confirmarStock,
+    onCancelarStock: cancelarStock,
+    onStockEditChange: (v) => setStockEdit((p) => ({ ...p, valor: v })),
+    onIniciarEditDesc: iniciarEditDesc,
+    onConfirmarDesc: confirmarDesc,
+    onCancelarDesc: cancelarDesc,
+    onDescEditChange: (v) => setDescEdit((p) => ({ ...p, valor: v })),
+    onSetMinBodega: setMinBodega,
+    onReponer,
+    activeTab: detailTab,
+    onTabChange: setDetailTab,
+  };
 
   return (
     <div>
@@ -151,9 +232,8 @@ export default function TabStock({ profile, items, setItems, bodegas, stockMap, 
         ))}
       </div>
 
-      {/* ── Filtros + vista (consistente con Inventario) ── */}
+      {/* ── Filtros + vista ── */}
       <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 12 }}>
-        {/* Fila 1: buscador + toggle de vista */}
         <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
           <div style={{ position: "relative", flex: "1 1 280px", maxWidth: 360 }}>
             <Search size={15} color={C.slate} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)" }} />
@@ -161,17 +241,28 @@ export default function TabStock({ profile, items, setItems, bodegas, stockMap, 
               placeholder="Buscar código, descripción, categoría o proveedor…"
               style={{ ...inputStyle(), width: "100%", paddingLeft: 32, fontSize: 13 }} />
           </div>
-          <div style={{ display: "flex", border: `1px solid ${C.line}`, borderRadius: 8, overflow: "hidden" }}>
-            {[["plano", "Plano", List], ["categoria", "Categoría", FolderTree], ["jerarquia", "Jerarquía", Layers]].map(([v, lbl, Ico]) => (
-              <button key={v} onClick={() => setVista(v)}
-                style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 12px", border: "none", borderLeft: v !== "plano" ? `1px solid ${C.line}` : "none", background: vista === v ? C.steel : "#fff", color: vista === v ? "#fff" : C.slate, fontSize: 12.5, fontWeight: 600, cursor: "pointer" }}>
-                <Ico size={14} /> {lbl}
-              </button>
-            ))}
-          </div>
+          {VISTAS.map((v) => {
+            const Icon = v.icon;
+            return (
+              <FilterBtn key={v.id} active={vista === v.id} onClick={() => setVista(v.id)}>
+                <Icon size={14} style={{ display: "inline", verticalAlign: "middle", marginRight: 4 }} />
+                {v.label}
+              </FilterBtn>
+            );
+          })}
+          {isTabla && (
+            <>
+              <div style={{ width: 1, alignSelf: "stretch", background: C.line, margin: "0 4px" }} />
+              {[["plano", "Plano", List], ["categoria", "Categoría", FolderTree], ["jerarquia", "Jerarquía", Layers]].map(([v, lbl, Ico]) => (
+                <FilterBtn key={v} active={vistaTabla === v} onClick={() => setVistaTabla(v)}>
+                  <Ico size={14} style={{ display: "inline", verticalAlign: "middle", marginRight: 4 }} />
+                  {lbl}
+                </FilterBtn>
+              ))}
+            </>
+          )}
           <span style={{ marginLeft: "auto", fontSize: 12, color: C.slate }}>
             {itemsFiltrados.length} de {soloConStock ? itemsConStock : items.length} {soloConStock ? "en stock" : "en catálogo"}
-            {soloConStock && items.length > itemsConStock && <span style={{ opacity: 0.6, marginLeft: 4 }}>({items.length - itemsConStock} sin stock ocultos)</span>}
           </span>
           {hayFiltro && (
             <button onClick={() => { setBusqueda(""); setFiltroSt("all"); setFiltroABC("all"); }}
@@ -180,7 +271,6 @@ export default function TabStock({ profile, items, setItems, bodegas, stockMap, 
             </button>
           )}
         </div>
-        {/* Fila 2: toggle catálogo + ABC + estado de stock */}
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
           <button onClick={() => setSoloConStock((v) => !v)} style={{ padding: "5px 13px", borderRadius: 7, border: `1px solid ${soloConStock ? C.cyan : C.line}`, background: soloConStock ? tint(C.cyan, 14) : "#fff", color: soloConStock ? C.cyan : C.slate, fontSize: 12.5, fontWeight: 700, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 5 }}>
             <span style={{ width: 7, height: 7, borderRadius: "50%", background: soloConStock ? C.cyan : C.line, display: "inline-block" }} />
@@ -190,34 +280,65 @@ export default function TabStock({ profile, items, setItems, bodegas, stockMap, 
           <span style={{ fontSize: 11, color: C.slate, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5 }}>ABC</span>
           {[["all", "Todos", C.slate], ["A", "A", C.red], ["B", "B", C.amber], ["C", "C", C.green]].map(([v, lbl, tone]) => {
             const active = filtroABC === v;
-            return <button key={v} onClick={() => setFiltroABC(v)} style={{ padding: "5px 12px", borderRadius: 7, border: `1px solid ${active ? tone : C.line}`, background: active ? tone : "#fff", color: active ? "#fff" : C.slate, fontSize: 12.5, fontWeight: 600, cursor: "pointer" }}>{lbl}</button>;
+            return <FilterBtn key={v} active={active} color={active ? tone : undefined} onClick={() => setFiltroABC(v)}>{lbl}</FilterBtn>;
           })}
           <div style={{ width: 1, alignSelf: "stretch", background: C.line, margin: "0 4px" }} />
           <span style={{ fontSize: 11, color: C.slate, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5 }}>Stock</span>
           {[["all", "Todos"], ["bajo", "Bajo mínimo"], ["revisar", "Por revisar"], ["ok", "OK"]].map(([v, lbl]) => {
-            const tone = v === "bajo" ? C.red : v === "revisar" ? C.amber : v === "ok" ? C.green : C.slate;
             const active = filtroSt === v;
             const n = v === "all" ? null : items.filter((i) => estadoStock(i).key === v).length;
-            return <button key={v} onClick={() => setFiltroSt(v)} style={{ padding: "5px 12px", borderRadius: 7, border: `1px solid ${active ? tone : C.line}`, background: active ? tone : "#fff", color: active ? "#fff" : C.slate, fontSize: 12.5, fontWeight: 600, cursor: "pointer" }}>{lbl}{n != null && <span style={{ opacity: 0.75, marginLeft: 4, fontSize: 11 }}>({n})</span>}</button>;
+            return <FilterBtn key={v} active={active} onClick={() => setFiltroSt(v)}>{lbl}{n != null && n > 0 ? ` (${n})` : ""}</FilterBtn>;
           })}
         </div>
-        {/* Colapsar/expandir todo en vistas agrupadas */}
-        {vista !== "plano" && (
+        {isTabla && vistaTabla !== "plano" && (
           <div style={{ display: "flex", gap: 8 }}>
-            <button onClick={() => { vista === "categoria" ? setGruposCol(new Set(gruposCategoria().map((x) => x.key))) : arbolInv.colapsarTodo(true); }} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, padding: "5px 12px", borderRadius: 8, border: `1px solid ${C.line}`, background: "#fff", color: C.slate, cursor: "pointer", fontWeight: 600 }}><ChevronRight size={13} /> Colapsar todo</button>
-            <button onClick={() => { vista === "categoria" ? setGruposCol(new Set()) : arbolInv.colapsarTodo(false); }} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, padding: "5px 12px", borderRadius: 8, border: `1px solid ${C.line}`, background: "#fff", color: C.slate, cursor: "pointer", fontWeight: 600 }}><ChevronDown size={13} /> Expandir todo</button>
+            <button onClick={() => { vistaTabla === "categoria" ? setGruposCol(new Set(gruposCategoria().map((x) => x.key))) : arbolInv.colapsarTodo(true); }} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, padding: "5px 12px", borderRadius: 8, border: `1px solid ${C.line}`, background: "#fff", color: C.slate, cursor: "pointer", fontWeight: 600 }}><ChevronRight size={13} /> Colapsar todo</button>
+            <button onClick={() => { vistaTabla === "categoria" ? setGruposCol(new Set()) : arbolInv.colapsarTodo(false); }} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, padding: "5px 12px", borderRadius: 8, border: `1px solid ${C.line}`, background: "#fff", color: C.slate, cursor: "pointer", fontWeight: 600 }}><ChevronDown size={13} /> Expandir todo</button>
           </div>
         )}
       </div>
 
+      {!isTabla ? (
+        <Section
+          title={vista === "kanban" ? "Tablero kanban" : "Cola y detalle"}
+          description={vista === "kanban" ? "Columnas por estado de stock · click en tarjeta para gestionar por bodega" : isMobile ? "Selecciona un ítem · detalle debajo" : "Cola a la izquierda · stock por bodega a la derecha"}
+          padding={0}
+          style={{ marginBottom: 0 }}
+        >
+          <style>{`
+            .inv-split-container { display: grid; grid-template-columns: minmax(300px, 380px) 1fr; gap: 16px; align-items: start; padding: 16px; }
+            .inv-split-container.inv-split-stack { grid-template-columns: 1fr; }
+            .inv-kanban-with-detail { display: grid; grid-template-columns: 1fr; gap: 0; }
+            @media (min-width: 1025px) { .inv-kanban-with-detail.has-detail { grid-template-columns: 1fr minmax(360px, 420px); } }
+          `}</style>
+          {listaOrdenada.length === 0 ? (
+            <EmptyState icon={AlertCircle} title="Sin ítems en este filtro" description="Prueba otro filtro ABC/stock o limpia la búsqueda." />
+          ) : vista === "kanban" ? (
+            <div className={`inv-kanban-with-detail${selectedItem ? " has-detail" : ""}`}>
+              <InventarioKanban lista={listaOrdenada} selectedId={selectedItem?.id} onSelect={(id) => { setSelectedId(id); setDetailTab("bodegas"); }} />
+              {selectedItem && (
+                <div style={{ padding: 16, borderLeft: isMobile ? "none" : `1px solid ${C.foam}`, borderTop: isMobile ? `1px solid ${C.foam}` : "none", minHeight: 420 }}>
+                  <AlmacenStockDetailPanel {...detailProps} />
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className={`inv-split-container${isMobile ? " inv-split-stack" : ""}`}>
+              <InventarioQueuePanel lista={listaOrdenada} selectedId={selectedItem?.id} onSelect={(id) => { setSelectedId(id); setDetailTab("bodegas"); }} busqueda={busqueda} setBusqueda={setBusqueda} panelHeight={isMobile ? "auto" : "calc(100vh - 320px)"} />
+              {(!isMobile || selectedItem) && <AlmacenStockDetailPanel {...detailProps} />}
+            </div>
+          )}
+        </Section>
+      ) : (
+        <>
       {puedeOperar && (
         <div style={{ fontSize: 11.5, color: C.slate, marginBottom: 8 }}>
           En cada bodega: <strong style={{ color: C.ink }}>número grande</strong> = stock actual ·
-          {" "}<span style={{ border: `1px solid ${C.line}`, borderRadius: 4, padding: "0 4px" }}>número pequeño</span> = mínimo crítico de esa bodega (ej. 2-3 a bordo, 1-2 en tierra). La celda se marca en rojo si el stock cae bajo ese mínimo.
+          {" "}<span style={{ border: `1px solid ${C.line}`, borderRadius: 4, padding: "0 4px" }}>número pequeño</span> = mínimo crítico de esa bodega.
         </div>
       )}
 
-      <Card style={{ padding: 0, overflow: "hidden" }}>
+      <Section title="Tabla completa" description="Stock por bodega · plano, por categoría o jerarquía de equipos" padding={0}>
         <div style={{ overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 860 }}>
             <thead><tr>
@@ -317,9 +438,9 @@ export default function TabStock({ profile, items, setItems, bodegas, stockMap, 
                 };
                 const vacio = <tr><td colSpan={NCOLS} style={{ textAlign: "center", padding: 24, color: C.slate, fontSize: 13 }}>Sin ítems para los filtros seleccionados.</td></tr>;
 
-                if (vista === "plano") return itemsFiltrados.length ? itemsFiltrados.map((i) => filaItem(i)) : vacio;
+                if (vistaTabla === "plano") return itemsFiltrados.length ? itemsFiltrados.map((i) => filaItem(i)) : vacio;
 
-                if (vista === "categoria") {
+                if (vistaTabla === "categoria") {
                   const grupos = gruposCategoria();
                   if (!grupos.length) return vacio;
                   return grupos.map((g) => {
@@ -387,7 +508,9 @@ export default function TabStock({ profile, items, setItems, bodegas, stockMap, 
             </tbody>
           </table>
         </div>
-      </Card>
+      </Section>
+        </>
+      )}
     </div>
   );
 }

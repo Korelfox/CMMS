@@ -1,12 +1,23 @@
-import React, { useState, useMemo, useRef } from "react";
+import React, { useState, useMemo, useRef, useEffect } from "react";
 import {
   Plus, Trash2, Check, X, ShoppingCart, PackagePlus, Search, AlertCircle,
-  AlertTriangle, Printer, Eye, Edit2, Ban, SquarePen,
+  AlertTriangle, Printer, Eye, Edit2, Ban, SquarePen, List, Columns3, Table2,
 } from "lucide-react";
 import { insertRow, updateRow, deleteRow, upsertRow, fetchAll, logActivity } from "../../lib/db";
 import { C, archivo, clp, isAdmin, tint } from "../../theme";
-import { Card, Pill, primaryBtn, ghostBtn, inputStyle, bluInput, thStyle, tdStyle, Field, Empty } from "../../ui";
+import { Card, Pill, primaryBtn, ghostBtn, FilterBtn, inputStyle, bluInput, thStyle, tdStyle, Field, Empty, Section, EmptyState } from "../../ui";
+import ComprasKanban from "./ComprasKanban";
+import ComprasQueuePanel from "./ComprasQueuePanel";
+import { ordenarOCs } from "../../lib/comprasKanban";
+import { useMediaQuery } from "../../lib/useMediaQuery";
 import { HOY, skey } from "./util";
+
+const VISTA_KEY = "cmms-almacen-compras-vista";
+const VISTAS = [
+  { id: "cola", label: "Cola", icon: List },
+  { id: "kanban", label: "Kanban", icon: Columns3 },
+  { id: "tabla", label: "Tabla", icon: Table2 },
+];
 
 // ── Constantes del módulo ─────────────────────────────────────
 const URGENCIAS = [
@@ -55,6 +66,11 @@ export default function TabCompras({
   const [fEstado,    setFEstado]    = useState("all");
   const [fProv,      setFProv]      = useState("all");
   const [fBusca,     setFBusca]     = useState("");
+  const [vista,      setVista]      = useState("kanban");
+  const [selectedId, setSelectedId] = useState(null);
+
+  const isMobile = useMediaQuery("(max-width: 1024px)");
+  const isTabla = vista === "tabla";
 
   const puedeOperar  = isAdmin(profile?.rol);
   const puedeAprobar = isAdmin(profile?.rol);
@@ -73,6 +89,15 @@ export default function TabCompras({
       onOcInitUsed?.();
     }
   }, [ocInit]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    const saved = localStorage.getItem(VISTA_KEY);
+    if (saved && VISTAS.some((v) => v.id === saved)) setVista(saved);
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem(VISTA_KEY, vista);
+  }, [vista]);
 
   // ── Helpers de ítems ─────────────────────────────────────────
   const itemCodigo    = (id) => items.find((i) => i.id === id)?.codigo    || "";
@@ -120,6 +145,21 @@ export default function TabCompras({
         (o.numero_factura || "").toLowerCase().includes(qOC))
   );
   const hayFiltro = fEstado !== "all" || fProv !== "all" || !!qOC;
+
+  const listaOrdenada = useMemo(() => ordenarOCs(comprasFiltradas), [comprasFiltradas]);
+  const selectedOC = useMemo(
+    () => listaOrdenada.find((o) => o.id === selectedId) || listaOrdenada[0] || null,
+    [listaOrdenada, selectedId],
+  );
+  const ocLinesCount = (oc) => ocLines(oc).length;
+
+  useEffect(() => {
+    if (selectedId && !compras.some((o) => o.id === selectedId)) setSelectedId(null);
+  }, [compras, selectedId]);
+
+  useEffect(() => {
+    if (!isTabla && !selectedId && listaOrdenada.length > 0) setSelectedId(listaOrdenada[0].id);
+  }, [vista, fEstado, fProv, fBusca, listaOrdenada.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Gestión de líneas del formulario ─────────────────────────
   function addLine() {
@@ -525,6 +565,27 @@ tbody td { padding: 7px 9px; font-size: 11px; border-bottom: 1px solid #EEF3F7; 
   const isEditing   = !!editOcId;
   const showAnyForm = showForm || isEditing;
 
+  const ocDetailSideProps = {
+    itemCodigo,
+    itemDesc,
+    itemUnidad,
+    whName,
+    puedeOperar,
+    puedeAprobar,
+    profile,
+    items,
+    recargar,
+    setError,
+    autoEdit: autoEditId,
+    onAutoEditConsumed: () => setAutoEditId(null),
+    onImprimir: imprimirOC,
+    onAbrirEditar: abrirEditar,
+    onAvanzar: avanzar,
+    onAbrirRecepcion: abrirRecepcion,
+    onCancelar: cancelarOC,
+    onStartLineEdit: (id) => { setAutoEditId(id); setSelectedId(id); },
+  };
+
   return (
     <div>
       {/* ── KPIs ── */}
@@ -805,6 +866,16 @@ tbody td { padding: 7px 9px; font-size: 11px; border-bottom: 1px solid #EEF3F7; 
               placeholder="Folio, proveedor, ref., factura…"
               style={{ ...inputStyle(), width: "100%", paddingLeft: 32, fontSize: 13 }} />
           </div>
+          {VISTAS.map((v) => {
+            const Icon = v.icon;
+            return (
+              <FilterBtn key={v.id} active={vista === v.id} onClick={() => setVista(v.id)}>
+                <Icon size={14} style={{ display: "inline", verticalAlign: "middle", marginRight: 4 }} />
+                {v.label}
+              </FilterBtn>
+            );
+          })}
+          <div style={{ width: 1, alignSelf: "stretch", background: C.line, margin: "0 4px" }} />
           {[
             ["all",        "Todos",      C.slate ],
             ["solicitada", "Solicitada", C.slate ],
@@ -816,9 +887,9 @@ tbody td { padding: 7px 9px; font-size: 11px; border-bottom: 1px solid #EEF3F7; 
             const active = fEstado === v;
             const n = v === "all" ? null : compras.filter((o) => o.estado === v).length;
             return (
-              <button key={v} onClick={() => setFEstado(v)} style={{ padding: "5px 12px", borderRadius: 7, border: `1px solid ${active ? tone : C.line}`, background: active ? tone : C.surface, color: active ? "#fff" : C.slate, fontSize: 12.5, fontWeight: 600, cursor: "pointer" }}>
-                {lbl}{n != null && <span style={{ opacity: 0.75, marginLeft: 4, fontSize: 11 }}>({n})</span>}
-              </button>
+              <FilterBtn key={v} active={active} color={active ? tone : undefined} onClick={() => setFEstado(v)}>
+                {lbl}{n != null && n > 0 ? ` (${n})` : ""}
+              </FilterBtn>
             );
           })}
           {proveedores.length > 0 && (
@@ -839,8 +910,47 @@ tbody td { padding: 7px 9px; font-size: 11px; border-bottom: 1px solid #EEF3F7; 
         </div>
       )}
 
+      {!isTabla ? (
+        <Section
+          title={vista === "kanban" ? "Tablero kanban" : "Cola y detalle"}
+          description={vista === "kanban" ? "Columnas por estado del flujo · click en tarjeta para gestionar la OC" : isMobile ? "Selecciona una OC · detalle debajo" : "Cola a la izquierda · detalle y acciones a la derecha"}
+          padding={0}
+          style={{ marginBottom: 0 }}
+        >
+          <style>{`
+            .inv-split-container { display: grid; grid-template-columns: minmax(300px, 380px) 1fr; gap: 16px; align-items: start; padding: 16px; }
+            .inv-split-container.inv-split-stack { grid-template-columns: 1fr; }
+            .inv-kanban-with-detail { display: grid; grid-template-columns: 1fr; gap: 0; }
+            @media (min-width: 1025px) { .inv-kanban-with-detail.has-detail { grid-template-columns: 1fr minmax(380px, 480px); } }
+          `}</style>
+          {listaOrdenada.length === 0 ? (
+            <EmptyState icon={ShoppingCart} title="Sin OCs en este filtro" description={compras.length === 0 ? "Crea la primera orden de compra." : "Prueba otro filtro o limpia la búsqueda."} />
+          ) : vista === "kanban" ? (
+            <div className={`inv-kanban-with-detail${selectedOC ? " has-detail" : ""}`}>
+              <ComprasKanban lista={listaOrdenada} selectedId={selectedOC?.id} onSelect={setSelectedId}
+                ocTotal={ocTotal} ocLinesCount={ocLinesCount} etaSemaforo={etaSemaforo} />
+              {selectedOC && (
+                <div style={{ padding: 16, borderLeft: isMobile ? "none" : `1px solid ${C.foam}`, borderTop: isMobile ? `1px solid ${C.foam}` : "none", minHeight: 420, overflowY: "auto", maxHeight: "calc(100vh - 280px)" }}>
+                  <OCDetailSide oc={selectedOC} its={ocLines(selectedOC)} {...ocDetailSideProps} />
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className={`inv-split-container${isMobile ? " inv-split-stack" : ""}`}>
+              <ComprasQueuePanel lista={listaOrdenada} selectedId={selectedOC?.id} onSelect={setSelectedId}
+                busqueda={fBusca} setBusqueda={setFBusca} ocTotal={ocTotal} ocLinesCount={ocLinesCount} etaSemaforo={etaSemaforo}
+                panelHeight={isMobile ? "auto" : "calc(100vh - 320px)"} />
+              {(!isMobile || selectedOC) && selectedOC && (
+                <div style={{ overflowY: "auto", maxHeight: "calc(100vh - 280px)" }}>
+                  <OCDetailSide oc={selectedOC} its={ocLines(selectedOC)} {...ocDetailSideProps} />
+                </div>
+              )}
+            </div>
+          )}
+        </Section>
+      ) : (
+      <Section title="Tabla completa" description="Listado clásico con filas expandibles" padding={0}>
       {/* ── Tabla principal ── */}
-      <Card style={{ padding: 0, overflow: "hidden" }}>
         <div style={{ overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 1000 }}>
             <thead><tr>
@@ -1005,7 +1115,56 @@ tbody td { padding: 7px 9px; font-size: 11px; border-bottom: 1px solid #EEF3F7; 
             </tbody>
           </table>
         </div>
-      </Card>
+      </Section>
+      )}
+    </div>
+  );
+}
+
+// ── Panel lateral kanban/cola con acciones ────────────────────
+function OCDetailSide({ oc, its, itemCodigo, itemDesc, itemUnidad, whName, puedeOperar, puedeAprobar, profile, items, recargar, setError,
+  autoEdit, onAutoEditConsumed, onImprimir, onAbrirEditar, onAvanzar, onAbrirRecepcion, onCancelar, onStartLineEdit }) {
+  return (
+    <div data-testid="oc-detail-side" style={{ background: C.surface, borderRadius: 12, border: `1px solid ${C.line}`, overflow: "hidden" }}>
+      <div style={{ padding: "14px 16px", borderBottom: `1px solid ${C.foam}`, display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+        <div style={{ flex: 1, minWidth: 160 }}>
+          <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontWeight: 800, fontSize: 16, color: C.sky }}>{oc.folio}</div>
+          <div style={{ fontSize: 13, fontWeight: 700, color: C.abyss, marginTop: 2 }}>{oc.proveedor}</div>
+        </div>
+        <OCStepper estado={oc.estado} />
+        <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+          <button type="button" onClick={() => onImprimir(oc)} title="Imprimir" style={{ ...ghostBtn, padding: "4px 8px" }}><Printer size={13} /></button>
+          {!["recibida", "cancelada"].includes(oc.estado) && puedeOperar && (
+            <button type="button" onClick={() => onStartLineEdit(oc.id)} title="Editar cantidades"
+              style={{ ...ghostBtn, padding: "4px 8px", color: C.sky, borderColor: tint(C.sky, 55), background: tint(C.sky, 9) }}>
+              <SquarePen size={13} />
+            </button>
+          )}
+          {oc.estado === "solicitada" && puedeOperar && (
+            <button type="button" onClick={() => onAbrirEditar(oc)} title="Editar cabecera" style={{ ...ghostBtn, padding: "4px 8px" }}><Edit2 size={13} /></button>
+          )}
+          {!["recibida", "cancelada"].includes(oc.estado) && puedeAprobar && (
+            oc.estado === "enviada" ? (
+              <button type="button" onClick={() => onAbrirRecepcion(oc)} style={{ ...primaryBtn, padding: "4px 10px", fontSize: 12, background: C.cyan, borderColor: C.cyan }}>↓ Recibir</button>
+            ) : (
+              <button type="button" onClick={() => onAvanzar(oc)} style={{ ...ghostBtn, padding: "4px 10px", fontSize: 12 }}>
+                {oc.estado === "solicitada" ? "Aprobar" : "Enviar →"}
+              </button>
+            )
+          )}
+          {!["recibida", "cancelada"].includes(oc.estado) && puedeAprobar && (
+            <button type="button" onClick={() => onCancelar(oc)} title="Cancelar OC" style={{ ...ghostBtn, padding: "4px 8px", color: C.red, borderColor: C.red }}><Ban size={13} /></button>
+          )}
+        </div>
+      </div>
+      <OCDetallePanel
+        oc={oc} its={its}
+        itemCodigo={itemCodigo} itemDesc={itemDesc} itemUnidad={itemUnidad}
+        whName={whName} puedeOperar={puedeOperar} profile={profile}
+        items={items} recargar={recargar} setError={setError}
+        autoEdit={autoEdit === oc.id}
+        onAutoEditConsumed={onAutoEditConsumed}
+      />
     </div>
   );
 }

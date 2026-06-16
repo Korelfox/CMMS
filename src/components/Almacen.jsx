@@ -1,14 +1,23 @@
 import React, { useEffect, useState, useCallback, useMemo } from "react";
-import { Warehouse, ArrowRightLeft, ShoppingCart } from "lucide-react";
+import { Warehouse, ArrowRightLeft, ShoppingCart, Package } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { fetchAll } from "../lib/db";
-import { C } from "../theme";
-import { Card, PageHead, ErrorBanner, InlineSpinner } from "../ui";
+import { estadoStock } from "../lib/stock";
+import { C, clp } from "../theme";
+import { FilterBtn, ModuleShell } from "../ui";
 import { skey } from "./almacen/util";
 import TabBodegas from "./almacen/TabBodegas";
 import TabMovimientos from "./almacen/TabMovimientos";
 import TabStock from "./almacen/TabStock";
 import TabCompras from "./almacen/TabCompras";
+
+const TAB_KEY = "cmms-almacen-tab";
+const TABS = [
+  { id: "bodegas", label: "Bodegas", icon: Warehouse },
+  { id: "stock", label: "Stock", icon: Package },
+  { id: "movs", label: "Movimientos", icon: ArrowRightLeft },
+  { id: "compras", label: "Compras", icon: ShoppingCart },
+];
 
 export default function Almacen() {
   const { profile, empresa } = useAuth();
@@ -25,7 +34,7 @@ export default function Almacen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [tab, setTab] = useState("stock");
-  const [ocInit, setOcInit] = useState(null); // ítem pre-cargado al navegar desde "Reponer"
+  const [ocInit, setOcInit] = useState(null);
 
   const cargar = useCallback(async () => {
     setLoading(true); setError(null);
@@ -50,40 +59,76 @@ export default function Almacen() {
   }, []);
   useEffect(() => { cargar(); }, [cargar]);
 
-  // Mapa de stock para lecturas rápidas: { item_id__bodega_id : cantidad }
+  useEffect(() => {
+    const saved = localStorage.getItem(TAB_KEY);
+    if (saved && TABS.some((t) => t.id === saved)) setTab(saved);
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem(TAB_KEY, tab);
+  }, [tab]);
+
   const stockMap = useMemo(() => {
     const m = new Map();
     stock.forEach((s) => m.set(skey(s.item_id, s.bodega_id), Number(s.cantidad) || 0));
     return m;
   }, [stock]);
 
-  const itemDesc   = (id) => items.find((i) => i.id === id)?.descripcion || "—";
+  const totalItem = (id) => bodegas.reduce((s, b) => s + (stockMap.get(skey(id, b.id)) || 0), 0);
+  const itemDesc = (id) => items.find((i) => i.id === id)?.descripcion || "—";
   const itemPrecio = (id) => items.find((i) => i.id === id)?.precio || 0;
-  const whName     = (id) => bodegas.find((b) => b.id === id)?.nombre || "—";
+  const whName = (id) => bodegas.find((b) => b.id === id)?.nombre || "—";
+
+  const valorTotal = useMemo(
+    () => items.reduce((s, i) => s + totalItem(i.id) * (i.precio || 0), 0),
+    [items, stockMap, bodegas],
+  );
+  const nBajoMin = useMemo(
+    () => items.filter((i) => estadoStock(totalItem(i.id), i.stock_min, i.stock_max).key === "bajo").length,
+    [items, stockMap, bodegas],
+  );
+  const ocsAbiertas = compras.filter((o) => !["recibida", "cancelada"].includes(o.estado)).length;
 
   function reponer(item) {
-    const total     = bodegas.reduce((s, b) => s + (stockMap.get(skey(item.id, b.id)) || 0), 0);
-    const sugerido  = Math.max(1, (item.stock_max || item.stock_min * 2 || 5) - total);
+    const total = totalItem(item.id);
+    const sugerido = Math.max(1, (item.stock_max || item.stock_min * 2 || 5) - total);
     setOcInit({ proveedor: item.proveedor || "", items: [{ item_id: item.id, cantidad: sugerido, precio: item.precio || 0 }] });
     setTab("compras");
   }
 
-  if (loading) return <div><PageHead kicker="Gestión de Almacenes" title="Almacén & Compras" /><Card><InlineSpinner label="Cargando almacén…" /></Card></div>;
+  if (loading) {
+    return (
+      <ModuleShell kicker="Gestión de Almacenes" title="Almacén & Compras" loading />
+    );
+  }
 
   return (
-    <div>
-      <PageHead kicker="Gestión de Almacenes · Libbrecht / Pascual" title="Almacén & Compras"
-        sub="Bodegas múltiples (tierra + a bordo), movimientos con consumo ligado a OT, y órdenes de compra con recepción que actualiza el stock automáticamente." />
-
-      <ErrorBanner onRetry={cargar}>{error}</ErrorBanner>
-
-      <div style={{ display: "flex", gap: 8, marginBottom: 18 }}>
-        <TabBtn active={tab === "bodegas"} onClick={() => setTab("bodegas")} icon={Warehouse}>Bodegas</TabBtn>
-        <TabBtn active={tab === "stock"} onClick={() => setTab("stock")} icon={Warehouse}>Stock por Bodega</TabBtn>
-        <TabBtn active={tab === "movs"} onClick={() => setTab("movs")} icon={ArrowRightLeft}>Movimientos</TabBtn>
-        <TabBtn active={tab === "compras"} onClick={() => setTab("compras")} icon={ShoppingCart}>Órdenes de Compra</TabBtn>
-      </div>
-
+    <ModuleShell
+      kicker="Gestión de Almacenes · Libbrecht / Pascual"
+      title="Almacén & Compras"
+      sub="Bodegas múltiples (tierra + a bordo), movimientos ligados a OT, y órdenes de compra con recepción automática al stock. Vistas kanban en Stock y Compras."
+      error={error}
+      onRetry={cargar}
+      toolbar={
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", width: "100%" }}>
+          {TABS.map((t) => {
+            const Icon = t.icon;
+            return (
+              <FilterBtn key={t.id} active={tab === t.id} onClick={() => setTab(t.id)}>
+                <Icon size={14} style={{ display: "inline", verticalAlign: "middle", marginRight: 5 }} />
+                {t.label}
+              </FilterBtn>
+            );
+          })}
+          <span style={{ marginLeft: "auto", fontSize: 12, color: C.slate }}>
+            {tab === "stock" && `${bodegas.length} bodegas · ${clp(valorTotal)} · ${nBajoMin} bajo mín.`}
+            {tab === "compras" && `${ocsAbiertas} OC abiertas · ${compras.length} totales`}
+            {tab === "movs" && `${movimientos.length} movimientos`}
+            {tab === "bodegas" && `${bodegas.length} bodegas`}
+          </span>
+        </div>
+      }
+    >
       {tab === "bodegas" && (
         <TabBodegas profile={profile} empresa={empresa} embarcaciones={embarcaciones}
           bodegas={bodegas} setBodegas={setBodegas} recargar={cargar} setError={setError} />
@@ -105,14 +150,6 @@ export default function Almacen() {
           ocInit={ocInit} onOcInitUsed={() => setOcInit(null)}
           recargar={cargar} setError={setError} />
       )}
-    </div>
-  );
-}
-
-function TabBtn({ active, onClick, children, icon: Icon }) {
-  return (
-    <button onClick={onClick} style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "9px 15px", borderRadius: 9, border: `1px solid ${active ? C.cyan : C.line}`, background: active ? C.cyan : "#fff", color: active ? "#fff" : C.slate, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
-      <Icon size={15} />{children}
-    </button>
+    </ModuleShell>
   );
 }
