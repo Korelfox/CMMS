@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Ship, Anchor, Fuel, Droplet, Gauge, Check, X, AlertTriangle, ArrowLeft, Camera, ClipboardCheck, Waves, CloudOff, Clock, Trash2, Pencil, Plus, RotateCcw } from "lucide-react";
+import { Ship, Anchor, Fuel, Droplet, Gauge, Check, X, AlertTriangle, ArrowLeft, Camera, ClipboardCheck, Waves, CloudOff, Clock, Trash2, Pencil, Plus, RotateCcw, Wrench } from "lucide-react";
 import { insertRow, updateRow, deleteRow, logActivity } from "../../lib/db";
 import { useOnline, cacheTable, getCached, queueInsert, nuevoId } from "../../lib/offline";
 import { subirFotos, listarFotos, borrarFoto } from "../../lib/fotos";
@@ -10,7 +10,7 @@ import { FotoInput, FotoGaleria } from "../Fotos";
 import { Bloque, Semaforo, NivelItem, Stepper, StepperRef } from "./widgets";
 import { HOY, SEGURIDAD_FIJA } from "./util";
 
-export function VistaFlota({ embarcaciones, mareaAbierta, docsVencidos, puedeOperar, puedeBorrar, onIniciar, onRecalada, onEliminarZarpe, onRetornoFalla }) {
+export function VistaFlota({ embarcaciones, mareaAbierta, varadas = [], docsVencidos, puedeOperar, puedeBorrar, onIniciar, onRecalada, onEliminarZarpe, onRetornoFalla }) {
   if (embarcaciones.length === 0) {
     return <Card><Empty><Ship size={30} color={C.amber} style={{ marginBottom: 10 }} /><br />Registra al menos una embarcación para usar el prezarpe.</Empty></Card>;
   }
@@ -19,18 +19,19 @@ export function VistaFlota({ embarcaciones, mareaAbierta, docsVencidos, puedeOpe
       {embarcaciones.map((n) => {
         const marea = mareaAbierta(n.id);
         const navegando = !!marea;
+        const enVarada = (varadas || []).some((v) => v.embarcacion_id === n.id && v.estado === "ejecucion");
         const vencidos = docsVencidos ? docsVencidos(n.id) : [];
         return (
           <Card key={n.id} style={{ padding: 0, overflow: "hidden" }}>
-            <div style={{ padding: "16px 18px", background: navegando ? tint(C.cyan, 10) : C.mist, display: "flex", alignItems: "center", gap: 12, borderBottom: `1px solid ${C.line}` }}>
-              <div style={{ width: 46, height: 46, borderRadius: 11, background: navegando ? C.cyan : C.steel, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                {navegando ? <Ship size={24} color="#fff" /> : <Anchor size={24} color="#fff" />}
+            <div style={{ padding: "16px 18px", background: enVarada ? tint(C.indigo, 10) : navegando ? tint(C.cyan, 10) : C.mist, display: "flex", alignItems: "center", gap: 12, borderBottom: `1px solid ${C.line}` }}>
+              <div style={{ width: 46, height: 46, borderRadius: 11, background: enVarada ? C.indigo : navegando ? C.cyan : C.steel, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                {enVarada ? <Wrench size={23} color="#fff" /> : navegando ? <Ship size={24} color="#fff" /> : <Anchor size={24} color="#fff" />}
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ ...archivo, fontSize: 17, fontWeight: 800, color: C.abyss }}>{n.nombre}</div>
                 <div style={{ fontSize: 11.5, color: C.slate, fontFamily: "'IBM Plex Mono', monospace" }}>{n.codigo}</div>
               </div>
-              <Pill tone={navegando ? "cyan" : "slate"}>{navegando ? "Navegando" : "En puerto"}</Pill>
+              <Pill tone={enVarada ? "indigo" : navegando ? "cyan" : "slate"}>{enVarada ? "En varada" : navegando ? "Navegando" : "En puerto"}</Pill>
             </div>
             {vencidos.length > 0 && (
               <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 18px", background: C.redBg, color: C.red, fontSize: 12, fontWeight: 600, borderBottom: `1px solid ${C.line}` }}>
@@ -51,6 +52,10 @@ export function VistaFlota({ embarcaciones, mareaAbierta, docsVencidos, puedeOpe
                     </div>
                   )}
                   {puedeBorrar && <button onClick={() => onEliminarZarpe(marea)} style={{ ...ghostBtn, width: "100%", justifyContent: "center", padding: "9px", marginTop: 8, color: C.red, borderColor: C.red, fontSize: 12.5 }}><Trash2 size={14} /> Eliminar zarpe (creado por error)</button>}
+                </div>
+              ) : enVarada ? (
+                <div style={{ fontSize: 12.5, color: C.indigo, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, fontWeight: 600 }}>
+                  <Wrench size={14} /> En varada — mantención en curso
                 </div>
               ) : (
                 puedeOperar

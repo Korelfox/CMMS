@@ -1,8 +1,34 @@
 import { describe, it, expect } from "vitest";
-import { evaluarZarpe, diasEnMar, diasAbierta, scoreBacklog, nivelScore, semanasCuadrilla, coberturaCriticos } from "../src/lib/operacional.js";
+import { evaluarZarpe, diasEnMar, diasAbierta, scoreBacklog, nivelScore, semanasCuadrilla, coberturaCriticos, estadoOperacionalNave } from "../src/lib/operacional.js";
 
 const HOY = "2026-06-12";
 const EMB = "nave-1";
+
+describe("estadoOperacionalNave", () => {
+  it("sin mareas ni varadas → en puerto", () => {
+    expect(estadoOperacionalNave(EMB, {}).key).toBe("puerto");
+  });
+  it("marea navegando → navegando", () => {
+    const r = estadoOperacionalNave(EMB, { mareas: [{ embarcacion_id: EMB, estado: "navegando" }] });
+    expect(r.key).toBe("navegando");
+  });
+  it("varada en ejecución → en varada", () => {
+    const r = estadoOperacionalNave(EMB, { varadas: [{ embarcacion_id: EMB, estado: "ejecucion" }] });
+    expect(r.key).toBe("varada");
+    expect(r.label).toBe("En varada");
+  });
+  it("varada en ejecución tiene prioridad sobre marea navegando", () => {
+    const r = estadoOperacionalNave(EMB, {
+      mareas: [{ embarcacion_id: EMB, estado: "navegando" }],
+      varadas: [{ embarcacion_id: EMB, estado: "ejecucion" }],
+    });
+    expect(r.key).toBe("varada");
+  });
+  it("varada de otra nave o no en ejecución no afecta", () => {
+    expect(estadoOperacionalNave(EMB, { varadas: [{ embarcacion_id: "otra", estado: "ejecucion" }] }).key).toBe("puerto");
+    expect(estadoOperacionalNave(EMB, { varadas: [{ embarcacion_id: EMB, estado: "cerrada" }] }).key).toBe("puerto");
+  });
+});
 
 describe("evaluarZarpe (semáforo GO/NO-GO)", () => {
   it("sin hallazgos → GO", () => {

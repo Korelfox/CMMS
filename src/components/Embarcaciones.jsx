@@ -3,6 +3,7 @@ import { Ship, Plus, Trash2, Anchor, Wifi, Copy } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { fetchAll, insertRow, updateRow, deleteRow, logActivity } from "../lib/db";
 import { C, archivo, isAdmin, canOperate } from "../theme";
+import { estadoOperacionalNave } from "../lib/operacional";
 import {
   Card, PageHead, Pill, primaryBtn, ghostBtn, inputStyle, bluInput,
   thStyle, tdStyle, Field, Empty, ErrorBanner, InlineSpinner,
@@ -16,6 +17,8 @@ const FUNCTIONS_URL = (import.meta.env.VITE_SUPABASE_URL || "") + "/functions/v1
 export default function Embarcaciones() {
   const { profile } = useAuth();
   const [rows, setRows] = useState([]);
+  const [mareas, setMareas] = useState([]);
+  const [varadas, setVaradas] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showForm, setShowForm] = useState(false);
@@ -27,7 +30,12 @@ export default function Embarcaciones() {
   const cargar = useCallback(async () => {
     setLoading(true); setError(null);
     try {
-      setRows(await fetchAll("embarcaciones", { order: { col: "codigo", asc: true } }));
+      const [embs, ms, vds] = await Promise.all([
+        fetchAll("embarcaciones", { order: { col: "codigo", asc: true } }),
+        fetchAll("mareas", { order: { col: "zarpe_at", asc: false } }),
+        fetchAll("varadas"),
+      ]);
+      setRows(embs); setMareas(ms); setVaradas(vds);
     } catch (e) {
       setError("No se pudieron cargar las embarcaciones. " + e.message);
     } finally { setLoading(false); }
@@ -134,7 +142,10 @@ export default function Embarcaciones() {
                     {puedeBorrar && <button onClick={() => eliminar(e.id)} style={{ background: "none", border: "none", cursor: "pointer", color: C.slate }}><Trash2 size={16} /></button>}
                   </div>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <Pill tone={e.activa ? "green" : "slate"}>{e.activa ? "Activa" : "Inactiva"}</Pill>
+                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                      {(() => { const op = estadoOperacionalNave(e.id, { mareas, varadas }); return <Pill tone={op.tone}>{op.label}</Pill>; })()}
+                      <Pill tone={e.activa ? "green" : "slate"}>{e.activa ? "Activa" : "Inactiva"}</Pill>
+                    </div>
                     {puedeOperar && (
                       <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: C.slate, cursor: "pointer" }}>
                         <input type="checkbox" checked={e.activa} onChange={(ev) => commit(e.id, "activa", ev.target.checked)} />

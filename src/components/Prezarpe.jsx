@@ -32,24 +32,26 @@ export default function Prezarpe() {
   const [mareaFalla, setMareaFalla] = useState(null); // marea retorno por falla
   const [prezarpeSel, setPrezarpeSel] = useState(null);  // informe abierto
   const [confirmar, setConfirmar] = useState(null);      // modal de eliminación con motivo
+  const [varadas, setVaradas] = useState([]);            // varadas para marcar "En varada"
   const puedeOperar = canOperate(profile?.rol);
   const puedeBorrar = isAdmin(profile?.rol);   // eliminar prezarpe/marea: solo administración
 
   const cargar = useCallback(async () => {
     setLoading(true); setError(null);
     try {
-      const [embs, eqs, ms, pzs, docs] = await Promise.all([
+      const [embs, eqs, ms, pzs, docs, vds] = await Promise.all([
         fetchAll("embarcaciones", { order: { col: "codigo", asc: true } }),
         fetchAll("equipos", { order: { col: "id_visible", asc: true } }),
         fetchAll("mareas", { order: { col: "zarpe_at", asc: false } }),
         fetchAll("prezarpes", { order: { col: "created_at", asc: false } }),
         fetchAll("documentos"),
+        fetchAll("varadas"),
       ]);
-      setEmbarcaciones(embs); setEquipos(eqs); setMareas(ms); setPrezarpes(pzs); setDocumentos(docs); setUsandoCache(false);
-      cacheTable("embarcaciones", embs); cacheTable("equipos", eqs); cacheTable("mareas", ms); cacheTable("prezarpes", pzs); cacheTable("documentos", docs);
+      setEmbarcaciones(embs); setEquipos(eqs); setMareas(ms); setPrezarpes(pzs); setDocumentos(docs); setVaradas(vds); setUsandoCache(false);
+      cacheTable("embarcaciones", embs); cacheTable("equipos", eqs); cacheTable("mareas", ms); cacheTable("prezarpes", pzs); cacheTable("documentos", docs); cacheTable("varadas", vds);
     } catch {
-      const [embs, eqs, ms, pzs, docs] = await Promise.all([getCached("embarcaciones"), getCached("equipos"), getCached("mareas"), getCached("prezarpes"), getCached("documentos")]);
-      setEmbarcaciones(embs); setEquipos(eqs); setMareas(ms); setPrezarpes(pzs); setDocumentos(docs); setUsandoCache(true);
+      const [embs, eqs, ms, pzs, docs, vds] = await Promise.all([getCached("embarcaciones"), getCached("equipos"), getCached("mareas"), getCached("prezarpes"), getCached("documentos"), getCached("varadas")]);
+      setEmbarcaciones(embs); setEquipos(eqs); setMareas(ms); setPrezarpes(pzs); setDocumentos(docs); setVaradas(vds || []); setUsandoCache(true);
       if (!embs.length) setError("No se pudo cargar y no hay copia local. Conéctate al menos una vez.");
     } finally { setLoading(false); }
   }, []);
@@ -265,7 +267,7 @@ export default function Prezarpe() {
       )}
 
       {vista === "flota" && (
-        <VistaFlota embarcaciones={embarcaciones} mareaAbierta={mareaAbierta} docsVencidos={docsVencidos} puedeOperar={puedeOperar} puedeBorrar={puedeBorrar}
+        <VistaFlota embarcaciones={embarcaciones} mareaAbierta={mareaAbierta} varadas={varadas} docsVencidos={docsVencidos} puedeOperar={puedeOperar} puedeBorrar={puedeBorrar}
           onIniciar={(n) => { setNave(n); setVista("checklist"); }} onRecalada={abrirRecalada} onEliminarZarpe={pedirEliminarZarpe}
           onRetornoFalla={(m) => { setMareaFalla(m); setVista("retorno_falla"); }} />
       )}

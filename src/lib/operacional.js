@@ -10,13 +10,25 @@
 
 const DIA_MS = 86_400_000;
 
+// ── Estado operacional de una nave ──────────────────────────
+// Etiqueta para la UI (Prezarpe, Embarcaciones, Estado de Flota).
+// Prioridad: varada en ejecución > marea navegando > en puerto.
+// → { key: "varada"|"navegando"|"puerto", label, tone }
+export function estadoOperacionalNave(embId, { mareas = [], varadas = [] } = {}) {
+  if (varadas.some((v) => v.embarcacion_id === embId && v.estado === "ejecucion"))
+    return { key: "varada", label: "En varada", tone: "indigo" };
+  if (mareas.some((m) => m.embarcacion_id === embId && m.estado === "navegando"))
+    return { key: "navegando", label: "Navegando", tone: "cyan" };
+  return { key: "puerto", label: "En puerto", tone: "slate" };
+}
+
 // ── Semáforo de zarpe ───────────────────────────────────────
 // Evalúa una embarcación contra el estado real de la operación.
 // planesEval: salida de evaluarPlanes(planes, equipos) de lib/pm.
 // hoy: "YYYY-MM-DD" (inyectable para tests).
 // → { nivel: "go"|"condicional"|"nogo", bloqueos: [...], advertencias: [...] }
 //   cada razón: { texto, nav, ref? } (nav = módulo donde se resuelve)
-export function evaluarZarpe(embId, { equipos = [], ots = [], documentos = [], planesEval = [], varadas = [], hoy } = {}) {
+export function evaluarZarpe(embId, { equipos = [], ots = [], documentos = [], planesEval = [], varadas = [], varadaTrabajos = [], hoy } = {}) {
   const hoyD = new Date((hoy || new Date().toISOString().slice(0, 10)) + "T00:00:00");
   const bloqueos = [], advertencias = [];
 
@@ -50,10 +62,25 @@ export function evaluarZarpe(embId, { equipos = [], ots = [], documentos = [], p
     else if (dias <= 7) advertencias.push({ texto: `${d.tipo || "Documento"} vence en ${dias} día${dias !== 1 ? "s" : ""}`, nav: "cumplimiento" });
   }
 
-  // 4) Varada activa: nave en mantenimiento planificado (no zarpa)
+  // 4) Varada activa: nave en mantenimiento planificado.
+  //    Si hay trabajos críticos para zarpe sin completar → NO-GO.
+  //    Si la varada está en curso pero sin bloqueantes pendientes → CONDICIONAL.
   for (const v of varadas) {
     if (v.embarcacion_id !== embId || v.estado !== "ejecucion") continue;
-    advertencias.push({ texto: `Nave en varada: ${v.nombre}`, nav: "varada" });
+    const bloqueantes = varadaTrabajos.filter(
+      (t) => t.varada_id === v.id && t.critico_zarpe &&
+             t.estado !== "completado" && t.estado !== "cancelado"
+    );
+    if (bloqueantes.length > 0) {
+      for (const t of bloqueantes) {
+        bloqueos.push({
+          texto: `Trabajo crítico pendiente: ${t.descripcion.slice(0, 55)} — ${v.nombre}`,
+          nav: "varada",
+        });
+      }
+    } else {
+      advertencias.push({ texto: `Nave en varada: ${v.nombre}`, nav: "varada" });
+    }
   }
 
   // 5) PM vencido sobre equipo crítico A
