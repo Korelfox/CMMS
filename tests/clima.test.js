@@ -12,6 +12,12 @@ import {
   serieGrafico48h,
   precipProximasHoras,
   formatearHoraCorta,
+  evaluarZarpeClima,
+  evaluarCubierta,
+  evaluarSemáforosOperacionales,
+  peorSemáforo,
+  analizarMarea,
+  etiquetaEventoMarea,
   etiquetaModeloOleaje,
 } from "../src/lib/clima.js";
 
@@ -116,6 +122,44 @@ describe("listaPuertos y puertoInicial", () => {
 
   it("puertoInicial resuelve desde puerto_base si guardado inválido", () => {
     expect(puertoInicial("Talcahuano", "Puerto Inventado")).toBe("Talcahuano");
+  });
+});
+
+describe("evaluarSemáforos operacionales y marea", () => {
+  it("evaluarZarpeClima sigue umbrales marítimos", () => {
+    expect(evaluarZarpeClima({ vientoKn: 12, oleajeM: 1 }).nivel).toBe("verde");
+    expect(evaluarZarpeClima({ vientoKn: 22, oleajeM: 1 }).nivel).toBe("ambar");
+    expect(evaluarZarpeClima({ vientoKn: 30, oleajeM: 1 }).nivel).toBe("rojo");
+  });
+
+  it("evaluarCubierta considera lluvia", () => {
+    expect(evaluarCubierta({ vientoKn: 10, precipMm6h: 0 }).nivel).toBe("verde");
+    expect(evaluarCubierta({ vientoKn: 10, precipMm6h: 3 }).nivel).toBe("ambar");
+    expect(evaluarCubierta({ vientoKn: 10, precipMm6h: 6 }).nivel).toBe("rojo");
+  });
+
+  it("evaluarSemáforosOperacionales devuelve tres chips", () => {
+    const s = evaluarSemáforosOperacionales({ vientoKn: 21, oleajeM: 2.0 }, 1);
+    expect(s.zarpe).toBeTruthy();
+    expect(s.cubierta).toBeTruthy();
+    expect(s.pmPuerto).toBeTruthy();
+    expect(peorSemáforo(s).nivel).toBe("ambar");
+  });
+
+  it("analizarMarea detecta pleamar y bajamar", () => {
+    const horarioMarea = [
+      { time: "2026-06-16T08:00", mareaM: 0.5 },
+      { time: "2026-06-16T09:00", mareaM: 1.2 },
+      { time: "2026-06-16T10:00", mareaM: 2.0 },
+      { time: "2026-06-16T11:00", mareaM: 1.5 },
+      { time: "2026-06-16T12:00", mareaM: 0.2 },
+      { time: "2026-06-16T13:00", mareaM: -0.5 },
+      { time: "2026-06-16T14:00", mareaM: 0.0 },
+    ];
+    const info = analizarMarea(horarioMarea, new Date("2026-06-16T07:00").getTime());
+    expect(info.pleamar?.alturaM).toBe(2.0);
+    expect(info.bajamar?.alturaM).toBe(-0.5);
+    expect(etiquetaEventoMarea(info.pleamar)).toMatch(/Pleamar/);
   });
 });
 

@@ -121,12 +121,24 @@ async function fetchMarine(lat: number, lon: number, params: URLSearchParams) {
   return { data: await res2.json(), model: "ecmwf_wam" };
 }
 
+async function fetchMarea(lat: number, lon: number, params: URLSearchParams) {
+  const tideParams = new URLSearchParams(params);
+  tideParams.set("cell_selection", "sea");
+  tideParams.set("models", "meteofrance_currents");
+  const url =
+    `https://marine-api.open-meteo.com/v1/marine?${tideParams}` +
+    "&hourly=sea_level_height_msl";
+  const res = await fetch(url);
+  if (!res.ok) return null;
+  return await res.json() as Record<string, unknown>;
+}
+
 async function fetchPronostico(lat: number, lon: number) {
   const params = new URLSearchParams({
     latitude: String(lat),
     longitude: String(lon),
     timezone: "America/Santiago",
-    forecast_days: "3",
+    forecast_days: "7",
     wind_speed_unit: "kn",
     precipitation_unit: "mm",
   });
@@ -136,9 +148,10 @@ async function fetchPronostico(lat: number, lon: number) {
     "&current=temperature_2m,wind_speed_10m,wind_direction_10m,weather_code,precipitation" +
     "&hourly=temperature_2m,wind_speed_10m,wind_direction_10m,weather_code,precipitation";
 
-  const [forecastRes, marineResult] = await Promise.all([
+  const [forecastRes, marineResult, mareaData] = await Promise.all([
     fetch(forecastUrl),
     fetchMarine(lat, lon, params),
+    fetchMarea(lat, lon, params),
   ]);
 
   if (!forecastRes.ok) {
@@ -158,19 +171,26 @@ async function fetchPronostico(lat: number, lon: number) {
 
   const times: string[] = forecast.hourly?.time ?? [];
   const mh = marine?.hourly as Record<string, number[]> | undefined;
-  const horario = times.slice(0, 48).map((time: string, i: number) => ({
-    time,
-    tempC: forecast.hourly?.temperature_2m?.[i] ?? null,
-    vientoKn: forecast.hourly?.wind_speed_10m?.[i] ?? null,
-    vientoDir: forecast.hourly?.wind_direction_10m?.[i] ?? null,
-    climaCode: forecast.hourly?.weather_code?.[i] ?? null,
-    precipMm: forecast.hourly?.precipitation?.[i] ?? null,
-    oleajeM: mh?.wave_height?.[i] ?? null,
-    oleajeVientoM: mh?.wind_wave_height?.[i] ?? null,
-    oleajeSwellM: mh?.swell_wave_height?.[i] ?? null,
-  }));
+  const th = mareaData?.hourly as Record<string, number[]> | undefined;
+  const mareaTimes: string[] = (th?.time as string[]) ?? [];
+  const horario = times.map((time: string, i: number) => {
+    const mIdx = mareaTimes.indexOf(time);
+    return {
+      time,
+      tempC: forecast.hourly?.temperature_2m?.[i] ?? null,
+      vientoKn: forecast.hourly?.wind_speed_10m?.[i] ?? null,
+      vientoDir: forecast.hourly?.wind_direction_10m?.[i] ?? null,
+      climaCode: forecast.hourly?.weather_code?.[i] ?? null,
+      precipMm: forecast.hourly?.precipitation?.[i] ?? null,
+      oleajeM: mh?.wave_height?.[i] ?? null,
+      oleajeVientoM: mh?.wind_wave_height?.[i] ?? null,
+      oleajeSwellM: mh?.swell_wave_height?.[i] ?? null,
+      mareaM: mIdx >= 0 ? th?.sea_level_height_msl?.[mIdx] ?? null : null,
+    };
+  });
 
   const precipActual = cur.precipitation ?? horario[0]?.precipMm ?? null;
+  const mareaActual = horario[0]?.mareaM ?? null;
 
   const actual = {
     tempC: cur.temperature_2m ?? null,
@@ -181,13 +201,14 @@ async function fetchPronostico(lat: number, lon: number) {
     oleajeVientoM: oleajeViento,
     oleajeSwellM: oleajeSwell,
     precipMm: precipActual,
+    mareaM: mareaActual,
     climaCode: cur.weather_code ?? null,
     evaluacion: evaluar(cur.wind_speed_10m ?? 0, oleajeActual ?? 0),
   };
 
   return {
     actualizado: new Date().toISOString(),
-    modelos: { oleaje: marineModel, tiempo: "best_match" },
+    modelos: { oleaje: marineModel, tiempo: "best_match", marea: mareaData ? "meteofrance_currents" : null },
     actual,
     horario,
   };

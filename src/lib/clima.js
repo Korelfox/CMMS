@@ -180,3 +180,127 @@ export function precipProximasHoras(horario = [], horas = 6) {
     (s, h) => s + (Number(h.precipMm) || 0), 0,
   );
 }
+
+/** Semáforo zarpe/recalada (viento + oleaje). */
+export function evaluarZarpeClima({ vientoKn = 0, oleajeM = 0 } = {}) {
+  const v = Number(vientoKn) || 0;
+  const o = Number(oleajeM) || 0;
+  if (v >= 28 || o >= 3.0) {
+    return { nivel: "rojo", label: "No zarpar", tone: "red", icon: "nogo" };
+  }
+  if (v >= 20 || o >= 2.0) {
+    return { nivel: "ambar", label: "Precaución", tone: "yellow", icon: "warn" };
+  }
+  return { nivel: "verde", label: "Favorable", tone: "green", icon: "go" };
+}
+
+/** Semáforo trabajos en cubierta (viento + lluvia próx. 6 h). */
+export function evaluarCubierta({ vientoKn = 0, precipMm6h = 0 } = {}) {
+  const v = Number(vientoKn) || 0;
+  const p = Number(precipMm6h) || 0;
+  if (v >= 25 || p >= 5) {
+    return { nivel: "rojo", label: "No recomendado", tone: "red", icon: "nogo" };
+  }
+  if (v >= 18 || p >= 2) {
+    return { nivel: "ambar", label: "Limitado", tone: "yellow", icon: "warn" };
+  }
+  return { nivel: "verde", label: "Adecuado", tone: "green", icon: "go" };
+}
+
+/** Semáforo ventana PM en puerto (viento, oleaje, lluvia). */
+export function evaluarPmPuerto({ vientoKn = 0, oleajeM = 0, precipMm6h = 0 } = {}) {
+  const v = Number(vientoKn) || 0;
+  const o = Number(oleajeM) || 0;
+  const p = Number(precipMm6h) || 0;
+  if (v >= 22 || o >= 2.5 || p >= 8) {
+    return { nivel: "rojo", label: "Posponer", tone: "red", icon: "nogo" };
+  }
+  if (v >= 15 || p >= 3) {
+    return { nivel: "ambar", label: "Ventana reducida", tone: "yellow", icon: "warn" };
+  }
+  return { nivel: "verde", label: "Buena ventana", tone: "green", icon: "go" };
+}
+
+/** Tres semáforos operacionales para el widget. */
+export function evaluarSemáforosOperacionales(actual = {}, precipMm6h = 0) {
+  const base = {
+    vientoKn: actual.vientoKn,
+    oleajeM: actual.oleajeM,
+    precipMm6h,
+  };
+  return {
+    zarpe: evaluarZarpeClima(base),
+    cubierta: evaluarCubierta(base),
+    pmPuerto: evaluarPmPuerto(base),
+  };
+}
+
+/** Peor nivel entre semáforos (para pill resumen). */
+export function peorSemáforo(semaforos = {}) {
+  const orden = { rojo: 3, ambar: 2, verde: 1 };
+  const vals = Object.values(semaforos);
+  if (!vals.length) return evaluarCondiciones({});
+  return vals.reduce((a, b) => (orden[b.nivel] > orden[a.nivel] ? b : a));
+}
+
+/** Clave localStorage colapsado del widget por empresa. */
+export function storageKeyPronosticoColapsado(empresaId) {
+  return empresaId ? `cmms-pronostico-colapsado-${empresaId}` : "cmms-pronostico-colapsado";
+}
+
+/** Horas restantes del día local desde serie horaria. */
+export function horarioRestanteHoy(horario = []) {
+  const hoy = new Date().toISOString().slice(0, 10);
+  return (horario || []).filter((h) => (h.time || "").startsWith(hoy));
+}
+
+/** Serie marea para gráfico 48 h. */
+export function serieMarea48h(horario = []) {
+  return (horario || []).slice(0, 48)
+    .filter((h) => h.mareaM != null)
+    .map((h) => ({
+      hora: formatearHoraCorta(h.time),
+      mareaM: h.mareaM,
+    }));
+}
+
+/**
+ * Detecta pleamar/bajamar estimadas en serie horaria (máx./mín. locales).
+ * mareaM en metros MSL — estimación modelada, no datum náutico chileno.
+ */
+export function analizarMarea(horario = [], ahoraMs = Date.now()) {
+  const serie = (horario || []).filter((h) => h.mareaM != null).slice(0, 48);
+  if (serie.length < 3) return null;
+
+  const eventos = [];
+  for (let i = 1; i < serie.length - 1; i += 1) {
+    const prev = serie[i - 1].mareaM;
+    const curr = serie[i].mareaM;
+    const next = serie[i + 1].mareaM;
+    if (curr >= prev && curr >= next) {
+      eventos.push({ tipo: "pleamar", time: serie[i].time, alturaM: curr });
+    } else if (curr <= prev && curr <= next) {
+      eventos.push({ tipo: "bajamar", time: serie[i].time, alturaM: curr });
+    }
+  }
+
+  const futuros = eventos.filter((e) => new Date(e.time).getTime() > ahoraMs);
+  const pleamar = futuros.find((e) => e.tipo === "pleamar") || null;
+  const bajamar = futuros.find((e) => e.tipo === "bajamar") || null;
+  const actual = serie.find((h) => new Date(h.time).getTime() >= ahoraMs) || serie[0];
+
+  return {
+    actualM: actual?.mareaM ?? null,
+    pleamar,
+    bajamar,
+    serie: serieMarea48h(horario),
+    estimada: true,
+  };
+}
+
+/** Etiqueta corta pleamar/bajamar. */
+export function etiquetaEventoMarea(evento) {
+  if (!evento) return null;
+  const tipo = evento.tipo === "pleamar" ? "Pleamar" : "Bajamar";
+  return `${tipo} ~${formatearHoraCorta(evento.time)} (${Number(evento.alturaM).toFixed(1)} m)`;
+}
