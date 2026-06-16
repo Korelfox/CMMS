@@ -5,6 +5,8 @@ import {
 } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { fetchAll, insertRow, updateRow, deleteRow, logActivity } from "../lib/db";
+import { fetchPronosticoOperacional } from "../lib/pronosticoApi";
+import { resumirClimaParaZarpe, textoClimaObservacion } from "../lib/clima";
 import { useOnline, cacheTable, getCached, queueInsert, nuevoId } from "../lib/offline";
 import { subirFotos, listarFotos, borrarFoto } from "../lib/fotos";
 import { C, canOperate, isAdmin } from "../theme";
@@ -12,11 +14,11 @@ import { buildEquipoTree } from "../lib/equipTree";
 import { Card, PageHead, Pill, primaryBtn, ghostBtn, InlineSpinner, ErrorBanner, Empty, Field } from "../ui";
 import { FotoInput, FotoGaleria } from "./Fotos";
 import { HOY, SEGURIDAD_FIJA } from "./prezarpe/util";
-import { VistaFlota, VistaChecklist, VistaRecalada, VistaRetornoFalla, VistaHistorial, VistaInforme, ModalEliminar } from "./prezarpe/vistas";
+import { VistaFlota, VistaClima, VistaChecklist, VistaRecalada, VistaRetornoFalla, VistaHistorial, VistaInforme, ModalEliminar } from "./prezarpe/vistas";
 
 
 export default function Prezarpe() {
-  const { profile } = useAuth();
+  const { profile, empresa } = useAuth();
   const online = useOnline();
   const [embarcaciones, setEmbarcaciones] = useState([]);
   const [equipos, setEquipos] = useState([]);
@@ -33,6 +35,10 @@ export default function Prezarpe() {
   const [prezarpeSel, setPrezarpeSel] = useState(null);  // informe abierto
   const [confirmar, setConfirmar] = useState(null);      // modal de eliminación con motivo
   const [varadas, setVaradas] = useState([]);            // varadas para marcar "En varada"
+  const [climaDatos, setClimaDatos] = useState(null);
+  const [climaLoading, setClimaLoading] = useState(false);
+  const [climaError, setClimaError] = useState(null);
+  const [climaSnapshot, setClimaSnapshot] = useState("");
   const puedeOperar = canOperate(profile?.rol);
   const puedeBorrar = isAdmin(profile?.rol);   // eliminar prezarpe/marea: solo administración
 
@@ -70,6 +76,32 @@ export default function Prezarpe() {
     const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
     return documentos.filter((d) => d.embarcacion_id === embId && d.vencimiento && new Date(d.vencimiento + "T00:00:00") < hoy);
   };
+
+  const cargarClima = useCallback(async (puerto) => {
+    setClimaLoading(true);
+    setClimaError(null);
+    try {
+      const datos = await fetchPronosticoOperacional(puerto || empresa?.puerto_base);
+      setClimaDatos(datos);
+      const res = resumirClimaParaZarpe(datos);
+      setClimaSnapshot(textoClimaObservacion(res));
+    } catch (e) {
+      setClimaDatos(null);
+      setClimaSnapshot("");
+      setClimaError(e.message || String(e));
+    } finally {
+      setClimaLoading(false);
+    }
+  }, [empresa?.puerto_base]);
+
+  async function iniciarPrezarpe(n) {
+    setNave(n);
+    setClimaDatos(null);
+    setClimaSnapshot("");
+    setClimaError(null);
+    setVista("clima");
+    if (online) await cargarClima(empresa?.puerto_base);
+  }
 
   // Arma la descripción de no conformidades a partir del checklist.
   function observacionesDe(payload) {
@@ -268,12 +300,26 @@ export default function Prezarpe() {
 
       {vista === "flota" && (
         <VistaFlota embarcaciones={embarcaciones} mareaAbierta={mareaAbierta} varadas={varadas} docsVencidos={docsVencidos} puedeOperar={puedeOperar} puedeBorrar={puedeBorrar}
-          onIniciar={(n) => { setNave(n); setVista("checklist"); }} onRecalada={abrirRecalada} onEliminarZarpe={pedirEliminarZarpe}
+          onIniciar={iniciarPrezarpe} onRecalada={abrirRecalada} onEliminarZarpe={pedirEliminarZarpe}
           onRetornoFalla={(m) => { setMareaFalla(m); setVista("retorno_falla"); }} />
+      )}
+      {vista === "clima" && (
+        <VistaClima
+          nave={nave}
+          puertoBase={empresa?.puerto_base}
+          datos={climaDatos}
+          loading={climaLoading}
+          error={climaError}
+          online={online}
+          onVolver={() => { setVista("flota"); setNave(null); setClimaDatos(null); }}
+          onContinuar={() => setVista("checklist")}
+          onReintentar={() => cargarClima(empresa?.puerto_base)}
+        />
       )}
       {vista === "checklist" && (
         <VistaChecklist nave={nave} equipos={buildEquipoTree(equipos.filter((e) => e.embarcacion_id === nave.id))} online={online}
-          onVolver={() => { setVista("flota"); setNave(null); }} onGuardar={guardarPrezarpe} onSaveConfig={guardarConfigPrezarpe} />
+          climaSnapshot={climaSnapshot}
+          onVolver={() => { setVista("clima"); }} onGuardar={guardarPrezarpe} onSaveConfig={guardarConfigPrezarpe} />
       )}
       {vista === "recalada" && (
         <VistaRecalada marea={mareaRec} nave={embarcaciones.find((e) => e.id === mareaRec?.embarcacion_id)}

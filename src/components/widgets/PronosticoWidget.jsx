@@ -424,7 +424,7 @@ export default function PronosticoWidget({ puertoBase, empresaId, contextoOps = 
               {tab === "48h" && (
                 <>
                   <PronosticoGrafico horario={datos?.horario} />
-                  <PronosticoMarea horario={datos?.horario} />
+                  <PronosticoMarea horario={datos?.horario} puertoLabel={datos?.puerto || puertoSel} />
                 </>
               )}
 

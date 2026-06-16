@@ -1,9 +1,12 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
-  Radar, RefreshCw, Check, AlertTriangle, AlertCircle, Clock, Mail, ChevronRight,
+  Radar, RefreshCw, Check, AlertTriangle, AlertCircle, Clock, Mail, ChevronRight, Cloud,
 } from "lucide-react";
+import { useAuth } from "../lib/auth";
 import { useOnline } from "../lib/offline";
 import { supabase } from "../lib/supabase";
+import { fetchPronosticoOperacional } from "../lib/pronosticoApi";
+import { insightClimaIAF } from "../lib/clima";
 import { C, tint } from "../theme";
 import { Card, PageHead, InlineSpinner, Empty } from "../ui";
 
@@ -15,7 +18,7 @@ const SEV = {
 };
 
 // A qué módulo lleva cada agente al pulsar la tarjeta.
-const NAV_AGENTE = { "IA-A": "equipos", "IA-B": "ots", "IA-C": "confiab", "IA-D": "pdm" };
+const NAV_AGENTE = { "IA-A": "equipos", "IA-B": "ots", "IA-C": "confiab", "IA-D": "pdm", "IA-F": "tablero" };
 
 function AgenteCard({ ins, onNav }) {
   const s = SEV[ins.severidad] || SEV.ok;
@@ -30,7 +33,7 @@ function AgenteCard({ ins, onNav }) {
         </span>
       </div>
       <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
-        <span style={{ fontSize: 26, fontWeight: 800, color: s.color, lineHeight: 1 }}>{Number(ins.valor)}{ins.agente === "IA-B" ? "%" : ""}</span>
+        <span style={{ fontSize: 26, fontWeight: 800, color: s.color, lineHeight: 1 }}>{Number(ins.valor)}{ins.agente === "IA-B" ? "%" : ins.agente === "IA-F" ? " kn" : ""}</span>
         <span style={{ fontSize: 13.5, fontWeight: 700, color: C.abyss }}>{ins.titulo}</span>
       </div>
       <div style={{ fontSize: 11.5, color: C.slate, marginTop: 6, lineHeight: 1.5 }}>{ins.detalle}</div>
@@ -43,11 +46,13 @@ function AgenteCard({ ins, onNav }) {
 
 export default function Vigilante({ onNavigate }) {
   const online = useOnline();
+  const { empresa } = useAuth();
 
   const [rows, setRows] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [evaluando, setEvaluando] = useState(false);
   const [error, setError] = useState("");
+  const [climaInsight, setClimaInsight] = useState(null);
 
   const cargar = useCallback(async () => {
     setCargando(true);
@@ -66,15 +71,27 @@ export default function Vigilante({ onNavigate }) {
 
   useEffect(() => { cargar(); }, [cargar]);
 
-  // Última corrida: la fecha más reciente, un registro por agente.
+  useEffect(() => {
+    if (!online || !empresa?.puerto_base) return;
+    let cancel = false;
+    fetchPronosticoOperacional(empresa.puerto_base)
+      .then((d) => { if (!cancel) setClimaInsight(insightClimaIAF(d)); })
+      .catch(() => { if (!cancel) setClimaInsight(null); });
+    return () => { cancel = true; };
+  }, [online, empresa?.puerto_base]);
+
+  // Última corrida: la fecha más reciente, un registro por agente (+ IA-F en vivo).
   const { ultima, agentes } = useMemo(() => {
-    if (!rows.length) return { ultima: null, agentes: [] };
-    const fecha = rows[0].corrida;
-    const delDia = rows.filter((r) => r.corrida === fecha);
-    const porAgente = new Map();
-    for (const r of delDia) if (!porAgente.has(r.agente)) porAgente.set(r.agente, r);
-    return { ultima: fecha, agentes: [...porAgente.values()].sort((a, b) => a.agente.localeCompare(b.agente)) };
-  }, [rows]);
+    const base = !rows.length ? { ultima: null, agentes: [] } : (() => {
+      const fecha = rows[0].corrida;
+      const delDia = rows.filter((r) => r.corrida === fecha);
+      const porAgente = new Map();
+      for (const r of delDia) if (!porAgente.has(r.agente)) porAgente.set(r.agente, r);
+      return { ultima: fecha, agentes: [...porAgente.values()] };
+    })();
+    const merged = climaInsight ? [...base.agentes.filter((a) => a.agente !== "IA-F"), climaInsight] : base.agentes;
+    return { ultima: base.ultima, agentes: merged.sort((a, b) => a.agente.localeCompare(b.agente)) };
+  }, [rows, climaInsight]);
 
   const resumen = useMemo(() => {
     const red = agentes.filter((a) => a.severidad === "red").length;

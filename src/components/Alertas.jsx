@@ -1,7 +1,12 @@
 import React, { useEffect, useState, useCallback, useMemo } from "react";
 import {
-  Bell, AlertTriangle, Package, Wrench, Clock, Ship, ShoppingCart, ChevronRight, Check, Droplet, ShieldCheck, Activity, FileWarning, ShieldAlert, Anchor, Timer, Cpu,
+  Bell, AlertTriangle, Package, Wrench, Clock, Ship, ShoppingCart, ChevronRight, Check, Droplet, ShieldCheck, Activity, FileWarning, ShieldAlert, Anchor, Timer, Cpu, Cloud,
 } from "lucide-react";
+import { useAuth } from "../lib/auth";
+import { fetchPronosticoOperacional } from "../lib/pronosticoApi";
+import {
+  evaluarSemáforosOperacionales, precipProximasHoras, resumirAlertasTemporales,
+} from "../lib/clima";
 import { puntoHorometro, diasDesde } from "../lib/horometro";
 import { fetchAll } from "../lib/db";
 import { C, archivo, num, SLA_HORAS, PRIORIDADES, lk } from "../theme";
@@ -26,6 +31,7 @@ const CATEGORIAS = [
   { id: "datos",     label: "Datos ISO",       icon: FileWarning },
   { id: "varada",    label: "Varadas",         icon: Anchor },
   { id: "horometro", label: "Horómetros",      icon: Timer },
+  { id: "clima",     label: "Clima marítimo",  icon: Cloud },
   { id: "ia",        label: "Agentes IA",      icon: Cpu },
 ];
 
@@ -44,6 +50,7 @@ const NAV_POR_CAT = {
   datos: "ots",
   varada: "varada",
   horometro: "horometros",
+  clima: "tablero",
   ia: "equipos",
 };
 
@@ -54,7 +61,13 @@ function diasHabiles(desde, hasta) {
   return n;
 }
 
+function formatearHoraClima(iso) {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleString("es-CL", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+}
+
 export default function Alertas({ onNavigate }) {
+  const { empresa } = useAuth();
   const [embarcaciones, setEmbarcaciones] = useState([]);
   const [equipos, setEquipos] = useState([]);
   const [items, setItems] = useState([]);
@@ -73,6 +86,7 @@ export default function Alertas({ onNavigate }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [filtro, setFiltro] = useState("all");
+  const [pronosticoClima, setPronosticoClima] = useState(null);
 
   const cargar = useCallback(async () => {
     setLoading(true); setError(null);
@@ -101,6 +115,15 @@ export default function Alertas({ onNavigate }) {
     finally { setLoading(false); }
   }, []);
   useEffect(() => { cargar(); }, [cargar]);
+
+  useEffect(() => {
+    if (!empresa?.puerto_base) return;
+    let cancel = false;
+    fetchPronosticoOperacional(empresa.puerto_base)
+      .then((d) => { if (!cancel) setPronosticoClima(d); })
+      .catch(() => { if (!cancel) setPronosticoClima(null); });
+    return () => { cancel = true; };
+  }, [empresa?.puerto_base]);
 
   function embName(id) { return embarcaciones.find((e) => e.id === id)?.nombre || "—"; }
 
@@ -408,13 +431,54 @@ export default function Alertas({ onNavigate }) {
         ts: null });
     }
 
+    // IA-F: clima marítimo — condiciones actuales y temporal en 48 h
+    if (pronosticoClima?.actual) {
+      const precip6h = precipProximasHoras(pronosticoClima.horario, 6);
+      const sem = evaluarSemáforosOperacionales(pronosticoClima.actual, precip6h);
+      const temporal = resumirAlertasTemporales(pronosticoClima.horario);
+      const ev = sem.zarpe;
+
+      if (ev.nivel !== "verde") {
+        all.push({
+          cat: "clima",
+          sev: ev.nivel === "rojo" ? "red" : "amber",
+          titulo: `IA-F · ${ev.label} · ${pronosticoClima.puerto || empresa?.puerto_base || "Puerto"}`,
+          detalle: `Viento ${Math.round(pronosticoClima.actual.vientoKn ?? 0)} kn · oleaje ${Number(pronosticoClima.actual.oleajeM ?? 0).toFixed(1)} m · revisar antes de zarpar`,
+          ts: pronosticoClima.actualizado || null,
+        });
+      }
+
+      if (temporal.hayTemporal && temporal.peor?.ev.nivel !== "verde") {
+        const sevT = temporal.peor.ev.nivel === "rojo" ? "red" : "amber";
+        if (!all.some((a) => a.cat === "clima" && a.titulo.includes("Temporal"))) {
+          all.push({
+            cat: "clima",
+            sev: sevT,
+            titulo: `IA-F · Temporal previsto · ${formatearHoraClima(temporal.peor.time)}`,
+            detalle: `${temporal.etiqueta} · apoyo operacional, verificar Directemar`,
+            ts: temporal.peor.time,
+          });
+        }
+      }
+
+      if (ev.nivel !== "verde" || temporal.hayTemporal) {
+        all.push({
+          cat: "ia",
+          sev: ev.nivel === "rojo" || temporal.peor?.ev.nivel === "rojo" ? "red" : "amber",
+          titulo: "IA-F · Vigilancia meteorológica activa",
+          detalle: temporal.etiqueta || `${ev.label} en condiciones actuales`,
+          ts: pronosticoClima.actualizado || null,
+        });
+      }
+    }
+
     // Orden: rojo primero, luego ámbar, dentro de cada uno por timestamp descendente
     return all.sort((a, b) => {
       const sevOrder = { red: 0, amber: 1, yellow: 2 };
       if (sevOrder[a.sev] !== sevOrder[b.sev]) return sevOrder[a.sev] - sevOrder[b.sev];
       return new Date(b.ts || 0).getTime() - new Date(a.ts || 0).getTime();
     });
-  }, [equipos, items, stock, ots, solicitudes, compras, prezarpes, documentos, embarcaciones, planes, mediciones, fallas, destinos, varadas, lecturas]); // eslint-disable-line
+  }, [equipos, items, stock, ots, solicitudes, compras, prezarpes, documentos, embarcaciones, planes, mediciones, fallas, destinos, varadas, lecturas, pronosticoClima, empresa?.puerto_base]); // eslint-disable-line
 
   const conteoPorCat = (id) => alertas.filter((a) => a.cat === id).length;
   const listaFiltrada = filtro === "all" ? alertas : alertas.filter((a) => a.cat === filtro);

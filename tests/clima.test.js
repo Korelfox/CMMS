@@ -18,6 +18,9 @@ import {
   peorSemáforo,
   analizarMarea,
   etiquetaEventoMarea,
+  localidadShoa,
+  resumirAlertasTemporales,
+  insightClimaIAF,
   etiquetaModeloOleaje,
 } from "../src/lib/clima.js";
 
@@ -160,6 +163,33 @@ describe("evaluarSemáforos operacionales y marea", () => {
     expect(info.pleamar?.alturaM).toBe(2.0);
     expect(info.bajamar?.alturaM).toBe(-0.5);
     expect(etiquetaEventoMarea(info.pleamar)).toMatch(/Pleamar/);
+  });
+
+  it("localidadShoa mapea puertos CMMS", () => {
+    expect(localidadShoa("Puerto Montt")).toBe("PUERTO MONTT");
+    expect(localidadShoa("Chacao")).toBe("PUERTO CHACAO");
+  });
+
+  it("resumirAlertasTemporales detecta pico adverso", () => {
+    const horario = [
+      { time: "2026-06-16T10:00", vientoKn: 12, oleajeM: 1 },
+      { time: "2026-06-17T06:00", vientoKn: 30, oleajeM: 2.5 },
+    ];
+    const r = resumirAlertasTemporales(horario, new Date("2026-06-16T08:00").getTime());
+    expect(r.hayTemporal).toBe(true);
+    expect(r.peor.ev.nivel).toBe("rojo");
+  });
+
+  it("insightClimaIAF devuelve agente IA-F", () => {
+    const datos = {
+      puerto: "Puerto Montt",
+      actual: { vientoKn: 22, oleajeM: 2.1 },
+      horario: [{ time: "2026-06-16T10:00", vientoKn: 22, oleajeM: 2.1 }],
+      actualizado: "2026-06-16T09:00:00Z",
+    };
+    const ins = insightClimaIAF(datos);
+    expect(ins.agente).toBe("IA-F");
+    expect(ins.severidad).toBe("amber");
   });
 });
 

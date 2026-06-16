@@ -304,3 +304,144 @@ export function etiquetaEventoMarea(evento) {
   const tipo = evento.tipo === "pleamar" ? "Pleamar" : "Bajamar";
   return `${tipo} ~${formatearHoraCorta(evento.time)} (${Number(evento.alturaM).toFixed(1)} m)`;
 }
+
+/** Localidad oficial SHOA más cercana al puerto del catálogo CMMS. */
+export const LOCALIDADES_SHOA = {
+  "puerto montt":   "PUERTO MONTT",
+  "calbuco":        "PUERTO MONTT",
+  "ancud":          "ANCUD",
+  "castro":         "CASTRO",
+  "chonchi":        "CASTRO",
+  "quellon":        "CASTRO",
+  "chacao":         "PUERTO CHACAO",
+  "talcahuano":     "TALCAHUANO",
+  "coronel":        "CORONEL",
+  "lota":           "CORONEL",
+  "san antonio":    "SAN ANTONIO",
+  "valparaiso":     "VALPARAÍSO",
+  "coquimbo":       "COQUIMBO",
+  "antofagasta":    "ANTOFAGASTA",
+  "iquique":        "IQUIQUE",
+  "arica":          "ARICA",
+  "puerto natales": "PUERTO NATALES",
+  "punta arenas":   "PUNTA ARENAS",
+};
+
+export function localidadShoa(puertoLabel) {
+  const key = normalizarPuerto(puertoLabel);
+  if (LOCALIDADES_SHOA[key]) return LOCALIDADES_SHOA[key];
+  const parcial = Object.entries(LOCALIDADES_SHOA).find(
+    ([k, v]) => key.includes(k) || k.includes(key) ||
+      key.includes(v.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")),
+  );
+  return parcial ? parcial[1] : null;
+}
+
+/** Enlaces a fuentes oficiales chilenas (consulta humana, no API). */
+export function referenciasMareaOficial(puertoLabel) {
+  const localidad = localidadShoa(puertoLabel);
+  return {
+    localidad,
+    shoa: "https://www.shoa.cl/php/mareas.php",
+    directemar: "https://www.directemar.cl/directemar/navegacion-y-metereologia/pronosticos-para-la-navegacion",
+  };
+}
+
+/** Resumen compacto para auditoría en prezarpe. */
+export function resumirClimaParaZarpe(datos) {
+  if (!datos?.actual) return null;
+  const precip6h = precipProximasHoras(datos.horario, 6);
+  const sem = evaluarSemáforosOperacionales(datos.actual, precip6h);
+  return {
+    puerto: datos.puerto,
+    actualizado: datos.actualizado,
+    vientoKn: datos.actual.vientoKn,
+    oleajeM: datos.actual.oleajeM,
+    precipMm6h: precip6h,
+    semaforoZarpe: sem.zarpe.nivel,
+    labelZarpe: sem.zarpe.label,
+    localidadShoa: localidadShoa(datos.puerto),
+  };
+}
+
+export function textoClimaObservacion(resumen) {
+  if (!resumen) return "";
+  const v = resumen.vientoKn != null ? `${Math.round(resumen.vientoKn)} kn` : "—";
+  const o = resumen.oleajeM != null ? `${Number(resumen.oleajeM).toFixed(1)} m` : "—";
+  return `Clima al zarpe (${resumen.puerto || "—"}): viento ${v}, oleaje ${o}, semáforo ${resumen.labelZarpe}.`;
+}
+
+/**
+ * Detecta ventanas adversas próximas 48 h para alertas IA-F.
+ * Retorna el evento más próximo con peor severidad.
+ */
+export function resumirAlertasTemporales(horario = [], ahoraMs = Date.now()) {
+  const ventanaMs = 48 * 3600000;
+  let peor = null;
+  const orden = { rojo: 2, ambar: 1, verde: 0 };
+
+  for (const h of horario || []) {
+    const t = new Date(h.time).getTime();
+    if (t <= ahoraMs || t > ahoraMs + ventanaMs) continue;
+    const ev = evaluarZarpeClima({
+      vientoKn: h.vientoKn ?? 0,
+      oleajeM: h.oleajeM ?? 0,
+    });
+    if (ev.nivel === "verde") continue;
+    const cand = { time: h.time, ev, vientoKn: h.vientoKn, oleajeM: h.oleajeM, t };
+    if (!peor || orden[ev.nivel] > orden[peor.ev.nivel] ||
+      (orden[ev.nivel] === orden[peor.ev.nivel] && t < peor.t)) {
+      peor = cand;
+    }
+  }
+
+  return {
+    hayTemporal: !!peor,
+    peor,
+    etiqueta: peor
+      ? `Temporal ~${formatearHoraCorta(peor.time)} · ${peor.ev.label}` +
+        (peor.vientoKn != null ? ` · ${Math.round(peor.vientoKn)} kn` : "") +
+        (peor.oleajeM != null ? ` · ${Number(peor.oleajeM).toFixed(1)} m oleaje` : "")
+      : null,
+  };
+}
+
+/** Insight IA-F a partir de pronóstico cargado. */
+export function insightClimaIAF(datos) {
+  if (!datos?.actual) return null;
+  const precip6h = precipProximasHoras(datos.horario, 6);
+  const sem = evaluarSemáforosOperacionales(datos.actual, precip6h);
+  const temporal = resumirAlertasTemporales(datos.horario);
+  const actualEv = sem.zarpe;
+  const sev = actualEv.nivel === "rojo" || temporal.peor?.ev.nivel === "rojo"
+    ? "red"
+    : actualEv.nivel === "ambar" || temporal.peor?.ev.nivel === "ambar"
+      ? "amber"
+      : "ok";
+
+  if (sev === "ok") {
+    return {
+      agente: "IA-F",
+      severidad: "ok",
+      titulo: "Clima marítimo favorable",
+      detalle: `${datos.puerto || "Puerto"} · sin temporal significativa en 48 h · consultar SHOA/Directemar para navegación`,
+      valor: Math.round(datos.actual.vientoKn ?? 0),
+    };
+  }
+
+  const detalle = [
+    actualEv.nivel !== "verde"
+      ? `Ahora: ${actualEv.label} (${Math.round(datos.actual.vientoKn ?? 0)} kn, ${Number(datos.actual.oleajeM ?? 0).toFixed(1)} m oleaje)`
+      : null,
+    temporal.etiqueta ? `Próximo pico: ${temporal.etiqueta}` : null,
+    "Apoyo operacional — verificar avisos oficiales Directemar.",
+  ].filter(Boolean).join(" · ");
+
+  return {
+    agente: "IA-F",
+    severidad: sev,
+    titulo: sev === "red" ? "Condiciones marítimas adversas" : "Precaución meteorológica",
+    detalle,
+    valor: Math.round(datos.actual.vientoKn ?? 0),
+  };
+}

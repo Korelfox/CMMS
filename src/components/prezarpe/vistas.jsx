@@ -1,5 +1,9 @@
 import React, { useState, useEffect } from "react";
-import { Ship, Anchor, Fuel, Droplet, Gauge, Check, X, AlertTriangle, ArrowLeft, Camera, ClipboardCheck, Waves, CloudOff, Clock, Trash2, Pencil, Plus, RotateCcw, Wrench } from "lucide-react";
+import { Ship, Anchor, Fuel, Droplet, Gauge, Check, X, AlertTriangle, ArrowLeft, Camera, ClipboardCheck, Waves, CloudOff, Clock, Trash2, Pencil, Plus, RotateCcw, Wrench, Cloud, Wind, ExternalLink } from "lucide-react";
+import {
+  evaluarSemáforosOperacionales, precipProximasHoras, referenciasMareaOficial,
+  etiquetaEventoMarea, analizarMarea, direccionViento,
+} from "../../lib/clima";
 import { insertRow, updateRow, deleteRow, logActivity } from "../../lib/db";
 import { useOnline, cacheTable, getCached, queueInsert, nuevoId } from "../../lib/offline";
 import { subirFotos, listarFotos, borrarFoto } from "../../lib/fotos";
@@ -70,8 +74,146 @@ export function VistaFlota({ embarcaciones, mareaAbierta, varadas = [], docsVenc
   );
 }
 
+const TONE = { red: C.red, yellow: C.amber, green: C.green };
+
+function ChipClima({ titulo, ev }) {
+  const color = TONE[ev.tone] || C.green;
+  return (
+    <div style={{
+      padding: "10px 12px", borderRadius: 10, border: `1px solid ${tint(color, 28)}`, background: tint(color, 6),
+    }}>
+      <div style={{ fontSize: 10, fontWeight: 700, color: C.slate, textTransform: "uppercase", letterSpacing: 0.4 }}>{titulo}</div>
+      <div style={{ fontSize: 13, fontWeight: 800, color, marginTop: 4 }}>{ev.label}</div>
+    </div>
+  );
+}
+
+/** Gate climático antes del checklist de prezarpe. */
+export function VistaClima({
+  nave, puertoBase, datos, loading, error, online,
+  onVolver, onContinuar, onReintentar,
+}) {
+  const actual = datos?.actual;
+  const precip6h = precipProximasHoras(datos?.horario, 6);
+  const sem = actual ? evaluarSemáforosOperacionales(actual, precip6h) : null;
+  const marea = analizarMarea(datos?.horario);
+  const refs = referenciasMareaOficial(datos?.puerto || puertoBase);
+  const toneZarpe = sem?.zarpe?.tone || "green";
+  const colorZarpe = TONE[toneZarpe] || C.green;
+  const requiereConfirmacion = sem?.zarpe?.nivel === "rojo";
+
+  function continuar() {
+    if (requiereConfirmacion) {
+      const ok = window.confirm(
+        "El semáforo de zarpe indica condiciones adversas.\n\n" +
+        "¿Confirmas continuar al checklist bajo tu responsabilidad?\n" +
+        "(No reemplaza avisos oficiales de Directemar/SHOA)",
+      );
+      if (!ok) return;
+    }
+    onContinuar?.();
+  }
+
+  return (
+    <div>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+        <button type="button" onClick={onVolver} style={{ ...ghostBtn, padding: "7px 12px" }}><ArrowLeft size={15} /> Flota</button>
+        <div style={{ ...archivo, fontSize: 18, fontWeight: 800, color: C.abyss }}>Clima · {nave?.nombre}</div>
+      </div>
+
+      {!online && (
+        <div style={{ display: "flex", alignItems: "center", gap: 10, background: C.yellowBg, border: `1px solid ${C.amber}`, color: "#7a5b00", padding: "10px 14px", borderRadius: 10, marginBottom: 14, fontSize: 13 }}>
+          <CloudOff size={17} />
+          <span>Sin conexión: no hay pronóstico actualizado. Puedes continuar bajo tu criterio o esperar señal.</span>
+        </div>
+      )}
+
+      {loading && (
+        <Card><div style={{ padding: 24, textAlign: "center", color: C.slate }}>Consultando pronóstico marítimo…</div></Card>
+      )}
+
+      {error && !loading && (
+        <Card style={{ marginBottom: 14 }}>
+          <div style={{ color: C.red, fontSize: 13, marginBottom: 12 }}>{error}</div>
+          <button type="button" onClick={onReintentar} style={ghostBtn}>Reintentar</button>
+          <button type="button" onClick={continuar} style={{ ...primaryBtn, marginLeft: 8 }}>Continuar sin pronóstico</button>
+        </Card>
+      )}
+
+      {!loading && actual && sem && (
+        <>
+          <Card style={{ marginBottom: 14, borderTop: `4px solid ${colorZarpe}` }}>
+            <div style={{ display: "flex", alignItems: "flex-start", gap: 12, marginBottom: 14 }}>
+              <div style={{ width: 48, height: 48, borderRadius: 12, background: tint(colorZarpe, 14), display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <Cloud size={24} color={colorZarpe} />
+              </div>
+              <div>
+                <div style={{ fontSize: 11, letterSpacing: 1.2, textTransform: "uppercase", color: C.slate, fontWeight: 700 }}>Pronóstico · {datos.puerto || puertoBase}</div>
+                <div style={{ fontSize: 20, fontWeight: 800, color: colorZarpe, marginTop: 4 }}>{sem.zarpe.label}</div>
+                <div style={{ fontSize: 12.5, color: C.slate, marginTop: 6 }}>
+                  Viento {actual.vientoKn != null ? `${Math.round(actual.vientoKn)} kn ${direccionViento(actual.vientoDir)}` : "—"}
+                  {actual.oleajeM != null ? ` · Oleaje ${actual.oleajeM.toFixed(1)} m` : ""}
+                  {precip6h > 0 ? ` · Lluvia ${precip6h.toFixed(1)} mm (6 h)` : ""}
+                </div>
+              </div>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 8 }}>
+              <ChipClima titulo="Zarpe" ev={sem.zarpe} />
+              <ChipClima titulo="Cubierta" ev={sem.cubierta} />
+              <ChipClima titulo="PM puerto" ev={sem.pmPuerto} />
+            </div>
+          </Card>
+
+          {(marea?.pleamar || marea?.bajamar) && (
+            <Card style={{ marginBottom: 14, background: tint(C.cyan, 5) }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                <Anchor size={16} color={C.cyan} />
+                <span style={{ fontSize: 12, fontWeight: 700, color: C.steel }}>Marea estimada (modelo)</span>
+              </div>
+              <div style={{ fontSize: 13, color: C.ink, lineHeight: 1.5 }}>
+                {etiquetaEventoMarea(marea.pleamar) && <div>{etiquetaEventoMarea(marea.pleamar)}</div>}
+                {etiquetaEventoMarea(marea.bajamar) && <div>{etiquetaEventoMarea(marea.bajamar)}</div>}
+              </div>
+              <div style={{ fontSize: 11, color: C.slate, marginTop: 8, lineHeight: 1.45 }}>
+                Para navegación use tablas oficiales
+                {refs.localidad ? ` SHOA (${refs.localidad})` : " SHOA"}.
+              </div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 10 }}>
+                <a href={refs.shoa} target="_blank" rel="noopener noreferrer"
+                  style={{ ...ghostBtn, fontSize: 12, textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 6 }}>
+                  <ExternalLink size={14} /> Pronóstico SHOA
+                </a>
+                <a href={refs.directemar} target="_blank" rel="noopener noreferrer"
+                  style={{ ...ghostBtn, fontSize: 12, textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 6 }}>
+                  <ExternalLink size={14} /> Avisos Directemar
+                </a>
+              </div>
+            </Card>
+          )}
+
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+            <button type="button" onClick={continuar} style={{ ...primaryBtn, flex: 1, minWidth: 200, justifyContent: "center", padding: "13px" }}>
+              <ClipboardCheck size={17} /> Continuar al checklist
+            </button>
+            <button type="button" onClick={onReintentar} style={{ ...ghostBtn, padding: "13px 16px" }}>
+              <Wind size={15} /> Actualizar
+            </button>
+          </div>
+        </>
+      )}
+
+      {!loading && !actual && !error && (
+        <Card>
+          <Empty>Sin datos de pronóstico.</Empty>
+          <button type="button" onClick={continuar} style={{ ...primaryBtn, marginTop: 12 }}>Continuar al checklist</button>
+        </Card>
+      )}
+    </div>
+  );
+}
+
 // ---------- Pantalla 2: checklist ----------
-export function VistaChecklist({ nave, equipos, online, onVolver, onGuardar, onSaveConfig }) {
+export function VistaChecklist({ nave, equipos, online, onVolver, onGuardar, onSaveConfig, climaSnapshot = null }) {
   const visualEquipos = equipos.filter((e) => e.prezarpe).map((e) => ({ item: e.sistema || e.id_visible, origen: "equipo" }));
   const nivelEquipos = equipos.filter((e) => (e.nivel_tipo || "ninguno") !== "ninguno");
 
@@ -164,7 +306,7 @@ export function VistaChecklist({ nave, equipos, online, onVolver, onGuardar, onS
       visual, niveles,
       combustible_l: litros.combustible, agua_l: litros.agua, aceite_l: litros.aceite,
       horometros, apto,
-      observaciones: "",
+      observaciones: climaSnapshot ? `${climaSnapshot}\n` : "",
     }, fotos);
     setGuardando(false);
   }

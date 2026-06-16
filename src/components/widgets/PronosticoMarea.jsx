@@ -1,11 +1,12 @@
 import React, { useMemo } from "react";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, ReferenceLine } from "recharts";
-import { Anchor } from "lucide-react";
+import { Anchor, ExternalLink } from "lucide-react";
 import { C } from "../../theme";
-import { analizarMarea, etiquetaEventoMarea } from "../../lib/clima";
+import { analizarMarea, etiquetaEventoMarea, referenciasMareaOficial } from "../../lib/clima";
 
-export default function PronosticoMarea({ horario = [] }) {
+export default function PronosticoMarea({ horario = [], puertoLabel = "" }) {
   const info = useMemo(() => analizarMarea(horario), [horario]);
+  const refs = useMemo(() => referenciasMareaOficial(puertoLabel), [puertoLabel]);
   const data = info?.serie || [];
   if (!data.length) return null;
 
@@ -56,6 +57,17 @@ export default function PronosticoMarea({ horario = [] }) {
       )}
       <div style={{ fontSize: 10, color: C.slate, marginTop: 6, lineHeight: 1.4 }}>
         Estimación modelada (MSL). No usar para navegación ni reemplaza tablas SHOA/Directemar.
+        {refs.localidad && <span> Referencia oficial: {refs.localidad}.</span>}
+      </div>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 8 }}>
+        <a href={refs.shoa} target="_blank" rel="noopener noreferrer"
+          style={{ fontSize: 11, fontWeight: 600, color: C.steel, textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 4 }}>
+          <ExternalLink size={12} /> Tablas SHOA
+        </a>
+        <a href={refs.directemar} target="_blank" rel="noopener noreferrer"
+          style={{ fontSize: 11, fontWeight: 600, color: C.steel, textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 4 }}>
+          <ExternalLink size={12} /> Avisos Directemar
+        </a>
       </div>
     </div>
   );
