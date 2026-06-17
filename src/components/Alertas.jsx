@@ -120,10 +120,11 @@ export default function Alertas({ onNavigate }) {
   // ───── Generación de alertas (computada) ──────────────────────────────
   const alertas = useMemo(() => {
     const all = [];
+    const planesEval = evaluarPlanes(planes, equipos);
 
     // 1) Planes PM vencidos o próximos — modelo real (planes_pm: intervalo
     //    propio por plan, hito de último PM, disparador horas o calendario).
-    evaluarPlanes(planes, equipos).forEach((r) => {
+    planesEval.forEach((r) => {
       if (r.tone !== "red" && r.tone !== "yellow") return;
       const eq = r.equipo;
       const unidad = r.esCalendario ? "días" : "h";
@@ -358,7 +359,7 @@ export default function Alertas({ onNavigate }) {
     });
 
     // 13) Agente C — coherencia PM/horómetro: horas_ult_pm > horas_actual (datos inconsistentes)
-    evaluarPlanes(planes, equipos).filter((r) => !r.esCalendario && r.equipo).forEach((r) => {
+    planesEval.filter((r) => !r.esCalendario && r.equipo).forEach((r) => {
       const eq = r.equipo;
       const ptoId = puntoHorometro(eq, byIdH);
       const pto = ptoId ? byIdH.get(ptoId) : null;

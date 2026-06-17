@@ -175,9 +175,23 @@ export function statusPlan(elapsed, intervalo) {
 //   horas:      elapsed/limite en horas (equipo.horas_actual ya viene
 //               materializado con herencia desde Horómetros)
 //   calendario: elapsed/limite en días (elapsed = Infinity si nunca se hizo)
+// Outer key = planes reference, inner key = equipos reference.
+// Stable references from fleetCache → result shared across all modules in the same session.
+const _evalMemo = new WeakMap();
+
 export function evaluarPlanes(planes = [], equipos = []) {
-  const eqById = new Map((equipos || []).map((e) => [e.id, e]));
-  return (planes || [])
+  const safePlanes  = planes  || [];
+  const safeEquipos = equipos || [];
+  if (!safePlanes.length) return [];
+  let byEq = _evalMemo.get(safePlanes);
+  if (!byEq) { byEq = new WeakMap(); _evalMemo.set(safePlanes, byEq); }
+  if (!byEq.has(safeEquipos)) byEq.set(safeEquipos, _computeEvaluarPlanes(safePlanes, safeEquipos));
+  return byEq.get(safeEquipos);
+}
+
+function _computeEvaluarPlanes(planes, equipos) {
+  const eqById = new Map(equipos.map((e) => [e.id, e]));
+  return planes
     .filter((p) => p && p.activo !== false)
     .map((p) => {
       const eq = eqById.get(p.equipo_id) || null;
