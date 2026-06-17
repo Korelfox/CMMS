@@ -512,7 +512,7 @@ export default function Equipos() {
     const eq = equipos.find((x) => x.id === id);
     // Avisa si se quita el horómetro propio de una máquina que tiene componentes heredando.
     if (eq?.horometro === "propio" && cambios.horometro !== "propio") {
-      const heredando = equipos.filter((x) => {
+      const heredandoJerarquia = equipos.filter((x) => {
         if (x.id === id || x.horometro !== "hereda") return false;
         let cur = x;
         while (cur?.parent_id) {
@@ -524,16 +524,29 @@ export default function Equipos() {
         }
         return false;
       });
+      const heredandoFuente = equipos.filter((x) => x.horas_fuente_id === id);
+      const heredando = [...new Set([...heredandoJerarquia, ...heredandoFuente].map((x) => x.id))]
+        .map((hid) => equipos.find((x) => x.id === hid))
+        .filter(Boolean);
       if (heredando.length > 0 && !window.confirm(
         `⚠️ "${eq.sistema}" tiene ${heredando.length} componente(s) que heredan sus horas.\n\nAl cambiar el modo quedarán sin horómetro hasta que se reconfiguren individualmente.\n\n¿Continuar?`
       )) return;
     }
-    setEquipos((p) => p.map((x) => x.id === id ? { ...x, ...cambios } : x));
-    setOriginal((o) => o[id] ? { ...o, [id]: { ...o[id], ...cambios } } : o);
+
+    const payload = { ...cambios };
+    if (payload.horometro !== "hereda") payload.horas_fuente_id = null;
+    if (payload.horometro === "hereda" && payload.horas_fuente_id) {
+      const fuente = equipos.find((x) => x.id === payload.horas_fuente_id);
+      if (fuente?.horometro === "propio") payload.horas_actual = fuente.horas_actual ?? 0;
+    }
+
+    setEquipos((p) => p.map((x) => x.id === id ? { ...x, ...payload } : x));
+    setOriginal((o) => o[id] ? { ...o, [id]: { ...o[id], ...payload } } : o);
     try {
-      await updateRow("equipos", id, cambios);
+      await updateRow("equipos", id, payload);
       const extra = cambios.ficha?._registro ? ` · reg:${cambios.ficha._registro}` : "";
-      logActivity(profile, "Config. operacional", `${eq?.id_visible} · hor:${cambios.horometro}${extra}`);
+      const fuenteTxt = payload.horas_fuente_id ? " · fuente explícita" : "";
+      logActivity(profile, "Config. operacional", `${eq?.id_visible} · hor:${payload.horometro}${fuenteTxt}${extra}`);
     } catch (e) {
       setEquipos((p) => p.map((x) => x.id === id ? { ...x, ...eq } : x));
       setOriginal((o) => o[id] ? { ...o, [id]: { ...o[id], ...eq } } : o);

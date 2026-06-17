@@ -79,15 +79,25 @@ export const modoHorometro = (eq) => eq?.horometro || "hereda";
 // Devuelve el id del nodo que TIENE el horómetro para `equipo`:
 //  - él mismo si es 'propio'
 //  - el ancestro 'propio' más cercano si 'hereda'
-//  - null si es 'no', o si no hay ningún ancestro 'propio' (sin horómetro)
+//  - horas_fuente_id si no hay ancestro propio (p. ej. reductora hermana del motor)
+//  - null si es 'no', o si no hay fuente válida
 export function puntoHorometro(equipo, byId) {
   if (!equipo || modoHorometro(equipo) === "no") return null;
+  if (modoHorometro(equipo) === "propio") return equipo.id;
+
   let cur = equipo;
   const seen = new Set();
-  while (cur && !seen.has(cur.id)) {
-    seen.add(cur.id);
+  while (cur?.parent_id && !seen.has(cur.parent_id)) {
+    seen.add(cur.parent_id);
+    cur = byId.get(cur.parent_id);
+    if (!cur) break;
     if (modoHorometro(cur) === "propio") return cur.id;
-    cur = cur.parent_id ? byId.get(cur.parent_id) : null;
+  }
+
+  const fuenteId = equipo.horas_fuente_id;
+  if (fuenteId) {
+    const fuente = byId.get(fuenteId);
+    if (fuente && modoHorometro(fuente) === "propio") return fuenteId;
   }
   return null;
 }

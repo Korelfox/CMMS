@@ -96,6 +96,15 @@ describe("herencia de horómetro (puntoHorometro / idsBajoPunto)", () => {
     expect(ids.sort()).toEqual(["flt", "lub", "mtr"]);
     expect(idsBajoPunto("gen", eqs, byId)).toEqual(["gen"]);
   });
+
+  it("hereda vía horas_fuente_id cuando no hay ancestro propio (hermanos del motor)", () => {
+    const prop = { id: "prop", parent_id: null, horometro: "hereda" };
+    const mtr = { id: "mtr", parent_id: "prop", horometro: "propio" };
+    const red = { id: "red", parent_id: "prop", horometro: "hereda", horas_fuente_id: "mtr" };
+    const byIdProp = new Map([prop, mtr, red].map((e) => [e.id, e]));
+    expect(puntoHorometro(red, byIdProp)).toBe("mtr");
+    expect(idsBajoPunto("mtr", [prop, mtr, red], byIdProp).sort()).toEqual(["mtr", "red"]);
+  });
 });
 
 describe("diasHasta / diasDesde", () => {

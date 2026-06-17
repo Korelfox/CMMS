@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useMemo } from "react";
 import {
   GitBranch, Wrench, Cpu, Plus, ChevronRight, ChevronUp, ChevronDown,
-  FileText, Settings2, Package, AlertCircle, Clock, Gauge, Layers, Calendar,
+  FileText, Settings2, Package, AlertCircle, Clock, Gauge, Layers, Calendar, CornerDownRight,
 } from "lucide-react";
 import { C, tint, estadoLabel, estadoTone, ESTADOS_EQUIPO, num } from "../../theme";
 import { Pill, Empty } from "../../ui";
 import { TIPO_NODO_META, requiereFechaInstalacionEquipo, tieneFechaInstalacion } from "../../lib/plantillaPesquera";
+import { puntoHorometro } from "../../lib/horometro";
 import { TipoChip, CritBadge, RegistroBadge, TIPO_NODOS, CRITICIDADES } from "./arbolUI";
 import { useEquiposData } from "./equiposStore";
 import RepuestoPanel from "./RepuestoPanel";
@@ -64,6 +65,8 @@ export default function EquipoDetailPanel({
     return true;
   }), [esAgrupador, esComponente]);
 
+  const byIdEquipos = useMemo(() => new Map(equipos.map((e) => [e.id, e])), [equipos]);
+
   useEffect(() => { if (node) setSysName(node.sistema || ""); }, [node?.id, node?.sistema]);
 
   useEffect(() => { if (node && activeTab == null) setTabInternal("identidad"); }, [node?.id, activeTab]);
@@ -115,10 +118,20 @@ export default function EquipoDetailPanel({
   const labelStyle = { fontSize: 11, color: C.slate, fontWeight: 600, marginBottom: 4, display: "block" };
   const fieldInput = { width: "100%", boxSizing: "border-box", border: `1px solid ${C.line}`, borderRadius: 8, background: C.surface, padding: "8px 10px", fontSize: 13, color: C.ink, outline: "none", fontFamily: "inherit" };
 
+  const fuenteHoras = node.horometro === "hereda"
+    ? byIdEquipos.get(puntoHorometro(node, byIdEquipos))
+    : null;
+
   const horasTile = node.horometro !== "no";
   const faltaFechaFicha = requiereFechaInstalacionEquipo(node) && !tieneFechaInstalacion(node);
   const tiles = [
     horasTile && { label: node.horometro === "propio" ? "Horómetro propio" : "Horas (heredadas)", value: `${num(node.horas_actual || 0)} h`, icon: Clock },
+    node.horometro === "hereda" && {
+      label: "Fuente de horas",
+      value: fuenteHoras?.sistema || "Sin configurar",
+      icon: CornerDownRight,
+      alerta: !fuenteHoras,
+    },
     requiereFechaInstalacionEquipo(node) && tieneFechaInstalacion(node) && { label: "Instalación", value: node.ficha.fecha_instalacion, icon: Calendar },
     faltaFechaFicha && { label: "Instalación", value: "Pendiente", icon: Calendar },
     { label: "Subequipos", value: hijos.length, icon: GitBranch },
@@ -151,11 +164,11 @@ export default function EquipoDetailPanel({
         {tab === "identidad" && tiles.length > 0 && (
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(100px, 1fr))", gap: 8, marginBottom: 12 }}>
             {tiles.map((t) => (
-              <div key={t.label} style={{ background: C.surface2, borderRadius: 8, padding: "8px 10px" }}>
-                <div style={{ fontSize: 10, color: C.slate, fontWeight: 600, display: "flex", alignItems: "center", gap: 4 }}>
+              <div key={t.label} style={{ background: t.alerta ? tint(C.amber, 8) : C.surface2, borderRadius: 8, padding: "8px 10px", border: t.alerta ? `1px solid ${tint(C.amber, 30)}` : "none" }}>
+                <div style={{ fontSize: 10, color: t.alerta ? C.amber : C.slate, fontWeight: 600, display: "flex", alignItems: "center", gap: 4 }}>
                   <t.icon size={12} /> {t.label}
                 </div>
-                <div style={{ fontSize: 16, fontWeight: 800, color: C.abyss, marginTop: 2 }}>{t.value}</div>
+                <div style={{ fontSize: 16, fontWeight: 800, color: t.alerta ? C.amber : C.abyss, marginTop: 2 }}>{t.value}</div>
               </div>
             ))}
           </div>
@@ -264,7 +277,7 @@ export default function EquipoDetailPanel({
         )}
 
         {tab === "operacional" && !esAgrupador && (
-          <PropOpBody node={node} puedeOperar={puedeOperar} onSave={h.guardarPropOp} onDone={() => {}} />
+          <PropOpBody embedded node={node} puedeOperar={puedeOperar} onSave={h.guardarPropOp} onDone={() => setTab("operacional")} />
         )}
 
         {tab === "ficha" && !esAgrupador && (

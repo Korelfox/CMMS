@@ -53,9 +53,10 @@ function RadioCard({ label, desc, checked, onChange, color = C.steel, disabled =
   );
 }
 
-export function PropOpBody({ node, onSave, onDone, puedeOperar = true }) {
+export function PropOpBody({ node, onSave, onDone, puedeOperar = true, embedded = false }) {
   const [regCliente, setRegCliente] = useState(() => registroVidaCliente(node));
   const [hor, setHor] = useState(node.horometro || "hereda");
+  const [horasFuenteId, setHorasFuenteId] = useState(node.horas_fuente_id || "");
   const [aco, setAco] = useState(!!node.consume_aceite);
   const [niv, setNiv] = useState(node.nivel_tipo || "ninguno");
   const [guardando, setGuardando] = useState(false);
@@ -63,9 +64,10 @@ export function PropOpBody({ node, onSave, onDone, puedeOperar = true }) {
   useEffect(() => {
     setRegCliente(registroVidaCliente(node));
     setHor(node.horometro || "hereda");
+    setHorasFuenteId(node.horas_fuente_id || "");
     setAco(!!node.consume_aceite);
     setNiv(node.nivel_tipo || "ninguno");
-  }, [node.id, node.horometro, node.consume_aceite, node.nivel_tipo, node.ficha?._registro]);
+  }, [node.id, node.horometro, node.horas_fuente_id, node.consume_aceite, node.nivel_tipo, node.ficha?._registro]);
 
   const soloInstalacion = regCliente === "fecha";
   const usaHorometro = regCliente === "horas" || regCliente === "mixto";
@@ -76,9 +78,21 @@ export function PropOpBody({ node, onSave, onDone, puedeOperar = true }) {
   const { equipos } = useEquiposData();
   const byId = useMemo(() => new Map(equipos.map((e) => [e.id, e])), [equipos]);
 
-  const nodoSimulado = useMemo(() => ({ ...node, horometro: soloInstalacion ? "no" : hor }), [node, hor, soloInstalacion]);
+  const nodoSimulado = useMemo(() => ({
+    ...node,
+    horometro: soloInstalacion ? "no" : hor,
+    horas_fuente_id: hor === "hereda" && horasFuenteId ? horasFuenteId : null,
+  }), [node, hor, horasFuenteId, soloInstalacion]);
   const puntoId  = useMemo(() => (usaHorometro && hor === "hereda" ? puntoHorometro(nodoSimulado, byId) : null), [nodoSimulado, byId, usaHorometro, hor]);
   const puntoDato = puntoId ? byId.get(puntoId) : null;
+
+  const puntosPropios = useMemo(() => equipos
+    .filter((e) => e.id !== node.id && e.embarcacion_id === node.embarcacion_id && e.horometro === "propio")
+    .sort((a, b) => (a.id_visible || "").localeCompare(b.id_visible || "", "es")),
+  [equipos, node.id, node.embarcacion_id]);
+
+  const fuenteExplicita = hor === "hereda" && !!horasFuenteId;
+  const fuentePorJerarquia = hor === "hereda" && !horasFuenteId && !!puntoDato;
 
   const subHeredando = useMemo(() => {
     if (hor !== "propio") return [];
@@ -101,6 +115,7 @@ export function PropOpBody({ node, onSave, onDone, puedeOperar = true }) {
       const base = datosRegistroVidaCliente(regCliente, hor, { ...node, consume_aceite: aco });
       await onSave(node.id, {
         horometro: base.horometro,
+        horas_fuente_id: base.horometro === "hereda" && horasFuenteId ? horasFuenteId : null,
         consume_aceite: base.horometro === "propio" ? aco : false,
         nivel_tipo: soloInstalacion ? "ninguno" : niv,
         ficha: base.ficha,
@@ -119,8 +134,8 @@ export function PropOpBody({ node, onSave, onDone, puedeOperar = true }) {
   };
 
   return (
-    <>
-      <div style={{ flex: 1, overflowY: "auto", padding: "18px 20px 4px" }}>
+    <div style={embedded ? { display: "flex", flexDirection: "column", margin: "-16px -20px -20px", minHeight: 360 } : undefined}>
+      <div style={{ flex: 1, overflowY: "auto", padding: embedded ? "16px 20px 4px" : "18px 20px 4px" }}>
 
         {/* ── Tipo de registro (ajuste cliente) ── */}
         <div style={{ marginBottom: 22 }}>
@@ -178,36 +193,6 @@ export function PropOpBody({ node, onSave, onDone, puedeOperar = true }) {
               disabled={!puedeOperar} />
           ))}
 
-          {hor === "hereda" && (
-            <div style={{
-              marginTop: 8, padding: "9px 12px", borderRadius: 8,
-              border: `1px solid ${puntoDato ? tint(C.cyan, 35) : tint(C.amber, 35)}`,
-              background: puntoDato ? tint(C.cyan, 7) : tint(C.amber, 7),
-            }}>
-              {puntoDato ? (
-                <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
-                  <CornerDownRight size={14} color={C.cyan} style={{ flexShrink: 0 }} />
-                  <span style={{ fontSize: 12.5, color: C.slate }}>Heredará horas de</span>
-                  <strong style={{ fontSize: 13, color: C.abyss }}>{puntoDato.sistema}</strong>
-                  <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 12, color: C.steel, background: tint(C.steel, 10), borderRadius: 5, padding: "1px 6px" }}>
-                    {puntoDato.id_visible}
-                  </span>
-                </div>
-              ) : (
-                <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
-                  <AlertTriangle size={15} color={C.amber} style={{ flexShrink: 0, marginTop: 1 }} />
-                  <div>
-                    <div style={{ fontSize: 12.5, fontWeight: 700, color: C.amber }}>Sin ascendiente con horómetro propio</div>
-                    <div style={{ fontSize: 11.5, color: C.slate, marginTop: 3, lineHeight: 1.5 }}>
-                      Ningún equipo en la cadena de padres está configurado como "Punto propio".
-                      Este componente quedará sin horas hasta que un ascendiente lo tenga.
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
           {hor === "propio" && subHeredando.length > 0 && (
             <div style={{
               marginTop: 8, padding: "10px 12px", borderRadius: 8,
@@ -229,6 +214,75 @@ export function PropOpBody({ node, onSave, onDone, puedeOperar = true }) {
                 ))}
               </div>
             </div>
+          )}
+        </div>
+
+        <div style={{ marginBottom: 22 }}>
+          <div style={secLbl}>Fuente de horas</div>
+          {hor !== "hereda" ? (
+            <div style={{
+              padding: "10px 12px", borderRadius: 8,
+              border: `1px solid ${C.line}`, background: tint(C.slate, 4),
+              fontSize: 12.5, color: C.slate, lineHeight: 1.5,
+            }}>
+              Solo aplica con modo <strong style={{ color: C.ink }}>Hereda horas</strong>.
+              Úsalo para enlazar equipos hermanos al motor principal (reductora, eje, hélice bajo Propulsión).
+            </div>
+          ) : (
+            <>
+              <select
+                value={horasFuenteId}
+                disabled={!puedeOperar}
+                onChange={(ev) => setHorasFuenteId(ev.target.value)}
+                style={{
+                  width: "100%", boxSizing: "border-box", border: `1px solid ${C.line}`,
+                  borderRadius: 8, background: C.surface, padding: "8px 10px",
+                  fontSize: 13, color: C.ink, outline: "none", fontFamily: "inherit",
+                }}
+              >
+                <option value="">Automático — ascendiente en la jerarquía</option>
+                {puntosPropios.map((e) => (
+                  <option key={e.id} value={e.id}>{e.id_visible} · {e.sistema}</option>
+                ))}
+              </select>
+              <div style={{ fontSize: 11.5, color: C.slate, marginTop: 6, lineHeight: 1.45 }}>
+                Elige el motor u otra máquina con horómetro propio cuando este equipo no cuelga directamente de ella.
+              </div>
+
+              <div style={{
+                marginTop: 8, padding: "9px 12px", borderRadius: 8,
+                border: `1px solid ${puntoDato ? tint(C.cyan, 35) : tint(C.amber, 35)}`,
+                background: puntoDato ? tint(C.cyan, 7) : tint(C.amber, 7),
+              }}>
+                {puntoDato ? (
+                  <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
+                    <CornerDownRight size={14} color={C.cyan} style={{ flexShrink: 0 }} />
+                    <span style={{ fontSize: 12.5, color: C.slate }}>
+                      {fuenteExplicita ? "Fuente explícita:" : "Heredará horas de"}
+                    </span>
+                    <strong style={{ fontSize: 13, color: C.abyss }}>{puntoDato.sistema}</strong>
+                    <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 12, color: C.steel, background: tint(C.steel, 10), borderRadius: 5, padding: "1px 6px" }}>
+                      {puntoDato.id_visible}
+                    </span>
+                    {fuentePorJerarquia && (
+                      <span style={{ fontSize: 11, color: C.slate, fontStyle: "italic" }}>(por jerarquía)</span>
+                    )}
+                  </div>
+                ) : (
+                  <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
+                    <AlertTriangle size={15} color={C.amber} style={{ flexShrink: 0, marginTop: 1 }} />
+                    <div>
+                      <div style={{ fontSize: 12.5, fontWeight: 700, color: C.amber }}>Sin fuente de horas</div>
+                      <div style={{ fontSize: 11.5, color: C.slate, marginTop: 3, lineHeight: 1.5 }}>
+                        {horasFuenteId
+                          ? "La fuente seleccionada no tiene horómetro propio. Elige otra máquina o deja el modo automático."
+                          : "Ningún ascendiente tiene horómetro propio. Selecciona una máquina en el desplegable (p. ej. Motor Principal)."}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </>
           )}
         </div>
 
@@ -297,6 +351,6 @@ export function PropOpBody({ node, onSave, onDone, puedeOperar = true }) {
         </button>
         )}
       </div>
-    </>
+    </div>
   );
 }
