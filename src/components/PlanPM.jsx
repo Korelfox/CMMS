@@ -605,7 +605,7 @@ tbody td{padding:5px 8px;vertical-align:middle}
               )}
             </div>
           ) : (
-            <div className={`inv-split-container${isMobile ? " inv-split-stack" : ""}`}>
+            <div className={`inv-split-container inv-split-queue-wide${isMobile ? " inv-split-stack" : ""}`}>
               <PMQueuePanel lista={evaluadosFiltrados} selectedId={selectedEval?.plan.id} onSelect={setSelectedPlanId}
                 busqueda={busqueda} setBusqueda={setBusqueda} embName={embName} panelHeight={isMobile ? "auto" : "calc(100vh - 320px)"} />
               {(!isMobile || selectedEval) && <PMPlanDetailPanel {...planDetailProps} />}
@@ -615,11 +615,11 @@ tbody td{padding:5px 8px;vertical-align:middle}
       ) : vistaTabla === "plano" ? (
         <Section title="Tabla completa" description="Todas las tareas PM · click en fila para ver detalle" padding={0}>
           <div style={{ overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 960 }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 1536 }}>
               <thead><tr>
                 <th style={thStyle}>Estado</th>
-                <th style={thStyle}>Tarea PM</th>
-                <th style={thStyle}>Equipo</th>
+                <th style={{ ...thStyle, minWidth: 288 }}>Tarea PM</th>
+                <th style={{ ...thStyle, minWidth: 288 }}>Equipo</th>
                 <th style={thStyle}>ID</th>
                 <th style={thStyle}>Tipo</th>
                 <th style={thStyle}>Intervalo</th>
@@ -633,8 +633,8 @@ tbody td{padding:5px 8px;vertical-align:middle}
                   <tr key={plan.id} onClick={() => setSelectedPlanId(plan.id)}
                     style={{ cursor: "pointer", background: selectedPlanId === plan.id ? tint(C.sky, 8) : undefined }}>
                     <td style={tdStyle}><Pill tone={tone}>{label}</Pill></td>
-                    <td style={{ ...tdStyle, fontWeight: 700 }}>{plan.descripcion}</td>
-                    <td style={tdStyle}>{equipo?.sistema || "—"}</td>
+                    <td style={{ ...tdStyle, fontWeight: 700, minWidth: 288 }}>{plan.descripcion}</td>
+                    <td style={{ ...tdStyle, minWidth: 288 }}>{equipo?.sistema || "—"}</td>
                     <td style={{ ...tdStyle, fontFamily: "monospace", fontSize: 12 }}>{equipo?.id_visible || "—"}</td>
                     <td style={tdStyle}>{esCalendario ? "Calendario" : "Horas"}</td>
                     <td style={{ ...tdStyle, fontFamily: "monospace", fontSize: 12 }}>
@@ -659,15 +659,11 @@ tbody td{padding:5px 8px;vertical-align:middle}
         </Section>
       ) : (
         <Section title="Por equipo" description="Árbol de equipos · configura tareas PM por componente" padding={0}>
-    <div className="pm-split-container">
+    <div className="pm-split-container eq-split-container inv-split-container inv-split-table-wide">
       {/* Estilos locales del rediseño */}
       <style>{`
-        .pm-split-container {
-          display: grid;
-          grid-template-columns: 360px 1fr;
-          gap: 24px;
-          align-items: start;
-          margin-top: 12px;
+        .pm-split-container.pm-split-container {
+          margin-top: 0;
         }
         .pm-tree-node {
           position: relative;
@@ -768,11 +764,6 @@ tbody td{padding:5px 8px;vertical-align:middle}
           0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(216, 68, 60, 0.5); }
           70% { transform: scale(1); box-shadow: 0 0 0 5px rgba(216, 68, 60, 0); }
           100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(216, 68, 60, 0); }
-        }
-        @media (max-width: 1024px) {
-          .pm-split-container {
-            grid-template-columns: 1fr;
-          }
         }
       `}</style>
 
