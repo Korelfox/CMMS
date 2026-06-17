@@ -21,6 +21,7 @@ import OTKanban from "./ot/OTKanban";
 import OTValorizarPanel from "./ot/OTValorizarPanel";
 import { otStore } from "./ot/otStore";
 import { useMediaQuery } from "../lib/useMediaQuery";
+import { useShellOptional } from "../context/ShellContext";
 
 const HOY = () => new Date().toISOString().slice(0, 10);
 const VISTA_KEY = "cmms-ot-vista";
@@ -32,6 +33,7 @@ const VISTAS = [
 
 export default function OrdenesTrabajo({ navParams }) {
   const { profile } = useAuth();
+  const shell = useShellOptional();
   const online = useOnline();
   const [embarcaciones, setEmbarcaciones] = useState([]);
   const [equipos, setEquipos] = useState([]);
@@ -118,6 +120,16 @@ export default function OrdenesTrabajo({ navParams }) {
       setOtDestacadaId(null);
     }
   }, [navParams]);
+
+  useEffect(() => {
+    if (navParams?.embFiltro) {
+      setEmbFiltro(navParams.embFiltro);
+      return;
+    }
+    if (navParams?.campo && shell?.embarcacionId) {
+      setEmbFiltro(shell.embarcacionId);
+    }
+  }, [navParams?.campo, navParams?.embFiltro, shell?.embarcacionId]);
 
   // Cambiar de filtro manualmente quita el modo "OT señalada".
   function aplicarFiltro(f) { setFiltro(f); setOtDestacadaId(null); }

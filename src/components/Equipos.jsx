@@ -12,6 +12,7 @@ import {
 import { analizarBrechas } from "../lib/equipoBrechas";
 import { ordenarEquipos, kanbanEstadoKey } from "../lib/equiposKanban";
 import { useMediaQuery } from "../lib/useMediaQuery";
+import { useShellOptional } from "../context/ShellContext";
 import EquipoKanban from "./equipos/EquipoKanban";
 import EquipoQueuePanel from "./equipos/EquipoQueuePanel";
 
@@ -63,8 +64,9 @@ function blankForm(embId = "") {
   return { embarcacion_id: embId, id_visible: "", sistema: "", subsistema: "", marca: "", modelo: "", parent_id: "", tipo_nodo: "equipo", criticidad: "" };
 }
 
-export default function Equipos() {
+export default function Equipos({ navParams }) {
   const { profile } = useAuth();
+  const shell = useShellOptional();
   const [embarcaciones, setEmbarcaciones] = useState([]);
   const [equipos, setEquipos]   = useState([]);
   const [loading, setLoading]   = useState(true);
@@ -116,6 +118,16 @@ export default function Equipos() {
     finally { setLoading(false); }
   }, []); // eslint-disable-line
   useEffect(() => { cargar(); }, [cargar]);
+
+  useEffect(() => {
+    if (navParams?.embFiltro) {
+      setFiltro(navParams.embFiltro);
+      return;
+    }
+    if (navParams?.campo && shell?.embarcacionId) {
+      setFiltro(shell.embarcacionId);
+    }
+  }, [navParams?.campo, navParams?.embFiltro, shell?.embarcacionId]);
 
   function embName(id)  { return embarcaciones.find((e) => e.id === id)?.nombre || "—"; }
   function embColor(id) { return embarcaciones.find((e) => e.id === id)?.color  || C.steel; }

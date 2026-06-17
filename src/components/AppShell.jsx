@@ -1,11 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef, lazy, Suspense } from "react";
 import {
-  Anchor, LayoutDashboard, Ship, Sailboat, CalendarClock, Calendar, Inbox, ClipboardList,
-  Package, Warehouse, Gauge, Activity, AlertTriangle, ClipboardCheck, DollarSign,
-  TrendingUp, TrendingDown, FileText, History, Layers, Bell, LogOut, UserCircle, UserCog,
-  RefreshCw, BarChart3, ShipWheel, Fuel, ShieldCheck, Fish,
-  X, Sun, Moon, Building2, Timer, Waves, ListTodo, Microscope, Wrench, CalendarRange,
-  ShieldAlert, SlidersHorizontal, PiggyBank, Sparkles, Stethoscope, Bot, Scale, Sigma, Receipt, Replace, Network, Workflow, Radar,
+  Anchor, LogOut, UserCircle, X, Sun, Moon,
 } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { fetchAll } from "../lib/db";
@@ -16,6 +11,11 @@ import ErrorBoundary from "./ErrorBoundary";
 import { ShellProvider, useShell } from "../context/ShellContext";
 import ContextHeader from "./ContextHeader";
 import EmbarcacionPicker from "./EmbarcacionPicker";
+import CampoShell from "./campo/CampoShell";
+import {
+  OFICINA_GROUPS, ANALISIS_IDS, NAV_META, allNavItems, labelForView, CAMPO_TABS,
+} from "../lib/navigation";
+import { readAppMode, writeAppMode } from "../lib/embarcacionActiva";
 
 const Tablero       = lazy(() => import("./Tablero"));
 const Alertas       = lazy(() => import("./Alertas"));
@@ -79,58 +79,7 @@ function fmtTimer(s) {
   return `${m}:${(s % 60).toString().padStart(2, "0")}`;
 }
 
-// Estructura de navegación (los módulos se conectan a la base de datos uno a uno)
-const NAV = [
-  { id: "dashboard", label: "Tablero", icon: LayoutDashboard, group: "Principal" },
-  { id: "alertas", label: "Alertas", icon: Bell, group: "Principal" },
-  { id: "flota", label: "Estado de Flota", icon: Anchor, group: "Principal" },
-  { id: "copiloto", label: "Copiloto IA",           icon: Bot,      group: "Principal" },
-  { id: "informe",  label: "Informe Ejecutivo IA", icon: Sparkles, group: "Principal" },
-  { id: "mgm", label: "Modelo MGM", icon: Layers, group: "Principal" },
-  { id: "embarcaciones", label: "Embarcaciones", icon: Sailboat, group: "Flota" },
-  { id: "equipos", label: "Equipos", icon: Ship, group: "Flota" },
-  { id: "prezarpe", label: "Prezarpe", icon: ShipWheel, group: "Flota" },
-  { id: "cumplimiento", label: "Cumplimiento", icon: ShieldCheck, group: "Flota" },
-  { id: "horometros", label: "Horómetros", icon: Timer, group: "Operación" },
-  { id: "planpm", label: "Plan Preventivo", icon: CalendarClock, group: "Operación" },
-  { id: "solicitudes", label: "Solicitudes", icon: Inbox, group: "Operación" },
-  { id: "ots", label: "Órdenes de Trabajo", icon: ClipboardList, group: "Operación" },
-  { id: "otauto",      label: "OTs Automáticas",     icon: Workflow,     group: "Operación" },
-  { id: "backlog",     label: "Backlog",             icon: ListTodo,     group: "Operación" },
-  { id: "planpuerto", label: "Ventana de Puerto",  icon: CalendarRange, group: "Operación" },
-  { id: "optimvt",    label: "Optimizador de Ventana", icon: Scale,     group: "Operación" },
-  { id: "programa",   label: "Programación",        icon: Calendar,     group: "Operación" },
-  { id: "varada", label: "Varadas & Paradas", icon: Wrench, group: "Operación" },
-  { id: "inventario", label: "Inventario", icon: Package, group: "Operación" },
-  { id: "almacen",    label: "Almacén & Compras",  icon: Warehouse, group: "Operación" },
-  { id: "ocr",        label: "OCR Facturas",        icon: Receipt,   group: "Operación" },
-  { id: "criticidad",  label: "Criticidad",            icon: Activity,       group: "Análisis" },
-  { id: "kpis",        label: "KPIs & Confiabilidad",  icon: Gauge,          group: "Análisis" },
-  { id: "lucro",       label: "Lucro Cesante",          icon: TrendingDown,       group: "Análisis" },
-  { id: "riesgo",      label: "Riesgo de Falla",        icon: ShieldAlert,        group: "Análisis" },
-  { id: "diagnostico", label: "Diagnóstico de Fallas IA", icon: Stethoscope,      group: "Análisis" },
-  { id: "minmax",      label: "Min/Max Sugerido",        icon: SlidersHorizontal,  group: "Análisis" },
-  { id: "pareto",      label: "Pareto (80/20)",         icon: BarChart3,           group: "Análisis" },
-  { id: "fallas",      label: "Análisis de Fallas",    icon: AlertTriangle,  group: "Análisis" },
-  { id: "rca",         label: "Causa Raíz (RCA)",       icon: Microscope,     group: "Análisis" },
-  { id: "pdm",         label: "Predictivo (PdM)",       icon: Waves,          group: "Análisis" },
-  { id: "confiab",    label: "Predictivo ML",           icon: Sigma,          group: "Análisis" },
-  { id: "consumos",    label: "Consumos & Eficiencia",  icon: Fuel,           group: "Análisis" },
-  { id: "auditoria",   label: "Auditoría MES",          icon: ClipboardCheck, group: "Análisis" },
-  { id: "rentabilidad",  label: "Rentabilidad por Marea",  icon: Fish,     group: "Comercial" },
-  { id: "presupuesto",   label: "Presupuesto & Run-rate",  icon: PiggyBank, group: "Comercial" },
-  { id: "costos", label: "Costo Global (CGM)", icon: DollarSign, group: "Optimización" },
-  { id: "capex", label: "Reemplazar vs Reparar", icon: Replace, group: "Optimización" },
-  { id: "optim", label: "Optimización", icon: TrendingUp, group: "Optimización" },
-  { id: "vigilante", label: "Vigilante IA",    icon: Radar,    group: "Sistema" },
-  { id: "arquia",   label: "Arquitectura IA", icon: Network,   group: "Sistema" },
-  { id: "reportes", label: "Reportes", icon: FileText, group: "Sistema" },
-  { id: "bitacora", label: "Bitácora", icon: History, group: "Sistema" },
-  { id: "usuarios", label: "Usuarios", icon: UserCog, group: "Sistema", adminOnly: true },
-  { id: "empresas", label: "Empresas & Flotas", icon: Building2, group: "Sistema", superAdminOnly: true },
-];
-
-// Módulos ya conectados a la base de datos (los 18)
+// Módulos conectados a la base de datos
 const MODULOS = {
   dashboard: Tablero,
   alertas: Alertas,
@@ -235,18 +184,22 @@ export default function AppShell() {
 
   // Navega a un módulo, opcionalmente con parámetros (ej. { otId }).
   const navegar = useCallback((destino, params = null) => {
+    const campoInline = new Set([
+      ...CAMPO_TABS.map((t) => t.id),
+      "solicitudes", "horometros", "inventario", "planpm",
+    ]);
+    if (readAppMode() === "campo" && !campoInline.has(destino)) {
+      writeAppMode("oficina");
+    }
     setView(destino);
     setNavParams(params);
-    setSidebarOpen(false); // cierra el drawer al navegar (móvil)
+    setSidebarOpen(false);
   }, []);
   const [sincronizando, setSincronizando] = useState(false);
   const [recienSync, setRecienSync] = useState(false);
   // Oculta las entradas solo-admin a quien no lo es
-  const visibleNav = NAV.filter((n) =>
-    (!n.adminOnly || isAdmin(profile?.rol)) &&
-    (!n.superAdminOnly || isSuperAdmin(profile?.rol)));
-  const groups = [...new Set(visibleNav.map((n) => n.group))];
-  const roleColor = ROLES[profile?.rol]?.color || C.steel;
+  const navPerms = { isAdmin, isSuperAdmin };
+  const visibleNav = allNavItems(profile, navPerms);
 
   const refrescarPendientes = useCallback(async () => { setPendientes(await outboxCount()); }, []);
 
@@ -326,18 +279,66 @@ export default function AppShell() {
     return () => { vivo = false; };
   }, [empresa?.id]);
 
-  const viewLabel = NAV.find((n) => n.id === view)?.label || "";
-
   return (
     <ShellProvider onNavigate={navegar}>
-    <EmbarcacionPickerGate />
-    <div style={{ display: "flex", height: "100vh", color: C.ink, overflow: "hidden" }}>
-      {/* OVERLAY (solo móvil, al abrir el drawer) */}
+      <EmbarcacionPickerGate />
+      <AppShellLayout
+        profile={profile}
+        empresa={empresa}
+        signOut={signOut}
+        armador={armador}
+        online={online}
+        view={view}
+        navParams={navParams}
+        navegar={navegar}
+        visibleNav={visibleNav}
+        sidebarOpen={sidebarOpen}
+        setSidebarOpen={setSidebarOpen}
+        pendientes={pendientes}
+        sincronizando={sincronizando}
+        recienSync={recienSync}
+        sincronizar={sincronizar}
+        refreshInterval={refreshInterval}
+        timeLeft={timeLeft}
+        showRefreshCfg={showRefreshCfg}
+        setShowRefreshCfg={setShowRefreshCfg}
+        refreshCfgRef={refreshCfgRef}
+        onSelectRefreshInterval={(s) => { setRefreshInterval(s); setTimeLeft(s || 0); setShowRefreshCfg(false); }}
+        forzarRefresh={forzarRefresh}
+        dark={dark}
+        toggleTema={toggleTema}
+        recientes={recientes}
+        setRecientes={setRecientes}
+        refreshTick={refreshTick}
+      />
+    </ShellProvider>
+  );
+}
+
+function AppShellLayout({
+  profile, empresa, signOut, armador, online, view, navParams, navegar, visibleNav,
+  sidebarOpen, setSidebarOpen, pendientes, sincronizando, recienSync, sincronizar,
+  refreshInterval, timeLeft, showRefreshCfg, setShowRefreshCfg, refreshCfgRef,
+  onSelectRefreshInterval, forzarRefresh, dark, toggleTema, recientes, setRecientes, refreshTick,
+}) {
+  const { appMode } = useShell();
+  const isCampo = appMode === "campo";
+  const [campoViewLabel, setCampoViewLabel] = useState("Hoy");
+  const roleColor = ROLES[profile?.rol]?.color || C.steel;
+  const viewLabel = isCampo ? campoViewLabel : (NAV_META[view]?.label || "");
+  const navById = Object.fromEntries(visibleNav.map((n) => [n.id, n]));
+
+  return (
+    <div className={`cmms-root${isCampo ? " cmms-campo-mode" : ""}`} style={{ display: "flex", height: "100vh", color: C.ink, overflow: "hidden" }}>
+      {/* OVERLAY (solo móvil Oficina, al abrir el drawer) */}
+      {!isCampo && (
       <div className={`cmms-overlay${sidebarOpen ? " cmms-overlay-open" : ""}`}
         onClick={() => setSidebarOpen(false)}
         style={{ position: "fixed", inset: 0, background: "rgba(8,20,32,.55)", zIndex: 40, display: "none" }} />
+      )}
 
-      {/* SIDEBAR */}
+      {/* SIDEBAR — solo Modo Oficina */}
+      {!isCampo && (
       <aside className={`cmms-sidebar${sidebarOpen ? " cmms-sidebar-open" : ""}`}
         style={{ width: 250, background: `linear-gradient(180deg, ${C.navBg1}, ${C.navBg2})`, color: C.navFg, display: "flex", flexDirection: "column", flexShrink: 0 }}>
         <div style={{ padding: "20px 18px 16px", borderBottom: "1px solid rgba(255,255,255,.08)" }}>
@@ -360,20 +361,42 @@ export default function AppShell() {
         </div>
 
         <nav style={{ flex: 1, overflowY: "auto", padding: "12px 10px" }}>
-          {groups.map((g) => (
-            <div key={g} style={{ marginBottom: 12 }}>
-              <div style={{ fontSize: 9.5, letterSpacing: 2, textTransform: "uppercase", opacity: 0.4, padding: "4px 12px 6px", fontWeight: 600 }}>{g}</div>
-              {visibleNav.filter((n) => n.group === g).map((n) => {
-                const active = view === n.id; const Icon = n.icon;
+          {OFICINA_GROUPS.map((g) => {
+            const items = g.items.filter((id) => navById[id]);
+            if (!items.length) return null;
+            return (
+              <div key={g.id} style={{ marginBottom: 12 }}>
+                <div style={{ fontSize: 9.5, letterSpacing: 2, textTransform: "uppercase", opacity: 0.4, padding: "4px 12px 6px", fontWeight: 600 }}>{g.label}</div>
+                {items.map((id) => {
+                  const meta = NAV_META[id];
+                  const active = view === id;
+                  const Icon = meta.icon;
+                  return (
+                    <button key={id} onClick={() => navegar(id)}
+                      style={{ width: "100%", display: "flex", alignItems: "center", gap: 11, padding: "8px 12px", marginBottom: 2, borderRadius: 8, border: "none", cursor: "pointer", textAlign: "left", background: active ? C.gold : "transparent", color: active ? C.navBg1 : C.navFg, fontWeight: active ? 600 : 500, fontSize: 12.5, fontFamily: "inherit" }}>
+                      <Icon size={16} strokeWidth={active ? 2.4 : 2} /><span>{meta.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            );
+          })}
+          {ANALISIS_IDS.some((id) => navById[id]) && (
+            <div style={{ marginBottom: 12, paddingTop: 4, borderTop: "1px solid rgba(255,255,255,.08)" }}>
+              <div style={{ fontSize: 9.5, letterSpacing: 2, textTransform: "uppercase", opacity: 0.4, padding: "8px 12px 6px", fontWeight: 600 }}>Análisis</div>
+              {ANALISIS_IDS.filter((id) => navById[id]).map((id) => {
+                const meta = NAV_META[id];
+                const active = view === id;
+                const Icon = meta.icon;
                 return (
-                  <button key={n.id} onClick={() => navegar(n.id)}
-                    style={{ width: "100%", display: "flex", alignItems: "center", gap: 11, padding: "8px 12px", marginBottom: 2, borderRadius: 8, border: "none", cursor: "pointer", textAlign: "left", background: active ? C.gold : "transparent", color: active ? C.navBg1 : C.navFg, fontWeight: active ? 600 : 500, fontSize: 12.5, fontFamily: "inherit" }}>
-                    <Icon size={16} strokeWidth={active ? 2.4 : 2} /><span>{n.label}</span>
+                  <button key={id} onClick={() => navegar(id)}
+                    style={{ width: "100%", display: "flex", alignItems: "center", gap: 11, padding: "7px 12px", marginBottom: 2, borderRadius: 8, border: "none", cursor: "pointer", textAlign: "left", background: active ? "rgba(255,255,255,.12)" : "transparent", color: active ? C.gold : "rgba(255,255,255,.72)", fontWeight: active ? 600 : 500, fontSize: 12, fontFamily: "inherit" }}>
+                    <Icon size={15} strokeWidth={active ? 2.4 : 2} /><span>{meta.label}</span>
                   </button>
                 );
               })}
             </div>
-          ))}
+          )}
         </nav>
 
         {/* Usuario + cerrar sesión */}
@@ -405,6 +428,7 @@ export default function AppShell() {
           </div>
         </div>
       </aside>
+      )}
 
       {/* CONTENIDO */}
       <main style={{ flex: 1, overflowY: "auto", background: C.mist }}>
@@ -414,7 +438,7 @@ export default function AppShell() {
           sincronizando={sincronizando}
           recienSync={recienSync}
           onSync={sincronizar}
-          onMenuClick={() => setSidebarOpen(true)}
+          onMenuClick={isCampo ? undefined : () => setSidebarOpen(true)}
           viewLabel={viewLabel}
           refreshInterval={refreshInterval}
           timeLeft={timeLeft}
@@ -423,14 +447,14 @@ export default function AppShell() {
           refreshCfgRef={refreshCfgRef}
           intervalosRefresh={INTERVALOS_REFRESH}
           fmtTimer={fmtTimer}
-          onSelectRefreshInterval={(s) => { setRefreshInterval(s); setTimeLeft(s || 0); setShowRefreshCfg(false); }}
+          onSelectRefreshInterval={onSelectRefreshInterval}
           onForzarRefresh={forzarRefresh}
           dark={dark}
           onToggleTema={toggleTema}
         />
 
-        {/* ── Tab bar de acceso rápido ─────────────────────────────────── */}
-        {recientes.length > 1 && (
+        {/* Tab bar de acceso rápido — solo Oficina */}
+        {!isCampo && recientes.length > 1 && (
           <div className="cmms-tabs-bar" role="tablist" aria-label="Módulos recientes">
             {recientes.map((id) => {
               const navItem = visibleNav.find((n) => n.id === id);
@@ -473,16 +497,28 @@ export default function AppShell() {
         )}
 
         <div className="cmms-work-area" style={{ maxWidth: "100%", margin: "0 auto" }}>
+          {isCampo ? (
+            <CampoShell
+              refreshTick={refreshTick}
+              onTabChange={(id) => setCampoViewLabel(labelForView(id))}
+              onNavigate={navegar}
+              onSync={sincronizar}
+              pendientes={pendientes}
+              sincronizando={sincronizando}
+              online={online}
+            />
+          ) : (
           <ErrorBoundary key={view}>
           <Suspense fallback={<InlineSpinner label="Cargando módulo…" />}>
           {(() => {
             const Modulo = MODULOS[view];
             if (Modulo) return <Modulo key={`${view}-${refreshTick}`} onNavigate={navegar} navParams={navParams} />;
+            const meta = NAV_META[view];
             return (
               <>
                 <PageHead
-                  kicker={NAV.find((n) => n.id === view)?.group}
-                  title={NAV.find((n) => n.id === view)?.label}
+                  kicker="Módulo"
+                  title={meta?.label || view}
                   sub="Módulo en proceso de conexión a la base de datos."
                 />
                 <Card>
@@ -501,6 +537,7 @@ export default function AppShell() {
           })()}
           </Suspense>
           </ErrorBoundary>
+          )}
         </div>
       </main>
 
@@ -592,9 +629,11 @@ export default function AppShell() {
           .cmms-refresh-cfg, .cmms-theme-toggle { display: none !important; }
           .cmms-offline-banner { padding: 8px 14px !important; }
           .cmms-work-area { padding: 16px 12px 40px; }
+          .cmms-campo-mode .cmms-work-area { padding: 12px 12px 0; }
           .cmms-tabs-bar  { padding: 0 8px; }
           .cmms-tab       { padding: 0 8px; font-size: 11.5px; }
           .cmms-tab-label { max-width: 80px; }
+          .cmms-campo-mode .cmms-hamburger { display: none !important; }
 
           /* Sidebar se convierte en drawer */
           .cmms-sidebar {
@@ -615,6 +654,5 @@ export default function AppShell() {
         }
       `}</style>
     </div>
-    </ShellProvider>
   );
 }

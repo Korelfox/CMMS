@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, useMemo } from "react";
+import React, { createContext, useContext, useState, useCallback, useMemo, useEffect } from "react";
 import { useAuth } from "../lib/auth";
 import { canOperate } from "../theme";
 import { readAppMode, writeAppMode } from "../lib/embarcacionActiva";
@@ -11,6 +11,15 @@ export function ShellProvider({ children, onNavigate }) {
   const embarc = useEmbarcacionActiva(empresa?.id);
   const defaultMode = canOperate(profile?.rol) ? "campo" : "oficina";
   const [appMode, setAppModeState] = useState(() => readAppMode(defaultMode));
+
+  useEffect(() => {
+    const fn = (e) => {
+      const m = e.detail?.mode;
+      if (m === "campo" || m === "oficina") setAppModeState(m);
+    };
+    window.addEventListener("cmms-app-mode-change", fn);
+    return () => window.removeEventListener("cmms-app-mode-change", fn);
+  }, []);
 
   const setAppMode = useCallback((mode) => {
     setAppModeState(mode);

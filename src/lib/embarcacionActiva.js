@@ -58,4 +58,5 @@ export function readAppMode(defaultMode = "oficina") {
 
 export function writeAppMode(mode) {
   try { localStorage.setItem(APP_MODE_KEY, mode); } catch { /* sin storage */ }
+  window.dispatchEvent(new CustomEvent("cmms-app-mode-change", { detail: { mode } }));
 }
