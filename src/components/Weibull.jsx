@@ -11,7 +11,7 @@ import { Card, PageHead, Pill, primaryBtn, bluInput, inputStyle, FilterBtn, Empt
 
 // Valores iniciales sugeridos en el editor (β típico de degradación). El análisis
 // solo se considera "real" cuando el componente tiene una fila guardada en weibull.
-const DEFAULT_W = { beta: 2.0, eta: 1000, gamma: 0, cf: 50000, ci: 12000, notas: "" };
+const DEFAULT_W = { beta: 2.0, eta: 1000, gamma: 0, cf: 50000, ci: 12000, notas: "", unidad: "h" };
 
 // Prioridad de urgencia de las decisiones (mayor = más urgente) para el rollup.
 const DECISION_RANK = {
@@ -37,6 +37,7 @@ export default function Weibull() {
   const [dirty, setDirty] = useState({});
   const [guardadoOk, setGuardadoOk] = useState(null);
   const [guardando, setGuardando] = useState(null);
+  const [guardarError, setGuardarError] = useState(null);
   const puedeOperar = isAdmin(profile?.rol);
 
   const embarcaciones = raw?.embarcaciones   || [];
@@ -64,19 +65,20 @@ export default function Weibull() {
   // Guarda en la base los parámetros Weibull del equipo (INSERT o UPDATE).
   async function guardar(equipoId) {
     const w = getW(equipoId);
-    setError(null); setGuardando(equipoId);
+    setGuardarError(null); setGuardando(equipoId);
     try {
       await upsertRow("weibull", profile.empresa_id, {
         equipo_id: equipoId,
         beta: w.beta, eta: w.eta, gamma: w.gamma,
         cf: w.cf, ci: w.ci, notas: w.notas,
+        unidad: w.unidad || "h",
       }, "equipo_id");
       setDirty((d) => { const n = { ...d }; delete n[equipoId]; return n; });
       const eq = equipos.find((e) => e.id === equipoId);
       logActivity(profile, "Guardar Weibull", `${eq?.sistema || ""} · ${embName(eq?.embarcacion_id)}`);
       setGuardadoOk(equipoId);
       setTimeout(() => setGuardadoOk((g) => (g === equipoId ? null : g)), 2500);
-    } catch (e) { setError("No se pudo guardar: " + e.message); reload(); }
+    } catch (e) { setGuardarError("No se pudo guardar: " + e.message); }
     finally { setGuardando(null); }
   }
 
@@ -100,19 +102,19 @@ export default function Weibull() {
         const r = w.ci > 0 ? w.cf / w.ci : 0;
         const dec = decidir(w.beta, mtbf, tsOpt, r);
         info.set(eq.id, { hoja: true, analizado: true, mtbf, tsOpt, r, dec, beta: w.beta,
-          peorMTBF: mtbf, mayorR: r, urgente: dec, dist: { [dec.tipo]: 1 }, nAnalizados: 1, nLeaves: 1 });
+          peorMTBF: mtbf, mayorR: r, peorUnidad: w.unidad || 'h', urgente: dec, dist: { [dec.tipo]: 1 }, nAnalizados: 1, nLeaves: 1 });
       } else {
-        info.set(eq.id, { hoja: true, analizado: false, peorMTBF: null, mayorR: null, urgente: null, dist: {}, nAnalizados: 0, nLeaves: 1 });
+        info.set(eq.id, { hoja: true, analizado: false, peorMTBF: null, mayorR: null, peorUnidad: null, urgente: null, dist: {}, nAnalizados: 0, nLeaves: 1 });
       }
     } else {
-      info.set(eq.id, { hoja: false, analizado: false, peorMTBF: null, mayorR: null, urgente: null, dist: {}, nAnalizados: 0, nLeaves: 0 });
+      info.set(eq.id, { hoja: false, analizado: false, peorMTBF: null, mayorR: null, peorUnidad: null, urgente: null, dist: {}, nAnalizados: 0, nLeaves: 0 });
     }
   });
   [...filtrados].sort((a, b) => b.depth - a.depth).forEach((eq) => {
     if (eq.parent_id && info.has(eq.parent_id)) {
       const p = info.get(eq.parent_id), c = info.get(eq.id);
       p.nAnalizados += c.nAnalizados; p.nLeaves += c.nLeaves;
-      if (c.peorMTBF != null) p.peorMTBF = p.peorMTBF == null ? c.peorMTBF : Math.min(p.peorMTBF, c.peorMTBF);
+      if (c.peorMTBF != null && (p.peorMTBF == null || c.peorMTBF < p.peorMTBF)) { p.peorMTBF = c.peorMTBF; p.peorUnidad = c.peorUnidad; }
       if (c.mayorR != null) p.mayorR = p.mayorR == null ? c.mayorR : Math.max(p.mayorR, c.mayorR);
       if (c.urgente && (!p.urgente || DECISION_RANK[c.urgente.tipo] > DECISION_RANK[p.urgente.tipo])) p.urgente = c.urgente;
       for (const t in c.dist) p.dist[t] = (p.dist[t] || 0) + c.dist[t];
@@ -145,6 +147,7 @@ export default function Weibull() {
         sub="Calcula el tiempo óptimo de intervención preventiva y la decisión Reparar / PM / Overhaul / Reemplazar a partir del factor de forma (β), vida característica (η) y los costos Cf/Ci." />
 
       <ErrorBanner onRetry={reload}>{error}</ErrorBanner>
+      <ErrorBanner>{guardarError}</ErrorBanner>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14, marginBottom: 16 }}>
         <KPI label="Componentes analizados" value={hojasAn.length} sub={`de ${filtrados.filter(esHoja).length} componentes`} />
@@ -186,7 +189,7 @@ export default function Weibull() {
                         <span style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, color: C.slate, fontWeight: 600 }}>Más urgente</span>
                         {i.urgente && <Pill tone={i.urgente.tone}>{i.urgente.tipo}</Pill>}
                       </div>
-                      <Stat label="Peor MTBF" value={i.peorMTBF != null ? `${num(i.peorMTBF, 0)}h` : "—"} />
+                      <Stat label="Peor MTBF" value={i.peorMTBF != null ? `${num(i.peorMTBF, 0)}${i.peorUnidad || 'h'}` : "—"} />
                       <Stat label="r máx" value={i.mayorR != null ? i.mayorR.toFixed(1) : "—"} color={i.mayorR > 5 ? C.red : C.steel} />
                       <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
                         {Object.entries(i.dist).sort((a, b) => (DECISION_RANK[b[0]] || 0) - (DECISION_RANK[a[0]] || 0)).map(([t, n]) => (
@@ -219,8 +222,8 @@ export default function Weibull() {
                 <EquipoNodoLabel eq={eq} tieneHijos={arbol.tieneHijos(eq)} colapsado={arbol.estaColapsado(eq)}
                   onToggle={() => arbol.toggle(eq.id)} nSub={arbol.nSubDe(eq)} embName={embName} />
                 <Stat label="β" value={an ? (w.beta || 0).toFixed(1) : "—"} />
-                <Stat label="MTBF" value={an ? `${num(mtbf, 0)}h` : "—"} />
-                <Stat label="Ts*" value={an && tsOpt ? `${num(tsOpt, 0)}h` : "—"} color={tsOpt ? C.green : C.slate} />
+                <Stat label="MTBF" value={an ? `${num(mtbf, 0)}${w.unidad || 'h'}` : "—"} />
+                <Stat label="Ts*" value={an && tsOpt ? `${num(tsOpt, 0)}${w.unidad || 'h'}` : "—"} color={tsOpt ? C.green : C.slate} />
                 <Stat label="r" value={an ? (r || 0).toFixed(1) : "—"} color={r > 5 ? C.red : C.steel} />
                 <div>
                   <div style={{ fontSize: 10, letterSpacing: 0.5, color: C.slate, fontWeight: 600, textTransform: "uppercase" }}>Recomendación</div>
@@ -261,8 +264,17 @@ export default function Weibull() {
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 14, marginBottom: 14 }}>
                     <Group title="Parámetros Weibull">
                       <CellEdit label="β · forma" step={0.1} value={w.beta} disabled={!puedeOperar} onChange={(v) => setCampo(eq.id, "beta", Math.max(0.1, v))} />
-                      <CellEdit label="η · vida característica (h)" step={50} value={w.eta} disabled={!puedeOperar} onChange={(v) => setCampo(eq.id, "eta", Math.max(0, v))} />
-                      <CellEdit label="γ · umbral (h)" step={10} value={w.gamma} disabled={!puedeOperar} onChange={(v) => setCampo(eq.id, "gamma", Math.max(0, v))} />
+                      <CellEdit label={`η · vida característica (${w.unidad || 'h'})`} step={50} value={w.eta} disabled={!puedeOperar} onChange={(v) => setCampo(eq.id, "eta", Math.max(0, v))} />
+                      <CellEdit label={`γ · umbral (${w.unidad || 'h'})`} step={10} value={w.gamma} disabled={!puedeOperar} onChange={(v) => setCampo(eq.id, "gamma", Math.max(0, v))} />
+                      <div>
+                        <div style={{ fontSize: 11, color: C.slate, marginBottom: 4 }}>Unidad de tiempo</div>
+                        <select value={w.unidad || "h"} disabled={!puedeOperar}
+                          onChange={(e) => setCampo(eq.id, "unidad", e.target.value)}
+                          style={{ ...inputStyle(), width: "100%", padding: "6px 8px", fontSize: 13, cursor: puedeOperar ? "pointer" : "default" }}>
+                          <option value="h">Horas (h)</option>
+                          <option value="d">Días (d)</option>
+                        </select>
+                      </div>
                     </Group>
                     <Group title="Costos económicos">
                       <CellEdit label="Cf · costo por falla ($)" step={1000} value={w.cf} disabled={!puedeOperar} onChange={(v) => setCampo(eq.id, "cf", Math.max(0, v))} />
@@ -275,11 +287,11 @@ export default function Weibull() {
                     <Group title="Resultados">
                       <div>
                         <div style={{ fontSize: 11, color: C.slate, marginBottom: 4 }}>MTBF estimado</div>
-                        <div style={{ ...archivo, fontSize: 18, fontWeight: 800, color: C.steel }}>{num(mtbf, 0)} h</div>
+                        <div style={{ ...archivo, fontSize: 18, fontWeight: 800, color: C.steel }}>{num(mtbf, 0)} {w.unidad || 'h'}</div>
                       </div>
                       <div>
                         <div style={{ fontSize: 11, color: C.slate, marginBottom: 4 }}>Tiempo óptimo PM</div>
-                        <div style={{ ...archivo, fontSize: 18, fontWeight: 800, color: tsOpt ? C.green : C.slate }}>{tsOpt ? `${num(tsOpt, 0)} h` : "no aplica"}</div>
+                        <div style={{ ...archivo, fontSize: 18, fontWeight: 800, color: tsOpt ? C.green : C.slate }}>{tsOpt ? `${num(tsOpt, 0)} ${w.unidad || 'h'}` : "no aplica"}</div>
                       </div>
                       <div>
                         <div style={{ fontSize: 11, color: C.slate, marginBottom: 4 }}>Razón Ts*/MTBF</div>
