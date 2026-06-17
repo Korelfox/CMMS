@@ -254,6 +254,7 @@ export default function Equipos() {
     setOriginal((o) => { const n = { ...o }; updates.forEach((u) => { if (n[u.id]) n[u.id] = { ...n[u.id], orden: u.orden }; }); return n; });
     try {
       for (const u of updates) await updateRow("equipos", u.id, { orden: u.orden });
+      logActivity(profile, "Reordenar equipo", `${node.id_visible} · ${dir === "up" ? "subir" : "bajar"}`);
     } catch (err) {
       setEquipos((p) => p.map((e) => (e.id in previo ? { ...e, orden: previo[e.id] } : e)));
       setError("No se pudo reordenar: " + err.message);
@@ -1097,6 +1098,9 @@ export default function Equipos() {
               onExpandirTodo={() => arbol.colapsarTodo(false)}
               onEliminar={eliminar}
               puedeBorrar={puedeBorrar}
+              puedeOperar={puedeOperar}
+              posInfo={posInfo}
+              onMoverNodo={moverNodo}
               brechaPorEquipo={brechaPorEquipo}
             />
             {modo === "optimizar" ? (

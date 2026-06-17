@@ -1,5 +1,5 @@
 import React from "react";
-import { Search, X, ChevronDown, ChevronRight, MoreHorizontal, PanelRightOpen, Trash2, AlertTriangle } from "lucide-react";
+import { Search, X, ChevronDown, ChevronRight, ChevronUp, MoreHorizontal, PanelRightOpen, Trash2, AlertTriangle } from "lucide-react";
 import { C, estadoLabel, estadoTone, num, tint } from "../../theme";
 import { BRECHA_META } from "../../lib/equipoBrechas";
 import { Card, Pill, ghostBtn, inputStyle } from "../../ui";
@@ -9,6 +9,7 @@ export default function EquipoTreePanel({
   busqueda, setBusqueda, arbol, listaVisible, selectedId, onSelect,
   showEmb, embName, repsPorEquipo, eqDirty, esAgrupador,
   onColapsarTodo, onExpandirTodo, onPopOut, onEliminar, puedeBorrar,
+  puedeOperar = false, posInfo, onMoverNodo,
   brechaPorEquipo,
 }) {
   const [menuId, setMenuId] = React.useState(null);
@@ -55,6 +56,8 @@ export default function EquipoTreePanel({
             const nReps = repsPorEquipo.get(eq.id) || 0;
             const agrup = esAgrupador(eq);
             const brecha = brechaPorEquipo?.get(eq.id);
+            const pos = posInfo?.get(eq.id);
+            const puedeReordenar = puedeOperar && pos && (!pos.first || !pos.last);
 
             return (
               <div
@@ -126,6 +129,18 @@ export default function EquipoTreePanel({
                     <>
                       <div onClick={() => setMenuId(null)} style={{ position: "fixed", inset: 0, zIndex: 40 }} />
                       <div style={{ position: "absolute", top: "100%", right: 0, marginTop: 4, zIndex: 41, background: C.surface, border: `1px solid ${C.line}`, borderRadius: 8, boxShadow: "0 8px 24px rgba(0,0,0,.12)", overflow: "hidden", minWidth: 160 }}>
+                        {puedeReordenar && (
+                          <>
+                            <button type="button" disabled={pos.first} onClick={(ev) => { ev.stopPropagation(); setMenuId(null); onMoverNodo?.(eq, "up"); }}
+                              style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "9px 12px", background: "none", border: "none", cursor: pos.first ? "default" : "pointer", fontSize: 12.5, color: pos.first ? C.slate : C.ink, opacity: pos.first ? 0.45 : 1, fontFamily: "inherit" }}>
+                              <ChevronUp size={14} /> Subir orden
+                            </button>
+                            <button type="button" disabled={pos.last} onClick={(ev) => { ev.stopPropagation(); setMenuId(null); onMoverNodo?.(eq, "down"); }}
+                              style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "9px 12px", background: "none", border: "none", cursor: pos.last ? "default" : "pointer", fontSize: 12.5, color: pos.last ? C.slate : C.ink, opacity: pos.last ? 0.45 : 1, fontFamily: "inherit" }}>
+                              <ChevronDown size={14} /> Bajar orden
+                            </button>
+                          </>
+                        )}
                         <button type="button" onClick={(ev) => { ev.stopPropagation(); setMenuId(null); onPopOut?.(eq); }}
                           style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "9px 12px", background: "none", border: "none", cursor: "pointer", fontSize: 12.5, color: C.ink, fontFamily: "inherit" }}>
                           <PanelRightOpen size={14} /> Ventana flotante

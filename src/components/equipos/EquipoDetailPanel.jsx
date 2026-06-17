@@ -98,6 +98,16 @@ export default function EquipoDetailPanel({
 
   const h = handlers || {};
   const hijos = ordenarHijos(equipos.filter((e) => e.parent_id === node.id));
+  const hermanos = ordenarHijos(equipos.filter((e) =>
+    e.embarcacion_id === node.embarcacion_id
+    && (e.parent_id ?? null) === (node.parent_id ?? null)
+  ));
+  const puedeReordenar = hermanos.length > 1;
+  const idxOrden = hermanos.findIndex((e) => e.id === node.id);
+  const padreNombre = node.parent_id ? equipos.find((e) => e.id === node.parent_id)?.sistema : null;
+  const ambitoOrden = !node.parent_id
+    ? "sistemas de la nave"
+    : `elementos dentro de «${padreNombre || "—"}»`;
   const nReps = destinos.filter((d) => d.equipo_id === node.id).length;
   const pos = posInfo?.get(node.id) || { first: true, last: true };
 
@@ -240,6 +250,35 @@ export default function EquipoDetailPanel({
                 {padres.map((p) => <option key={p.id} value={p.id}>{p.id_visible} · {p.sistema}</option>)}
               </select>
             </div>
+
+            {puedeOperar && puedeReordenar && (
+              <div style={{ gridColumn: "1 / -1", padding: "12px 14px", borderRadius: 9, border: `1px solid ${tint(C.steel, 25)}`, background: tint(C.steel, 5) }}>
+                <div style={{ fontSize: 11, color: C.slate, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 8 }}>
+                  Orden entre {ambitoOrden}
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                  <div style={{ display: "flex", gap: 6 }}>
+                    <button type="button" disabled={pos.first} onClick={() => h.moverNodo?.(node, "up")}
+                      style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "6px 11px", borderRadius: 7, border: `1px solid ${C.line}`, background: C.surface, cursor: pos.first ? "default" : "pointer", opacity: pos.first ? 0.4 : 1, fontSize: 12, fontFamily: "inherit" }}>
+                      <ChevronUp size={14} /> Subir
+                    </button>
+                    <button type="button" disabled={pos.last} onClick={() => h.moverNodo?.(node, "down")}
+                      style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "6px 11px", borderRadius: 7, border: `1px solid ${C.line}`, background: C.surface, cursor: pos.last ? "default" : "pointer", opacity: pos.last ? 0.4 : 1, fontSize: 12, fontFamily: "inherit" }}>
+                      <ChevronDown size={14} /> Bajar
+                    </button>
+                  </div>
+                  <span style={{ fontSize: 12, color: C.slate }}>
+                    Posición <strong style={{ color: C.ink }}>{idxOrden + 1}</strong> de {hermanos.length}
+                    {node.orden != null && (
+                      <span style={{ fontFamily: "'IBM Plex Mono', monospace", marginLeft: 6 }}>· orden {node.orden}</span>
+                    )}
+                  </span>
+                </div>
+                <div style={{ fontSize: 11.5, color: C.slate, marginTop: 8, lineHeight: 1.45 }}>
+                  El cambio se guarda al instante y afecta el árbol, Plan PM y listados de la nave.
+                </div>
+              </div>
+            )}
             {!esAgrupador && (
               <>
                 <div>
@@ -310,7 +349,7 @@ export default function EquipoDetailPanel({
               </div>
             )}
 
-            {puedeOperar && hijos.length > 1 && (
+            {puedeOperar && puedeReordenar && (
               <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
                 <button type="button" disabled={pos.first} onClick={() => h.moverNodo?.(node, "up")}
                   style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "5px 10px", borderRadius: 7, border: `1px solid ${C.line}`, background: C.surface, cursor: pos.first ? "default" : "pointer", opacity: pos.first ? 0.4 : 1, fontSize: 12, fontFamily: "inherit" }}>
@@ -331,19 +370,35 @@ export default function EquipoDetailPanel({
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                 {hijos.map((c) => {
                   const nietos = equipos.filter((e) => e.parent_id === c.id).length;
+                  const posHijo = posInfo?.get(c.id) || { first: true, last: true };
+                  const reordenaHijo = puedeOperar && hijos.length > 1;
                   return (
-                    <button key={c.id} type="button" onClick={() => onSelectNode?.(c.id)}
-                      style={{ display: "flex", alignItems: "center", gap: 11, width: "100%", textAlign: "left", padding: "9px 12px", borderRadius: 9, border: `1px solid ${C.line}`, background: C.surface, cursor: "pointer", fontFamily: "inherit" }}>
-                      <TipoChip tipo={c.tipo_nodo} size={30} />
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 13.5, fontWeight: 600, color: C.abyss, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.sistema || "—"}</div>
-                        <div style={{ fontSize: 11.5, color: C.slate, fontFamily: "'IBM Plex Mono', monospace" }}>
-                          {c.id_visible}{nietos > 0 ? ` · ${nietos} dentro` : ""}
+                    <div key={c.id} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <button type="button" onClick={() => onSelectNode?.(c.id)}
+                        style={{ display: "flex", alignItems: "center", gap: 11, flex: 1, minWidth: 0, textAlign: "left", padding: "9px 12px", borderRadius: 9, border: `1px solid ${C.line}`, background: C.surface, cursor: "pointer", fontFamily: "inherit" }}>
+                        <TipoChip tipo={c.tipo_nodo} size={30} />
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 13.5, fontWeight: 600, color: C.abyss, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.sistema || "—"}</div>
+                          <div style={{ fontSize: 11.5, color: C.slate, fontFamily: "'IBM Plex Mono', monospace" }}>
+                            {c.id_visible}{nietos > 0 ? ` · ${nietos} dentro` : ""}
+                          </div>
                         </div>
-                      </div>
-                      <CritBadge crit={c.criticidad} />
-                      <ChevronRight size={16} color={C.slate} style={{ flexShrink: 0 }} />
-                    </button>
+                        <CritBadge crit={c.criticidad} />
+                        <ChevronRight size={16} color={C.slate} style={{ flexShrink: 0 }} />
+                      </button>
+                      {reordenaHijo && (
+                        <div style={{ display: "flex", flexDirection: "column", gap: 2, flexShrink: 0 }}>
+                          <button type="button" disabled={posHijo.first} title="Subir" onClick={() => h.moverNodo?.(c, "up")}
+                            style={{ display: "flex", padding: 4, borderRadius: 6, border: `1px solid ${C.line}`, background: C.surface, cursor: posHijo.first ? "default" : "pointer", opacity: posHijo.first ? 0.35 : 1 }}>
+                            <ChevronUp size={14} color={C.slate} />
+                          </button>
+                          <button type="button" disabled={posHijo.last} title="Bajar" onClick={() => h.moverNodo?.(c, "down")}
+                            style={{ display: "flex", padding: 4, borderRadius: 6, border: `1px solid ${C.line}`, background: C.surface, cursor: posHijo.last ? "default" : "pointer", opacity: posHijo.last ? 0.35 : 1 }}>
+                            <ChevronDown size={14} color={C.slate} />
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   );
                 })}
               </div>
