@@ -264,7 +264,7 @@ export default function EquipoDetailPanel({
         )}
 
         {tab === "operacional" && !esAgrupador && (
-          <PropOpBody node={node} onSave={h.guardarPropOp} onDone={() => {}} />
+          <PropOpBody node={node} puedeOperar={puedeOperar} onSave={h.guardarPropOp} onDone={() => {}} />
         )}
 
         {tab === "ficha" && !esAgrupador && (

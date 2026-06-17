@@ -1695,6 +1695,49 @@ export function registroVidaUi(eq) {
   return REGISTRO_VIDA_UI[reg] ?? null;
 }
 
+/** Opciones del selector de registro (ajuste manual del cliente). */
+export const REGISTRO_VIDA_CLIENTE = [
+  { value: "horas", label: "Horas", desc: "Seguimiento por horómetro propio o heredado." },
+  { value: "fecha", label: "Instalación", desc: "Sin horómetro; vida útil por fecha de instalación en la ficha." },
+  { value: "mixto", label: "Mixto", desc: "Horómetro y fecha de instalación (gobierno, viradores, etc.)." },
+];
+
+/** Modo de registro para UI de edición (agrupa horas + hereda_horas). */
+export function registroVidaCliente(eq) {
+  const r = registroVidaEquipo(eq);
+  if (r === "hereda_horas" || r === "horas") return "horas";
+  if (r === "fecha" || r === "mixto") return r;
+  return "horas";
+}
+
+/** Tag _registro a persistir según modo cliente y horómetro elegido. */
+export function tagRegistroVidaCliente(clienteModo, horometro) {
+  if (clienteModo === "fecha") return "fecha";
+  if (clienteModo === "mixto") return "mixto";
+  return horometro === "propio" ? "horas" : "hereda_horas";
+}
+
+/** Registro sugerido por plantilla (sin override en ficha). */
+export function registroVidaPlantilla(eq) {
+  if (!eq?.id_visible) return "hereda_horas";
+  return registroDesdeIdVisible(eq.id_visible).registro;
+}
+
+/** Ficha y horómetro al guardar un cambio de registro de vida. */
+export function datosRegistroVidaCliente(clienteModo, horometro, eq = {}) {
+  const tag = tagRegistroVidaCliente(clienteModo, horometro);
+  const ficha = { ...(eq.ficha || {}), _registro: tag };
+  if (clienteModo === "fecha") {
+    return { horometro: "no", consume_aceite: false, ficha };
+  }
+  const hor = horometro === "propio" ? "propio" : "hereda";
+  return {
+    horometro: hor,
+    consume_aceite: hor === "propio" ? !!eq.consume_aceite : false,
+    ficha,
+  };
+}
+
 /** Todas las asignaciones horas_fuente_id (explícitas en árbol + reglas de prefijo). */
 export function collectFuentesPlantilla(nodos = PLANTILLA_PESQUERA) {
   const out = [];

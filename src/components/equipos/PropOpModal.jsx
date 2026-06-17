@@ -1,9 +1,11 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { Save, CornerDownRight, Users, AlertTriangle, Calendar, FileText } from "lucide-react";
 import { C, tint, NIVEL_TIPOS } from "../../theme";
 import { useEquiposData } from "./equiposStore";
 import { puntoHorometro, idsBajoPunto } from "../../lib/horometro";
-import { registroVidaEquipo } from "../../lib/plantillaPesquera";
+import {
+  registroVidaCliente, registroVidaPlantilla, REGISTRO_VIDA_CLIENTE, datosRegistroVidaCliente,
+} from "../../lib/plantillaPesquera";
 
 // Cuerpo de "Configuración operacional" para una ventana del WindowManager.
 // La ventana aporta el marco; aquí va el contenido + pie de acciones.
@@ -27,14 +29,14 @@ const MODOS_HOR = [
   },
 ];
 
-function RadioCard({ label, desc, checked, onChange, color = C.steel }) {
+function RadioCard({ label, desc, checked, onChange, color = C.steel, disabled = false }) {
   return (
-    <label onClick={onChange} style={{
-      display: "flex", alignItems: "flex-start", gap: 10, cursor: "pointer",
+    <label onClick={disabled ? undefined : onChange} style={{
+      display: "flex", alignItems: "flex-start", gap: 10, cursor: disabled ? "default" : "pointer",
       padding: "9px 11px", borderRadius: 9, marginBottom: 4,
       background: checked ? tint(color, 10) : "transparent",
       border: `1px solid ${checked ? color : C.line}`,
-      transition: "all .12s",
+      transition: "all .12s", opacity: disabled ? 0.55 : 1,
     }}>
       <div style={{
         width: 16, height: 16, borderRadius: "50%",
@@ -51,25 +53,33 @@ function RadioCard({ label, desc, checked, onChange, color = C.steel }) {
   );
 }
 
-export function PropOpBody({ node, onSave, onDone }) {
-  const registro = registroVidaEquipo(node);
-  const soloInstalacion = registro === "fecha";
+export function PropOpBody({ node, onSave, onDone, puedeOperar = true }) {
+  const [regCliente, setRegCliente] = useState(() => registroVidaCliente(node));
   const [hor, setHor] = useState(node.horometro || "hereda");
   const [aco, setAco] = useState(!!node.consume_aceite);
   const [niv, setNiv] = useState(node.nivel_tipo || "ninguno");
   const [guardando, setGuardando] = useState(false);
 
-  // Datos vivos del store — siempre frescos aunque el árbol haya cambiado.
+  useEffect(() => {
+    setRegCliente(registroVidaCliente(node));
+    setHor(node.horometro || "hereda");
+    setAco(!!node.consume_aceite);
+    setNiv(node.nivel_tipo || "ninguno");
+  }, [node.id, node.horometro, node.consume_aceite, node.nivel_tipo, node.ficha?._registro]);
+
+  const soloInstalacion = regCliente === "fecha";
+  const usaHorometro = regCliente === "horas" || regCliente === "mixto";
+  const regPlantilla = registroVidaPlantilla(node);
+  const overridePlantilla = regCliente !== regPlantilla
+    && !(regCliente === "horas" && (regPlantilla === "horas" || regPlantilla === "hereda_horas"));
+
   const { equipos } = useEquiposData();
   const byId = useMemo(() => new Map(equipos.map((e) => [e.id, e])), [equipos]);
 
-  // Resuelve la herencia con el modo actualmente seleccionado.
-  // Simulamos que el nodo tiene el modo elegido para ver el resultado inmediatamente.
-  const nodoSimulado = useMemo(() => ({ ...node, horometro: hor }), [node, hor]);
-  const puntoId  = useMemo(() => puntoHorometro(nodoSimulado, byId), [nodoSimulado, byId]);
+  const nodoSimulado = useMemo(() => ({ ...node, horometro: soloInstalacion ? "no" : hor }), [node, hor, soloInstalacion]);
+  const puntoId  = useMemo(() => (usaHorometro && hor === "hereda" ? puntoHorometro(nodoSimulado, byId) : null), [nodoSimulado, byId, usaHorometro, hor]);
   const puntoDato = puntoId ? byId.get(puntoId) : null;
 
-  // Para "propio": muestra cuántos componentes heredarían de este nodo.
   const subHeredando = useMemo(() => {
     if (hor !== "propio") return [];
     return idsBajoPunto(node.id, equipos, byId)
@@ -78,13 +88,22 @@ export function PropOpBody({ node, onSave, onDone }) {
       .filter(Boolean);
   }, [hor, node.id, equipos, byId]);
 
+  function elegirRegistro(value) {
+    if (!puedeOperar) return;
+    setRegCliente(value);
+    if (value === "fecha") setHor("no");
+    else if (hor === "no") setHor("hereda");
+  }
+
   async function guardar() {
     setGuardando(true);
     try {
+      const base = datosRegistroVidaCliente(regCliente, hor, { ...node, consume_aceite: aco });
       await onSave(node.id, {
-        horometro: hor,
-        consume_aceite: hor === "propio" ? aco : false,
-        nivel_tipo: niv,
+        horometro: base.horometro,
+        consume_aceite: base.horometro === "propio" ? aco : false,
+        nivel_tipo: soloInstalacion ? "ninguno" : niv,
+        ficha: base.ficha,
       });
       onDone();
     } catch {
@@ -101,17 +120,32 @@ export function PropOpBody({ node, onSave, onDone }) {
 
   return (
     <>
-      {/* Cuerpo desplazable */}
       <div style={{ flex: 1, overflowY: "auto", padding: "18px 20px 4px" }}>
 
-        {registro === "mixto" && (
+        {/* ── Tipo de registro (ajuste cliente) ── */}
+        <div style={{ marginBottom: 22 }}>
+          <div style={secLbl}>Registro de vida</div>
+          {REGISTRO_VIDA_CLIENTE.map((m) => (
+            <RadioCard key={m.value} label={m.label} desc={m.desc}
+              checked={regCliente === m.value} onChange={() => elegirRegistro(m.value)}
+              color={m.value === "fecha" ? C.purple : m.value === "mixto" ? C.cyan : C.steel}
+              disabled={!puedeOperar} />
+          ))}
+          {overridePlantilla && (
+            <div style={{ fontSize: 11.5, color: C.slate, marginTop: 6, fontStyle: "italic" }}>
+              Plantilla sugiere: {REGISTRO_VIDA_CLIENTE.find((o) => o.value === regPlantilla || (regPlantilla === "hereda_horas" && o.value === "horas"))?.label ?? regPlantilla}
+            </div>
+          )}
+        </div>
+
+        {regCliente === "mixto" && (
           <div style={{
             display: "flex", gap: 9, alignItems: "flex-start", marginBottom: 18, padding: "10px 12px",
             borderRadius: 8, border: `1px solid ${tint(C.cyan, 35)}`, background: tint(C.cyan, 7),
           }}>
             <Calendar size={16} color={C.cyan} style={{ flexShrink: 0, marginTop: 2 }} />
             <div style={{ fontSize: 12.5, color: C.slate, lineHeight: 1.5 }}>
-              <strong style={{ color: C.ink }}>Registro mixto.</strong> Horas vía horómetro y fecha de instalación en la pestaña <strong>Ficha</strong>.
+              <strong style={{ color: C.ink }}>Registro mixto.</strong> Configura el horómetro abajo y la <strong>fecha de instalación</strong> en la pestaña Ficha.
             </div>
           </div>
         )}
@@ -127,8 +161,7 @@ export function PropOpBody({ node, onSave, onDone }) {
                 Rastreo por fecha de instalación
               </div>
               <div style={{ fontSize: 12.5, color: C.slate, lineHeight: 1.55 }}>
-                Este equipo no usa horómetro (casco, navegación, estructura, certificaciones).
-                Completa la <strong>fecha de instalación</strong> en la pestaña Ficha → Instalación / Operación.
+                Este equipo no usa horómetro. Completa la <strong>fecha de instalación</strong> en la pestaña Ficha → Instalación / Operación.
               </div>
               <div style={{ marginTop: 10, fontSize: 12, color: C.steel }}>
                 Horómetro: <strong>No aplica</strong>
@@ -137,15 +170,14 @@ export function PropOpBody({ node, onSave, onDone }) {
           </div>
         ) : (
         <>
-        {/* ── Horómetro ── */}
         <div style={{ marginBottom: 22 }}>
           <div style={secLbl}>Horómetro</div>
-          {MODOS_HOR.map((m) => (
+          {MODOS_HOR.filter((m) => m.value !== "no").map((m) => (
             <RadioCard key={m.value} label={m.label} desc={m.desc}
-              checked={hor === m.value} onChange={() => setHor(m.value)} color={C.steel} />
+              checked={hor === m.value} onChange={() => puedeOperar && setHor(m.value)} color={C.steel}
+              disabled={!puedeOperar} />
           ))}
 
-          {/* ── Resolución en tiempo real de la herencia ── */}
           {hor === "hereda" && (
             <div style={{
               marginTop: 8, padding: "9px 12px", borderRadius: 8,
@@ -176,7 +208,6 @@ export function PropOpBody({ node, onSave, onDone }) {
             </div>
           )}
 
-          {/* ── Para "propio": lista de componentes que heredan ── */}
           {hor === "propio" && subHeredando.length > 0 && (
             <div style={{
               marginTop: 8, padding: "10px 12px", borderRadius: 8,
@@ -201,21 +232,20 @@ export function PropOpBody({ node, onSave, onDone }) {
           )}
         </div>
 
-        {/* ── Consume aceite (solo propio) ── */}
         <div style={{ marginBottom: 22 }}>
           <div style={secLbl}>Consumo de lubricante</div>
           <label style={{
             display: "flex", alignItems: "flex-start", gap: 10,
-            cursor: hor === "propio" ? "pointer" : "default",
+            cursor: hor === "propio" && puedeOperar ? "pointer" : "default",
             padding: "10px 12px", borderRadius: 9,
             border: `1px solid ${hor === "propio" && aco ? C.gold : C.line}`,
             background: hor === "propio" && aco ? tint(C.gold, 8) : tint(C.slate, 4),
             opacity: hor !== "propio" ? 0.45 : 1, transition: "all .12s",
           }}>
             <input type="checkbox" checked={aco}
-              disabled={hor !== "propio"}
+              disabled={!puedeOperar || hor !== "propio"}
               onChange={(ev) => hor === "propio" && setAco(ev.target.checked)}
-              style={{ width: 16, height: 16, accentColor: C.gold, cursor: hor === "propio" ? "pointer" : "default", marginTop: 2, flexShrink: 0 }}
+              style={{ width: 16, height: 16, accentColor: C.gold, cursor: hor === "propio" && puedeOperar ? "pointer" : "default", marginTop: 2, flexShrink: 0 }}
             />
             <div>
               <div style={{ fontWeight: 600, fontSize: 13, color: C.ink, lineHeight: 1.2 }}>Registrar consumo de aceite</div>
@@ -228,7 +258,6 @@ export function PropOpBody({ node, onSave, onDone }) {
           </label>
         </div>
 
-        {/* ── Niveles prezarpe ── */}
         <div style={{ marginBottom: 20 }}>
           <div style={secLbl}>Revisión de niveles en prezarpe</div>
           <div style={{ fontSize: 11.5, color: C.slate, marginBottom: 10, lineHeight: 1.4 }}>
@@ -236,34 +265,28 @@ export function PropOpBody({ node, onSave, onDone }) {
           </div>
           {NIVEL_TIPOS.map((n) => {
             const sel = niv === n.value;
-            const dis = hor === "no";
             return (
               <RadioCard key={n.value} label={n.label} desc=""
-                checked={sel && !dis}
-                onChange={() => !dis && setNiv(n.value)}
+                checked={sel}
+                onChange={() => puedeOperar && setNiv(n.value)}
                 color={C.green}
+                disabled={!puedeOperar}
               />
             );
           })}
-          {hor === "no" && (
-            <div style={{ fontSize: 11, color: C.slate, marginTop: 4, fontStyle: "italic" }}>
-              No aplica a equipos sin horómetro.
-            </div>
-          )}
         </div>
         </>
         )}
       </div>
 
-      {/* ── Pie ── */}
       <div style={{ padding: "12px 20px", borderTop: `1px solid ${C.line}`, display: "flex", justifyContent: "flex-end", gap: 8, flexShrink: 0 }}>
         <button onClick={onDone} style={{
           padding: "8px 16px", borderRadius: 8, border: `1px solid ${C.line}`,
           background: C.surface, cursor: "pointer", fontSize: 13, color: C.slate, fontWeight: 600,
         }}>
-          {soloInstalacion ? "Cerrar" : "Cancelar"}
+          {puedeOperar ? "Cancelar" : "Cerrar"}
         </button>
-        {!soloInstalacion && (
+        {puedeOperar && (
         <button onClick={guardar} disabled={guardando} style={{
           padding: "8px 18px", borderRadius: 8, border: "none", background: C.steel,
           color: "#fff", cursor: guardando ? "default" : "pointer", fontSize: 13,

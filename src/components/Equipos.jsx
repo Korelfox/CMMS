@@ -448,7 +448,7 @@ export default function Equipos() {
       subtitle: `${e.id_visible} · ${e.sistema}`,
       icon: Settings2,
       width: 460,
-      render: ({ close }) => <PropOpBody node={e} onSave={guardarPropOp} onDone={close} />,
+      render: ({ close }) => <PropOpBody node={e} puedeOperar={puedeOperar} onSave={guardarPropOp} onDone={close} />,
     });
   }
   // Abre la ficha técnica como ventana apilable.
@@ -532,7 +532,8 @@ export default function Equipos() {
     setOriginal((o) => o[id] ? { ...o, [id]: { ...o[id], ...cambios } } : o);
     try {
       await updateRow("equipos", id, cambios);
-      logActivity(profile, "Config. operacional", `${eq?.id_visible} · hor:${cambios.horometro}`);
+      const extra = cambios.ficha?._registro ? ` · reg:${cambios.ficha._registro}` : "";
+      logActivity(profile, "Config. operacional", `${eq?.id_visible} · hor:${cambios.horometro}${extra}`);
     } catch (e) {
       setEquipos((p) => p.map((x) => x.id === id ? { ...x, ...eq } : x));
       setOriginal((o) => o[id] ? { ...o, [id]: { ...o[id], ...eq } } : o);

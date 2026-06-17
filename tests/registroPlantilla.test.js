@@ -8,6 +8,9 @@ import {
   collectFuentesPlantilla,
   registroVidaEquipo,
   registroVidaUi,
+  registroVidaCliente,
+  tagRegistroVidaCliente,
+  datosRegistroVidaCliente,
 } from "../src/lib/plantillaPesquera.js";
 
 const findDeep = (arr, cod) => {
@@ -108,5 +111,22 @@ describe("Registro de vida — plantilla pesquera", () => {
     expect(registroVidaUi({ tipo_nodo: "componente", horometro: "no", id_visible: "BC01-NAV-GPS" })).toMatchObject({ label: "Instalación" });
     expect(registroVidaUi({ tipo_nodo: "componente", horometro: "propio" })).toMatchObject({ label: "Horas" });
     expect(registroVidaUi({ tipo_nodo: "componente", ficha: { _registro: "mixto" }, horometro: "hereda" })).toMatchObject({ label: "Mixto" });
+  });
+
+  it("registroVidaCliente y datosRegistroVidaCliente para ajustes manuales", () => {
+    expect(registroVidaCliente({ horometro: "propio" })).toBe("horas");
+    expect(registroVidaCliente({ ficha: { _registro: "fecha" }, horometro: "no" })).toBe("fecha");
+    expect(tagRegistroVidaCliente("horas", "propio")).toBe("horas");
+    expect(tagRegistroVidaCliente("horas", "hereda")).toBe("hereda_horas");
+    expect(tagRegistroVidaCliente("fecha", "hereda")).toBe("fecha");
+
+    const aFecha = datosRegistroVidaCliente("fecha", "hereda", { ficha: { tag: "x" } });
+    expect(aFecha.horometro).toBe("no");
+    expect(aFecha.ficha._registro).toBe("fecha");
+
+    const aHoras = datosRegistroVidaCliente("horas", "propio", { consume_aceite: true });
+    expect(aHoras.horometro).toBe("propio");
+    expect(aHoras.ficha._registro).toBe("horas");
+    expect(aHoras.consume_aceite).toBe(true);
   });
 });
