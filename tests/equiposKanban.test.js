@@ -3,7 +3,7 @@ import { ordenarEquipos, EQ_KANBAN_COLS, kanbanEstadoKey } from "../src/lib/equi
 
 describe("equiposKanban", () => {
   it("define columnas por estado operacional", () => {
-    expect(EQ_KANBAN_COLS.map((c) => c.value)).toEqual(["fuera_servicio", "en_reparacion", "desgaste", "operativo"]);
+    expect(EQ_KANBAN_COLS.map((c) => c.value)).toEqual(["operativo", "en_reparacion", "desgaste", "fuera_servicio"]);
   });
 
   it("normaliza estado desconocido a operativo", () => {

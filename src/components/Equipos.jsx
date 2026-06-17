@@ -941,7 +941,7 @@ export default function Equipos() {
           </div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
             <span style={{ fontSize: 11, color: C.slate, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5 }}>Estado</span>
-            {[["all", "Todos", C.slate], ["fuera_servicio", "Fuera serv.", C.red], ["en_reparacion", "Reparación", C.steel], ["desgaste", "Desgaste", C.amber], ["operativo", "Operativo", C.green]].map(([v, lbl, tone]) => {
+            {[["all", "Todos", C.slate], ["operativo", "Operativo", C.green], ["en_reparacion", "Reparación", C.steel], ["desgaste", "Desgaste", C.amber], ["fuera_servicio", "Fuera serv.", C.red]].map(([v, lbl, tone]) => {
               const n = v === "all" ? null : scopeEquipos.filter((e) => kanbanEstadoKey(e) === v).length;
               return (
                 <FilterBtn key={v} active={fEstado === v} color={fEstado === v ? tone : undefined} onClick={() => setFEstado(v)}>
