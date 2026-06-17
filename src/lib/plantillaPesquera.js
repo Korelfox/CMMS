@@ -733,7 +733,7 @@ const MOTOR_GENERADOR = {
 //  SFI 652 — CENTRAL / GRUPO HIDRÁULICO (HPU / Power Pack)
 // ============================================================
 const CENTRAL_HIDRAULICA = {
-  cod: "HPU", nom: "Central/Grupo Hidráulico", crit: "A", tipo: "sistema",
+  cod: "HPU", nom: "Grupo Hidráulico", crit: "A", tipo: "sistema",
   hijos: [
     {
       cod: "HPU-MTR", nom: "Motor Diésel (accionador)", crit: "A", tipo: "subsistema", mtbf: 15000,
@@ -959,6 +959,18 @@ export const PLANTILLA_PESQUERA = [
     ],
   },
 
+  // ── Generadores Electricidad (SFI 621-622) ──────────────────────
+  {
+    cod: "GEN", nom: "Generadores Electricidad", crit: "A", tipo: "sistema",
+    hijos: [
+      MOTOR_GENERADOR,
+      { cod: "GEN-EMG", nom: "Generador de Emergencia", crit: "A", tipo: "subsistema" },
+    ],
+  },
+
+  // ── Grupo Hidráulico / Power Pack (SFI 652) ────────────────────
+  CENTRAL_HIDRAULICA,
+
   // ── Gobierno / Servotimón (SFI 642) ────────────────────────────
   {
     cod: "STEER", nom: "Gobierno / Servotimón", crit: "A", tipo: "sistema",
@@ -987,15 +999,6 @@ export const PLANTILLA_PESQUERA = [
     ],
   },
 
-  // ── Generadores Electricidad (SFI 621-622) ──────────────────────
-  {
-    cod: "GEN", nom: "Generadores Electricidad", crit: "A", tipo: "sistema",
-    hijos: [
-      MOTOR_GENERADOR,
-      { cod: "GEN-EMG", nom: "Generador de Emergencia", crit: "A", tipo: "subsistema" },
-    ],
-  },
-
   // ── Combustible de Nave ─────────────────────────────────────────
   {
     cod: "FUEL", nom: "Combustible de Nave", crit: "A", tipo: "sistema",
@@ -1006,147 +1009,161 @@ export const PLANTILLA_PESQUERA = [
     ],
   },
 
-  // ── Sistema Eléctrico (SFI 622 Tablero) ────────────────────────
+  // ── Contraincendios ─────────────────────────────────────────────
   {
-    cod: "ELEC", nom: "Sistema Eléctrico", crit: "B", tipo: "sistema",
+    cod: "FIRE", nom: "Contraincendios", crit: "A", tipo: "sistema",
     hijos: [
-      // SFI 622 — Tablero Principal expandido con PM calendario
-      {
-        cod: "ELEC-TAB", nom: "Tablero Principal", crit: "B", tipo: "subsistema",
-        hijos: [
-          comp("ELEC-TAB-PNL", "Tablero e Interruptores Principales", { crit: "B",
-            rep: [["KIT-FUS-GEN", "Kit de Fusibles/Relés (repuesto)", "generico"]],
-            // SFI 622: mensual, trimestral, semestral, anual
-            pm: [
-              ["Limpieza interior de tablero eléctrico", null, "mensual"],
-              ["Torque de conexiones del tablero", null, "trimestral"],
-              ["Termografía del tablero principal", null, "semestral"],
-              ["Prueba de disparo de protecciones", null, "anual"],
-            ] }),
-        ],
-      },
-      { cod: "ELEC-INT", nom: "Interruptores",        crit: "B", tipo: "subsistema" },
-      { cod: "ELEC-BAT", nom: "Banco de Baterías",    crit: "B", tipo: "subsistema" },
-      { cod: "ELEC-CAB", nom: "Cables y Conductores", crit: "B", tipo: "subsistema" },
-      {
-        cod: "ELEC-ALU", nom: "Alumbrado y Luces de Navegación", crit: "A", tipo: "subsistema",
-        hijos: [
-          comp("ELEC-ALU-NAV", "Luces de Navegación (reglamentarias)", {
-            rep: [["LUZ-NAV-OEM", "Set Luces de Navegación (OEM)", "oem"], ["AMP-NAV-GEN", "Ampolletas/LED Náuticos", "generico"]],
-            pm: [
-              ["Prueba de luces reglamentarias de navegación", null, "semanal"],
-              ["Inspección de estanqueidad y cableado de luces", null, "semestral"],
-            ] }),
-          comp("ELEC-ALU-CUB", "Proyectores de Cubierta", {
-            rep: [["PROY-CUB-OEM", "Proyector de Cubierta (OEM)", "oem"]],
-            pm: [["Inspección visual / por condición", 2000]] }),
-          comp("ELEC-ALU-EMG", "Alumbrado de Emergencia", {
-            rep: [["LUZ-EMG-OEM", "Luminaria de Emergencia (OEM)", "oem"]],
-            pm: [["Prueba de alarmas y paradas de seguridad", 1000]] }),
-        ],
-      },
-      {
-        cod: "ELEC-MON", nom: "Monitoreo y Alarmas de Máquinas", crit: "A", tipo: "subsistema",
-        hijos: [
-          comp("ELEC-MON-PNL", "Panel de Alarmas y Monitoreo", { basico: false,
-            rep: [["PNL-ALM-OEM", "Panel de Alarmas (OEM)", "oem"]],
-            pm: [["Prueba de alarmas y paradas de seguridad", 1000]] }),
-          inst("ELEC-MON-SEN", "Sensores de Alarma (nivel, temp, presión)", {
-            param: PM_VIB,
-            rep: [["SEN-ALM-GEN", "Sensores de Alarma (kit)", "generico"]],
-            pm: [["Calibración de sensores / instrumentos", 4000]] }),
-        ],
-      },
-    ],
-  },
-
-  // ── Central Hidráulica / Power Pack (SFI 652) ──────────────────
-  CENTRAL_HIDRAULICA,
-
-  // ── Aire Comprimido (SFI 641) ───────────────────────────────────
-  {
-    cod: "AIR", nom: "Aire Comprimido", crit: "B", tipo: "sistema",
-    hijos: [
-      {
-        cod: "AIR-ARR", nom: "Aire de Arranque", crit: "B", tipo: "subsistema",
-        hijos: [
-          comp("AIR-ARR-CMP", "Compresor de Aire de Arranque", { basico: false,
-            rep: [["CMP-ARR-OEM", "Compresor Arranque (OEM)", "oem"], ["KIT-VLV-CMP", "Kit Válvulas Compresor", "generico"]],
-            // SFI 641: diario drenar + semanal válv seg + 500H aceite + 1000H válvulas + 4000H segmentos + 8000H overhaul
-            pm: [
-              ["Drenar condensados del compresor de arranque", null, "diario"],
-              ["Prueba de alarmas y paradas de seguridad", null, "semanal"],
-              ["Cambio de aceite de compresor de arranque", 500],
-              ["Inspección de válvulas de descarga del compresor", 1000],
-              ["Cambio de segmentos del compresor de arranque", 4000],
-              ["Overhaul completo de compresor de arranque", 8000],
-            ] }),
-          comp("AIR-ARR-BOT", "Botellas de Aire de Arranque", {
-            rep: [["VLV-BOT-OEM", "Válvula Botella de Aire", "oem"]],
-            pm: [["Inspección visual / por condición", 2000]] }),
-        ],
-      },
-      {
-        cod: "AIR-SRV", nom: "Aire de Servicio / Control", crit: "B", tipo: "subsistema",
-        hijos: [
-          comp("AIR-SRV-CMP", "Compresor de Servicio", { basico: false,
-            rep: [["CMP-SRV-OEM", "Compresor de Servicio (OEM)", "oem"]],
-            pm: [["Inspección visual / por condición", 2000]] }),
-          comp("AIR-SRV-SEC", "Secador / Filtro de Aire", {
-            rep: [["FLT-AIRE-SRV", "Filtro/Secador de Aire", "generico"]],
-            pm: [["Inspección visual / por condición", 1000]] }),
-        ],
-      },
-    ],
-  },
-
-  // ── Equipos de Pesca (SFI 651-653) ─────────────────────────────
-  {
-    cod: "FISH", nom: "Equipo de Pesca (Trampas / Centolla)", crit: "A", tipo: "sistema",
-    hijos: [
-      // SFI 651 — Winches de Pesca
-      comp("FISH-VIR", "Virador de Trampas (Pot Hauler)", {
-        rep: [["VIR-OEM", "Virador Hidráulico (OEM)", "oem"], ["MOT-VIR-OEM", "Motor Hidráulico Virador", "oem"], ["KIT-SEL-VIR", "Kit Sellos Virador", "generico"]],
-        // SFI 651: diario nivel + semanal lubricación + mensual frenos + 1000H aceite + 2000H engranajes + 4000H overhaul frenos
-        pm: [
-          ["Verificar nivel de aceite en cárter", null, "diario"],
-          ["Lubricación de cables de pesca", null, "semanal"],
-          ["Inspección de frenos de winches", null, "mensual"],
-          ["Cambio de aceite en reductores de winche", 1000],
-          ["Revisión de winche / power block", 1000],
-          ["Inspección de engranajes del winche", 2000],
-          ["Overhaul de frenos hidráulicos del winche", 4000],
-          ["Engrase / lubricación general", 500],
-        ] }),
-      comp("FISH-LAN", "Lanzador / Rampa de Lanzamiento", {
-        rep: [["ROD-LAN-GEN", "Rodillos de Lanzamiento", "generico"]],
-        pm: [["Inspección visual / por condición", 1000]] }),
-      comp("FISH-PAS", "Pasacabos / Enrollador de Línea", {
-        rep: [["PAS-OEM", "Pasacabos (OEM)", "oem"]],
-        pm: [["Engrase / lubricación general", 1000]] }),
-      comp("FISH-TRA", "Trampas / Nasas", { basico: false,
-        rep: [["TRA-CENT", "Trampa de Centolla (estándar)", "generico"], ["RED-TRA", "Paño/Red de Trampa (repuesto)", "generico"]] }),
-      comp("FISH-LIN", "Boyas, Líneas y Orinques", {
-        rep: [["BOYA-GEN", "Boya de Señalización", "generico"], ["LIN-GROUND", "Línea madre / orinque (rollo)", "generico"]],
+      comp("FIRE-BMP", "Bomba Contraincendios Principal", { basico: false,
+        rep: [["BMP-CI-OEM", "Bomba CI (OEM)", "oem"], ["KIT-SEL-CI", "Kit Sellos Bomba CI", "generico"]],
+        pm: [["Prueba de alarmas y paradas de seguridad", 1000], ["Engrase / lubricación general", 2000]] }),
+      comp("FIRE-EMG", "Bomba CI de Emergencia", { basico: false,
+        rep: [["BMP-CI-EMG-OEM", "Bomba CI Emergencia (OEM)", "oem"]],
+        pm: [["Prueba de alarmas y paradas de seguridad", 1000]] }),
+      comp("FIRE-RED", "Colector, Hidrantes y Mangueras", {
+        rep: [["MNG-CI-GEN", "Manguera CI 1½\" (rollo)", "generico"], ["BOQ-CI-GEN", "Boquilla/Lanza CI", "generico"]],
         pm: [["Inspección visual / por condición", 500]] }),
-      comp("FISH-CAR", "Pañol / Cámara de Carnada", { basico: false,
+      comp("FIRE-FIJ", "Sistema Fijo Sala de Máquinas (CO₂ / espuma)", { basico: false,
+        rep: [["KIT-CO2-OEM", "Botellón CO₂ / carga", "oem"]],
         pm: [["Inspección visual / por condición", 2000]] }),
-      // SFI 653 — Grúas y Plumas
-      comp("FISH-GRU", "Pluma / Davit de Izado", { basico: false,
-        rep: [["KIT-SEL-GRU", "Kit Sellos Cilindro Pluma", "generico"]],
-        // SFI 653: semanal estructural + mensual cables + semestral END + anual certificación
+      comp("FIRE-DET", "Detección (humo / calor) y Paro Remoto", {
+        rep: [["DET-HUM-OEM", "Detector de Humo", "oem"], ["DET-CAL-OEM", "Detector de Calor", "oem"]],
+        pm: [["Prueba de alarmas y paradas de seguridad", 1000]] }),
+      comp("FIRE-EXT", "Extintores Portátiles", {
+        rep: [["EXT-PQS-6", "Extintor PQS 6kg", "generico"], ["EXT-CO2-5", "Extintor CO₂ 5kg", "generico"]],
         pm: [
-          ["Inspección estructural de grúas y plumas", null, "semanal"],
-          ["Inspección de cables y eslingas de grúas", null, "mensual"],
-          ["Ensayo de discontinuidades (END) en soldaduras", null, "semestral"],
-          ["Certificación de carga de grúas", null, "anual"],
+          ["Control visual de extintores (ubicación, precinto, presión)", null, "mensual"],
+          ["Control reglamentario de extintores portátiles", null, "anual"],
         ] }),
     ],
   },
 
-  // ── Viveros y Manejo de Captura ─────────────────────────────────
+  // ── Achique y Sentinas ──────────────────────────────────────────
   {
-    cod: "CATCH", nom: "Viveros y Manejo de Captura", crit: "A", tipo: "sistema",
+    cod: "BILGE", nom: "Achique y Sentinas", crit: "A", tipo: "sistema",
+    hijos: [
+      comp("BILGE-BMP", "Bombas de Achique", {
+        rep: [["BMP-ACH-OEM", "Bomba de Achique (OEM)", "oem"], ["BMP-ACH-ALT", "Bomba de Achique Alternativa", "alternativo"], ["KIT-SEL-ACH", "Kit Sellos Bomba Achique", "generico"]],
+        pm: [["Prueba de alarmas y paradas de seguridad", 1000], ["Engrase / lubricación general", 1000]] }),
+      comp("BILGE-COL", "Colector y Válvulas de Sentina", {
+        rep: [["VLV-SEN-OEM", "Válvula de Sentina (OEM)", "oem"]],
+        pm: [["Inspección visual / por condición", 1000]] }),
+      comp("BILGE-ALM", "Alarmas de Nivel de Sentina", {
+        rep: [["SEN-NIV-OEM", "Sensor de Nivel de Sentina", "oem"]],
+        pm: [["Prueba de alarmas y paradas de seguridad", 500]] }),
+      comp("BILGE-EDU", "Eductor / Achique de Emergencia", { basico: false,
+        rep: [["EDU-OEM", "Eductor (OEM)", "oem"]],
+        pm: [["Inspección visual / por condición", 2000]] }),
+    ],
+  },
+
+  // ── Comunicaciones (GMDSS) ──────────────────────────────────────
+  {
+    cod: "COMM", nom: "Comunicaciones (GMDSS)", crit: "A", tipo: "sistema",
+    hijos: [
+      { cod: "COMM-VHF", nom: "VHF / DSC", crit: "A", tipo: "subsistema",
+        pm: [
+          ["Prueba de transmisión/recepción VHF/DSC", null, "semanal"],
+          ["Certificación GMDSS del equipo VHF", null, "anual"],
+        ] },
+      { cod: "COMM-MFHF", nom: "MF / HF", crit: "A", tipo: "subsistema",
+        pm: [
+          ["Prueba de transmisión/recepción MF/HF", null, "semanal"],
+          ["Certificación GMDSS del equipo MF/HF", null, "anual"],
+        ] },
+      { cod: "COMM-SAT", nom: "Inmarsat-C / Satelital", crit: "A", tipo: "subsistema",
+        pm: [
+          ["Prueba de enlace satelital (Inmarsat-C)", null, "mensual"],
+          ["Verificación de registro y certificación satelital", null, "anual"],
+        ] },
+      { cod: "COMM-VMS", nom: "VMS Satelital", crit: "A", tipo: "subsistema",
+        pm: [
+          ["Prueba de posición y reporte VMS", null, "mensual"],
+          ["Verificación de contrato/certificación VMS", null, "anual"],
+        ] },
+      comp("COMM-EPI", "EPIRB / Baliza de Emergencia", {
+        rep: [["BAT-EPIRB-OEM", "Batería EPIRB (OEM)", "oem"]],
+        pm: [
+          ["Autotest de EPIRB", null, "mensual"],
+          ["Verificación de caducidad de batería EPIRB", null, "semestral"],
+          ["Servicio y registro EPIRB (certificación)", null, "anual"],
+        ] }),
+      comp("COMM-SART", "SART / Radar Transponder", {
+        rep: [["BAT-SART-OEM", "Batería SART (OEM)", "oem"]],
+        pm: [
+          ["Autotest de SART", null, "mensual"],
+          ["Verificación de caducidad de batería SART", null, "semestral"],
+          ["Servicio y registro SART", null, "anual"],
+        ] }),
+      { cod: "COMM-NTX", nom: "NAVTEX", crit: "B", tipo: "subsistema",
+        pm: [
+          ["Verificar recepción de mensajes NAVTEX", null, "semanal"],
+          ["Inspección de antena y receptor NAVTEX", null, "anual"],
+        ] },
+    ],
+  },
+
+  // ── Navegación ──────────────────────────────────────────────────
+  {
+    cod: "NAV", nom: "Navegación", crit: "A", tipo: "sistema",
+    hijos: [
+      { cod: "NAV-GPS", nom: "GPS / Plotter", crit: "A", tipo: "subsistema",
+        pm: [
+          ["Verificar posición y alarmas del GPS/plotter", null, "semanal"],
+          ["Verificación de precisión del GPS", null, "anual"],
+        ] },
+      { cod: "NAV-RAD", nom: "Radar", crit: "A", tipo: "subsistema",
+        pm: [
+          ["Inspección visual del radar (antena y display)", null, "mensual"],
+          ["Prueba de alcance y claridad del radar", null, "semestral"],
+        ] },
+      { cod: "NAV-SON", nom: "Sonda / Ecosonda", crit: "A", tipo: "subsistema",
+        pm: [
+          ["Verificar lectura de profundidad y fondo", null, "semanal"],
+          ["Calibración / limpieza del transductor", null, "semestral"],
+        ] },
+      { cod: "NAV-GIR", nom: "Girocompás / Compás", crit: "A", tipo: "subsistema",
+        pm: [
+          ["Verificar rumbo magnético vs girocompás", null, "mensual"],
+          ["Calibración de girocompás / compás", null, "anual"],
+        ] },
+      { cod: "NAV-AIS", nom: "AIS", crit: "A", tipo: "subsistema",
+        pm: [
+          ["Prueba de transmisión AIS (Class A/B)", null, "semanal"],
+          ["Verificación de datos AIS (MMSI, posición)", null, "semestral"],
+        ] },
+      { cod: "NAV-PIL", nom: "Piloto Automático", crit: "B", tipo: "subsistema",
+        pm: [
+          ["Prueba operacional del piloto automático", null, "mensual"],
+          ["Calibración del piloto automático", null, "anual"],
+        ] },
+    ],
+  },
+
+  // ── Seguridad (Salvamento) ──────────────────────────────────────
+  {
+    cod: "SAF", nom: "Seguridad (Salvamento)", crit: "A", tipo: "sistema",
+    hijos: [
+      comp("SAF-BAL", "Balsa Salvavidas", {
+        rep: [["KIT-BAL-SRV", "Servicio Anual Balsa (kit)", "oem"]],
+        pm: [["Revisión de balsa salvavidas", null, "anual"]] }),
+      comp("SAF-CHA", "Chalecos y Trajes de Inmersión", {
+        rep: [["CHA-SV-GEN", "Chaleco Salvavidas", "generico"], ["TRA-INM-GEN", "Traje de Inmersión", "generico"]],
+        pm: [["Inspección visual / por condición", null, "semestral"]] }),
+      comp("SAF-ARO", "Aros Salvavidas y Señales", {
+        rep: [["ARO-SV-GEN", "Aro Salvavidas", "generico"], ["LUZ-ARO-GEN", "Luz/Rabiza de Aro", "generico"]],
+        pm: [["Inspección visual / por condición", null, "semestral"]] }),
+      comp("SAF-PIR", "Señales Pirotécnicas", { basico: false,
+        rep: [["PIR-KIT", "Set Pirotécnico (bengalas/cohetes)", "generico"]],
+        pm: [["Inspección visual / por condición", null, "anual"]] }),
+      comp("SAF-BOT", "Botiquín / Primeros Auxilios", {
+        rep: [["BOT-1AUX", "Botiquín Náutico (recarga)", "generico"]],
+        pm: [["Inspección visual / por condición", null, "anual"]] }),
+    ],
+  },
+
+  // ── Manejo de Captura ────────────────────────────────────────────
+  {
+    cod: "CATCH", nom: "Manejo de Captura", crit: "A", tipo: "sistema",
     hijos: [
       comp("CATCH-VIV", "Estanques / Viveros (centolla viva)", { basico: false,
         rep: [["JD-VIV-GEN", "Juntas/Sellos de Estanque", "generico"]],
@@ -1231,133 +1248,47 @@ export const PLANTILLA_PESQUERA = [
     ],
   },
 
-  // ── Navegación ──────────────────────────────────────────────────
+  // ── Equipos de Pesca (SFI 651-653) ─────────────────────────────
   {
-    cod: "NAV", nom: "Navegación", crit: "A", tipo: "sistema",
+    cod: "FISH", nom: "Equipo de Pesca (Trampas / Centolla)", crit: "A", tipo: "sistema",
     hijos: [
-      { cod: "NAV-GPS", nom: "GPS / Plotter", crit: "A", tipo: "subsistema",
+      // SFI 651 — Winches de Pesca
+      comp("FISH-VIR", "Virador de Trampas (Pot Hauler)", {
+        rep: [["VIR-OEM", "Virador Hidráulico (OEM)", "oem"], ["MOT-VIR-OEM", "Motor Hidráulico Virador", "oem"], ["KIT-SEL-VIR", "Kit Sellos Virador", "generico"]],
+        // SFI 651: diario nivel + semanal lubricación + mensual frenos + 1000H aceite + 2000H engranajes + 4000H overhaul frenos
         pm: [
-          ["Verificar posición y alarmas del GPS/plotter", null, "semanal"],
-          ["Verificación de precisión del GPS", null, "anual"],
-        ] },
-      { cod: "NAV-RAD", nom: "Radar", crit: "A", tipo: "subsistema",
-        pm: [
-          ["Inspección visual del radar (antena y display)", null, "mensual"],
-          ["Prueba de alcance y claridad del radar", null, "semestral"],
-        ] },
-      { cod: "NAV-SON", nom: "Sonda / Ecosonda", crit: "A", tipo: "subsistema",
-        pm: [
-          ["Verificar lectura de profundidad y fondo", null, "semanal"],
-          ["Calibración / limpieza del transductor", null, "semestral"],
-        ] },
-      { cod: "NAV-GIR", nom: "Girocompás / Compás", crit: "A", tipo: "subsistema",
-        pm: [
-          ["Verificar rumbo magnético vs girocompás", null, "mensual"],
-          ["Calibración de girocompás / compás", null, "anual"],
-        ] },
-      { cod: "NAV-AIS", nom: "AIS", crit: "A", tipo: "subsistema",
-        pm: [
-          ["Prueba de transmisión AIS (Class A/B)", null, "semanal"],
-          ["Verificación de datos AIS (MMSI, posición)", null, "semestral"],
-        ] },
-      { cod: "NAV-PIL", nom: "Piloto Automático", crit: "B", tipo: "subsistema",
-        pm: [
-          ["Prueba operacional del piloto automático", null, "mensual"],
-          ["Calibración del piloto automático", null, "anual"],
-        ] },
-    ],
-  },
-
-  // ── Comunicaciones (GMDSS) ──────────────────────────────────────
-  {
-    cod: "COMM", nom: "Comunicaciones (GMDSS)", crit: "A", tipo: "sistema",
-    hijos: [
-      { cod: "COMM-VHF", nom: "VHF / DSC", crit: "A", tipo: "subsistema",
-        pm: [
-          ["Prueba de transmisión/recepción VHF/DSC", null, "semanal"],
-          ["Certificación GMDSS del equipo VHF", null, "anual"],
-        ] },
-      { cod: "COMM-MFHF", nom: "MF / HF", crit: "A", tipo: "subsistema",
-        pm: [
-          ["Prueba de transmisión/recepción MF/HF", null, "semanal"],
-          ["Certificación GMDSS del equipo MF/HF", null, "anual"],
-        ] },
-      { cod: "COMM-SAT", nom: "Inmarsat-C / Satelital", crit: "A", tipo: "subsistema",
-        pm: [
-          ["Prueba de enlace satelital (Inmarsat-C)", null, "mensual"],
-          ["Verificación de registro y certificación satelital", null, "anual"],
-        ] },
-      { cod: "COMM-VMS", nom: "VMS Satelital", crit: "A", tipo: "subsistema",
-        pm: [
-          ["Prueba de posición y reporte VMS", null, "mensual"],
-          ["Verificación de contrato/certificación VMS", null, "anual"],
-        ] },
-      comp("COMM-EPI", "EPIRB / Baliza de Emergencia", {
-        rep: [["BAT-EPIRB-OEM", "Batería EPIRB (OEM)", "oem"]],
-        pm: [
-          ["Autotest de EPIRB", null, "mensual"],
-          ["Verificación de caducidad de batería EPIRB", null, "semestral"],
-          ["Servicio y registro EPIRB (certificación)", null, "anual"],
+          ["Verificar nivel de aceite en cárter", null, "diario"],
+          ["Lubricación de cables de pesca", null, "semanal"],
+          ["Inspección de frenos de winches", null, "mensual"],
+          ["Cambio de aceite en reductores de winche", 1000],
+          ["Revisión de winche / power block", 1000],
+          ["Inspección de engranajes del winche", 2000],
+          ["Overhaul de frenos hidráulicos del winche", 4000],
+          ["Engrase / lubricación general", 500],
         ] }),
-      comp("COMM-SART", "SART / Radar Transponder", {
-        rep: [["BAT-SART-OEM", "Batería SART (OEM)", "oem"]],
-        pm: [
-          ["Autotest de SART", null, "mensual"],
-          ["Verificación de caducidad de batería SART", null, "semestral"],
-          ["Servicio y registro SART", null, "anual"],
-        ] }),
-      { cod: "COMM-NTX", nom: "NAVTEX", crit: "B", tipo: "subsistema",
-        pm: [
-          ["Verificar recepción de mensajes NAVTEX", null, "semanal"],
-          ["Inspección de antena y receptor NAVTEX", null, "anual"],
-        ] },
-    ],
-  },
-
-  // ── Contraincendios ─────────────────────────────────────────────
-  {
-    cod: "FIRE", nom: "Contraincendios", crit: "A", tipo: "sistema",
-    hijos: [
-      comp("FIRE-BMP", "Bomba Contraincendios Principal", { basico: false,
-        rep: [["BMP-CI-OEM", "Bomba CI (OEM)", "oem"], ["KIT-SEL-CI", "Kit Sellos Bomba CI", "generico"]],
-        pm: [["Prueba de alarmas y paradas de seguridad", 1000], ["Engrase / lubricación general", 2000]] }),
-      comp("FIRE-EMG", "Bomba CI de Emergencia", { basico: false,
-        rep: [["BMP-CI-EMG-OEM", "Bomba CI Emergencia (OEM)", "oem"]],
-        pm: [["Prueba de alarmas y paradas de seguridad", 1000]] }),
-      comp("FIRE-RED", "Colector, Hidrantes y Mangueras", {
-        rep: [["MNG-CI-GEN", "Manguera CI 1½\" (rollo)", "generico"], ["BOQ-CI-GEN", "Boquilla/Lanza CI", "generico"]],
-        pm: [["Inspección visual / por condición", 500]] }),
-      comp("FIRE-FIJ", "Sistema Fijo Sala de Máquinas (CO₂ / espuma)", { basico: false,
-        rep: [["KIT-CO2-OEM", "Botellón CO₂ / carga", "oem"]],
-        pm: [["Inspección visual / por condición", 2000]] }),
-      comp("FIRE-DET", "Detección (humo / calor) y Paro Remoto", {
-        rep: [["DET-HUM-OEM", "Detector de Humo", "oem"], ["DET-CAL-OEM", "Detector de Calor", "oem"]],
-        pm: [["Prueba de alarmas y paradas de seguridad", 1000]] }),
-      comp("FIRE-EXT", "Extintores Portátiles", {
-        rep: [["EXT-PQS-6", "Extintor PQS 6kg", "generico"], ["EXT-CO2-5", "Extintor CO₂ 5kg", "generico"]],
-        pm: [
-          ["Control visual de extintores (ubicación, precinto, presión)", null, "mensual"],
-          ["Control reglamentario de extintores portátiles", null, "anual"],
-        ] }),
-    ],
-  },
-
-  // ── Achique y Sentinas ──────────────────────────────────────────
-  {
-    cod: "BILGE", nom: "Achique y Sentinas", crit: "A", tipo: "sistema",
-    hijos: [
-      comp("BILGE-BMP", "Bombas de Achique", {
-        rep: [["BMP-ACH-OEM", "Bomba de Achique (OEM)", "oem"], ["BMP-ACH-ALT", "Bomba de Achique Alternativa", "alternativo"], ["KIT-SEL-ACH", "Kit Sellos Bomba Achique", "generico"]],
-        pm: [["Prueba de alarmas y paradas de seguridad", 1000], ["Engrase / lubricación general", 1000]] }),
-      comp("BILGE-COL", "Colector y Válvulas de Sentina", {
-        rep: [["VLV-SEN-OEM", "Válvula de Sentina (OEM)", "oem"]],
+      comp("FISH-LAN", "Lanzador / Rampa de Lanzamiento", {
+        rep: [["ROD-LAN-GEN", "Rodillos de Lanzamiento", "generico"]],
         pm: [["Inspección visual / por condición", 1000]] }),
-      comp("BILGE-ALM", "Alarmas de Nivel de Sentina", {
-        rep: [["SEN-NIV-OEM", "Sensor de Nivel de Sentina", "oem"]],
-        pm: [["Prueba de alarmas y paradas de seguridad", 500]] }),
-      comp("BILGE-EDU", "Eductor / Achique de Emergencia", { basico: false,
-        rep: [["EDU-OEM", "Eductor (OEM)", "oem"]],
+      comp("FISH-PAS", "Pasacabos / Enrollador de Línea", {
+        rep: [["PAS-OEM", "Pasacabos (OEM)", "oem"]],
+        pm: [["Engrase / lubricación general", 1000]] }),
+      comp("FISH-TRA", "Trampas / Nasas", { basico: false,
+        rep: [["TRA-CENT", "Trampa de Centolla (estándar)", "generico"], ["RED-TRA", "Paño/Red de Trampa (repuesto)", "generico"]] }),
+      comp("FISH-LIN", "Boyas, Líneas y Orinques", {
+        rep: [["BOYA-GEN", "Boya de Señalización", "generico"], ["LIN-GROUND", "Línea madre / orinque (rollo)", "generico"]],
+        pm: [["Inspección visual / por condición", 500]] }),
+      comp("FISH-CAR", "Pañol / Cámara de Carnada", { basico: false,
         pm: [["Inspección visual / por condición", 2000]] }),
+      // SFI 653 — Grúas y Plumas
+      comp("FISH-GRU", "Pluma / Davit de Izado", { basico: false,
+        rep: [["KIT-SEL-GRU", "Kit Sellos Cilindro Pluma", "generico"]],
+        // SFI 653: semanal estructural + mensual cables + semestral END + anual certificación
+        pm: [
+          ["Inspección estructural de grúas y plumas", null, "semanal"],
+          ["Inspección de cables y eslingas de grúas", null, "mensual"],
+          ["Ensayo de discontinuidades (END) en soldaduras", null, "semestral"],
+          ["Certificación de carga de grúas", null, "anual"],
+        ] }),
     ],
   },
 
@@ -1379,41 +1310,57 @@ export const PLANTILLA_PESQUERA = [
     ],
   },
 
-  // ── Seguridad (Salvamento) ──────────────────────────────────────
+  // ── Sistema Eléctrico (SFI 622 Tablero) ────────────────────────
   {
-    cod: "SAF", nom: "Seguridad (Salvamento)", crit: "A", tipo: "sistema",
+    cod: "ELEC", nom: "Sistema Eléctrico", crit: "B", tipo: "sistema",
     hijos: [
-      comp("SAF-BAL", "Balsa Salvavidas", {
-        rep: [["KIT-BAL-SRV", "Servicio Anual Balsa (kit)", "oem"]],
-        pm: [["Revisión de balsa salvavidas", null, "anual"]] }),
-      comp("SAF-CHA", "Chalecos y Trajes de Inmersión", {
-        rep: [["CHA-SV-GEN", "Chaleco Salvavidas", "generico"], ["TRA-INM-GEN", "Traje de Inmersión", "generico"]],
-        pm: [["Inspección visual / por condición", null, "semestral"]] }),
-      comp("SAF-ARO", "Aros Salvavidas y Señales", {
-        rep: [["ARO-SV-GEN", "Aro Salvavidas", "generico"], ["LUZ-ARO-GEN", "Luz/Rabiza de Aro", "generico"]],
-        pm: [["Inspección visual / por condición", null, "semestral"]] }),
-      comp("SAF-PIR", "Señales Pirotécnicas", { basico: false,
-        rep: [["PIR-KIT", "Set Pirotécnico (bengalas/cohetes)", "generico"]],
-        pm: [["Inspección visual / por condición", null, "anual"]] }),
-      comp("SAF-BOT", "Botiquín / Primeros Auxilios", {
-        rep: [["BOT-1AUX", "Botiquín Náutico (recarga)", "generico"]],
-        pm: [["Inspección visual / por condición", null, "anual"]] }),
-    ],
-  },
-
-  // ── Ventilación y Climatización ─────────────────────────────────
-  {
-    cod: "HVAC", nom: "Ventilación y Climatización", crit: "B", tipo: "sistema",
-    hijos: [
-      comp("HVAC-SM", "Ventilación Sala de Máquinas", {
-        rep: [["VEN-SM-OEM", "Ventilador/Extractor Sala Máquinas", "oem"], ["COR-VEN-GEN", "Correa de Ventilador", "generico"]],
-        pm: [["Inspección visual / por condición", 1000]] }),
-      comp("HVAC-AC", "Aire Acondicionado de Acomodación", { basico: false,
-        rep: [["FLT-AC-GEN", "Filtros de A/C", "generico"], ["GAS-AC-GEN", "Carga de Refrigerante", "generico"]],
-        pm: [["Inspección visual / por condición", 2000]] }),
-      comp("HVAC-BOD", "Ventilación de Bodegas / Pañoles", {
-        rep: [["VEN-BOD-OEM", "Ventilador de Bodega", "oem"]],
-        pm: [["Inspección visual / por condición", 2000]] }),
+      // SFI 622 — Tablero Principal expandido con PM calendario
+      {
+        cod: "ELEC-TAB", nom: "Tablero Principal", crit: "B", tipo: "subsistema",
+        hijos: [
+          comp("ELEC-TAB-PNL", "Tablero e Interruptores Principales", { crit: "B",
+            rep: [["KIT-FUS-GEN", "Kit de Fusibles/Relés (repuesto)", "generico"]],
+            // SFI 622: mensual, trimestral, semestral, anual
+            pm: [
+              ["Limpieza interior de tablero eléctrico", null, "mensual"],
+              ["Torque de conexiones del tablero", null, "trimestral"],
+              ["Termografía del tablero principal", null, "semestral"],
+              ["Prueba de disparo de protecciones", null, "anual"],
+            ] }),
+        ],
+      },
+      { cod: "ELEC-INT", nom: "Interruptores",        crit: "B", tipo: "subsistema" },
+      { cod: "ELEC-BAT", nom: "Banco de Baterías",    crit: "B", tipo: "subsistema" },
+      { cod: "ELEC-CAB", nom: "Cables y Conductores", crit: "B", tipo: "subsistema" },
+      {
+        cod: "ELEC-ALU", nom: "Alumbrado y Luces de Navegación", crit: "A", tipo: "subsistema",
+        hijos: [
+          comp("ELEC-ALU-NAV", "Luces de Navegación (reglamentarias)", {
+            rep: [["LUZ-NAV-OEM", "Set Luces de Navegación (OEM)", "oem"], ["AMP-NAV-GEN", "Ampolletas/LED Náuticos", "generico"]],
+            pm: [
+              ["Prueba de luces reglamentarias de navegación", null, "semanal"],
+              ["Inspección de estanqueidad y cableado de luces", null, "semestral"],
+            ] }),
+          comp("ELEC-ALU-CUB", "Proyectores de Cubierta", {
+            rep: [["PROY-CUB-OEM", "Proyector de Cubierta (OEM)", "oem"]],
+            pm: [["Inspección visual / por condición", 2000]] }),
+          comp("ELEC-ALU-EMG", "Alumbrado de Emergencia", {
+            rep: [["LUZ-EMG-OEM", "Luminaria de Emergencia (OEM)", "oem"]],
+            pm: [["Prueba de alarmas y paradas de seguridad", 1000]] }),
+        ],
+      },
+      {
+        cod: "ELEC-MON", nom: "Monitoreo y Alarmas de Máquinas", crit: "A", tipo: "subsistema",
+        hijos: [
+          comp("ELEC-MON-PNL", "Panel de Alarmas y Monitoreo", { basico: false,
+            rep: [["PNL-ALM-OEM", "Panel de Alarmas (OEM)", "oem"]],
+            pm: [["Prueba de alarmas y paradas de seguridad", 1000]] }),
+          inst("ELEC-MON-SEN", "Sensores de Alarma (nivel, temp, presión)", {
+            param: PM_VIB,
+            rep: [["SEN-ALM-GEN", "Sensores de Alarma (kit)", "generico"]],
+            pm: [["Calibración de sensores / instrumentos", 4000]] }),
+        ],
+      },
     ],
   },
 
@@ -1440,21 +1387,6 @@ export const PLANTILLA_PESQUERA = [
             pm: [["Inspección visual / por condición", 1000]] }),
         ],
       },
-    ],
-  },
-
-  // ── Habitabilidad y Fonda ───────────────────────────────────────
-  {
-    cod: "HOTEL", nom: "Habitabilidad y Fonda", crit: "C", tipo: "sistema",
-    hijos: [
-      comp("HOTEL-COC", "Cocina / Equipos de Fonda", {
-        rep: [["RES-COC-GEN", "Resistencias/Quemadores Cocina", "generico"]],
-        pm: [["Inspección visual / por condición", 2000]] }),
-      comp("HOTEL-REF", "Refrigeración de Víveres (Provisión)", { basico: false,
-        rep: [["GAS-REF-GEN", "Carga Refrigerante Cámara Víveres", "generico"], ["FLT-REF-GEN", "Filtro Deshidratador", "generico"]],
-        pm: [["Inspección visual / por condición", 2000]] }),
-      comp("HOTEL-ACS", "Agua Caliente Sanitaria", { basico: false,
-        pm: [["Inspección visual / por condición", 4000]] }),
     ],
   },
 
@@ -1485,6 +1417,37 @@ export const PLANTILLA_PESQUERA = [
     ],
   },
 
+  // ── Ventilación y Climatización ─────────────────────────────────
+  {
+    cod: "HVAC", nom: "Ventilación y Climatización", crit: "B", tipo: "sistema",
+    hijos: [
+      comp("HVAC-SM", "Ventilación Sala de Máquinas", {
+        rep: [["VEN-SM-OEM", "Ventilador/Extractor Sala Máquinas", "oem"], ["COR-VEN-GEN", "Correa de Ventilador", "generico"]],
+        pm: [["Inspección visual / por condición", 1000]] }),
+      comp("HVAC-AC", "Aire Acondicionado de Acomodación", { basico: false,
+        rep: [["FLT-AC-GEN", "Filtros de A/C", "generico"], ["GAS-AC-GEN", "Carga de Refrigerante", "generico"]],
+        pm: [["Inspección visual / por condición", 2000]] }),
+      comp("HVAC-BOD", "Ventilación de Bodegas / Pañoles", {
+        rep: [["VEN-BOD-OEM", "Ventilador de Bodega", "oem"]],
+        pm: [["Inspección visual / por condición", 2000]] }),
+    ],
+  },
+
+  // ── Habitabilidad ───────────────────────────────────────────────
+  {
+    cod: "HOTEL", nom: "Habitabilidad", crit: "C", tipo: "sistema",
+    hijos: [
+      comp("HOTEL-COC", "Cocina / Equipos de Fonda", {
+        rep: [["RES-COC-GEN", "Resistencias/Quemadores Cocina", "generico"]],
+        pm: [["Inspección visual / por condición", 2000]] }),
+      comp("HOTEL-REF", "Refrigeración de Víveres (Provisión)", { basico: false,
+        rep: [["GAS-REF-GEN", "Carga Refrigerante Cámara Víveres", "generico"], ["FLT-REF-GEN", "Filtro Deshidratador", "generico"]],
+        pm: [["Inspección visual / por condición", 2000]] }),
+      comp("HOTEL-ACS", "Agua Caliente Sanitaria", { basico: false,
+        pm: [["Inspección visual / por condición", 4000]] }),
+    ],
+  },
+
   // ── Fondeo y Amarre ─────────────────────────────────────────────
   {
     cod: "ANCH", nom: "Fondeo y Amarre", crit: "B", tipo: "sistema",
@@ -1501,6 +1464,43 @@ export const PLANTILLA_PESQUERA = [
       comp("ANCH-BIT", "Bitas, Guías y Cabos", {
         rep: [["CABO-AMA-GEN", "Cabo de Amarre", "generico"]],
         pm: [["Inspección visual / por condición", 2000]] }),
+    ],
+  },
+
+  // ── Aire Comprimido (SFI 641) ───────────────────────────────────
+  {
+    cod: "AIR", nom: "Aire Comprimido", crit: "B", tipo: "sistema",
+    hijos: [
+      {
+        cod: "AIR-ARR", nom: "Aire de Arranque", crit: "B", tipo: "subsistema",
+        hijos: [
+          comp("AIR-ARR-CMP", "Compresor de Aire de Arranque", { basico: false,
+            rep: [["CMP-ARR-OEM", "Compresor Arranque (OEM)", "oem"], ["KIT-VLV-CMP", "Kit Válvulas Compresor", "generico"]],
+            // SFI 641: diario drenar + semanal válv seg + 500H aceite + 1000H válvulas + 4000H segmentos + 8000H overhaul
+            pm: [
+              ["Drenar condensados del compresor de arranque", null, "diario"],
+              ["Prueba de alarmas y paradas de seguridad", null, "semanal"],
+              ["Cambio de aceite de compresor de arranque", 500],
+              ["Inspección de válvulas de descarga del compresor", 1000],
+              ["Cambio de segmentos del compresor de arranque", 4000],
+              ["Overhaul completo de compresor de arranque", 8000],
+            ] }),
+          comp("AIR-ARR-BOT", "Botellas de Aire de Arranque", {
+            rep: [["VLV-BOT-OEM", "Válvula Botella de Aire", "oem"]],
+            pm: [["Inspección visual / por condición", 2000]] }),
+        ],
+      },
+      {
+        cod: "AIR-SRV", nom: "Aire de Servicio / Control", crit: "B", tipo: "subsistema",
+        hijos: [
+          comp("AIR-SRV-CMP", "Compresor de Servicio", { basico: false,
+            rep: [["CMP-SRV-OEM", "Compresor de Servicio (OEM)", "oem"]],
+            pm: [["Inspección visual / por condición", 2000]] }),
+          comp("AIR-SRV-SEC", "Secador / Filtro de Aire", {
+            rep: [["FLT-AIRE-SRV", "Filtro/Secador de Aire", "generico"]],
+            pm: [["Inspección visual / por condición", 1000]] }),
+        ],
+      },
     ],
   },
 ];
