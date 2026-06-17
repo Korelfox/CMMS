@@ -1,15 +1,19 @@
 import React, { useEffect, useState, useCallback, useRef, useMemo } from "react";
-import { Ship, Plus, Trash2, Download, AlertCircle, GitBranch, Layers, Cpu, Wrench, Box, Hash, Check, Package, FileText, Settings2, RefreshCw, Target, Compass, ListChecks } from "lucide-react";
+import { Ship, Plus, Trash2, Download, AlertCircle, GitBranch, Layers, Cpu, Wrench, Box, Hash, Check, Package, FileText, Settings2, RefreshCw, Target, Compass, ListChecks, List, Columns3, Table2, FolderTree, Search } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { fetchAll, insertRow, updateRow, deleteRow, logActivity } from "../lib/db";
-import { C, isAdmin, canOperate, estadoLabel, num, tint, shadow } from "../theme";
+import { C, isAdmin, canOperate, estadoLabel, estadoTone, num, tint, shadow } from "../theme";
 import { buildEquipoTree } from "../lib/equipTree";
 import { useArbolColapsable } from "../lib/arbolColapsable";
 import { PLANTILLA_PESQUERA, nodoIncluido, contarNodosPlantilla, contarRepuestosPlantilla, contarPlanesPMPlantilla, TIPO_NODO_META } from "../lib/plantillaPesquera";
 import { analizarBrechas } from "../lib/equipoBrechas";
+import { ordenarEquipos, kanbanEstadoKey } from "../lib/equiposKanban";
+import { useMediaQuery } from "../lib/useMediaQuery";
+import EquipoKanban from "./equipos/EquipoKanban";
+import EquipoQueuePanel from "./equipos/EquipoQueuePanel";
 
 import {
-  Card, primaryBtn, ghostBtn, exportBtn, inputStyle,
+  Card, primaryBtn, ghostBtn, exportBtn, inputStyle, thStyle, tdStyle,
   FilterBtn, Field, Empty, GuiaColapsable,
   ModuleShell, StatGrid, HeroStat, Toolbar, Section, EmptyState,
 } from "../ui";
@@ -39,6 +43,13 @@ const CRITICIDADES = [
 ];
 const ICONO_TIPO = { sistema: Layers, subsistema: GitBranch, componente: Wrench, instrumento: Cpu, equipo: Box };
 const MODO_KEY = "cmms-equipos-modo";
+const VISTA_KEY = "cmms-equipos-vista";
+const VISTA_TABLA_KEY = "cmms-equipos-vista-tabla";
+const VISTAS = [
+  { id: "cola", label: "Cola", icon: List },
+  { id: "kanban", label: "Kanban", icon: Columns3 },
+  { id: "tabla", label: "Tabla", icon: Table2 },
+];
 const MODOS = [
   { id: "explorar", label: "Explorar", icon: Compass },
   { id: "gestionar", label: "Gestionar", icon: ListChecks },
@@ -66,12 +77,17 @@ export default function Equipos() {
   const [busqueda,    setBusqueda]    = useState("");
   const [selectedId,  setSelectedId]  = useState(null);
   const [modo,        setModo]        = useState("gestionar");
+  const [vista,       setVista]       = useState("kanban");
+  const [vistaTabla,  setVistaTabla]  = useState("arbol");
+  const [fEstado,     setFEstado]     = useState("all");
   const [filtroBrecha, setFiltroBrecha] = useState(null);
   const [detailTab,   setDetailTab]   = useState("identidad");
   const modoInicializado = useRef(false);
   const { open } = useWindows();
   const handlersRef = useRef({});
   const arbolRef = useRef(null);
+  const isMobile = useMediaQuery("(max-width: 1024px)");
+  const isTabla = vista === "tabla";
 
   // Espeja el estado a la fuente viva que leen las ventanas (drill-down).
   useEffect(() => {
@@ -141,7 +157,24 @@ export default function Equipos() {
   }, [equipos, selectedId]);
 
   useEffect(() => {
-    if (!selectedId && listaVisible.length > 0) setSelectedId(listaVisible[0].id);
+    const savedV = localStorage.getItem(VISTA_KEY);
+    const savedTabla = localStorage.getItem(VISTA_TABLA_KEY);
+    if (savedV && VISTAS.some((v) => v.id === savedV)) setVista(savedV);
+    if (savedTabla && ["arbol", "plano"].includes(savedTabla)) setVistaTabla(savedTabla);
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem(VISTA_KEY, vista);
+    if (vista === "tabla") localStorage.setItem(VISTA_TABLA_KEY, vistaTabla);
+  }, [vista, vistaTabla]);
+
+  const scopeEquipos = useMemo(
+    () => (filtro === "all" ? equipos : equipos.filter((e) => e.embarcacion_id === filtro)),
+    [equipos, filtro],
+  );
+
+  useEffect(() => {
+    if (!selectedId && listaVisible.length > 0 && isTabla && vistaTabla === "arbol") setSelectedId(listaVisible[0].id);
   }, [filtro]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const esAgrupador = (e) => e.tipo_nodo === "sistema";
@@ -536,6 +569,28 @@ export default function Equipos() {
     return m;
   }, [kpis.analisis.items]);
 
+  const listaEnriquecida = useMemo(() => {
+    let list = scopeEquipos.map((equipo) => ({
+      equipo,
+      brecha: brechaPorEquipo.get(equipo.id) || null,
+      nReps: repsPorEquipo.get(equipo.id) || 0,
+    }));
+    if (busq) {
+      list = list.filter(({ equipo }) =>
+        equipo.sistema?.toLowerCase().includes(busq) ||
+        equipo.id_visible?.toLowerCase().includes(busq) ||
+        equipo.marca?.toLowerCase().includes(busq) ||
+        equipo.modelo?.toLowerCase().includes(busq),
+      );
+    }
+    if (fEstado !== "all") list = list.filter(({ equipo }) => kanbanEstadoKey(equipo) === fEstado);
+    return ordenarEquipos(list);
+  }, [scopeEquipos, brechaPorEquipo, repsPorEquipo, busq, fEstado]);
+
+  useEffect(() => {
+    if (!isTabla && !selectedId && listaEnriquecida.length > 0) setSelectedId(listaEnriquecida[0].equipo.id);
+  }, [vista, fEstado, busqueda, listaEnriquecida.length]); // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     if (loading || modoInicializado.current) return;
     modoInicializado.current = true;
@@ -550,12 +605,16 @@ export default function Equipos() {
 
   function irABrecha(equipoId, tab, tipoBrecha) {
     setSelectedId(equipoId);
+    setVista("tabla");
+    setVistaTabla("arbol");
     setModo("gestionar");
     setDetailTab(tab);
     if (tipoBrecha) setFiltroBrecha(tipoBrecha);
   }
 
   function abrirOptimizar(filtro = null) {
+    setVista("tabla");
+    setVistaTabla("arbol");
     setModo("optimizar");
     setFiltroBrecha(filtro);
   }
@@ -642,7 +701,7 @@ export default function Equipos() {
     <ModuleShell
       kicker="Taxonomía ISO 14224 · Jerarquía funcional"
       title="Registro de Equipos"
-      sub="Árbol ISO 14224: sistema → subsistema → componente → instrumento. Las horas alimentan Plan PM, criticidad y costos."
+      sub="Kanban por estado operacional · cola y detalle inline · árbol ISO 14224 en vista Tabla."
       error={error}
       onRetry={cargar}
       action={
@@ -671,18 +730,20 @@ export default function Equipos() {
             </>
           }
           right={
-            <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
-              {MODOS.map((m) => {
-                const Icon = m.icon;
-                return (
-                  <FilterBtn key={m.id} active={modo === m.id} onClick={() => setModo(m.id)}>
-                    <Icon size={14} style={{ display: "inline", verticalAlign: "middle", marginRight: 4 }} />
-                    {m.label}
-                    {m.id === "optimizar" && kpis.brechas > 0 && ` (${kpis.brechas})`}
-                  </FilterBtn>
-                );
-              })}
-            </div>
+            isTabla && vistaTabla === "arbol" ? (
+              <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                {MODOS.map((m) => {
+                  const Icon = m.icon;
+                  return (
+                    <FilterBtn key={m.id} active={modo === m.id} onClick={() => setModo(m.id)}>
+                      <Icon size={14} style={{ display: "inline", verticalAlign: "middle", marginRight: 4 }} />
+                      {m.label}
+                      {m.id === "optimizar" && kpis.brechas > 0 && ` (${kpis.brechas})`}
+                    </FilterBtn>
+                  );
+                })}
+              </div>
+            ) : null
           }
         />
       }
@@ -702,7 +763,7 @@ export default function Equipos() {
           { label: "Brechas abiertas", value: kpis.brechas, sub: "acciones pendientes", icon: AlertCircle, tone: kpis.brechas ? C.amber : C.green, onClick: () => abrirOptimizar() },
           { label: "Críticos (A)", value: kpis.criticos, sub: "prioridad máxima", icon: AlertCircle, tone: kpis.criticos ? C.red : C.green, onClick: () => abrirOptimizar() },
           { label: "Indisponibles", value: kpis.indisponibles, sub: "fuera de servicio", icon: Wrench, tone: kpis.indisponibles ? C.red : C.green, onClick: () => abrirOptimizar("critico_indisponible") },
-          { label: "Sin guardar", value: kpis.sinGuardar, sub: "cambios pendientes", icon: Check, tone: kpis.sinGuardar ? C.amber : C.green, onClick: () => setModo("gestionar") },
+          { label: "Sin guardar", value: kpis.sinGuardar, sub: "cambios pendientes", icon: Check, tone: kpis.sinGuardar ? C.amber : C.green, onClick: () => { setVista("tabla"); setVistaTabla("arbol"); setModo("gestionar"); } },
         ]}
       />
 
@@ -827,6 +888,122 @@ export default function Equipos() {
         </Section>
       )}
 
+      {equipos.length > 0 && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 16 }}>
+          <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+            <div style={{ position: "relative", flex: "1 1 240px", maxWidth: 320 }}>
+              <Search size={15} color={C.slate} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} />
+              <input value={busqueda} onChange={(e) => setBusqueda(e.target.value)} placeholder="Buscar equipo, ID, marca…"
+                style={{ ...inputStyle(), width: "100%", paddingLeft: 32, fontSize: 13 }} />
+            </div>
+            {VISTAS.map((v) => {
+              const Icon = v.icon;
+              return (
+                <FilterBtn key={v.id} active={vista === v.id} onClick={() => setVista(v.id)}>
+                  <Icon size={14} style={{ display: "inline", verticalAlign: "middle", marginRight: 4 }} />
+                  {v.label}
+                </FilterBtn>
+              );
+            })}
+            {isTabla && (
+              <>
+                <div style={{ width: 1, alignSelf: "stretch", background: C.line, margin: "0 4px" }} />
+                {[["arbol", "Por equipo", FolderTree], ["plano", "Plano", List]].map(([v, lbl, Ico]) => (
+                  <FilterBtn key={v} active={vistaTabla === v} onClick={() => setVistaTabla(v)}>
+                    <Ico size={14} style={{ display: "inline", verticalAlign: "middle", marginRight: 4 }} />
+                    {lbl}
+                  </FilterBtn>
+                ))}
+              </>
+            )}
+          </div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+            <span style={{ fontSize: 11, color: C.slate, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5 }}>Estado</span>
+            {[["all", "Todos", C.slate], ["fuera_servicio", "Fuera serv.", C.red], ["en_reparacion", "Reparación", C.steel], ["desgaste", "Desgaste", C.amber], ["operativo", "Operativo", C.green]].map(([v, lbl, tone]) => {
+              const n = v === "all" ? null : scopeEquipos.filter((e) => kanbanEstadoKey(e) === v).length;
+              return (
+                <FilterBtn key={v} active={fEstado === v} color={fEstado === v ? tone : undefined} onClick={() => setFEstado(v)}>
+                  {lbl}{n != null && n > 0 ? ` (${n})` : ""}
+                </FilterBtn>
+              );
+            })}
+            <span style={{ marginLeft: "auto", fontSize: 12, color: C.slate }}>{listaEnriquecida.length} de {scopeEquipos.length} equipos</span>
+          </div>
+        </div>
+      )}
+
+      {!isTabla ? (
+        <Section
+          title={vista === "kanban" ? "Tablero kanban" : "Cola y detalle"}
+          description={vista === "kanban" ? "Columnas por estado operacional · click en tarjeta para gestionar" : isMobile ? "Selecciona un equipo · detalle debajo" : "Cola a la izquierda · ficha del equipo a la derecha"}
+          padding={0}
+          style={{ marginBottom: 0 }}
+        >
+          <style>{`
+            .inv-split-container { display: grid; grid-template-columns: minmax(300px, 380px) 1fr; gap: 16px; align-items: start; padding: 16px; }
+            .inv-split-container.inv-split-stack { grid-template-columns: 1fr; }
+            .inv-kanban-with-detail { display: grid; grid-template-columns: 1fr; gap: 0; }
+            @media (min-width: 1025px) { .inv-kanban-with-detail.has-detail { grid-template-columns: 1fr minmax(360px, 420px); } }
+          `}</style>
+          {listaEnriquecida.length === 0 ? (
+            <EmptyState icon={Layers} title="Sin equipos en este filtro" description="Prueba otro filtro de estado o limpia la búsqueda." />
+          ) : vista === "kanban" ? (
+            <div className={`inv-kanban-with-detail${selectedId ? " has-detail" : ""}`}>
+              <EquipoKanban lista={listaEnriquecida} selectedId={selectedId} onSelect={setSelectedId} embName={embName} />
+              {selectedId && (
+                <div style={{ padding: 16, borderLeft: isMobile ? "none" : `1px solid ${C.foam}`, borderTop: isMobile ? `1px solid ${C.foam}` : "none", minHeight: 420 }}>
+                  <EquipoDetailPanel nodeId={selectedId} handlers={handlersRef.current} puedeOperar={puedeOperar} puedeBorrar={puedeBorrar} eqDirty={eqDirty} posInfo={posInfo} onSelectNode={setSelectedId} activeTab={detailTab} onTabChange={setDetailTab} embedded />
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className={`inv-split-container${isMobile ? " inv-split-stack" : ""}`}>
+              <EquipoQueuePanel lista={listaEnriquecida} selectedId={selectedId} onSelect={setSelectedId} busqueda={busqueda} setBusqueda={setBusqueda} embName={embName} panelHeight={isMobile ? "auto" : "calc(100vh - 320px)"} />
+              {(!isMobile || selectedId) && (
+                <EquipoDetailPanel nodeId={selectedId} handlers={handlersRef.current} puedeOperar={puedeOperar} puedeBorrar={puedeBorrar} eqDirty={eqDirty} posInfo={posInfo} onSelectNode={setSelectedId} activeTab={detailTab} onTabChange={setDetailTab} embedded />
+              )}
+            </div>
+          )}
+        </Section>
+      ) : vistaTabla === "plano" ? (
+        <Section title="Tabla completa" description="Listado plano · click en fila para ver detalle" padding={0}>
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 960 }}>
+              <thead><tr>
+                <th style={thStyle}>ID</th>
+                <th style={thStyle}>Equipo</th>
+                <th style={thStyle}>Embarcación</th>
+                <th style={thStyle}>Tipo</th>
+                <th style={thStyle}>Criticidad</th>
+                <th style={thStyle}>Estado</th>
+                <th style={{ ...thStyle, textAlign: "right" }}>Horas</th>
+                <th style={thStyle}>Brecha</th>
+              </tr></thead>
+              <tbody>
+                {listaEnriquecida.length === 0 ? (
+                  <tr><td colSpan={8}><Empty>Sin equipos para los filtros seleccionados.</Empty></td></tr>
+                ) : listaEnriquecida.map(({ equipo, brecha }) => (
+                  <tr key={equipo.id} onClick={() => setSelectedId(equipo.id)} style={{ cursor: "pointer", background: selectedId === equipo.id ? tint(C.sky, 8) : undefined }}>
+                    <td style={{ ...tdStyle, fontFamily: "monospace", fontWeight: 700, color: C.steel }}>{equipo.id_visible}</td>
+                    <td style={{ ...tdStyle, fontWeight: 700 }}>{equipo.sistema}</td>
+                    <td style={tdStyle}>{embName(equipo.embarcacion_id)}</td>
+                    <td style={tdStyle}>{equipo.tipo_nodo || "equipo"}</td>
+                    <td style={tdStyle}>{equipo.criticidad || "—"}</td>
+                    <td style={tdStyle}><Pill tone={estadoTone(equipo.estado || "operativo")}>{estadoLabel(equipo.estado || "operativo")}</Pill></td>
+                    <td style={{ ...tdStyle, textAlign: "right", fontFamily: "monospace" }}>{equipo.horometro !== "no" ? num(equipo.horas_actual || 0, 0) : "—"}</td>
+                    <td style={tdStyle}>{brecha ? <span style={{ color: brecha.tone === "red" ? C.red : C.amber, fontSize: 12, fontWeight: 600 }}>{brecha.label}</span> : "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {selectedId && (
+            <div style={{ padding: 16, borderTop: `1px solid ${C.foam}` }}>
+              <EquipoDetailPanel nodeId={selectedId} handlers={handlersRef.current} puedeOperar={puedeOperar} puedeBorrar={puedeBorrar} eqDirty={eqDirty} posInfo={posInfo} onSelectNode={setSelectedId} activeTab={detailTab} onTabChange={setDetailTab} embedded />
+            </div>
+          )}
+        </Section>
+      ) : (
       <Section
         title={modo === "optimizar" ? "Árbol y cola de brechas" : modo === "explorar" ? "Árbol y exploración" : "Árbol y gestión"}
         description={
@@ -897,7 +1074,6 @@ export default function Equipos() {
               esAgrupador={esAgrupador}
               onColapsarTodo={() => arbol.colapsarTodo(true)}
               onExpandirTodo={() => arbol.colapsarTodo(false)}
-              onPopOut={abrirEquipoWindow}
               onEliminar={eliminar}
               puedeBorrar={puedeBorrar}
               brechaPorEquipo={brechaPorEquipo}
@@ -934,6 +1110,7 @@ export default function Equipos() {
           </div>
         )}
       </Section>
+      )}
 
     </ModuleShell>
   );
