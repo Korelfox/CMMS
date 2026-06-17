@@ -3,6 +3,13 @@
 //  Todas las funciones son deterministas e inyectables para tests.
 // ============================================================
 
+export const RESPONSABLE_TIPOS = [
+  { value: "propio",     label: "Propio",     color: "#1c5c9b" },
+  { value: "astillero",  label: "Astillero",  color: "#7c3aed" },
+  { value: "tercero",    label: "Tercero",    color: "#d97706" },
+  { value: "inspeccion", label: "Inspección", color: "#0891b2" },
+];
+
 export const TIPOS_VARADA = [
   { value: "varada",        label: "Varada en dique",   tone: "indigo" },
   { value: "carena",        label: "Carena",             tone: "purple" },

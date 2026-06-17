@@ -2,14 +2,15 @@ import React, { useEffect, useState, useCallback, useMemo } from "react";
 import {
   Anchor, Plus, ChevronLeft, Wrench, Layers, CalendarRange,
   CheckCircle2, Clock, XCircle, AlertCircle, Download, Pencil, Trash2,
-  Flag, ClipboardList, CheckSquare,
+  Flag, ClipboardList, CheckSquare, BookOpen,
 } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { fetchAll, insertRow, updateRow, deleteRow } from "../lib/db";
+import { supabase } from "../lib/supabase";
 import { folioOT } from "../lib/ot";
 import { scoreBacklog } from "../lib/operacional";
 import {
-  TIPOS_VARADA, ESTADOS_VARADA, ESTADOS_TRABAJO,
+  TIPOS_VARADA, ESTADOS_VARADA, ESTADOS_TRABAJO, RESPONSABLE_TIPOS,
   calcularProgreso, hhTotalesVarada, costoTotalVarada,
   duracionVarada, estadoVaradaTone, desvioPrespuesto,
   resumenPorSistema, trabajosBloqueantes,
@@ -625,7 +626,15 @@ function FilaTrabajo({ trabajo: t, onEstado, onEliminar, onCriticoZarpe, onCrear
         <div style={{ fontSize: 13, fontWeight: 600, color: t.estado === "cancelado" ? C.slate : C.ink, textDecoration: t.estado === "cancelado" ? "line-through" : "none" }}>
           {t.descripcion}
         </div>
-        <div style={{ display: "flex", gap: 8, marginTop: 2, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: 8, marginTop: 2, flexWrap: "wrap", alignItems: "center" }}>
+          {t.responsable_tipo && (() => {
+            const rt = RESPONSABLE_TIPOS.find((r) => r.value === t.responsable_tipo);
+            return rt ? (
+              <span style={{ fontSize: 10.5, padding: "1px 7px", borderRadius: 4, background: rt.color + "22", color: rt.color, fontWeight: 600 }}>
+                {rt.label}
+              </span>
+            ) : null;
+          })()}
           {t.responsable && <span style={{ fontSize: 11.5, color: C.slate }}>{t.responsable}</span>}
           {t.horas_estimadas > 0 && <span style={{ fontSize: 11.5, color: C.slate }}>{num(t.horas_estimadas, 1)}h</span>}
           {t.ot_id && <Pill tone="cyan">OT vinculada</Pill>}
@@ -662,36 +671,251 @@ function FilaTrabajo({ trabajo: t, onEstado, onEliminar, onCriticoZarpe, onCrear
   );
 }
 
+// ── Modal: Crear varada desde plantilla ─────────────────────────────────────
+function ModalPlantilla({ plantillas, plantillaItemsMap, embarcaciones, onCrear, onClose }) {
+  const [paso, setPaso]         = useState("seleccionar");
+  const [plantillaId, setPlantillaId] = useState(null);
+  const [form, setForm]         = useState({ nombre: "", embarcacion_id: "", fecha_inicio: "", fecha_fin_estimada: "", presupuesto: "" });
+  const [guardando, setGuardando] = useState(false);
+
+  const plantilla  = plantillas.find((p) => p.id === plantillaId);
+  const items      = plantillaId ? (plantillaItemsMap.get(plantillaId) || []) : [];
+  const totalHH    = items.reduce((s, it) => s + (Number(it.horas_estimadas) || 0), 0);
+  const criticos   = items.filter((it) => it.critico_zarpe).length;
+
+  const sistemaResumen = useMemo(() => {
+    const map = new Map();
+    for (const it of items) {
+      const key = it.sistema || "Sin sistema";
+      if (!map.has(key)) map.set(key, { count: 0, hh: 0 });
+      const s = map.get(key); s.count++; s.hh += Number(it.horas_estimadas) || 0;
+    }
+    return [...map.entries()].map(([sistema, { count, hh }]) => ({ sistema, count, hh }));
+  }, [items]);
+
+  function elegir(p) {
+    setPlantillaId(p.id);
+    const mes = new Date().toISOString().slice(0, 7);
+    setForm({ nombre: `${p.nombre} · ${mes}`, embarcacion_id: "", fecha_inicio: "", fecha_fin_estimada: "", presupuesto: "" });
+    setPaso("configurar");
+  }
+
+  async function confirmar(e) {
+    e.preventDefault();
+    if (!form.nombre?.trim() || !plantillaId) return;
+    setGuardando(true);
+    try { await onCrear(plantillaId, form); }
+    catch (err) { alert("Error al crear varada: " + err.message); }
+    finally { setGuardando(false); }
+  }
+
+  const globales = plantillas.filter((p) => !p.empresa_id);
+  const propias  = plantillas.filter((p) => !!p.empresa_id);
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(6,24,46,.55)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+      <div style={{ background: C.surface, borderRadius: 16, width: "100%", maxWidth: paso === "seleccionar" ? 780 : 900, maxHeight: "90vh", display: "flex", flexDirection: "column", boxShadow: "0 20px 60px rgba(0,0,0,.25)" }}>
+
+        {/* Header */}
+        <div style={{ padding: "20px 24px 16px", borderBottom: `1px solid ${C.line}`, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div>
+            <div style={{ ...archivo, fontSize: 17, fontWeight: 800, color: C.abyss }}>
+              {paso === "seleccionar" ? "Elegir plantilla de varada" : plantilla?.nombre}
+            </div>
+            <div style={{ fontSize: 12.5, color: C.slate, marginTop: 3 }}>
+              {paso === "seleccionar"
+                ? "La plantilla pre-carga el alcance completo de trabajos. Puedes modificarlos después."
+                : `${items.length} trabajos · ${num(totalHH, 0)} HH estimadas · ${criticos} críticos zarpe`}
+            </div>
+          </div>
+          <button onClick={onClose} style={{ ...ghostBtn, padding: "6px 12px" }}>Cancelar</button>
+        </div>
+
+        {/* Body */}
+        <div style={{ flex: 1, overflowY: "auto", padding: "16px 24px" }}>
+          {paso === "seleccionar" ? (
+            <div>
+              {globales.length > 0 && (
+                <>
+                  <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: 1.5, color: C.slate, textTransform: "uppercase", marginBottom: 10 }}>
+                    Plantillas incluidas en el sistema
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 12, marginBottom: 20 }}>
+                    {globales.map((p) => <TarjetaPlantilla key={p.id} p={p} plantillaItemsMap={plantillaItemsMap} onClick={() => elegir(p)} />)}
+                  </div>
+                </>
+              )}
+              {propias.length > 0 && (
+                <>
+                  <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: 1.5, color: C.slate, textTransform: "uppercase", marginBottom: 10 }}>
+                    Mis plantillas
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 12 }}>
+                    {propias.map((p) => <TarjetaPlantilla key={p.id} p={p} plantillaItemsMap={plantillaItemsMap} onClick={() => elegir(p)} />)}
+                  </div>
+                </>
+              )}
+              {plantillas.length === 0 && (
+                <div style={{ textAlign: "center", padding: 48, color: C.slate }}>No hay plantillas disponibles.</div>
+              )}
+            </div>
+          ) : (
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 28, alignItems: "start" }}>
+              {/* Form */}
+              <form id="form-desde-plantilla" onSubmit={confirmar}>
+                <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                  <div>
+                    <label style={labelSt}>Nombre de la varada *</label>
+                    <input required style={inputStyle()} value={form.nombre}
+                      onChange={(e) => setForm((f) => ({ ...f, nombre: e.target.value }))} />
+                  </div>
+                  <div>
+                    <label style={labelSt}>Nave</label>
+                    <select style={inputStyle()} value={form.embarcacion_id}
+                      onChange={(e) => setForm((f) => ({ ...f, embarcacion_id: e.target.value }))}>
+                      <option value="">Seleccionar nave…</option>
+                      {embarcaciones.map((v) => <option key={v.id} value={v.id}>{v.nombre}</option>)}
+                    </select>
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                    <div>
+                      <label style={labelSt}>Fecha inicio</label>
+                      <input type="date" style={inputStyle()} value={form.fecha_inicio}
+                        onChange={(e) => setForm((f) => ({ ...f, fecha_inicio: e.target.value }))} />
+                    </div>
+                    <div>
+                      <label style={labelSt}>Fin estimado</label>
+                      <input type="date" style={inputStyle()} value={form.fecha_fin_estimada}
+                        onChange={(e) => setForm((f) => ({ ...f, fecha_fin_estimada: e.target.value }))} />
+                    </div>
+                  </div>
+                  <div>
+                    <label style={labelSt}>Presupuesto (CLP)</label>
+                    <input type="number" min={0} style={inputStyle()} value={form.presupuesto}
+                      onChange={(e) => setForm((f) => ({ ...f, presupuesto: e.target.value }))} />
+                  </div>
+                </div>
+              </form>
+
+              {/* Resumen de alcance */}
+              <div>
+                <div style={{ fontSize: 12, fontWeight: 700, color: C.abyss, marginBottom: 10 }}>Alcance que se importará</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 5, marginBottom: 12 }}>
+                  {sistemaResumen.map(({ sistema, count, hh }) => (
+                    <div key={sistema} style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 10px", background: C.surface2, borderRadius: 8 }}>
+                      <div style={{ flex: 1, fontSize: 12.5, color: C.ink, fontWeight: 600 }}>{sistema}</div>
+                      <span style={{ fontSize: 11.5, color: C.slate }}>{count} trabajos</span>
+                      {hh > 0 && <span style={{ fontSize: 11.5, color: C.steel, fontWeight: 600 }}>{num(hh, 0)}h</span>}
+                    </div>
+                  ))}
+                </div>
+                {criticos > 0 && (
+                  <div style={{ fontSize: 12, color: C.red, display: "flex", alignItems: "center", gap: 6 }}>
+                    <Flag size={12} color={C.red} /> {criticos} trabajo{criticos !== 1 ? "s" : ""} crítico{criticos !== 1 ? "s" : ""} para zarpe
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div style={{ padding: "14px 24px", borderTop: `1px solid ${C.line}`, display: "flex", alignItems: "center", gap: 10 }}>
+          {paso === "configurar" && (
+            <button onClick={() => setPaso("seleccionar")}
+              style={{ ...ghostBtn, display: "inline-flex", alignItems: "center", gap: 5 }}>
+              <ChevronLeft size={13} /> Cambiar plantilla
+            </button>
+          )}
+          <div style={{ flex: 1 }} />
+          <button onClick={onClose} style={ghostBtn}>Cancelar</button>
+          {paso === "configurar" && (
+            <button type="submit" form="form-desde-plantilla"
+              disabled={guardando || !form.nombre?.trim()}
+              style={{ ...primaryBtn, opacity: !form.nombre?.trim() || guardando ? 0.45 : 1 }}>
+              {guardando ? "Creando…" : `Crear varada · ${items.length} trabajos`}
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TarjetaPlantilla({ p, plantillaItemsMap, onClick }) {
+  const items       = plantillaItemsMap.get(p.id) || [];
+  const totalHH     = items.reduce((s, it) => s + (Number(it.horas_estimadas) || 0), 0);
+  const tipoInfo    = TIPOS_VARADA.find((t) => t.value === p.tipo);
+  const sistemasCnt = new Set(items.map((it) => it.sistema).filter(Boolean)).size;
+  return (
+    <div onClick={onClick}
+      style={{ padding: 16, borderRadius: 12, border: `1.5px solid ${C.line}`, background: C.surface, cursor: "pointer", transition: "border-color .15s, box-shadow .15s" }}
+      onMouseEnter={(e) => { e.currentTarget.style.borderColor = C.cyan; e.currentTarget.style.boxShadow = `0 2px 14px rgba(8,145,178,.15)`; }}
+      onMouseLeave={(e) => { e.currentTarget.style.borderColor = C.line; e.currentTarget.style.boxShadow = ""; }}>
+      <div style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 8 }}>
+        <div style={{ flex: 1, ...archivo, fontSize: 14, fontWeight: 800, color: C.abyss, lineHeight: 1.3 }}>{p.nombre}</div>
+        {!p.empresa_id && <Pill tone="steel">Global</Pill>}
+      </div>
+      <div style={{ display: "flex", gap: 6, marginBottom: 8, flexWrap: "wrap" }}>
+        <Pill tone={tipoInfo?.tone || "slate"}>{tipoInfo?.label || p.tipo}</Pill>
+        {p.intervalo_meses && <Pill tone="steel">Cada {p.intervalo_meses} m</Pill>}
+      </div>
+      {p.descripcion && (
+        <div style={{ fontSize: 11.5, color: C.slate, marginBottom: 10, lineHeight: 1.5 }}>
+          {p.descripcion.slice(0, 110)}{p.descripcion.length > 110 ? "…" : ""}
+        </div>
+      )}
+      <div style={{ display: "flex", gap: 14, fontSize: 12 }}>
+        <span style={{ color: C.steel, fontWeight: 700 }}>{items.length} trabajos</span>
+        {totalHH > 0 && <span style={{ color: C.slate }}>{num(totalHH, 0)} HH est.</span>}
+        {sistemasCnt > 0 && <span style={{ color: C.slate }}>{sistemasCnt} sistemas</span>}
+      </div>
+    </div>
+  );
+}
+
 // ── Componente principal ─────────────────────────────────────────────────────
 export default function Varada({ onNavigate }) {
   const { profile } = useAuth();
   const empresaId   = profile?.empresa_id;
 
-  const [embarcaciones, setEmbarcaciones] = useState([]);
-  const [equipos, setEquipos]             = useState([]);
-  const [varadas, setVaradas]             = useState([]);
-  const [ots, setOts]                     = useState([]);
-  const [loading, setLoading]             = useState(true);
-  const [error, setError]                 = useState(null);
-  const [filtroEmb, setFiltroEmb]         = useState("all");
-  const [varadaActual, setVaradaActual]   = useState(null);
-  const [showForm, setShowForm]           = useState(false);
-  const [form, setForm]                   = useState(FORM_VACIO);
-  const [guardando, setGuardando]         = useState(false);
+  const [embarcaciones, setEmbarcaciones]     = useState([]);
+  const [equipos, setEquipos]                 = useState([]);
+  const [varadas, setVaradas]                 = useState([]);
+  const [ots, setOts]                         = useState([]);
+  const [loading, setLoading]                 = useState(true);
+  const [error, setError]                     = useState(null);
+  const [filtroEmb, setFiltroEmb]             = useState("all");
+  const [varadaActual, setVaradaActual]       = useState(null);
+  const [showForm, setShowForm]               = useState(false);
+  const [form, setForm]                       = useState(FORM_VACIO);
+  const [guardando, setGuardando]             = useState(false);
+  const [plantillas, setPlantillas]           = useState([]);
+  const [plantillaItemsMap, setPlantillaItemsMap] = useState(new Map());
+  const [showModalPlantilla, setShowModalPlantilla] = useState(false);
 
   const cargar = useCallback(async () => {
     setLoading(true); setError(null);
     try {
-      const [embs, eqs, vars, otsAll] = await Promise.all([
+      const [embs, eqs, vars, otsAll, pls, plItems] = await Promise.all([
         fetchAll("embarcaciones", { order: { col: "codigo", asc: true } }),
         fetchAll("equipos", { order: { col: "id_visible", asc: true } }),
         fetchAll("varadas", { order: { col: "created_at", asc: false } }),
         fetchAll("ordenes_trabajo"),
+        fetchAll("varada_plantillas").catch(() => []),
+        fetchAll("varada_plantilla_items", { order: { col: "orden", asc: true } }).catch(() => []),
       ]);
       setEmbarcaciones(embs);
       setEquipos(eqs);
       setVaradas(vars);
       setOts(otsAll);
+      setPlantillas(pls);
+      const mapItems = new Map();
+      for (const it of plItems) {
+        if (!mapItems.has(it.plantilla_id)) mapItems.set(it.plantilla_id, []);
+        mapItems.get(it.plantilla_id).push(it);
+      }
+      setPlantillaItemsMap(mapItems);
     } catch (e) { setError("No se pudo cargar el módulo. " + e.message); }
     finally { setLoading(false); }
   }, []);
@@ -725,6 +949,41 @@ export default function Varada({ onNavigate }) {
     finally { setGuardando(false); }
   }
 
+  // Crear varada desde plantilla + clonar ítems como varada_trabajos
+  async function crearDesdeDataPlantilla(plantillaId, varadaForm) {
+    const plantilla = plantillas.find((p) => p.id === plantillaId);
+    const nueva = await insertRow("varadas", empresaId, {
+      nombre: varadaForm.nombre.trim(),
+      tipo: plantilla?.tipo || "varada",
+      estado: "planificacion",
+      embarcacion_id: varadaForm.embarcacion_id || null,
+      fecha_inicio: varadaForm.fecha_inicio || null,
+      fecha_fin_estimada: varadaForm.fecha_fin_estimada || null,
+      presupuesto: varadaForm.presupuesto ? Number(varadaForm.presupuesto) : null,
+      plantilla_id: plantillaId,
+      created_by: profile?.id || null,
+    });
+    const items = plantillaItemsMap.get(plantillaId) || [];
+    if (items.length > 0) {
+      const rows = items.map((it, i) => ({
+        varada_id: nueva.id,
+        empresa_id: empresaId,
+        sistema: it.sistema || null,
+        descripcion: it.descripcion,
+        horas_estimadas: it.horas_estimadas ? Number(it.horas_estimadas) : null,
+        responsable_tipo: it.responsable_tipo || "propio",
+        critico_zarpe: it.critico_zarpe || false,
+        orden: it.orden ?? (i * 10),
+        estado: "pendiente",
+      }));
+      const { error: insErr } = await supabase.from("varada_trabajos").insert(rows);
+      if (insErr) throw insErr;
+    }
+    setVaradas((prev) => [nueva, ...prev]);
+    setShowModalPlantilla(false);
+    setVaradaActual(nueva);
+  }
+
   function actualizarVarada(actualizada) {
     setVaradas((prev) => prev.map((v) => v.id === actualizada.id ? actualizada : v));
     setVaradaActual(actualizada);
@@ -752,9 +1011,15 @@ export default function Varada({ onNavigate }) {
       <PageHead kicker="Mantenimiento · Parada Mayor" title="Varadas & Paradas"
         sub="Períodos planificados de mantenimiento intensivo: varadas en dique, carenas, paradas de puerto. Agrupa trabajos, controla avance físico y costos reales desde las OTs."
         action={
-          <button onClick={() => setShowForm((s) => !s)} style={{ ...primaryBtn }}>
-            <Plus size={14} /> Nueva varada
-          </button>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={() => setShowModalPlantilla(true)}
+              style={{ ...ghostBtn, display: "inline-flex", alignItems: "center", gap: 6 }}>
+              <BookOpen size={14} /> Desde plantilla
+            </button>
+            <button onClick={() => setShowForm((s) => !s)} style={{ ...primaryBtn }}>
+              <Plus size={14} /> Nueva varada
+            </button>
+          </div>
         }
       />
 
@@ -834,7 +1099,7 @@ export default function Varada({ onNavigate }) {
           <Empty>
             <Anchor size={32} color={C.steel} style={{ marginBottom: 10 }} />
             <br />No hay varadas registradas{filtroEmb !== "all" ? " para esta nave" : ""}.
-            <br /><span style={{ fontSize: 12, color: C.slate }}>Usa "Nueva varada" para planificar la próxima parada mayor.</span>
+            <br /><span style={{ fontSize: 12, color: C.slate }}>Usa "Desde plantilla" para crear la próxima parada con alcance pre-cargado.</span>
           </Empty>
         </Card>
       ) : (
@@ -845,6 +1110,17 @@ export default function Varada({ onNavigate }) {
               onNavigate={onNavigate} />
           ))}
         </div>
+      )}
+
+      {showModalPlantilla && (
+        <ModalPlantilla
+          plantillas={plantillas}
+          plantillaItemsMap={plantillaItemsMap}
+          embarcaciones={embarcaciones}
+          empresaId={empresaId}
+          onCrear={crearDesdeDataPlantilla}
+          onClose={() => setShowModalPlantilla(false)}
+        />
       )}
     </div>
   );
