@@ -1,7 +1,8 @@
 import React, { useMemo } from "react";
-import { Layers, GitBranch, Package, Clock, ChevronRight } from "lucide-react";
+import { Layers, GitBranch, Package, Clock, ChevronRight, Calendar } from "lucide-react";
 import { C, num } from "../../theme";
-import { TipoChip, CritBadge } from "./arbolUI";
+import { TipoChip, CritBadge, RegistroBadge } from "./arbolUI";
+import { requiereFechaInstalacionEquipo, tieneFechaInstalacion } from "../../lib/plantillaPesquera";
 import { useEquiposData } from "./equiposStore";
 
 export default function EquipoExplorePanel({ nodeId, repsPorEquipo, onGestionar, onSelectNode }) {
@@ -37,6 +38,7 @@ export default function EquipoExplorePanel({ nodeId, repsPorEquipo, onGestionar,
             <div style={{ fontSize: 17, fontWeight: 800, color: C.abyss }}>{node.sistema || "—"}</div>
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 4 }}>
               <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 12, color: C.slate }}>{node.id_visible}</span>
+              <RegistroBadge equipo={node} />
               <CritBadge crit={node.criticidad} />
             </div>
           </div>
@@ -51,6 +53,9 @@ export default function EquipoExplorePanel({ nodeId, repsPorEquipo, onGestionar,
           <Tile icon={GitBranch} label="Subequipos" value={hijos.length} />
           {!esAgrupador && node.horometro !== "no" && (
             <Tile icon={Clock} label="Horas" value={`${num(node.horas_actual || 0)} h`} />
+          )}
+          {!esAgrupador && requiereFechaInstalacionEquipo(node) && (
+            <Tile icon={Calendar} label="Instalación" value={tieneFechaInstalacion(node) ? node.ficha.fecha_instalacion : "Pendiente"} />
           )}
           {!esAgrupador && <Tile icon={Package} label="Repuestos" value={nReps} />}
         </div>

@@ -6,6 +6,8 @@ import {
   fichaInicialDesdeRegistro,
   datosOperacionalesDesdeNodo,
   collectFuentesPlantilla,
+  registroVidaEquipo,
+  registroVidaUi,
 } from "../src/lib/plantillaPesquera.js";
 
 const findDeep = (arr, cod) => {
@@ -91,5 +93,20 @@ describe("Registro de vida — plantilla pesquera", () => {
     expect(calendario(commVhf)).toBe(true);
     expect(calendario(strCas)).toBe(true);
     expect(findDeep(PLANTILLA_PESQUERA, "COMM-EPI").pm.some(([, , u]) => u === "anual")).toBe(true);
+  });
+
+  it("registroVidaEquipo resuelve desde ficha, horómetro o plantilla", () => {
+    expect(registroVidaEquipo({ ficha: { _registro: "fecha" }, horometro: "no" })).toBe("fecha");
+    expect(registroVidaEquipo({ horometro: "propio", id_visible: "BC01-PROP-MTR" })).toBe("horas");
+    expect(registroVidaEquipo({ horometro: "no", id_visible: "BC01-NAV-GPS" })).toBe("fecha");
+    expect(registroVidaEquipo({ horometro: "hereda", id_visible: "BC01-STEER-PWR", ficha: { _registro: "mixto" } })).toBe("mixto");
+    expect(registroVidaEquipo({ horometro: "hereda", id_visible: "BC01-PROP-MTR-LUB-FLT" })).toBe("hereda_horas");
+  });
+
+  it("registroVidaUi devuelve badge o null en sistemas", () => {
+    expect(registroVidaUi({ tipo_nodo: "sistema" })).toBeNull();
+    expect(registroVidaUi({ tipo_nodo: "componente", horometro: "no", id_visible: "BC01-NAV-GPS" })).toMatchObject({ label: "Instalación" });
+    expect(registroVidaUi({ tipo_nodo: "componente", horometro: "propio" })).toMatchObject({ label: "Horas" });
+    expect(registroVidaUi({ tipo_nodo: "componente", ficha: { _registro: "mixto" }, horometro: "hereda" })).toMatchObject({ label: "Mixto" });
   });
 });

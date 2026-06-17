@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useMemo } from "react";
 import {
   GitBranch, Wrench, Cpu, Plus, ChevronRight, ChevronUp, ChevronDown,
-  FileText, Settings2, Package, AlertCircle, Clock, Gauge, Layers,
+  FileText, Settings2, Package, AlertCircle, Clock, Gauge, Layers, Calendar,
 } from "lucide-react";
 import { C, tint, estadoLabel, estadoTone, ESTADOS_EQUIPO, num } from "../../theme";
 import { Pill, Empty } from "../../ui";
-import { TIPO_NODO_META } from "../../lib/plantillaPesquera";
-import { TipoChip, CritBadge, TIPO_NODOS, CRITICIDADES } from "./arbolUI";
+import { TIPO_NODO_META, requiereFechaInstalacionEquipo, tieneFechaInstalacion } from "../../lib/plantillaPesquera";
+import { TipoChip, CritBadge, RegistroBadge, TIPO_NODOS, CRITICIDADES } from "./arbolUI";
 import { useEquiposData } from "./equiposStore";
 import RepuestoPanel from "./RepuestoPanel";
 import { FichaBody } from "./FichaEquipo";
@@ -116,8 +116,11 @@ export default function EquipoDetailPanel({
   const fieldInput = { width: "100%", boxSizing: "border-box", border: `1px solid ${C.line}`, borderRadius: 8, background: C.surface, padding: "8px 10px", fontSize: 13, color: C.ink, outline: "none", fontFamily: "inherit" };
 
   const horasTile = node.horometro !== "no";
+  const faltaFechaFicha = requiereFechaInstalacionEquipo(node) && !tieneFechaInstalacion(node);
   const tiles = [
     horasTile && { label: node.horometro === "propio" ? "Horómetro propio" : "Horas (heredadas)", value: `${num(node.horas_actual || 0)} h`, icon: Clock },
+    requiereFechaInstalacionEquipo(node) && tieneFechaInstalacion(node) && { label: "Instalación", value: node.ficha.fecha_instalacion, icon: Calendar },
+    faltaFechaFicha && { label: "Instalación", value: "Pendiente", icon: Calendar },
     { label: "Subequipos", value: hijos.length, icon: GitBranch },
     esComponente && { label: "Repuestos", value: nReps, icon: Package },
     node.mtbf_objetivo != null && { label: "MTBF objetivo", value: `${num(node.mtbf_objetivo)} h`, icon: Gauge },
@@ -134,6 +137,7 @@ export default function EquipoDetailPanel({
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginTop: 4 }}>
               <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 12, color: C.slate }}>{node.id_visible}</span>
+              <RegistroBadge equipo={node} />
               <CritBadge crit={node.criticidad} />
               {!esAgrupador && node.estado && <Pill tone={estadoTone(node.estado)}>{estadoLabel(node.estado)}</Pill>}
               {eqDirty?.(node) && <Pill tone="yellow">Sin guardar</Pill>}
@@ -161,6 +165,7 @@ export default function EquipoDetailPanel({
           {tabsVisibles.map((t) => {
             const Icon = t.icon;
             const active = tab === t.id;
+            const tabAlerta = t.id === "ficha" && faltaFechaFicha;
             return (
               <button
                 key={t.id}
@@ -168,13 +173,14 @@ export default function EquipoDetailPanel({
                 onClick={() => setTab(t.id)}
                 style={{
                   display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 12px", borderRadius: 8,
-                  border: `1px solid ${active ? tint(C.sky, 40) : C.line}`,
-                  background: active ? tint(C.sky, 10) : C.surface,
-                  color: active ? C.sky : C.slate,
+                  border: `1px solid ${active ? tint(tabAlerta ? C.amber : C.sky, 40) : tabAlerta ? tint(C.amber, 35) : C.line}`,
+                  background: active ? tint(tabAlerta ? C.amber : C.sky, 10) : tabAlerta ? tint(C.amber, 6) : C.surface,
+                  color: active ? (tabAlerta ? C.amber : C.sky) : tabAlerta ? C.amber : C.slate,
                   fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit",
                 }}
               >
                 <Icon size={14} /> {t.label}
+                {tabAlerta && <span style={{ width: 6, height: 6, borderRadius: "50%", background: C.amber }} title="Falta fecha de instalación" />}
                 {t.id === "repuestos" && nReps > 0 && <span style={{ fontSize: 10.5, opacity: 0.85 }}>({nReps})</span>}
               </button>
             );

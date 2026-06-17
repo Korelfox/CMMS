@@ -1,8 +1,9 @@
 import React, { useState, useMemo } from "react";
-import { Save, CornerDownRight, Users, AlertTriangle } from "lucide-react";
+import { Save, CornerDownRight, Users, AlertTriangle, Calendar, FileText } from "lucide-react";
 import { C, tint, NIVEL_TIPOS } from "../../theme";
 import { useEquiposData } from "./equiposStore";
 import { puntoHorometro, idsBajoPunto } from "../../lib/horometro";
+import { registroVidaEquipo } from "../../lib/plantillaPesquera";
 
 // Cuerpo de "Configuración operacional" para una ventana del WindowManager.
 // La ventana aporta el marco; aquí va el contenido + pie de acciones.
@@ -51,6 +52,8 @@ function RadioCard({ label, desc, checked, onChange, color = C.steel }) {
 }
 
 export function PropOpBody({ node, onSave, onDone }) {
+  const registro = registroVidaEquipo(node);
+  const soloInstalacion = registro === "fecha";
   const [hor, setHor] = useState(node.horometro || "hereda");
   const [aco, setAco] = useState(!!node.consume_aceite);
   const [niv, setNiv] = useState(node.nivel_tipo || "ninguno");
@@ -101,6 +104,39 @@ export function PropOpBody({ node, onSave, onDone }) {
       {/* Cuerpo desplazable */}
       <div style={{ flex: 1, overflowY: "auto", padding: "18px 20px 4px" }}>
 
+        {registro === "mixto" && (
+          <div style={{
+            display: "flex", gap: 9, alignItems: "flex-start", marginBottom: 18, padding: "10px 12px",
+            borderRadius: 8, border: `1px solid ${tint(C.cyan, 35)}`, background: tint(C.cyan, 7),
+          }}>
+            <Calendar size={16} color={C.cyan} style={{ flexShrink: 0, marginTop: 2 }} />
+            <div style={{ fontSize: 12.5, color: C.slate, lineHeight: 1.5 }}>
+              <strong style={{ color: C.ink }}>Registro mixto.</strong> Horas vía horómetro y fecha de instalación en la pestaña <strong>Ficha</strong>.
+            </div>
+          </div>
+        )}
+
+        {soloInstalacion ? (
+          <div style={{
+            display: "flex", gap: 10, alignItems: "flex-start", padding: "12px 14px", borderRadius: 9,
+            border: `1px solid ${tint(C.purple, 30)}`, background: tint(C.purple, 6),
+          }}>
+            <FileText size={18} color={C.purple} style={{ flexShrink: 0, marginTop: 1 }} />
+            <div>
+              <div style={{ fontSize: 13.5, fontWeight: 700, color: C.ink, marginBottom: 4 }}>
+                Rastreo por fecha de instalación
+              </div>
+              <div style={{ fontSize: 12.5, color: C.slate, lineHeight: 1.55 }}>
+                Este equipo no usa horómetro (casco, navegación, estructura, certificaciones).
+                Completa la <strong>fecha de instalación</strong> en la pestaña Ficha → Instalación / Operación.
+              </div>
+              <div style={{ marginTop: 10, fontSize: 12, color: C.steel }}>
+                Horómetro: <strong>No aplica</strong>
+              </div>
+            </div>
+          </div>
+        ) : (
+        <>
         {/* ── Horómetro ── */}
         <div style={{ marginBottom: 22 }}>
           <div style={secLbl}>Horómetro</div>
@@ -215,6 +251,8 @@ export function PropOpBody({ node, onSave, onDone }) {
             </div>
           )}
         </div>
+        </>
+        )}
       </div>
 
       {/* ── Pie ── */}
@@ -223,8 +261,9 @@ export function PropOpBody({ node, onSave, onDone }) {
           padding: "8px 16px", borderRadius: 8, border: `1px solid ${C.line}`,
           background: C.surface, cursor: "pointer", fontSize: 13, color: C.slate, fontWeight: 600,
         }}>
-          Cancelar
+          {soloInstalacion ? "Cerrar" : "Cancelar"}
         </button>
+        {!soloInstalacion && (
         <button onClick={guardar} disabled={guardando} style={{
           padding: "8px 18px", borderRadius: 8, border: "none", background: C.steel,
           color: "#fff", cursor: guardando ? "default" : "pointer", fontSize: 13,
@@ -233,6 +272,7 @@ export function PropOpBody({ node, onSave, onDone }) {
         }}>
           <Save size={14} /> {guardando ? "Guardando…" : "Guardar cambios"}
         </button>
+        )}
       </div>
     </>
   );

@@ -7,7 +7,7 @@
 import React from "react";
 import { Layers, GitBranch, Wrench, Cpu, Box } from "lucide-react";
 import { C, tint } from "../../theme";
-import { TIPO_NODO_META } from "../../lib/plantillaPesquera";
+import { TIPO_NODO_META, registroVidaUi } from "../../lib/plantillaPesquera";
 
 export const TIPO_ICON = { sistema: Layers, subsistema: GitBranch, componente: Wrench, instrumento: Cpu, equipo: Box };
 export const tipoMeta = (t) => TIPO_NODO_META[t] || TIPO_NODO_META.equipo;
@@ -51,6 +51,23 @@ export function CritBadge({ crit }) {
       style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", minWidth: 18, padding: "1px 7px",
         borderRadius: 999, background: tint(col, 14), color: col, fontSize: 11, fontWeight: 700, flexShrink: 0 }}>
       {crit}
+    </span>
+  );
+}
+
+/** Insignia de registro de vida: Horas / Instalación / Mixto. */
+export function RegistroBadge({ equipo, compact = false }) {
+  const ui = registroVidaUi(equipo);
+  if (!ui) return null;
+  return (
+    <span title={`Registro: ${ui.label}`}
+      style={{
+        display: "inline-flex", alignItems: "center", justifyContent: "center",
+        padding: compact ? "1px 5px" : "1px 7px", borderRadius: 999,
+        background: tint(ui.color, 14), color: ui.color,
+        fontSize: compact ? 9.5 : 10.5, fontWeight: 700, flexShrink: 0, letterSpacing: 0.2,
+      }}>
+      {ui.label}
     </span>
   );
 }

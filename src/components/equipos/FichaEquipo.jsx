@@ -1,7 +1,10 @@
 import React, { useState } from "react";
-import { Plus, Trash2 } from "lucide-react";
-import { C } from "../../theme";
+import { Plus, Trash2, Calendar, AlertTriangle } from "lucide-react";
+import { C, tint } from "../../theme";
 import { primaryBtn, ghostBtn, inputStyle, Field } from "../../ui";
+import {
+  registroVidaEquipo, requiereFechaInstalacionEquipo, tieneFechaInstalacion,
+} from "../../lib/plantillaPesquera";
 
 // ── Plantilla de campos de la ficha técnica ──────────────────────────────
 // Secciones comunes a todo equipo/componente.
@@ -59,6 +62,9 @@ export function FichaBody({ node, puedeOperar, onSave, onDone }) {
   const [ficha, setFicha] = useState(() => ({ ...(node.ficha || {}) }));
   const [guardando, setGuardando] = useState(false);
   const secciones = [SECCIONES[0], seccionTecnicos(node.tipo_nodo), ...SECCIONES.slice(1)];
+  const registro = registroVidaEquipo(node);
+  const pideFecha = requiereFechaInstalacionEquipo(node);
+  const faltaFecha = pideFecha && !tieneFechaInstalacion({ ...node, ficha });
 
   const set = (k, v) => setFicha((f) => ({ ...f, [k]: v }));
   const custom = Array.isArray(ficha._custom) ? ficha._custom : [];
@@ -67,12 +73,12 @@ export function FichaBody({ node, puedeOperar, onSave, onDone }) {
   async function guardar() {
     setGuardando(true);
     try {
-      // Limpia campos vacíos para no engordar el JSON.
       const limpio = {};
       for (const [k, v] of Object.entries(ficha)) {
         if (k === "_custom") continue;
         if (v !== "" && v != null) limpio[k] = v;
       }
+      if (node.ficha?._registro && !limpio._registro) limpio._registro = node.ficha._registro;
       const cust = custom.filter((c) => c && (c.k || c.v));
       if (cust.length) limpio._custom = cust;
       await onSave(limpio);
@@ -80,20 +86,54 @@ export function FichaBody({ node, puedeOperar, onSave, onDone }) {
     } catch { setGuardando(false); }
   }
 
+  const renderCampo = (k, label, type) => {
+    const esInstalacion = k === "fecha_instalacion";
+    const requerido = esInstalacion && pideFecha;
+    const vacio = esInstalacion && !(ficha[k] ?? "").toString().trim();
+    const borde = requerido && vacio ? tint(C.amber, 45) : C.line;
+    const fondo = requerido && vacio ? tint(C.amber, 6) : undefined;
+    return (
+      <Field key={k} label={requerido ? `${label} *` : label}>
+        <input type={type || "text"} value={ficha[k] ?? ""} disabled={!puedeOperar}
+          onChange={(e) => set(k, e.target.value)}
+          style={{ ...inputStyle(), borderColor: borde, background: fondo }} />
+      </Field>
+    );
+  };
+
   return (
     <>
-      {/* Cuerpo desplazable */}
       <div style={{ flex: 1, overflowY: "auto", padding: "18px 22px" }}>
+        {(registro === "fecha" || registro === "mixto") && (
+          <div style={{
+            display: "flex", gap: 10, alignItems: "flex-start", marginBottom: 16, padding: "11px 13px",
+            borderRadius: 9, border: `1px solid ${faltaFecha ? tint(C.amber, 40) : tint(C.purple, 30)}`,
+            background: faltaFecha ? tint(C.amber, 7) : tint(C.purple, 6),
+          }}>
+            {faltaFecha
+              ? <AlertTriangle size={18} color={C.amber} style={{ flexShrink: 0, marginTop: 1 }} />
+              : <Calendar size={18} color={C.purple} style={{ flexShrink: 0, marginTop: 1 }} />}
+            <div style={{ fontSize: 12.5, color: C.ink, lineHeight: 1.5 }}>
+              {registro === "mixto" ? (
+                <>
+                  <strong>Registro mixto:</strong> este equipo usa horómetro y fecha de instalación.
+                  {faltaFecha ? " Indica la fecha de instalación abajo." : " Fecha de instalación registrada."}
+                </>
+              ) : (
+                <>
+                  <strong>Registro por instalación:</strong> no lleva horómetro; la vida útil se rastrea por fecha.
+                  {faltaFecha ? " Completa la fecha de instalación en la sección Operación." : ""}
+                </>
+              )}
+            </div>
+          </div>
+        )}
+
         {secciones.map((sec) => (
           <div key={sec.id} style={{ marginBottom: 18 }}>
             <div style={{ fontSize: 11, letterSpacing: 0.6, textTransform: "uppercase", color: C.steel, fontWeight: 700, marginBottom: 8 }}>{sec.titulo}</div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
-              {sec.campos.map(([k, label, type]) => (
-                <Field key={k} label={label}>
-                  <input type={type || "text"} value={ficha[k] ?? ""} disabled={!puedeOperar}
-                    onChange={(e) => set(k, e.target.value)} style={inputStyle()} />
-                </Field>
-              ))}
+              {sec.campos.map(([k, label, type]) => renderCampo(k, label, type))}
             </div>
           </div>
         ))}

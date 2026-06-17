@@ -3,7 +3,7 @@ import { Search, X, ChevronDown, ChevronRight, MoreHorizontal, PanelRightOpen, T
 import { C, estadoLabel, estadoTone, num, tint } from "../../theme";
 import { BRECHA_META } from "../../lib/equipoBrechas";
 import { Card, Pill, ghostBtn, inputStyle } from "../../ui";
-import { TipoChip, CritBadge } from "./arbolUI";
+import { TipoChip, CritBadge, RegistroBadge } from "./arbolUI";
 
 export default function EquipoTreePanel({
   busqueda, setBusqueda, arbol, listaVisible, selectedId, onSelect,
@@ -84,6 +84,7 @@ export default function EquipoTreePanel({
                       {eq.sistema || "—"}
                     </span>
                     <CritBadge crit={eq.criticidad} />
+                    <RegistroBadge equipo={eq} compact />
                     {brecha && (
                       <span title={BRECHA_META[brecha.tipo]?.label || "Brecha"} style={{ display: "inline-flex", flexShrink: 0 }}>
                         <AlertTriangle size={12} color={brecha.tone === "red" ? C.red : C.amber} />

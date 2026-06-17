@@ -2,7 +2,7 @@ import React from "react";
 import { Search, X, AlertTriangle } from "lucide-react";
 import { C, num, tint, estadoLabel, estadoTone } from "../../theme";
 import { Card, Pill, ghostBtn, inputStyle } from "../../ui";
-import { TipoChip, CritBadge } from "./arbolUI";
+import { TipoChip, CritBadge, RegistroBadge } from "./arbolUI";
 
 export default function EquipoQueuePanel({
   lista,
@@ -46,6 +46,7 @@ export default function EquipoQueuePanel({
                   <TipoChip tipo={equipo.tipo_nodo} size={24} />
                   <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontWeight: 800, fontSize: 12, color: isSelected ? C.sky : C.steel }}>{equipo.id_visible}</span>
                   <CritBadge crit={equipo.criticidad} />
+                  <RegistroBadge equipo={equipo} compact />
                   {urgente && <AlertTriangle size={13} color={C.red} />}
                   <span style={{ marginLeft: "auto" }}>
                     <Pill tone={estadoTone(equipo.estado || "operativo")}>{estadoLabel(equipo.estado || "operativo")}</Pill>

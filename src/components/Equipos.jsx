@@ -17,7 +17,7 @@ import EquipoQueuePanel from "./equipos/EquipoQueuePanel";
 
 import {
   Card, primaryBtn, ghostBtn, exportBtn, inputStyle, thStyle, tdStyle,
-  FilterBtn, Field, Empty, GuiaColapsable,
+  FilterBtn, Field, Empty, GuiaColapsable, Pill,
   ModuleShell, StatGrid, HeroStat, Toolbar, Section, EmptyState,
 } from "../ui";
 import NotaJerarquia from "./equipos/NotaJerarquia";

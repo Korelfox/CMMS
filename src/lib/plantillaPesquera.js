@@ -1666,6 +1666,35 @@ export function tieneFechaInstalacion(eq) {
   return v != null && String(v).trim() !== "";
 }
 
+/** Modo de registro resuelto para un equipo en BD (ficha._registro o plantilla). */
+export function registroVidaEquipo(eq) {
+  const tag = eq?.ficha?._registro;
+  if (tag === "fecha" || tag === "mixto" || tag === "horas" || tag === "hereda_horas") return tag;
+  if (eq?.horometro === "propio") return "horas";
+  if (eq?.horometro === "no" && eq?.id_visible) {
+    const reg = registroDesdeIdVisible(eq.id_visible);
+    if (reg.registro === "fecha" || reg.registro === "mixto") return reg.registro;
+    return "fecha";
+  }
+  if (eq?.id_visible) return registroDesdeIdVisible(eq.id_visible).registro;
+  return "hereda_horas";
+}
+
+/** Metadatos de badge en listados (árbol, kanban, cola). */
+export const REGISTRO_VIDA_UI = {
+  horas:        { label: "Horas",       color: "#0891B2" },
+  hereda_horas: { label: "Horas",       color: "#0891B2" },
+  fecha:        { label: "Instalación", color: "#6C4FA3" },
+  mixto:        { label: "Mixto",       color: "#127C8A" },
+};
+
+/** Badge de registro de vida; null en sistemas contenedores. */
+export function registroVidaUi(eq) {
+  if (!eq || eq.tipo_nodo === "sistema") return null;
+  const reg = registroVidaEquipo(eq);
+  return REGISTRO_VIDA_UI[reg] ?? null;
+}
+
 /** Todas las asignaciones horas_fuente_id (explícitas en árbol + reglas de prefijo). */
 export function collectFuentesPlantilla(nodos = PLANTILLA_PESQUERA) {
   const out = [];

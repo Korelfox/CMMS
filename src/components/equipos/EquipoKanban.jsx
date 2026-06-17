@@ -2,7 +2,7 @@ import React from "react";
 import { AlertTriangle } from "lucide-react";
 import { C, num, tint, estadoLabel, estadoTone } from "../../theme";
 import { Pill } from "../../ui";
-import { TipoChip, CritBadge } from "./arbolUI";
+import { TipoChip, CritBadge, RegistroBadge } from "./arbolUI";
 import { EQ_KANBAN_COLS, kanbanEstadoKey } from "../../lib/equiposKanban";
 
 function KanbanCard({ item, selected, onSelect, embName }) {
@@ -27,6 +27,7 @@ function KanbanCard({ item, selected, onSelect, embName }) {
         <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontWeight: 800, fontSize: 11.5, color: C.steel }}>{equipo.id_visible}</span>
         {critico && <AlertTriangle size={12} color={C.red} />}
         <CritBadge crit={equipo.criticidad} />
+        <RegistroBadge equipo={equipo} compact />
       </div>
       <div style={{ fontSize: 13, fontWeight: 700, color: C.abyss, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
         {equipo.sistema}
