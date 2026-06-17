@@ -7,7 +7,7 @@ import {
 import { useAuth } from "../lib/auth";
 import { fetchAll } from "../lib/db";
 import { C, archivo, clp, num, tint, lk } from "../theme";
-import { modoMeta, codigoLabel } from "../lib/fallasISO";
+import { modoMeta, codigoLabel, CAUSAS_FALLA_ISO, MECANISMOS_FALLA_ISO } from "../lib/fallasISO";
 import { buildEquipoTree } from "../lib/equipTree";
 import { Card, PageHead, Pill, FilterBtn, thStyle, tdStyle, Empty, ErrorBanner, InlineSpinner } from "../ui";
 
@@ -54,7 +54,7 @@ export default function Pareto() {
     const base = ots.filter((o) => filtro === "all" || o.embarcacion_id === filtro);
     // Para "fallas" (y siempre al agrupar por modo de falla) contamos solo
     // correctivas: son los eventos de falla reales.
-    const usar = (metrica === "fallas" || dim === "modo")
+    const usar = (metrica === "fallas" || dim === "modo" || dim === "causa" || dim === "mecanismo")
       ? base.filter((o) => o.tipo === "correctivo") : base;
 
     const mapa = new Map();
@@ -64,7 +64,9 @@ export default function Pareto() {
       else if (dim === "modo") {
         if (!o.modo_falla) key = "Sin codificar";
         else { const me = modoMeta(o.modo_falla); key = nivelISO === "clase" ? me.clase : nivelISO === "grupo" ? me.grupo : codigoLabel(me.codigo); }
-      } else key = o.sistema || "Sin sistema";
+      } else if (dim === "causa") key = o.causa_falla ? lk(CAUSAS_FALLA_ISO, o.causa_falla) : "Sin causa";
+      else if (dim === "mecanismo") key = o.mecanismo_falla ? lk(MECANISMOS_FALLA_ISO, o.mecanismo_falla) : "Sin mecanismo";
+      else key = o.sistema || "Sin sistema";
       const val = metrica === "costo" ? (Number(o.costo_mo) || 0) + (Number(o.costo_mat) || 0) : 1;
       mapa.set(key, (mapa.get(key) || 0) + val);
     });
@@ -109,6 +111,8 @@ export default function Pareto() {
             <FilterBtn active={dim === "sistema"} onClick={() => setDim("sistema")}>Sistema</FilterBtn>
             <FilterBtn active={dim === "equipo"} onClick={() => setDim("equipo")}>Equipo</FilterBtn>
             <FilterBtn active={dim === "modo"} onClick={() => setDim("modo")}>Modo de falla (ISO 14224)</FilterBtn>
+            <FilterBtn active={dim === "causa"} onClick={() => setDim("causa")}>Causa raíz</FilterBtn>
+            <FilterBtn active={dim === "mecanismo"} onClick={() => setDim("mecanismo")}>Mecanismo</FilterBtn>
           </div>
         </div>
         {dim === "modo" && (
@@ -133,7 +137,7 @@ export default function Pareto() {
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 14, marginBottom: 16 }}>
         <KPI label={metrica === "costo" ? "Costo total" : "Fallas totales"} value={fmt(total)} tone={C.gold} />
-        <KPI label="Pocos vitales" value={vitales} tone={C.red} sub={`${dim === "equipo" ? "equipos" : dim === "modo" ? "modos de falla" : "sistemas"} concentran el 80%`} />
+        <KPI label="Pocos vitales" value={vitales} tone={C.red} sub={`${({ equipo: "equipos", modo: "modos de falla", causa: "causas raíz", mecanismo: "mecanismos" })[dim] || "sistemas"} concentran el 80%`} />
         <KPI label="Concentración" value={`${pctVitales.toFixed(0)}%`} tone={C.steel} sub={`en ${vitales} de ${grupos.length}`} />
       </div>
 

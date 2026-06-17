@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { AlertTriangle, X } from "lucide-react";
 import { C, tint } from "../../theme";
 import { primaryBtn, ghostBtn, inputStyle, Field } from "../../ui";
-import { FALLA_TAXONOMIA, modoMeta, CAUSAS_FALLA_ISO, MECANISMOS_FALLA_ISO } from "../../lib/fallasISO";
+import { FALLA_TAXONOMIA, modoMeta, mecanismosProbables, coherenteModoMecanismo, CAUSAS_FALLA_ISO, MECANISMOS_FALLA_ISO } from "../../lib/fallasISO";
 
 // Modal de cierre de OT correctiva: codifica la falla según ISO 14224
 // (modo / causa / mecanismo) para que Pareto, Weibull y MTBF trabajen con
@@ -67,6 +67,28 @@ export default function CierreFallaModal({ ot, onGuardar, onCerrarSinCodificar, 
               <option value="">— Selecciona —</option>
               {MECANISMOS_FALLA_ISO.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
             </select>
+            {modo && mecanismosProbables(modo).length > 0 && (
+              <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginTop: 6 }}>
+                <span style={{ fontSize: 11.5, color: C.slate }}>Sugeridos por el modo:</span>
+                {mecanismosProbables(modo).map((mv) => {
+                  const meta = MECANISMOS_FALLA_ISO.find((x) => x.value === mv);
+                  const activo = mecanismo === mv;
+                  return (
+                    <button key={mv} type="button" onClick={() => setMecanismo(mv)}
+                      style={{ fontSize: 11.5, padding: "2px 9px", borderRadius: 999, cursor: "pointer", fontFamily: "inherit",
+                        border: `1px solid ${activo ? C.steel : tint(C.steel, 35)}`,
+                        background: activo ? tint(C.steel, 14) : "transparent", color: C.steel, fontWeight: activo ? 700 : 500 }}>
+                      {(meta?.label || mv).split(" (")[0]}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+            {modo && mecanismo && !coherenteModoMecanismo(modo, mecanismo) && (
+              <div style={{ fontSize: 11.5, color: C.amber, marginTop: 6, display: "flex", alignItems: "center", gap: 5 }}>
+                <AlertTriangle size={12} /> Combinación poco habitual para este modo según ISO 14224 — verifica.
+              </div>
+            )}
           </Field>
         </div>
 
