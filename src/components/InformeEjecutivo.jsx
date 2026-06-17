@@ -13,7 +13,7 @@ import { presupuestoFlota, runRate } from "../lib/presupuesto";
 import { coberturaCriticos } from "../lib/operacional";
 import { analizarMinMax } from "../lib/minmax";
 import { ventanaPuerto } from "../lib/planificacion";
-import { construirContextoInforme } from "../lib/informe";
+import { construirContextoInforme } from "../lib/contextoIA";
 import { imprimirInforme } from "../lib/imprimir";
 import { C, archivo, tint, clp } from "../theme";
 import { Card, PageHead, Pill, ErrorBanner, InlineSpinner } from "../ui";

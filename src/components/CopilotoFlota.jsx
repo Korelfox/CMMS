@@ -5,7 +5,7 @@ import {
 import { useFleetData } from "../hooks/useFleetData";
 import { supabase } from "../lib/supabase";
 import { evaluarPlanes } from "../lib/pm";
-import { construirResumenFlota } from "../lib/copiloto";
+import { construirContextoCopiloto } from "../lib/contextoIA";
 import { renderMarkdown } from "./Markdown";
 import { useAuth } from "../lib/auth";
 import { C } from "../theme";
@@ -63,7 +63,7 @@ export default function CopilotoFlota() {
 
   const contexto = useMemo(() => {
     if (!data) return null;
-    return construirResumenFlota({
+    return construirContextoCopiloto({
       empresa,
       embarcaciones: data.embs,
       equipos:       data.equipos,
