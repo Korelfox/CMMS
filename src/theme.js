@@ -101,6 +101,9 @@ export const LAYOUT = {
   /** Cola de equipos (vista Cola): el doble del panel árbol/cola estándar. */
   splitQueueMin: 520,
   splitQueueMax: 640,
+  /** Árbol de equipos (vista Tabla): +60% respecto al split estándar. */
+  splitTableMin: 416,
+  splitTableMax: 512,
   splitDetailMin: 400,
   splitDetailMax: 520,
 };

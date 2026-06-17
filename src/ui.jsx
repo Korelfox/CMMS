@@ -665,6 +665,9 @@ export function DesignSystemStyles() {
       .inv-split-container.inv-split-queue-wide {
         grid-template-columns: minmax(${LAYOUT.splitQueueMin}px, ${LAYOUT.splitQueueMax}px) minmax(0, 1fr);
       }
+      .inv-split-container.inv-split-table-wide {
+        grid-template-columns: minmax(${LAYOUT.splitTableMin}px, ${LAYOUT.splitTableMax}px) minmax(0, 1fr);
+      }
       .cmms-split-layout.cmms-split-stack,
       .inv-split-container.inv-split-stack,
       .eq-split-container.cmms-split-stack,

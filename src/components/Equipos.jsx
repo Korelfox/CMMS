@@ -984,10 +984,10 @@ export default function Equipos() {
       ) : vistaTabla === "plano" ? (
         <Section title="Tabla completa" description="Listado plano · click en fila para ver detalle" padding={0}>
           <div style={{ overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 960 }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 1536 }}>
               <thead><tr>
                 <th style={thStyle}>ID</th>
-                <th style={thStyle}>Equipo</th>
+                <th style={{ ...thStyle, minWidth: 288 }}>Equipo</th>
                 <th style={thStyle}>Embarcación</th>
                 <th style={thStyle}>Tipo</th>
                 <th style={thStyle}>Criticidad</th>
@@ -1001,7 +1001,7 @@ export default function Equipos() {
                 ) : listaEnriquecida.map(({ equipo, brecha }) => (
                   <tr key={equipo.id} onClick={() => setSelectedId(equipo.id)} style={{ cursor: "pointer", background: selectedId === equipo.id ? tint(C.sky, 8) : undefined }}>
                     <td style={{ ...tdStyle, fontFamily: "monospace", fontWeight: 700, color: C.steel }}>{equipo.id_visible}</td>
-                    <td style={{ ...tdStyle, fontWeight: 700 }}>{equipo.sistema}</td>
+                    <td style={{ ...tdStyle, fontWeight: 700, minWidth: 288 }}>{equipo.sistema}</td>
                     <td style={tdStyle}>{embName(equipo.embarcacion_id)}</td>
                     <td style={tdStyle}>{equipo.tipo_nodo || "equipo"}</td>
                     <td style={tdStyle}>{equipo.criticidad || "—"}</td>
@@ -1065,7 +1065,7 @@ export default function Equipos() {
         {equipos.length === 0 ? (
           <Empty><NotaJerarquia /></Empty>
         ) : (
-          <div className="eq-split-container inv-split-container">
+          <div className="eq-split-container inv-split-container inv-split-table-wide">
             <EquipoTreePanel
               busqueda={busqueda}
               setBusqueda={setBusqueda}
