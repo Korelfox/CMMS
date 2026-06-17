@@ -67,8 +67,8 @@ export default function EquipoKanban({ lista, selectedId, onSelect, embName }) {
           <div
             key={col.value}
             style={{
-              flex: col.flex || "0 0 272px",
-              minWidth: col.minWidth || 272,
+              flex: col.flex || "0 0 230px",
+              minWidth: col.minWidth || 230,
               maxHeight: "calc(100vh - 320px)",
               display: "flex",
               flexDirection: "column",
