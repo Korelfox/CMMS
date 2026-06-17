@@ -7,6 +7,7 @@
 
 import { riesgoFlota } from "./riesgo";
 import { coberturaCriticos } from "./operacional";
+import { analizarDesgasteFlota } from "./desgaste";
 
 const DIA_MS = 86_400_000;
 
@@ -21,6 +22,7 @@ export function construirResumenFlota({
   items          = [],
   stock          = [],
   destinos       = [],
+  lecturas       = [],
   hoy            = new Date().toISOString().slice(0, 10),
 } = {}) {
   const embsById = new Map((embarcaciones || []).map((e) => [e.id, e]));
@@ -71,6 +73,9 @@ export function construirResumenFlota({
       equiposCriticos: (x.equiposA || []).map((e) => e.id_visible || e.sistema).filter(Boolean),
     }));
 
+  // ── Desgaste y horas operación ──────────────────────────────
+  const desgaste = analizarDesgasteFlota({ planesEval, lecturas, equipos, embarcaciones });
+
   return {
     empresa: empresa?.nombre || "Desconocida",
     flota: (embarcaciones || []).map((e) => ({
@@ -99,6 +104,7 @@ export function construirResumenFlota({
     inventario: {
       repuestosCriticosSinStock: sinCobertura,
     },
+    horasOperacion: desgaste,
     fecha: hoy,
   };
 }

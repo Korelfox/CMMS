@@ -36,7 +36,7 @@ export default function CopilotoFlota() {
   const cargar = useCallback(async () => {
     setLoading(true); setError(null);
     try {
-      const [embs, equipos, planes, ots, items, destinos, stock] = await Promise.all([
+      const [embs, equipos, planes, ots, items, destinos, stock, lecturas] = await Promise.all([
         fetchAll("embarcaciones"),
         fetchAll("equipos"),
         fetchAll("planes_pm"),
@@ -44,8 +44,9 @@ export default function CopilotoFlota() {
         fetchAll("inventario_items"),
         fetchAll("inventario_item_destinos"),
         fetchAll("stock"),
+        fetchAll("lecturas_horometro", { order: { col: "fecha", asc: false } }).catch(() => []),
       ]);
-      setData({ embs, equipos, planesEval: evaluarPlanes(planes, equipos), ots, items, destinos, stock });
+      setData({ embs, equipos, planesEval: evaluarPlanes(planes, equipos), ots, items, destinos, stock, lecturas });
     } catch (e) { setError("No se pudieron cargar los datos. " + e.message); }
     finally { setLoading(false); }
   }, []);
@@ -67,6 +68,7 @@ export default function CopilotoFlota() {
       items:         data.items,
       destinos:      data.destinos,
       stock:         data.stock,
+      lecturas:      data.lecturas,
       hoy,
     });
   }, [data, empresa, hoy]);

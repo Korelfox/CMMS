@@ -9,6 +9,7 @@
 
 import { scoreBacklog, diasAbierta } from "./operacional";
 import { estadoPresupuesto } from "./presupuesto";
+import { analizarDesgasteFlota } from "./desgaste";
 
 const DIA_MS = 86_400_000;
 
@@ -105,6 +106,7 @@ export function construirContextoInforme({
   runRateFlota = { mensual: 0, anualProyectado: 0 },
   sinCobertura = [],
   itemsSubdotados = 0,
+  lecturas = [],
   hoy,
 } = {}) {
   const desdeISO = periodo?.desde || "";
@@ -134,6 +136,8 @@ export function construirContextoInforme({
     .filter((e) => e.gastoAnio > 0 || e.presupuesto > 0)
     .sort((a, b) => b.gastoAnio - a.gastoAnio)
     .slice(0, 6);
+
+  const desgaste = analizarDesgasteFlota({ planesEval, lecturas, equipos, embarcaciones });
 
   return {
     empresa,
@@ -178,5 +182,6 @@ export function construirContextoInforme({
         equiposCriticos: (c.equiposA || []).length,
       })),
     },
+    desgaste,
   };
 }

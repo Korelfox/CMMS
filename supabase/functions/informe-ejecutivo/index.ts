@@ -50,8 +50,11 @@ Gasto del año vs presupuesto, run-rate anual proyectado, desvío, naves en ries
 ## Inventario crítico
 Repuestos críticos sin stock e ítems subdotados que exponen a la flota a indisponibilidad.
 
+## Desgaste y vida remanente
+Si el contexto incluye "desgaste" con datos de tendencia y vida consumida: cita los equipos con mayor % vida consumida, los planes que vencerán en los próximos 30 días según el ritmo real de uso (h/día), y cualquier equipo con intensidad de uso anormal (>18 h/día). Si no hay datos de horómetro suficientes, indica "sin historial de lecturas suficiente para proyección".
+
 ## Recomendaciones priorizadas
-3–6 acciones concretas, numeradas y ordenadas por impacto. Cada una con su justificación cuantitativa y el módulo del CMMS donde se ejecuta.
+3–6 acciones concretas, numeradas y ordenadas por impacto. Cada una con su justificación cuantitativa y el módulo del CMMS donde se ejecuta. Incluye acciones derivadas del desgaste proyectado cuando los datos lo respalden.
 
 No incluyas firma ni "atentamente". No agregues secciones fuera de esta estructura.`;
 

@@ -41,7 +41,7 @@ export default function InformeEjecutivo() {
   const cargar = useCallback(async () => {
     setLoading(true); setError(null);
     try {
-      const [embs, eqs, planes, ots, mareas, items, stock, destinos, presupuestos, varadas, compras, comprasItems] = await Promise.all([
+      const [embs, eqs, planes, ots, mareas, items, stock, destinos, presupuestos, varadas, compras, comprasItems, lecturas] = await Promise.all([
         fetchAll("embarcaciones", { order: { col: "codigo", asc: true } }),
         fetchAll("equipos"),
         fetchAll("planes_pm"),
@@ -54,8 +54,9 @@ export default function InformeEjecutivo() {
         fetchAll("varadas").catch(() => []),
         fetchAll("compras", { order: { col: "fecha", asc: false } }).catch(() => []),
         fetchAll("compras_items").catch(() => []),
+        fetchAll("lecturas_horometro", { order: { col: "fecha", asc: false } }).catch(() => []),
       ]);
-      setData({ embs, eqs, planes, ots, mareas, items, stock, destinos, presupuestos, varadas, compras, comprasItems });
+      setData({ embs, eqs, planes, ots, mareas, items, stock, destinos, presupuestos, varadas, compras, comprasItems, lecturas });
     } catch (e) { setError("No se pudieron cargar los datos. " + e.message); }
     finally { setLoading(false); }
   }, []);
@@ -69,7 +70,7 @@ export default function InformeEjecutivo() {
   // Construye el contexto estructurado reutilizando las libs analíticas.
   const contexto = useMemo(() => {
     if (!data) return null;
-    const { embs, eqs, planes, ots, mareas, items, stock, destinos, presupuestos } = data;
+    const { embs, eqs, planes, ots, mareas, items, stock, destinos, presupuestos, lecturas } = data;
     const desde = new Date(hoy + "T00:00:00");
     desde.setMonth(desde.getMonth() - meses);
     const desdeISO = desde.toISOString().slice(0, 10);
@@ -97,7 +98,9 @@ export default function InformeEjecutivo() {
     return construirContextoInforme({
       empresa: empresa?.nombre || "",
       periodo, embarcaciones: embs, equipos: eqs, planesEval, riesgoRanking, ots,
-      estadoPorNave, presupuestoData, runRateFlota, sinCobertura, itemsSubdotados, hoy,
+      estadoPorNave, presupuestoData, runRateFlota, sinCobertura, itemsSubdotados,
+      lecturas: lecturas || [],
+      hoy,
     });
   }, [data, meses, hoy, anio, empresa]);
 
