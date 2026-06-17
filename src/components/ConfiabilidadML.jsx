@@ -27,12 +27,19 @@ const BETA_TONE_COLOR = {
 
 // ── Helpers de formato ─────────────────────────────────────────────────────────
 const pct = (v)  => v == null ? "—" : `${Math.round(v * 100)}%`;
-const dias = (v) => v == null ? "—" : v < 1 ? "<1d" : `${Math.round(v)}d`;
 const dec2 = (v) => v == null ? "—" : v.toFixed(2);
 
-function rulColor(v) {
+// Muestra duración en la unidad del modelo: 'h' → "Xh" o "~Xd"; 'd' → "Xd"
+function mostrarDuracion(v, unidad) {
+  if (v == null) return "—";
+  if (unidad === "h") return v < 24 ? `${Math.round(v)}h` : `~${Math.round(v / 24)}d`;
+  return v < 1 ? "<1d" : `${Math.round(v)}d`;
+}
+
+function rulColor(v, unidad) {
   if (v == null) return C.slate;
-  return v < 7 ? C.red : v < 30 ? C.amber : v < 90 ? "#ca8a04" : C.green;
+  const d = unidad === "h" ? v / 24 : v;
+  return d < 7 ? C.red : d < 30 ? C.amber : d < 90 ? "#ca8a04" : C.green;
 }
 function fechaCorta(iso) {
   if (!iso) return "—";
@@ -56,12 +63,13 @@ export default function ConfiabilidadML() {
   const cargar = useCallback(async () => {
     setLoading(true); setError(null);
     try {
-      const [embs, equipos, ots] = await Promise.all([
+      const [embs, equipos, ots, lecturas] = await Promise.all([
         fetchAll("embarcaciones"),
         fetchAll("equipos"),
         fetchAll("ordenes_trabajo"),
+        fetchAll("lecturas_horometro"),
       ]);
-      setData({ embs, equipos, ots });
+      setData({ embs, equipos, ots, lecturas });
     } catch (e) { setError(e.message); }
     finally { setLoading(false); }
   }, []);
@@ -70,7 +78,7 @@ export default function ConfiabilidadML() {
 
   const ranking = useMemo(() => {
     if (!data) return [];
-    return rankearFlota({ equipos: data.equipos, ots: data.ots, hoy });
+    return rankearFlota({ equipos: data.equipos, ots: data.ots, lecturas: data.lecturas || [], hoy });
   }, [data, hoy]);
 
   const embName = useMemo(() => {
@@ -232,7 +240,7 @@ function TabRanking({ visible, embName, filtroEmb, setFiltroEmb, filtroCrit, set
                         </div>
                       </td>
                       {/* RUL */}
-                      <td style={{ padding: "10px 14px", fontWeight: 700, color: rulColor(r.rul50), whiteSpace: "nowrap" }}>{dias(r.rul50)}</td>
+                      <td style={{ padding: "10px 14px", fontWeight: 700, color: rulColor(r.rul50, r.unidad), whiteSpace: "nowrap" }}>{mostrarDuracion(r.rul50, r.unidad)}</td>
                       {/* Fecha predicha */}
                       <td style={{ padding: "10px 14px", color: r.fechaPredichaFalla ? C.ink : C.slate, whiteSpace: "nowrap" }}>
                         {r.fechaPredichaFalla ? (
@@ -258,7 +266,7 @@ function TabRanking({ visible, embName, filtroEmb, setFiltroEmb, filtroCrit, set
         </Card>
       )}
       <div style={{ marginTop: 10, fontSize: 11, color: C.slate }}>
-        F(t) = probabilidad de falla acumulada al tiempo actual (días desde última OT correctiva). RUL = Vida útil residual al 50% confianza.
+        F(t) = probabilidad de falla acumulada al tiempo actual. RUL = Vida útil residual al 50% confianza. Unidad: <b>h</b> = horas reales de operación (ISO 14224 §9.3) · <b>d</b> = días calendario (sin horómetro).
       </div>
     </div>
   );
@@ -310,8 +318,8 @@ function TabCurva({ equipoSel, ranking, embName, onSelect }) {
           {/* Parámetros y métricas */}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12 }}>
             <ParamCard label="β (forma)" value={dec2(equipoSel.beta)} sub={interpretarBeta(equipoSel.beta)?.texto} color={BETA_TONE_COLOR[interpretarBeta(equipoSel.beta)?.tone]} />
-            <ParamCard label="η (escala)" value={`${Math.round(equipoSel.eta)}d`} sub="Vida característica (B63.2)" />
-            <ParamCard label="MTBF" value={`${Math.round(mtbfDias(equipoSel.beta, equipoSel.eta))}d`} sub="Vida media esperada" />
+            <ParamCard label={`η (escala)`} value={`${Math.round(equipoSel.eta)}${equipoSel.unidad}`} sub={`Vida característica B63.2 (${equipoSel.unidad === "h" ? "horas op." : "días cal."})`} />
+            <ParamCard label="MTBF" value={`${Math.round(mtbfDias(equipoSel.beta, equipoSel.eta))}${equipoSel.unidad}`} sub={`Vida media esperada (${equipoSel.unidad === "h" ? "horas op." : "días cal."})`} />
             <ParamCard label="R² ajuste" value={dec2(equipoSel.ajuste.r2)} sub={`n=${equipoSel.ajuste.n} fallas`} color={equipoSel.ajuste.r2 >= 0.85 ? C.green : equipoSel.ajuste.r2 >= 0.65 ? C.amber : C.red} />
           </div>
 
@@ -344,7 +352,7 @@ function TabCurva({ equipoSel, ranking, embName, onSelect }) {
                 return (
                   <div key={lbl} style={{ textAlign: "center", padding: "10px 0" }}>
                     <div style={{ fontSize: 11, color: C.slate, marginBottom: 4 }}>{lbl}</div>
-                    <div style={{ fontSize: 22, fontWeight: 800, color: p <= 0.1 ? C.green : p <= 0.5 ? C.amber : C.red }}>{v != null ? `${Math.round(v)}d` : "—"}</div>
+                    <div style={{ fontSize: 22, fontWeight: 800, color: p <= 0.1 ? C.green : p <= 0.5 ? C.amber : C.red }}>{v != null ? `${Math.round(v)}${equipoSel.unidad}` : "—"}</div>
                     <div style={{ fontSize: 10.5, color: C.slate, marginTop: 2 }}>{desc}</div>
                   </div>
                 );
@@ -358,17 +366,17 @@ function TabCurva({ equipoSel, ranking, embName, onSelect }) {
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
                 <Clock size={14} color={C.steel} />
                 <span style={{ fontSize: 11.5, fontWeight: 700, color: C.slate, textTransform: "uppercase", letterSpacing: 0.6 }}>
-                  Vida Útil Residual — equipo lleva {Math.round(equipoSel.tActual)}d desde última falla
+                  Vida Útil Residual — equipo lleva {Math.round(equipoSel.tActual)}{equipoSel.unidad} desde última falla
                 </span>
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 12 }}>
                 {[[0.50,"50% confianza","Intervalo agresivo"],[0.70,"70% confianza","Intervalo moderado"],[0.85,"85% confianza","Intervalo conservador"]].map(([conf, lbl, sub]) => {
                   const rul = vidaUtilResidual(equipoSel.tActual, equipoSel.beta, equipoSel.eta, conf);
-                  const color = rulColor(rul);
+                  const color = rulColor(rul, equipoSel.unidad);
                   return (
                     <div key={conf} style={{ background: `${color}12`, border: `1px solid ${color}30`, borderRadius: 10, padding: "12px", textAlign: "center" }}>
                       <div style={{ fontSize: 11, fontWeight: 600, color: C.slate, marginBottom: 4 }}>{lbl}</div>
-                      <div style={{ fontSize: 22, fontWeight: 800, color }}>{dias(rul)}</div>
+                      <div style={{ fontSize: 22, fontWeight: 800, color }}>{mostrarDuracion(rul, equipoSel.unidad)}</div>
                       <div style={{ fontSize: 10.5, color: C.slate, marginTop: 2 }}>{sub}</div>
                       <div style={{ fontSize: 11, color, fontWeight: 600, marginTop: 4 }}>
                         {rul != null ? `F(t+VUR) = ${pct(conf)}` : "—"}
@@ -432,7 +440,7 @@ function Leyenda({ color, label, dot, triangle, faint }) {
 
 // ── SVG Curva Weibull ──────────────────────────────────────────────────────────
 function CurvaWeibull({ analisis }) {
-  const { beta, eta, tActual, ttfs } = analisis;
+  const { beta, eta, tActual, ttfs, unidad } = analisis;
   if (!beta || !eta) return null;
 
   const W = 580, H = 238;
@@ -538,11 +546,11 @@ function CurvaWeibull({ analisis }) {
       {xTicks.map((t) => (
         <g key={t}>
           <line x1={px(t)} y1={py(0)} x2={px(t)} y2={py(0) + 4} stroke="#94a3b8" strokeWidth={1} />
-          <text x={px(t)} y={py(0) + 15} fontSize={9} fill="#94a3b8" textAnchor="middle">{t}d</text>
+          <text x={px(t)} y={py(0) + 15} fontSize={9} fill="#94a3b8" textAnchor="middle">{t}{unidad}</text>
         </g>
       ))}
       <text x={ml + pw / 2} y={H - 4} fontSize={10} fill="#64748b" textAnchor="middle">
-        Días desde última falla correctiva
+        {unidad === "h" ? "Horas de operación desde última falla (ISO 14224 §9.3)" : "Días desde última falla correctiva"}
       </text>
 
       {/* Y axis */}
