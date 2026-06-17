@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   PLANTILLA_PESQUERA,
   registroDesdeNodo,
+  registroDesdeIdVisible,
   fichaInicialDesdeRegistro,
   datosOperacionalesDesdeNodo,
   collectFuentesPlantilla,
@@ -73,5 +74,22 @@ describe("Registro de vida — plantilla pesquera", () => {
     expect(registroDesdeNodo(findDeep(PLANTILLA_PESQUERA, "GEN-EMG")).horometro).toBe("propio");
     expect(registroDesdeNodo(findDeep(PLANTILLA_PESQUERA, "AIR-ARR-CMP")).registro).toBe("horas");
     expect(registroDesdeNodo(findDeep(PLANTILLA_PESQUERA, "RSW-CMP-CMP")).registro).toBe("horas");
+  });
+
+  it("registroDesdeIdVisible infiere fecha para navegación", () => {
+    const reg = registroDesdeIdVisible("BC01-NAV-GPS");
+    expect(reg.registro).toBe("fecha");
+    expect(reg.requiere_instalacion).toBe(true);
+  });
+
+  it("NAV/COMM/STR tienen PM calendario (no solo horas)", () => {
+    const navGps = findDeep(PLANTILLA_PESQUERA, "NAV-GPS");
+    const commVhf = findDeep(PLANTILLA_PESQUERA, "COMM-VHF");
+    const strCas = findDeep(PLANTILLA_PESQUERA, "STR-CAS");
+    const calendario = (n) => (n.pm || []).every(([, h, u]) => u != null && h == null);
+    expect(calendario(navGps)).toBe(true);
+    expect(calendario(commVhf)).toBe(true);
+    expect(calendario(strCas)).toBe(true);
+    expect(findDeep(PLANTILLA_PESQUERA, "COMM-EPI").pm.some(([, , u]) => u === "anual")).toBe(true);
   });
 });

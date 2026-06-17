@@ -1033,7 +1033,10 @@ export const PLANTILLA_PESQUERA = [
         hijos: [
           comp("ELEC-ALU-NAV", "Luces de Navegación (reglamentarias)", {
             rep: [["LUZ-NAV-OEM", "Set Luces de Navegación (OEM)", "oem"], ["AMP-NAV-GEN", "Ampolletas/LED Náuticos", "generico"]],
-            pm: [["Inspección visual / por condición", 1000]] }),
+            pm: [
+              ["Prueba de luces reglamentarias de navegación", null, "semanal"],
+              ["Inspección de estanqueidad y cableado de luces", null, "semestral"],
+            ] }),
           comp("ELEC-ALU-CUB", "Proyectores de Cubierta", {
             rep: [["PROY-CUB-OEM", "Proyector de Cubierta (OEM)", "oem"]],
             pm: [["Inspección visual / por condición", 2000]] }),
@@ -1232,12 +1235,36 @@ export const PLANTILLA_PESQUERA = [
   {
     cod: "NAV", nom: "Navegación", crit: "A", tipo: "sistema",
     hijos: [
-      { cod: "NAV-GPS", nom: "GPS / Plotter",       crit: "A", tipo: "subsistema" },
-      { cod: "NAV-RAD", nom: "Radar",               crit: "A", tipo: "subsistema" },
-      { cod: "NAV-SON", nom: "Sonda / Ecosonda",    crit: "A", tipo: "subsistema" },
-      { cod: "NAV-GIR", nom: "Girocompás / Compás", crit: "A", tipo: "subsistema" },
-      { cod: "NAV-AIS", nom: "AIS",                 crit: "A", tipo: "subsistema" },
-      { cod: "NAV-PIL", nom: "Piloto Automático",   crit: "B", tipo: "subsistema" },
+      { cod: "NAV-GPS", nom: "GPS / Plotter", crit: "A", tipo: "subsistema",
+        pm: [
+          ["Verificar posición y alarmas del GPS/plotter", null, "semanal"],
+          ["Verificación de precisión del GPS", null, "anual"],
+        ] },
+      { cod: "NAV-RAD", nom: "Radar", crit: "A", tipo: "subsistema",
+        pm: [
+          ["Inspección visual del radar (antena y display)", null, "mensual"],
+          ["Prueba de alcance y claridad del radar", null, "semestral"],
+        ] },
+      { cod: "NAV-SON", nom: "Sonda / Ecosonda", crit: "A", tipo: "subsistema",
+        pm: [
+          ["Verificar lectura de profundidad y fondo", null, "semanal"],
+          ["Calibración / limpieza del transductor", null, "semestral"],
+        ] },
+      { cod: "NAV-GIR", nom: "Girocompás / Compás", crit: "A", tipo: "subsistema",
+        pm: [
+          ["Verificar rumbo magnético vs girocompás", null, "mensual"],
+          ["Calibración de girocompás / compás", null, "anual"],
+        ] },
+      { cod: "NAV-AIS", nom: "AIS", crit: "A", tipo: "subsistema",
+        pm: [
+          ["Prueba de transmisión AIS (Class A/B)", null, "semanal"],
+          ["Verificación de datos AIS (MMSI, posición)", null, "semestral"],
+        ] },
+      { cod: "NAV-PIL", nom: "Piloto Automático", crit: "B", tipo: "subsistema",
+        pm: [
+          ["Prueba operacional del piloto automático", null, "mensual"],
+          ["Calibración del piloto automático", null, "anual"],
+        ] },
     ],
   },
 
@@ -1245,17 +1272,45 @@ export const PLANTILLA_PESQUERA = [
   {
     cod: "COMM", nom: "Comunicaciones (GMDSS)", crit: "A", tipo: "sistema",
     hijos: [
-      { cod: "COMM-VHF",  nom: "VHF / DSC",                crit: "A", tipo: "subsistema" },
-      { cod: "COMM-MFHF", nom: "MF / HF",                  crit: "A", tipo: "subsistema" },
-      { cod: "COMM-SAT",  nom: "Inmarsat-C / Satelital",   crit: "A", tipo: "subsistema" },
-      { cod: "COMM-VMS",  nom: "VMS Satelital",            crit: "A", tipo: "subsistema" },
+      { cod: "COMM-VHF", nom: "VHF / DSC", crit: "A", tipo: "subsistema",
+        pm: [
+          ["Prueba de transmisión/recepción VHF/DSC", null, "semanal"],
+          ["Certificación GMDSS del equipo VHF", null, "anual"],
+        ] },
+      { cod: "COMM-MFHF", nom: "MF / HF", crit: "A", tipo: "subsistema",
+        pm: [
+          ["Prueba de transmisión/recepción MF/HF", null, "semanal"],
+          ["Certificación GMDSS del equipo MF/HF", null, "anual"],
+        ] },
+      { cod: "COMM-SAT", nom: "Inmarsat-C / Satelital", crit: "A", tipo: "subsistema",
+        pm: [
+          ["Prueba de enlace satelital (Inmarsat-C)", null, "mensual"],
+          ["Verificación de registro y certificación satelital", null, "anual"],
+        ] },
+      { cod: "COMM-VMS", nom: "VMS Satelital", crit: "A", tipo: "subsistema",
+        pm: [
+          ["Prueba de posición y reporte VMS", null, "mensual"],
+          ["Verificación de contrato/certificación VMS", null, "anual"],
+        ] },
       comp("COMM-EPI", "EPIRB / Baliza de Emergencia", {
         rep: [["BAT-EPIRB-OEM", "Batería EPIRB (OEM)", "oem"]],
-        pm: [["Prueba de alarmas y paradas de seguridad", 2000]] }),
+        pm: [
+          ["Autotest de EPIRB", null, "mensual"],
+          ["Verificación de caducidad de batería EPIRB", null, "semestral"],
+          ["Servicio y registro EPIRB (certificación)", null, "anual"],
+        ] }),
       comp("COMM-SART", "SART / Radar Transponder", {
         rep: [["BAT-SART-OEM", "Batería SART (OEM)", "oem"]],
-        pm: [["Prueba de alarmas y paradas de seguridad", 2000]] }),
-      { cod: "COMM-NTX",  nom: "NAVTEX",                   crit: "B", tipo: "subsistema" },
+        pm: [
+          ["Autotest de SART", null, "mensual"],
+          ["Verificación de caducidad de batería SART", null, "semestral"],
+          ["Servicio y registro SART", null, "anual"],
+        ] }),
+      { cod: "COMM-NTX", nom: "NAVTEX", crit: "B", tipo: "subsistema",
+        pm: [
+          ["Verificar recepción de mensajes NAVTEX", null, "semanal"],
+          ["Inspección de antena y receptor NAVTEX", null, "anual"],
+        ] },
     ],
   },
 
@@ -1280,7 +1335,10 @@ export const PLANTILLA_PESQUERA = [
         pm: [["Prueba de alarmas y paradas de seguridad", 1000]] }),
       comp("FIRE-EXT", "Extintores Portátiles", {
         rep: [["EXT-PQS-6", "Extintor PQS 6kg", "generico"], ["EXT-CO2-5", "Extintor CO₂ 5kg", "generico"]],
-        pm: [["Control de extintores", 1000]] }),
+        pm: [
+          ["Control visual de extintores (ubicación, precinto, presión)", null, "mensual"],
+          ["Control reglamentario de extintores portátiles", null, "anual"],
+        ] }),
     ],
   },
 
@@ -1404,10 +1462,26 @@ export const PLANTILLA_PESQUERA = [
   {
     cod: "STR", nom: "Casco y Estructura", crit: "B", tipo: "sistema",
     hijos: [
-      { cod: "STR-CAS", nom: "Casco",            crit: "B", tipo: "subsistema" },
-      { cod: "STR-CUB", nom: "Cubierta",         crit: "B", tipo: "subsistema" },
-      { cod: "STR-MAM", nom: "Mamparos",         crit: "B", tipo: "subsistema" },
-      { cod: "STR-ANO", nom: "Ánodos de Sacrificio", crit: "B", tipo: "subsistema" },
+      { cod: "STR-CAS", nom: "Casco", crit: "B", tipo: "subsistema",
+        pm: [
+          ["Inspección general de casco (obrero/cubierta)", null, "semestral"],
+          ["Inspección de casco en varada / dry-dock", null, "anual"],
+        ] },
+      { cod: "STR-CUB", nom: "Cubierta", crit: "B", tipo: "subsistema",
+        pm: [
+          ["Inspección de cubierta (corrosión, cubiertas, barandillas)", null, "semestral"],
+          ["Inspección estructural de cubierta en varada", null, "anual"],
+        ] },
+      { cod: "STR-MAM", nom: "Mamparos", crit: "B", tipo: "subsistema",
+        pm: [
+          ["Inspección visual de mamparos estancos", null, "semestral"],
+          ["Prueba de estanqueidad de puertas de mamparo", null, "anual"],
+        ] },
+      { cod: "STR-ANO", nom: "Ánodos de Sacrificio", crit: "B", tipo: "subsistema",
+        pm: [
+          ["Inspección visual de ánodos de sacrificio", null, "semestral"],
+          ["Reemplazo de ánodos de sacrificio", null, "anual"],
+        ] },
     ],
   },
 
@@ -1504,6 +1578,8 @@ export const REGISTRO_POR_PREFIJO = [
   { prefijo: "FUEL-TNK", registro: "fecha" },
   { prefijo: "WAT-LST",  registro: "fecha" },
   { prefijo: "WAT-TND",  registro: "fecha" },
+  { prefijo: "ELEC-ALU-NAV", registro: "fecha" },
+  { prefijo: "FIRE-EXT",     registro: "fecha" },
 ];
 
 const REGLAS_REGISTRO = [...REGISTRO_POR_PREFIJO].sort((a, b) => {
@@ -1563,6 +1639,31 @@ export function datosOperacionalesDesdeNodo(nodo) {
     consume_aceite: reg.consume_aceite,
     ...(ficha ? { ficha } : {}),
   };
+}
+
+/** Extrae el código de plantilla desde id_visible (EMB-COD → COD). */
+export function codPlantillaDesdeIdVisible(idVisible) {
+  const i = String(idVisible || "").indexOf("-");
+  if (i < 0) return "";
+  return String(idVisible).slice(i + 1);
+}
+
+/** Registro de vida inferido desde id_visible de un equipo en BD. */
+export function registroDesdeIdVisible(idVisible) {
+  return registroDesdeNodo({ cod: codPlantillaDesdeIdVisible(idVisible), tipo: "subsistema" });
+}
+
+/** Equipo que debe tener fecha_instalacion en ficha. */
+export function requiereFechaInstalacionEquipo(eq) {
+  const tag = eq?.ficha?._registro;
+  if (tag === "fecha" || tag === "mixto") return true;
+  if (tag === "horas" || tag === "hereda_horas") return false;
+  return registroDesdeIdVisible(eq?.id_visible).requiere_instalacion;
+}
+
+export function tieneFechaInstalacion(eq) {
+  const v = eq?.ficha?.fecha_instalacion;
+  return v != null && String(v).trim() !== "";
 }
 
 /** Todas las asignaciones horas_fuente_id (explícitas en árbol + reglas de prefijo). */

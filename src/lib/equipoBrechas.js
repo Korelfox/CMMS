@@ -1,13 +1,16 @@
 /** Reglas de integridad del registro de equipos (Fase 3 — modo Optimizar). */
 
+import { requiereFechaInstalacionEquipo, tieneFechaInstalacion } from "./plantillaPesquera.js";
+
 export const BRECHA_META = {
   critico_indisponible: { label: "Crítico indisponible", tone: "red", tab: "identidad", prio: 1 },
   huerfano: { label: "Padre inválido", tone: "red", tab: "identidad", prio: 2 },
   sin_criticidad: { label: "Sin criticidad", tone: "amber", tab: "identidad", prio: 3 },
   sin_horometro: { label: "Sin horómetro", tone: "amber", tab: "operacional", prio: 4 },
   sin_repuestos: { label: "Sin repuestos", tone: "amber", tab: "repuestos", prio: 5 },
-  sin_ficha: { label: "Sin ficha técnica", tone: "amber", tab: "ficha", prio: 6 },
-  mal_clasificado: { label: "Raíz mal clasificada", tone: "amber", tab: "identidad", prio: 7 },
+  sin_fecha_instalacion: { label: "Sin fecha de instalación", tone: "amber", tab: "ficha", prio: 6 },
+  sin_ficha: { label: "Sin ficha técnica", tone: "amber", tab: "ficha", prio: 7 },
+  mal_clasificado: { label: "Raíz mal clasificada", tone: "amber", tab: "identidad", prio: 8 },
 };
 
 const COMPONENTE_TIPOS = new Set(["componente", "instrumento", "equipo"]);
@@ -59,6 +62,10 @@ export function brechasDeEquipo(eq, byId, repsPorEquipo, idsConHijos) {
   }
 
   if (esComponenteNodo(eq) && !fichaCompleta(eq)) pushBrecha(out, "sin_ficha", eq);
+
+  if (requiereFechaInstalacionEquipo(eq) && !tieneFechaInstalacion(eq)) {
+    pushBrecha(out, "sin_fecha_instalacion", eq);
+  }
 
   if (eq.criticidad === "A" && ESTADOS_INDISP.has(eq.estado)) {
     pushBrecha(out, "critico_indisponible", eq);

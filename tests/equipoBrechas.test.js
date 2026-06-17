@@ -63,4 +63,48 @@ describe("equipoBrechas", () => {
     const sis = eq({ id: "s", tipo_nodo: "sistema", parent_id: null });
     expect(esHojaEvaluable(sis, new Set(["s"]))).toBe(false);
   });
+
+  it("marca sin fecha de instalación en equipos tipo fecha/mixto", () => {
+    const nav = eq({
+      id: "nav",
+      tipo_nodo: "subsistema",
+      id_visible: "BC01-NAV-GPS",
+      horometro: "no",
+      ficha: { _registro: "fecha" },
+      parent_id: "p1",
+    });
+    const mixto = eq({
+      id: "vir",
+      id_visible: "BC01-FISH-VIR",
+      ficha: { _registro: "mixto" },
+    });
+    const ok = eq({
+      id: "ok-nav",
+      tipo_nodo: "subsistema",
+      id_visible: "BC01-NAV-RAD",
+      horometro: "no",
+      ficha: { _registro: "fecha", fecha_instalacion: "2024-03-15" },
+      parent_id: "p1",
+    });
+    const { idsConHijos } = buildIndices([nav, mixto, ok]);
+    const bNav = brechasDeEquipo(nav, new Map([[nav.id, nav]]), new Map(), idsConHijos);
+    expect(bNav.some((x) => x.tipo === "sin_fecha_instalacion")).toBe(true);
+    const bMix = brechasDeEquipo(mixto, new Map([[mixto.id, mixto]]), new Map(), idsConHijos);
+    expect(bMix.some((x) => x.tipo === "sin_fecha_instalacion")).toBe(true);
+    const bOk = brechasDeEquipo(ok, new Map([[ok.id, ok]]), new Map(), idsConHijos);
+    expect(bOk.some((x) => x.tipo === "sin_fecha_instalacion")).toBe(false);
+  });
+
+  it("infiera fecha por id_visible sin _registro en ficha", () => {
+    const str = eq({
+      id: "str",
+      tipo_nodo: "subsistema",
+      id_visible: "BC01-STR-CAS",
+      horometro: "no",
+      parent_id: "p1",
+    });
+    const { idsConHijos } = buildIndices([str]);
+    const b = brechasDeEquipo(str, new Map([[str.id, str]]), new Map(), idsConHijos);
+    expect(b.some((x) => x.tipo === "sin_fecha_instalacion")).toBe(true);
+  });
 });
