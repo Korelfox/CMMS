@@ -5,7 +5,10 @@ import { fetchAll, insertRow, updateRow, deleteRow, logActivity } from "../lib/d
 import { C, isAdmin, canOperate, estadoLabel, estadoTone, num, tint, shadow } from "../theme";
 import { buildEquipoTree } from "../lib/equipTree";
 import { useArbolColapsable } from "../lib/arbolColapsable";
-import { PLANTILLA_PESQUERA, nodoIncluido, contarNodosPlantilla, contarRepuestosPlantilla, contarPlanesPMPlantilla, TIPO_NODO_META } from "../lib/plantillaPesquera";
+import {
+  PLANTILLA_PESQUERA, nodoIncluido, contarNodosPlantilla, contarRepuestosPlantilla,
+  contarPlanesPMPlantilla, TIPO_NODO_META, datosOperacionalesDesdeNodo, collectFuentesPlantilla,
+} from "../lib/plantillaPesquera";
 import { analizarBrechas } from "../lib/equipoBrechas";
 import { ordenarEquipos, kanbanEstadoKey } from "../lib/equiposKanban";
 import { useMediaQuery } from "../lib/useMediaQuery";
@@ -373,17 +376,26 @@ export default function Equipos() {
     // rootNom = nombre del sistema raíz (se usa como categoría del repuesto).
     // En modo "basico" se omiten los componentes avanzados (basico:false) y los
     // subsistemas que queden sin descendientes incluidos.
+    function patchEquipoLocal(id, fields) {
+      const idx = creados.findIndex((c) => c.id === id);
+      if (idx >= 0) creados[idx] = { ...creados[idx], ...fields };
+    }
+
     async function insertarNodo(nodo, parentId, rootNom) {
       if (!nodoIncluido(nodo, modo)) return;
       const idVis = `${emb.codigo}-${nodo.cod}`;
       let nodeId = existentesNave.get(idVis);
       if (!nodeId) {
+        const oper = datosOperacionalesDesdeNodo(nodo);
         const row = await insertRow("equipos", profile.empresa_id, {
           embarcacion_id: emb.id, id_visible: idVis,
           sistema: nodo.nom, tipo_nodo: nodo.tipo, criticidad: nodo.crit,
           mtbf_objetivo: nodo.mtbf ?? null,
           parametros_criticos: nodo.param ?? null,
           parent_id: parentId, created_by: profile.id,
+          horometro: oper.horometro,
+          consume_aceite: oper.consume_aceite,
+          ...(oper.ficha ? { ficha: oper.ficha } : {}),
         });
         nodeId = row.id;
         creados.push(row);
@@ -393,29 +405,24 @@ export default function Equipos() {
       }
       for (const hijo of nodo.hijos || []) await insertarNodo(hijo, nodeId, rootNom);
     }
-    // Recopila nodos con fuente: "OTRO-COD" para asignar horas_fuente_id tras crear todo.
-    function collectFuente(nodo, acc = []) {
-      if (nodo.fuente) acc.push({ cod: nodo.cod, fuente: nodo.fuente });
-      for (const h of nodo.hijos || []) collectFuente(h, acc);
-      return acc;
-    }
 
     const sincOriginal = () => setOriginal((o) => { const n = { ...o }; creados.forEach((c) => { n[c.id] = { ...c }; }); return n; });
     try {
       for (const sis of PLANTILLA_PESQUERA) await insertarNodo(sis, null, sis.nom);
 
-      // Asignar horas_fuente_id para nodos que heredan horas de un hermano (ej: PROP-RED/EJE/HEL ← PROP-MTR).
-      // Solo aplica cuando no está ya fijado (idempotente vía migración o corrida previa).
-      for (const { cod, fuente } of PLANTILLA_PESQUERA.flatMap((s) => collectFuente(s))) {
+      // horas_fuente_id: hermanos (PROP-RED ← PROP-MTR) y reglas (STEER/FISH-VIR ← HPU-MTR).
+      for (const { cod, fuente } of collectFuentesPlantilla()) {
         const nodeId   = existentesNave.get(`${emb.codigo}-${cod}`);
         const fuenteId = existentesNave.get(`${emb.codigo}-${fuente}`);
         if (!nodeId || !fuenteId) continue;
         const cur = equipos.find((e) => e.id === nodeId) ?? creados.find((e) => e.id === nodeId);
         if (cur?.horas_fuente_id) continue;
         await updateRow("equipos", nodeId, { horas_fuente_id: fuenteId });
+        patchEquipoLocal(nodeId, { horas_fuente_id: fuenteId });
       }
 
-      setEquipos((p) => [...p, ...creados]); sincOriginal();
+      setEquipos((p) => [...p, ...creados]);
+      sincOriginal();
       logActivity(profile, "Precargar plantilla pesquera", `${emb.nombre} · modo ${modo} · ${creados.length} nodos · ${itemsCreados.length} repuestos · ${planesCreados.length} planes PM`);
     } catch (e) {
       setError("Se interrumpió la precarga: " + e.message + ". Recarga la página para ver lo que sí se creó.");

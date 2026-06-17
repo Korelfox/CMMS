@@ -23,6 +23,14 @@
 //    pm     → planes PM: [ [desc, horas] | [desc, null, unidad_cal] ]
 //    basico → true = esencial (modo Básico); false = solo modo Completo
 //    hijos  → array de subnodos (opcional)
+//    fuente → código de otro nodo cuyas horas hereda (hermano, ej. PROP-MTR)
+//    registro → override explícito: horas | hereda_horas | fecha | mixto
+//
+//  Registro de vida (ver REGISTRO_VIDA / registroDesdeNodo):
+//    horas        → horómetro propio (motores, compresores)
+//    hereda_horas → componentes acoplados a un punto de horas
+//    fecha        → instalación / certificación (casco, navegación)
+//    mixto        → horas + fecha de instalación (gobierno, virador)
 // ============================================================
 
 const comp = (cod, nom, { rep = [], pm = [], basico = true, crit = "A", param = null } = {}) =>
@@ -1447,6 +1455,135 @@ export function contarPlanesPMPlantilla(modo = "completo") {
   const contar = (nodos) => (nodos || []).reduce(
     (s, n) => nodoIncluido(n, modo) ? s + (n.pm ? n.pm.length : 0) + contar(n.hijos) : s, 0);
   return contar(PLANTILLA_PESQUERA);
+}
+
+// ── Registro de vida: horas vs fecha de instalación ────────────────────────
+
+/** Metadatos por modo de registro (aplicados en precarga de plantilla). */
+export const REGISTRO_VIDA = {
+  horas:        { horometro: "propio",  requiere_instalacion: false, consume_aceite: false },
+  hereda_horas: { horometro: "hereda",  requiere_instalacion: false, consume_aceite: false },
+  fecha:        { horometro: "no",      requiere_instalacion: true,  consume_aceite: false },
+  mixto:        { horometro: "hereda",  requiere_instalacion: true,  consume_aceite: false },
+};
+
+/**
+ * Reglas por prefijo de código (más específico gana).
+ * exacto: true → solo coincide el código exacto, no descendientes.
+ */
+export const REGISTRO_POR_PREFIJO = [
+  { prefijo: "PROP-MTR",    registro: "horas", consume_aceite: true, exacto: true },
+  { prefijo: "GEN-MTR",     registro: "horas", consume_aceite: true, exacto: true },
+  { prefijo: "GEN-EMG",     registro: "horas", consume_aceite: true, exacto: true },
+  { prefijo: "HPU-MTR",     registro: "horas", consume_aceite: true, exacto: true },
+  { prefijo: "AIR-ARR-CMP", registro: "horas", exacto: true },
+  { prefijo: "AIR-SRV-CMP", registro: "horas", exacto: true },
+  { prefijo: "RSW-CMP-CMP", registro: "horas", exacto: true },
+
+  { prefijo: "PROP-MTR-", registro: "hereda_horas" },
+  { prefijo: "GEN-MTR-",  registro: "hereda_horas" },
+  { prefijo: "HPU-MTR-",  registro: "hereda_horas" },
+  { prefijo: "HPU-",      registro: "hereda_horas" },
+  { prefijo: "PROP-RED",  registro: "hereda_horas" },
+  { prefijo: "PROP-EJE",  registro: "hereda_horas" },
+  { prefijo: "PROP-HEL",  registro: "hereda_horas" },
+  { prefijo: "RSW-CMP-",  registro: "hereda_horas" },
+
+  { prefijo: "STEER-", registro: "mixto", fuente: "HPU-MTR" },
+  { prefijo: "FISH-VIR", registro: "mixto", fuente: "HPU-MTR" },
+  { prefijo: "FISH-GRU", registro: "mixto" },
+
+  { prefijo: "STR-",     registro: "fecha" },
+  { prefijo: "NAV-",     registro: "fecha" },
+  { prefijo: "COMM-",    registro: "fecha" },
+  { prefijo: "SAF-",     registro: "fecha" },
+  { prefijo: "FISH-TRA", registro: "fecha" },
+  { prefijo: "FISH-LIN", registro: "fecha" },
+  { prefijo: "ANCH-ANC", registro: "fecha" },
+  { prefijo: "ANCH-BIT", registro: "fecha" },
+  { prefijo: "FUEL-TNK", registro: "fecha" },
+  { prefijo: "WAT-LST",  registro: "fecha" },
+  { prefijo: "WAT-TND",  registro: "fecha" },
+];
+
+const REGLAS_REGISTRO = [...REGISTRO_POR_PREFIJO].sort((a, b) => {
+  const peso = (r) => (r.exacto ? 10000 : 0) + r.prefijo.length;
+  return peso(b) - peso(a);
+});
+
+function matchReglaRegistro(cod) {
+  for (const r of REGLAS_REGISTRO) {
+    if (r.exacto) {
+      if (cod === r.prefijo) return r;
+    } else if (cod === r.prefijo || cod.startsWith(r.prefijo)) {
+      return r;
+    }
+  }
+  return null;
+}
+
+function resolverRegistro(registro, nodo, regla = {}) {
+  const meta = REGISTRO_VIDA[registro] ?? REGISTRO_VIDA.hereda_horas;
+  const consumeAceite = regla.consume_aceite ?? meta.consume_aceite ?? false;
+  return {
+    registro,
+    horometro: meta.horometro,
+    requiere_instalacion: meta.requiere_instalacion,
+    consume_aceite: consumeAceite,
+    fuente: nodo?.fuente ?? regla.fuente ?? null,
+  };
+}
+
+/** Resuelve modo de registro y campos operacionales para un nodo de plantilla. */
+export function registroDesdeNodo(nodo) {
+  const cod = nodo?.cod ?? "";
+  if (nodo?.registro && REGISTRO_VIDA[nodo.registro]) {
+    return resolverRegistro(nodo.registro, nodo);
+  }
+  const regla = matchReglaRegistro(cod);
+  if (regla) return resolverRegistro(regla.registro, nodo, regla);
+  if (nodo?.tipo === "componente" || nodo?.tipo === "instrumento") {
+    return resolverRegistro("hereda_horas", nodo);
+  }
+  return resolverRegistro("hereda_horas", nodo);
+}
+
+/** Ficha JSONB inicial cuando el equipo se rastrea por fecha de instalación. */
+export function fichaInicialDesdeRegistro(reg) {
+  if (!reg?.requiere_instalacion) return null;
+  return { _registro: reg.registro };
+}
+
+/** Campos de equipos a persistir al insertar desde plantilla. */
+export function datosOperacionalesDesdeNodo(nodo) {
+  const reg = registroDesdeNodo(nodo);
+  const ficha = fichaInicialDesdeRegistro(reg);
+  return {
+    horometro: reg.horometro,
+    consume_aceite: reg.consume_aceite,
+    ...(ficha ? { ficha } : {}),
+  };
+}
+
+/** Todas las asignaciones horas_fuente_id (explícitas en árbol + reglas de prefijo). */
+export function collectFuentesPlantilla(nodos = PLANTILLA_PESQUERA) {
+  const out = [];
+  const seen = new Set();
+  const add = (cod, fuente) => {
+    if (!cod || !fuente) return;
+    const key = `${cod}\0${fuente}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    out.push({ cod, fuente });
+  };
+  const walk = (nodo) => {
+    if (nodo.fuente) add(nodo.cod, nodo.fuente);
+    const reg = registroDesdeNodo(nodo);
+    if (reg.fuente && reg.registro !== "horas") add(nodo.cod, reg.fuente);
+    for (const h of nodo.hijos || []) walk(h);
+  };
+  for (const s of nodos) walk(s);
+  return out;
 }
 
 export const TIPO_NODO_META = {
