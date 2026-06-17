@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback, useMemo, useRef } from "react"
 import {
   Bot, Send, RotateCcw, Copy, Check, AlertCircle, Sparkles, Trash2,
 } from "lucide-react";
-import { fetchAll } from "../lib/db";
+import { useFleetData } from "../hooks/useFleetData";
 import { supabase } from "../lib/supabase";
 import { evaluarPlanes } from "../lib/pm";
 import { construirResumenFlota } from "../lib/copiloto";
@@ -20,11 +20,20 @@ const CHIPS = [
   "¿Cuál es el estado del backlog de OTs?",
 ];
 
+const SPEC = [
+  { tabla: "embarcaciones",      opts: { order: { col: "codigo", asc: true } } },
+  "equipos",
+  "planes_pm",
+  "ordenes_trabajo",
+  "inventario_items",
+  "inventario_item_destinos",
+  "stock",
+  { tabla: "lecturas_horometro", opts: { order: { col: "fecha", asc: false } }, soft: true },
+];
+
 export default function CopilotoFlota() {
   const { empresa } = useAuth();
-  const [data, setData]         = useState(null);
-  const [loading, setLoading]   = useState(true);
-  const [error, setError]       = useState(null);
+  const [raw, loading, error, reload] = useFleetData(SPEC);
   const [messages, setMessages] = useState([]);
   const [input, setInput]       = useState("");
   const [streaming, setStreaming]   = useState(false);
@@ -33,26 +42,21 @@ export default function CopilotoFlota() {
   const abortRef  = useRef(null);
   const bottomRef = useRef(null);
 
-  const cargar = useCallback(async () => {
-    setLoading(true); setError(null);
-    try {
-      const [embs, equipos, planes, ots, items, destinos, stock, lecturas] = await Promise.all([
-        fetchAll("embarcaciones"),
-        fetchAll("equipos"),
-        fetchAll("planes_pm"),
-        fetchAll("ordenes_trabajo"),
-        fetchAll("inventario_items"),
-        fetchAll("inventario_item_destinos"),
-        fetchAll("stock"),
-        fetchAll("lecturas_horometro", { order: { col: "fecha", asc: false } }).catch(() => []),
-      ]);
-      setData({ embs, equipos, planesEval: evaluarPlanes(planes, equipos), ots, items, destinos, stock, lecturas });
-    } catch (e) { setError("No se pudieron cargar los datos. " + e.message); }
-    finally { setLoading(false); }
-  }, []);
-
-  useEffect(() => { cargar(); }, [cargar]);
   useEffect(() => () => { if (abortRef.current) abortRef.current.abort(); }, []);
+
+  const data = useMemo(() => {
+    if (!raw) return null;
+    return {
+      embs:       raw.embarcaciones,
+      equipos:    raw.equipos,
+      planesEval: evaluarPlanes(raw.planes_pm, raw.equipos),
+      ots:        raw.ordenes_trabajo,
+      items:      raw.inventario_items,
+      destinos:   raw.inventario_item_destinos,
+      stock:      raw.stock,
+      lecturas:   raw.lecturas_horometro,
+    };
+  }, [raw]);
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, streamText]);
 
   const hoy = useMemo(() => new Date().toISOString().slice(0, 10), []);
@@ -172,7 +176,7 @@ export default function CopilotoFlota() {
         title="Copiloto de Flota"
         sub={`Pregunta sobre el estado de tu flota. Claude tiene acceso al contexto real: equipos, PMs, OTs, riesgo e inventario de ${contexto?.empresa || "tu empresa"}.`}
       />
-      <ErrorBanner onRetry={cargar}>{error}</ErrorBanner>
+      <ErrorBanner onRetry={reload}>{error}</ErrorBanner>
 
       {/* Context bar */}
       {contexto && (

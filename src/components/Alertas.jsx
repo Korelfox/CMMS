@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useMemo } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import {
   Bell, AlertTriangle, Package, Wrench, Clock, Ship, ShoppingCart, ChevronRight, Check, Droplet, ShieldCheck, Activity, FileWarning, ShieldAlert, Anchor, Timer, Cpu, Cloud,
 } from "lucide-react";
@@ -8,7 +8,7 @@ import {
   evaluarSemáforosOperacionales, precipProximasHoras, resumirAlertasTemporales,
 } from "../lib/clima";
 import { puntoHorometro, diasDesde } from "../lib/horometro";
-import { fetchAll } from "../lib/db";
+import { useFleetData } from "../hooks/useFleetData";
 import { C, archivo, num, SLA_HORAS, PRIORIDADES, lk } from "../theme";
 import { evaluarPlanes } from "../lib/pm";
 import { seriesPdM, evaluarMedicion } from "../lib/pdm";
@@ -66,55 +66,45 @@ function formatearHoraClima(iso) {
   return new Date(iso).toLocaleString("es-CL", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 }
 
+const SPEC = [
+  { tabla: "embarcaciones",      opts: { order: { col: "codigo", asc: true } } },
+  "equipos",
+  "inventario_items",
+  "stock",
+  "ordenes_trabajo",
+  "solicitudes",
+  "compras",
+  { tabla: "prezarpes",          opts: { order: { col: "fecha", asc: false } } },
+  "documentos",
+  "planes_pm",
+  "mediciones_pdm",
+  "fallas",
+  "inventario_item_destinos",
+  "varadas",
+  { tabla: "lecturas_horometro", opts: { order: { col: "fecha", asc: false } } },
+];
+
 export default function Alertas({ onNavigate }) {
   const { empresa } = useAuth();
-  const [embarcaciones, setEmbarcaciones] = useState([]);
-  const [equipos, setEquipos] = useState([]);
-  const [items, setItems] = useState([]);
-  const [stock, setStock] = useState([]);
-  const [ots, setOts] = useState([]);
-  const [solicitudes, setSolicitudes] = useState([]);
-  const [compras, setCompras] = useState([]);
-  const [prezarpes, setPrezarpes] = useState([]);
-  const [documentos, setDocumentos] = useState([]);
-  const [planes, setPlanes] = useState([]);
-  const [mediciones, setMediciones] = useState([]);
-  const [fallas, setFallas] = useState([]);
-  const [destinos, setDestinos] = useState([]);
-  const [varadas, setVaradas] = useState([]);
-  const [lecturas, setLecturas] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [raw, loading, error, reload] = useFleetData(SPEC);
   const [filtro, setFiltro] = useState("all");
   const [pronosticoClima, setPronosticoClima] = useState(null);
 
-  const cargar = useCallback(async () => {
-    setLoading(true); setError(null);
-    try {
-      const [embs, eqs, its, stk, otsAll, sols, cps, pzs, docs, pls, meds, fls, dsts, vars, lecs] = await Promise.all([
-        fetchAll("embarcaciones", { order: { col: "codigo", asc: true } }),
-        fetchAll("equipos"),
-        fetchAll("inventario_items"),
-        fetchAll("stock"),
-        fetchAll("ordenes_trabajo"),
-        fetchAll("solicitudes"),
-        fetchAll("compras"),
-        fetchAll("prezarpes", { order: { col: "fecha", asc: false } }),
-        fetchAll("documentos"),
-        fetchAll("planes_pm"),
-        fetchAll("mediciones_pdm"),
-        fetchAll("fallas"),
-        fetchAll("inventario_item_destinos"),
-        fetchAll("varadas"),
-        fetchAll("lecturas_horometro", { order: { col: "fecha", asc: false } }),
-      ]);
-      setEmbarcaciones(embs); setEquipos(eqs); setItems(its); setStock(stk);
-      setOts(otsAll); setSolicitudes(sols); setCompras(cps); setPrezarpes(pzs); setDocumentos(docs);
-      setPlanes(pls); setMediciones(meds); setFallas(fls); setDestinos(dsts); setVaradas(vars); setLecturas(lecs);
-    } catch (e) { setError("No se pudieron cargar las alertas. " + e.message); }
-    finally { setLoading(false); }
-  }, []);
-  useEffect(() => { cargar(); }, [cargar]);
+  const embarcaciones = raw?.embarcaciones            || [];
+  const equipos       = raw?.equipos                  || [];
+  const items         = raw?.inventario_items         || [];
+  const stock         = raw?.stock                    || [];
+  const ots           = raw?.ordenes_trabajo          || [];
+  const solicitudes   = raw?.solicitudes              || [];
+  const compras       = raw?.compras                  || [];
+  const prezarpes     = raw?.prezarpes                || [];
+  const documentos    = raw?.documentos               || [];
+  const planes        = raw?.planes_pm                || [];
+  const mediciones    = raw?.mediciones_pdm           || [];
+  const fallas        = raw?.fallas                   || [];
+  const destinos      = raw?.inventario_item_destinos || [];
+  const varadas       = raw?.varadas                  || [];
+  const lecturas      = raw?.lecturas_horometro       || [];
 
   useEffect(() => {
     if (!empresa?.puerto_base) return;
@@ -492,7 +482,7 @@ export default function Alertas({ onNavigate }) {
       <PageHead kicker="Centro de Notificaciones" title="Alertas"
         sub="Señales agregadas de toda la operación: planes PM vencidos, condición PdM fuera de límites, stock bajo, OTs críticas, SLA, equipos fuera de servicio, compras atrasadas y deuda de datos ISO. Si no hay nada acá, tu flota está bajo control." />
 
-      <ErrorBanner onRetry={cargar}>{error}</ErrorBanner>
+      <ErrorBanner onRetry={reload}>{error}</ErrorBanner>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 14, marginBottom: 16 }}>
         <Card style={{ padding: 18, background: alertas.length === 0 ? `linear-gradient(135deg, #1E9E6A, #127C8A)` : alertas.length && rojas ? `linear-gradient(135deg, ${C.red}, #8A2A26)` : `linear-gradient(135deg, ${C.amber}, #9F7415)`, color: "#fff" }}>

@@ -1,7 +1,8 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState } from "react";
 import { TrendingUp, ChevronDown, ChevronRight, AlertCircle, Save, Check } from "lucide-react";
 import { useAuth } from "../lib/auth";
-import { fetchAll, upsertRow, logActivity } from "../lib/db";
+import { upsertRow, logActivity } from "../lib/db";
+import { useFleetData } from "../hooks/useFleetData";
 import { buildEquipoTree } from "../lib/equipTree";
 import { useArbolColapsable, BotonesColapsar, EquipoNodoLabel, fondoTipo } from "../lib/arbolColapsable";
 import { calcMTBF, calcTsOpt, decidir, muestrasTBF, ajustarWeibull } from "../lib/calculos";
@@ -19,37 +20,28 @@ const DECISION_RANK = {
 
 // Funciones de confiabilidad Weibull (gamma, MTBF, Ts*, decisión) en lib/calculos.
 
+const SPEC = [
+  { tabla: "embarcaciones", opts: { order: { col: "codigo",    asc: true } } },
+  { tabla: "equipos",       opts: { order: { col: "id_visible", asc: true } } },
+  "weibull",
+  "ordenes_trabajo",
+];
+
 export default function Weibull() {
   const { profile } = useAuth();
-  const [embarcaciones, setEmbarcaciones] = useState([]);
-  const [equipos, setEquipos] = useState([]);
+  const [raw, loading, error, reload] = useFleetData(SPEC);
   const [datos, setDatos] = useState([]);
-  const [ots, setOts] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  useEffect(() => { if (raw?.weibull) setDatos(raw.weibull); }, [raw?.weibull]);
   const [filtro, setFiltro] = useState("all");
   const [abierto, setAbierto] = useState(null);
-  const [dirty, setDirty] = useState({});        // equipos con cambios sin guardar
-  const [guardadoOk, setGuardadoOk] = useState(null);  // feedback "✓ guardado"
+  const [dirty, setDirty] = useState({});
+  const [guardadoOk, setGuardadoOk] = useState(null);
   const [guardando, setGuardando] = useState(null);
-  const puedeOperar = isAdmin(profile?.rol);  // editar parámetros/costos: Jefe Mantención y superiores
+  const puedeOperar = isAdmin(profile?.rol);
 
-  const cargar = useCallback(async () => {
-    setLoading(true); setError(null);
-    try {
-      const [embs, eqs, ws, otsAll] = await Promise.all([
-        fetchAll("embarcaciones", { order: { col: "codigo", asc: true } }),
-        fetchAll("equipos", { order: { col: "id_visible", asc: true } }),
-        fetchAll("weibull"),
-        fetchAll("ordenes_trabajo"),
-      ]);
-      setEmbarcaciones(embs); setEquipos(eqs); setDatos(ws); setOts(otsAll);
-    } catch (e) {
-      setError("No se pudo cargar la optimización Weibull. " +
-        (e.message.includes("does not exist") ? "Recuerda correr el parche 04_parche_weibull.sql en Supabase." : e.message));
-    } finally { setLoading(false); }
-  }, []);
-  useEffect(() => { cargar(); }, [cargar]);
+  const embarcaciones = raw?.embarcaciones   || [];
+  const equipos       = raw?.equipos         || [];
+  const ots           = raw?.ordenes_trabajo || [];
 
   function getW(equipoId) {
     const found = datos.find((c) => c.equipo_id === equipoId);
@@ -84,7 +76,7 @@ export default function Weibull() {
       logActivity(profile, "Guardar Weibull", `${eq?.sistema || ""} · ${embName(eq?.embarcacion_id)}`);
       setGuardadoOk(equipoId);
       setTimeout(() => setGuardadoOk((g) => (g === equipoId ? null : g)), 2500);
-    } catch (e) { setError("No se pudo guardar: " + e.message); cargar(); }
+    } catch (e) { setError("No se pudo guardar: " + e.message); reload(); }
     finally { setGuardando(null); }
   }
 
@@ -152,7 +144,7 @@ export default function Weibull() {
       <PageHead kicker="Optimización · Pascual / Weibull" title="Optimización Weibull"
         sub="Calcula el tiempo óptimo de intervención preventiva y la decisión Reparar / PM / Overhaul / Reemplazar a partir del factor de forma (β), vida característica (η) y los costos Cf/Ci." />
 
-      <ErrorBanner onRetry={cargar}>{error}</ErrorBanner>
+      <ErrorBanner onRetry={reload}>{error}</ErrorBanner>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14, marginBottom: 16 }}>
         <KPI label="Componentes analizados" value={hojasAn.length} sub={`de ${filtrados.filter(esHoja).length} componentes`} />

@@ -1,39 +1,31 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useState } from "react";
 import { Gauge, TrendingUp, Clock, Wrench, AlertCircle, Printer } from "lucide-react";
 import { BarChart, Bar, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import { useAuth } from "../lib/auth";
-import { fetchAll } from "../lib/db";
+import { useFleetData } from "../hooks/useFleetData";
 import { C, archivo, clp, num, TIPOS_OT, lk } from "../theme";
 import { scheduleCompliance } from "../lib/pm";
 import { Card, PageHead, Pill, exportBtn, thStyle, tdStyle, Empty, ErrorBanner, InlineSpinner } from "../ui";
 
 const TIPO_COLOR = { preventivo: "#1E9E6A", correctivo: "#D8443C", modificativo: "#6C4FA3", predictivo: "#127C8A" };
 
+const SPEC = [
+  { tabla: "embarcaciones", opts: { order: { col: "codigo", asc: true } } },
+  "equipos",
+  "ordenes_trabajo",
+  "planes_pm",
+  "historial_pm",
+];
+
 export default function KPIs() {
   const { profile, empresa } = useAuth();
-  const [embarcaciones, setEmbarcaciones] = useState([]);
-  const [equipos, setEquipos] = useState([]);
-  const [ots, setOts] = useState([]);
-  const [planes, setPlanes] = useState([]);
-  const [historial, setHistorial] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [raw, loading, error, reload] = useFleetData(SPEC);
 
-  const cargar = useCallback(async () => {
-    setLoading(true); setError(null);
-    try {
-      const [embs, eqs, otsAll, pls, hist] = await Promise.all([
-        fetchAll("embarcaciones", { order: { col: "codigo", asc: true } }),
-        fetchAll("equipos"),
-        fetchAll("ordenes_trabajo", { order: { col: "fecha", asc: false } }),
-        fetchAll("planes_pm"),
-        fetchAll("historial_pm"),
-      ]);
-      setEmbarcaciones(embs); setEquipos(eqs); setOts(otsAll); setPlanes(pls); setHistorial(hist);
-    } catch (e) { setError("No se pudieron cargar los KPIs. " + e.message); }
-    finally { setLoading(false); }
-  }, []);
-  useEffect(() => { cargar(); }, [cargar]);
+  const embarcaciones = raw?.embarcaciones   || [];
+  const equipos       = raw?.equipos         || [];
+  const ots           = raw?.ordenes_trabajo || [];
+  const planes        = raw?.planes_pm       || [];
+  const historial     = raw?.historial_pm    || [];
 
   function embName(id) { return embarcaciones.find((e) => e.id === id)?.nombre || "—"; }
 
@@ -123,7 +115,7 @@ export default function KPIs() {
         </div>
       </div>
 
-      <ErrorBanner onRetry={cargar}>{error}</ErrorBanner>
+      <ErrorBanner onRetry={reload}>{error}</ErrorBanner>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14, marginBottom: 16 }}>
         <BigKPI label="Disponibilidad" value={`${disp.toFixed(1)}%`} tone={dispTone} icon={Gauge} sub={disp >= 90 ? "excelente" : disp >= 75 ? "aceptable" : "crítica"} />

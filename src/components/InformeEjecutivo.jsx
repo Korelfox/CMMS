@@ -3,7 +3,8 @@ import {
   Sparkles, FileText, Copy, Download, Printer, RefreshCw, AlertCircle,
   Check, Ship, ShieldAlert, CalendarClock, DollarSign, Save,
 } from "lucide-react";
-import { fetchAll, insertRow } from "../lib/db";
+import { insertRow } from "../lib/db";
+import { useFleetData } from "../hooks/useFleetData";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/auth";
 import { evaluarPlanes } from "../lib/pm";
@@ -24,11 +25,25 @@ const PERIODOS = [
   { meses: 12, label: "últimos 12 meses" },
 ];
 
+const SPEC = [
+  { tabla: "embarcaciones",      opts: { order: { col: "codigo", asc: true } } },
+  "equipos",
+  "planes_pm",
+  "ordenes_trabajo",
+  "mareas",
+  "inventario_items",
+  "stock",
+  "inventario_item_destinos",
+  { tabla: "presupuestos",       soft: true },
+  { tabla: "varadas",            soft: true },
+  { tabla: "compras",            opts: { order: { col: "fecha", asc: false } }, soft: true },
+  { tabla: "compras_items",      soft: true },
+  { tabla: "lecturas_horometro", opts: { order: { col: "fecha", asc: false } }, soft: true },
+];
+
 export default function InformeEjecutivo() {
   const { empresa, profile } = useAuth();
-  const [data, setData]       = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError]     = useState(null);
+  const [raw, loading, error, reload] = useFleetData(SPEC);
   const [meses, setMeses]     = useState(3);
   const [texto, setTexto]     = useState("");
   const [generando, setGenerando] = useState(false);
@@ -38,31 +53,26 @@ export default function InformeEjecutivo() {
   const [guardado, setGuardado]   = useState(false);
   const abortRef = useRef(null);
 
-  const cargar = useCallback(async () => {
-    setLoading(true); setError(null);
-    try {
-      const [embs, eqs, planes, ots, mareas, items, stock, destinos, presupuestos, varadas, compras, comprasItems, lecturas] = await Promise.all([
-        fetchAll("embarcaciones", { order: { col: "codigo", asc: true } }),
-        fetchAll("equipos"),
-        fetchAll("planes_pm"),
-        fetchAll("ordenes_trabajo"),
-        fetchAll("mareas"),
-        fetchAll("inventario_items"),
-        fetchAll("stock"),
-        fetchAll("inventario_item_destinos"),
-        fetchAll("presupuestos").catch(() => []),
-        fetchAll("varadas").catch(() => []),
-        fetchAll("compras", { order: { col: "fecha", asc: false } }).catch(() => []),
-        fetchAll("compras_items").catch(() => []),
-        fetchAll("lecturas_horometro", { order: { col: "fecha", asc: false } }).catch(() => []),
-      ]);
-      setData({ embs, eqs, planes, ots, mareas, items, stock, destinos, presupuestos, varadas, compras, comprasItems, lecturas });
-    } catch (e) { setError("No se pudieron cargar los datos. " + e.message); }
-    finally { setLoading(false); }
-  }, []);
-  useEffect(() => { cargar(); }, [cargar]);
-
   useEffect(() => () => { if (abortRef.current) abortRef.current.abort(); }, []);
+
+  const data = useMemo(() => {
+    if (!raw) return null;
+    return {
+      embs:         raw.embarcaciones,
+      eqs:          raw.equipos,
+      planes:       raw.planes_pm,
+      ots:          raw.ordenes_trabajo,
+      mareas:       raw.mareas,
+      items:        raw.inventario_items,
+      stock:        raw.stock,
+      destinos:     raw.inventario_item_destinos,
+      presupuestos: raw.presupuestos,
+      varadas:      raw.varadas,
+      compras:      raw.compras,
+      comprasItems: raw.compras_items,
+      lecturas:     raw.lecturas_horometro,
+    };
+  }, [raw]);
 
   const hoy = useMemo(() => new Date().toISOString().slice(0, 10), []);
   const anio = useMemo(() => new Date().getFullYear(), []);
@@ -246,7 +256,7 @@ export default function InformeEjecutivo() {
         title="Informe Ejecutivo"
         sub="Claude redacta el informe ejecutivo del período cruzando confiabilidad, cumplimiento del plan, costos e inventario crítico — a partir de los datos reales de tu flota."
       />
-      <ErrorBanner onRetry={cargar}>{error}</ErrorBanner>
+      <ErrorBanner onRetry={reload}>{error}</ErrorBanner>
 
       {/* Snapshot de datos que alimentan el informe */}
       {snap && (

@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useMemo } from "react";
 import {
   Sigma, ChevronDown, ChevronUp, AlertTriangle, CheckCircle2,
   Clock, CalendarClock, Info, HelpCircle,
 } from "lucide-react";
-import { fetchAll } from "../lib/db";
+import { useFleetData } from "../hooks/useFleetData";
 import {
   rankearFlota, puntosCurva, cuantilWeibull,
   vidaUtilResidual, probFalla, interpretarBeta, mtbfDias,
@@ -48,10 +48,15 @@ function fechaCorta(iso) {
 }
 
 // ── Componente principal ───────────────────────────────────────────────────────
+const SPEC = [
+  { tabla: "embarcaciones", opts: { order: { col: "codigo", asc: true } } },
+  "equipos",
+  "ordenes_trabajo",
+  { tabla: "lecturas_horometro", opts: { order: { col: "fecha", asc: false } } },
+];
+
 export default function ConfiabilidadML() {
-  const [data, setData]         = useState(null);
-  const [loading, setLoading]   = useState(true);
-  const [error, setError]       = useState(null);
+  const [raw, loading, error, reload] = useFleetData(SPEC);
   const [tab, setTab]           = useState("ranking");
   const [filtroEmb, setFiltroEmb]     = useState("todas");
   const [filtroCrit, setFiltroCrit]   = useState("todas");
@@ -60,21 +65,15 @@ export default function ConfiabilidadML() {
 
   const hoy = useMemo(() => new Date().toISOString().slice(0, 10), []);
 
-  const cargar = useCallback(async () => {
-    setLoading(true); setError(null);
-    try {
-      const [embs, equipos, ots, lecturas] = await Promise.all([
-        fetchAll("embarcaciones"),
-        fetchAll("equipos"),
-        fetchAll("ordenes_trabajo"),
-        fetchAll("lecturas_horometro"),
-      ]);
-      setData({ embs, equipos, ots, lecturas });
-    } catch (e) { setError(e.message); }
-    finally { setLoading(false); }
-  }, []);
-
-  useEffect(() => { cargar(); }, [cargar]);
+  const data = useMemo(() => {
+    if (!raw) return null;
+    return {
+      embs:     raw.embarcaciones,
+      equipos:  raw.equipos,
+      ots:      raw.ordenes_trabajo,
+      lecturas: raw.lecturas_horometro,
+    };
+  }, [raw]);
 
   const ranking = useMemo(() => {
     if (!data) return [];
@@ -131,7 +130,7 @@ export default function ConfiabilidadML() {
         title="Predictivo ML"
         sub={`Weibull auto-ajustado desde historial de fallas. ${nConAjuste} de ${ranking.length} equipos con modelo estadístico activo.`}
       />
-      <ErrorBanner onRetry={cargar}>{error}</ErrorBanner>
+      <ErrorBanner onRetry={reload}>{error}</ErrorBanner>
 
       {/* KPIs */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12, marginBottom: 20 }}>

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useMemo } from "react";
+import React, { useState, useMemo } from "react";
 import {
   CalendarRange, Anchor, CheckCircle2, AlertTriangle, Clock,
   Wrench, ChevronDown, ChevronRight, Waves, AlertCircle,
@@ -6,7 +6,7 @@ import {
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, ReferenceLine,
 } from "recharts";
-import { fetchAll } from "../lib/db";
+import { useFleetData } from "../hooks/useFleetData";
 import { evaluarPlanes } from "../lib/pm";
 import { scoreBacklog } from "../lib/operacional";
 import {
@@ -19,37 +19,28 @@ import { Card, PageHead, Pill, Empty, ErrorBanner, InlineSpinner } from "../ui";
 const SEMANAS_OPTS = [4, 8, 12, 16];
 const HH_DIA_DEFAULT = 8;
 
-export default function PlanificacionPuerto({ onNavigate }) {
-  const [embarcaciones, setEmbarcaciones] = useState([]);
-  const [mareas,        setMareas]        = useState([]);
-  const [planes,        setPlanes]        = useState([]);
-  const [equipos,       setEquipos]       = useState([]);
-  const [lecturas,      setLecturas]      = useState([]);
-  const [ots,           setOts]           = useState([]);
-  const [loading,       setLoading]       = useState(true);
-  const [error,         setError]         = useState(null);
-  const [tab,           setTab]           = useState("ventana");  // "ventana" | "curva"
-  const [semanas,       setSemanas]       = useState(8);
-  const [hhDia,         setHhDia]         = useState(HH_DIA_DEFAULT);
-  const [expanded,      setExpanded]      = useState(null);
+const SPEC = [
+  { tabla: "embarcaciones",     opts: { order: { col: "codigo", asc: true } } },
+  "mareas",
+  "planes_pm",
+  "equipos",
+  { tabla: "lecturas_horometro", opts: { order: { col: "fecha", asc: false } } },
+  "ordenes_trabajo",
+];
 
-  const cargar = useCallback(async () => {
-    setLoading(true); setError(null);
-    try {
-      const [embs, mrs, pls, eqs, lecs, otsAll] = await Promise.all([
-        fetchAll("embarcaciones", { order: { col: "codigo", asc: true } }),
-        fetchAll("mareas"),
-        fetchAll("planes_pm"),
-        fetchAll("equipos"),
-        fetchAll("lecturas_horometro", { order: { col: "fecha", asc: false } }),
-        fetchAll("ordenes_trabajo"),
-      ]);
-      setEmbarcaciones(embs); setMareas(mrs); setPlanes(pls);
-      setEquipos(eqs); setLecturas(lecs); setOts(otsAll);
-    } catch (e) { setError("No se pudieron cargar los datos. " + e.message); }
-    finally { setLoading(false); }
-  }, []);
-  useEffect(() => { cargar(); }, [cargar]);
+export default function PlanificacionPuerto({ onNavigate }) {
+  const [raw, loading, error, reload] = useFleetData(SPEC);
+  const [tab,      setTab]      = useState("ventana");
+  const [semanas,  setSemanas]  = useState(8);
+  const [hhDia,    setHhDia]    = useState(HH_DIA_DEFAULT);
+  const [expanded, setExpanded] = useState(null);
+
+  const embarcaciones = raw?.embarcaciones            || [];
+  const mareas        = raw?.mareas                   || [];
+  const planes        = raw?.planes_pm                || [];
+  const equipos       = raw?.equipos                  || [];
+  const lecturas      = raw?.lecturas_horometro       || [];
+  const ots           = raw?.ordenes_trabajo          || [];
 
   const hoy = useMemo(() => new Date().toISOString().slice(0, 10), []);
 
@@ -121,7 +112,7 @@ export default function PlanificacionPuerto({ onNavigate }) {
         title="Ventana de Puerto"
         sub="Proyecta qué PMs vencen durante la próxima estadía en puerto de cada nave y cuánto trabajo cabe en la ventana disponible. La curva de carga detecta semanas saturadas con anticipación."
       />
-      <ErrorBanner onRetry={cargar}>{error}</ErrorBanner>
+      <ErrorBanner onRetry={reload}>{error}</ErrorBanner>
 
       {/* KPIs resumen */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14, marginBottom: 16 }}>
