@@ -98,6 +98,9 @@ export const LAYOUT = {
   workPadY: 22,
   workPadBottom: 48,
   splitTreeMax: 320,
+  /** Cola de equipos (vista Cola): el doble del panel árbol/cola estándar. */
+  splitQueueMin: 520,
+  splitQueueMax: 640,
   splitDetailMin: 400,
   splitDetailMax: 520,
 };

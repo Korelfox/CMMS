@@ -973,7 +973,7 @@ export default function Equipos() {
               )}
             </div>
           ) : (
-            <div className={`inv-split-container${isMobile ? " inv-split-stack" : ""}`}>
+            <div className={`inv-split-container inv-split-queue-wide${isMobile ? " inv-split-stack" : ""}`}>
               <EquipoQueuePanel lista={listaEnriquecida} selectedId={selectedId} onSelect={setSelectedId} busqueda={busqueda} setBusqueda={setBusqueda} embName={embName} panelHeight={isMobile ? "auto" : "calc(100vh - 320px)"} />
               {(!isMobile || selectedId) && (
                 <EquipoDetailPanel nodeId={selectedId} handlers={handlersRef.current} puedeOperar={puedeOperar} puedeBorrar={puedeBorrar} eqDirty={eqDirty} posInfo={posInfo} onSelectNode={setSelectedId} activeTab={detailTab} onTabChange={setDetailTab} embedded />
