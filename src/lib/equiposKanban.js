@@ -1,9 +1,9 @@
 /** Columnas kanban por estado operacional del equipo (orden de lectura: flota sana → atención). */
 export const EQ_KANBAN_COLS = [
-  { value: "operativo", label: "Operativo", tone: "green", flex: "1 1 250px", minWidth: 234 },
-  { value: "en_reparacion", label: "En reparación", tone: "steel", flex: "0 0 232px", minWidth: 216 },
-  { value: "desgaste", label: "Desgaste", tone: "yellow", flex: "0 0 218px", minWidth: 202 },
-  { value: "fuera_servicio", label: "Fuera de servicio", tone: "red", flex: "0 0 234px", minWidth: 218 },
+  { value: "operativo", label: "Operativo", tone: "green", flex: "1 1 208px", minWidth: 195 },
+  { value: "en_reparacion", label: "En reparación", tone: "steel", flex: "0 0 244px", minWidth: 228 },
+  { value: "desgaste", label: "Desgaste", tone: "yellow", flex: "0 0 230px", minWidth: 214 },
+  { value: "fuera_servicio", label: "Fuera de servicio", tone: "red", flex: "0 0 246px", minWidth: 230 },
 ];
 
 export function kanbanEstadoKey(eq) {
