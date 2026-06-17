@@ -3,7 +3,7 @@ import { ordenarPlanesPM, PM_KANBAN_COLS } from "../src/lib/planpmKanban.js";
 
 describe("planpmKanban", () => {
   it("define columnas por semáforo", () => {
-    expect(PM_KANBAN_COLS.map((c) => c.value)).toEqual(["red", "yellow", "green"]);
+    expect(PM_KANBAN_COLS.map((c) => c.value)).toEqual(["green", "yellow", "red"]);
   });
 
   it("ordena vencidos primero y por ratio de avance", () => {

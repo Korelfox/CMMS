@@ -1,8 +1,8 @@
-/** Columnas kanban del plan preventivo (semáforo). */
+/** Columnas kanban del plan preventivo (orden de lectura: al día → atención). */
 export const PM_KANBAN_COLS = [
-  { value: "red", label: "Vencido", tone: "red" },
-  { value: "yellow", label: "Próximo", tone: "yellow" },
-  { value: "green", label: "OK", tone: "green" },
+  { value: "green", label: "OK", tone: "green", flex: "1 1 208px", minWidth: 195 },
+  { value: "yellow", label: "Próximo", tone: "yellow", flex: "0 0 230px", minWidth: 214 },
+  { value: "red", label: "Vencido", tone: "red", flex: "0 0 246px", minWidth: 230 },
 ];
 
 export function ordenarPlanesPM(lista) {

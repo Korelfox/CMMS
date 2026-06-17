@@ -50,17 +50,52 @@ export default function PMKanban({ lista, selectedId, onSelect, embName }) {
   const toneMap = { red: C.red, yellow: C.amber, green: C.green };
 
   return (
-    <div data-testid="pm-kanban" style={{ display: "flex", gap: 12, overflowX: "auto", padding: "16px 16px 20px", alignItems: "flex-start", minHeight: 420 }}>
+    <div
+      data-testid="pm-kanban"
+      style={{
+        display: "flex", gap: 10, overflowX: "auto", width: "100%",
+        padding: "14px 16px 18px", alignItems: "stretch", minHeight: 440,
+      }}
+    >
       {PM_KANBAN_COLS.map((col) => {
         const items = lista.filter((x) => x.tone === col.value);
         const headerColor = toneMap[col.tone] || C.steel;
+        const esPrincipal = col.value === "green";
         return (
-          <div key={col.value} style={{ flex: "0 0 272px", minWidth: 272, maxHeight: "calc(100vh - 340px)", display: "flex", flexDirection: "column", background: tint(headerColor, 4), border: `1px solid ${tint(headerColor, 22)}`, borderRadius: 12, overflow: "hidden" }}>
-            <div style={{ padding: "12px 14px", borderBottom: `1px solid ${tint(headerColor, 18)}`, background: tint(headerColor, 8), flexShrink: 0 }}>
-              <div style={{ fontSize: 12, fontWeight: 800, color: headerColor }}>{col.label}</div>
-              <div style={{ fontSize: 11, color: C.slate, marginTop: 2 }}>{items.length} tarea{items.length !== 1 ? "s" : ""}</div>
+          <div
+            key={col.value}
+            style={{
+              flex: col.flex || "0 0 220px",
+              minWidth: col.minWidth || 220,
+              maxHeight: "calc(100vh - 320px)",
+              display: "flex",
+              flexDirection: "column",
+              background: tint(headerColor, esPrincipal ? 5 : 4),
+              border: `1px solid ${tint(headerColor, esPrincipal ? 28 : 22)}`,
+              borderRadius: 12,
+              overflow: "hidden",
+              boxShadow: esPrincipal ? `0 1px 0 ${tint(headerColor, 12)}` : "none",
+            }}
+          >
+            <div style={{
+              padding: "11px 13px", borderBottom: `1px solid ${tint(headerColor, 18)}`,
+              background: tint(headerColor, esPrincipal ? 10 : 8), flexShrink: 0,
+              display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8,
+            }}>
+              <div>
+                <div style={{ fontSize: 12, fontWeight: 800, color: headerColor, letterSpacing: 0.2 }}>{col.label}</div>
+                <div style={{ fontSize: 11, color: C.slate, marginTop: 2 }}>
+                  {items.length} tarea{items.length !== 1 ? "s" : ""}
+                </div>
+              </div>
+              <span style={{
+                fontSize: 12, fontWeight: 800, color: headerColor, fontFamily: "'IBM Plex Mono', monospace",
+                background: tint(headerColor, 14), borderRadius: 8, padding: "3px 8px", minWidth: 28, textAlign: "center",
+              }}>
+                {items.length}
+              </span>
             </div>
-            <div style={{ flex: 1, overflowY: "auto", padding: 10 }}>
+            <div style={{ flex: 1, overflowY: "auto", padding: "8px 10px 10px" }}>
               {items.length === 0 ? (
                 <div style={{ fontSize: 12, color: C.slate, fontStyle: "italic", padding: "8px 4px" }}>Vacío</div>
               ) : (

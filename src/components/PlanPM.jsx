@@ -574,7 +574,7 @@ tbody td{padding:5px 8px;vertical-align:middle}
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
           <span style={{ fontSize: 11, color: C.slate, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5 }}>Estado</span>
-          {[["all", "Todos", C.slate], ["red", "Vencido", C.red], ["yellow", "Próximo", C.amber], ["green", "OK", C.green]].map(([v, lbl, tone]) => {
+          {[["all", "Todos", C.slate], ["green", "OK", C.green], ["yellow", "Próximo", C.amber], ["red", "Vencido", C.red]].map(([v, lbl, tone]) => {
             const n = v === "all" ? null : evaluados.filter((x) => x.tone === v).length;
             return (
               <FilterBtn key={v} active={fEstado === v} color={fEstado === v ? tone : undefined} onClick={() => setFEstado(v)}>
