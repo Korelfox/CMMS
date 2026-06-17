@@ -305,12 +305,6 @@ export default function TabStock({ profile, items, setItems, bodegas, stockMap, 
           padding={0}
           style={{ marginBottom: 0 }}
         >
-          <style>{`
-            .inv-split-container { display: grid; grid-template-columns: minmax(300px, 380px) 1fr; gap: 16px; align-items: start; padding: 16px; }
-            .inv-split-container.inv-split-stack { grid-template-columns: 1fr; }
-            .inv-kanban-with-detail { display: grid; grid-template-columns: 1fr; gap: 0; }
-            @media (min-width: 1025px) { .inv-kanban-with-detail.has-detail { grid-template-columns: 1fr minmax(360px, 420px); } }
-          `}</style>
           {listaOrdenada.length === 0 ? (
             <EmptyState icon={AlertCircle} title="Sin ítems en este filtro" description="Prueba otro filtro ABC/stock o limpia la búsqueda." />
           ) : vista === "kanban" ? (

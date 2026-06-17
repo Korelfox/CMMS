@@ -540,8 +540,8 @@ export default function AppShell() {
 
       {/* Padding responsivo + sidebar colapsable en móvil */}
       <style>{`
-        .cmms-topbar    { padding: 8px 34px; }
-        .cmms-work-area { padding: 28px 30px 60px; }
+        .cmms-topbar    { padding: 8px 24px; }
+        .cmms-work-area { padding: var(--layout-pad-y) var(--layout-pad-x) var(--layout-pad-bottom); max-width: 100%; }
 
         /* ── Tab bar de módulos recientes ── */
         .cmms-tabs-bar {
@@ -622,7 +622,7 @@ export default function AppShell() {
 
         @media (max-width: 760px) {
           .cmms-topbar    { padding: 8px 14px; }
-          .cmms-work-area { padding: 18px 12px 48px; }
+          .cmms-work-area { padding: 16px 12px 40px; }
           .cmms-tabs-bar  { padding: 0 8px; }
           .cmms-tab       { padding: 0 8px; font-size: 11.5px; }
           .cmms-tab-label { max-width: 80px; }

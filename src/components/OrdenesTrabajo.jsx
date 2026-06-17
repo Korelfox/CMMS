@@ -650,29 +650,6 @@ export default function OrdenesTrabajo({ navParams }) {
         padding={0}
         style={{ marginBottom: 0 }}
       >
-        <style>{`
-          .ot-split-container {
-            display: grid;
-            grid-template-columns: minmax(300px, 380px) 1fr;
-            gap: 16px;
-            align-items: start;
-            padding: 16px;
-          }
-          .ot-split-container.ot-split-stack {
-            grid-template-columns: 1fr;
-          }
-          .ot-kanban-with-detail {
-            display: grid;
-            grid-template-columns: 1fr;
-            gap: 0;
-          }
-          @media (min-width: 1025px) {
-            .ot-kanban-with-detail.has-detail {
-              grid-template-columns: 1fr minmax(360px, 420px);
-            }
-          }
-        `}</style>
-
         {isValorizar && (
           <OTValorizarPanel
             lista={otsScope.filter(sinValorizar)}

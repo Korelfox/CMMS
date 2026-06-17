@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { ChevronRight } from "lucide-react";
-import { C, archivo, shadow, tint, space } from "./theme";
+import { C, archivo, shadow, tint, space, LAYOUT } from "./theme";
 
 // ============================================================
 //  Focus-following scroll — al enfocar un campo cerca del borde,
@@ -236,9 +236,9 @@ export function EmptyState({ icon: Icon, title, description, action }) {
  * Contenedor estándar de módulo: header premium + toolbar + cuerpo animado.
  * loading → spinner inline · error → banner con retry
  */
-export function ModuleShell({ kicker, title, sub, action, toolbar, children, loading, error, onRetry, maxWidth = 1440 }) {
+export function ModuleShell({ kicker, title, sub, action, toolbar, children, loading, error, onRetry, maxWidth = LAYOUT.maxWidth }) {
   return (
-    <div className="cmms-module" style={{ maxWidth, margin: "0 auto", animation: "cmms-fade-in .35s ease both" }}>
+    <div className="cmms-module" style={{ maxWidth, width: "100%", margin: "0 auto", animation: "cmms-fade-in .35s ease both" }}>
       <header className="cmms-module-header">
         <div className="cmms-module-header-inner">
           <div style={{ minWidth: 0, flex: 1 }}>
@@ -549,7 +549,7 @@ export function DesignSystemStyles() {
         color: var(--c-slate);
         font-size: 14px;
         line-height: 1.55;
-        max-width: 640px;
+        max-width: 840px;
       }
       .cmms-module-actions { display: flex; gap: 10px; flex-shrink: 0; align-items: center; flex-wrap: wrap; }
 
@@ -650,6 +650,44 @@ export function DesignSystemStyles() {
       /* ── Layout grids (Tablero / command centers) ─────────────────── */
       .cmms-grid-2 { display: grid; grid-template-columns: 1.35fr 1fr; gap: 16px; margin-bottom: 24px; }
       .cmms-grid-fleet { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 16px; }
+
+      /* ── Split cola/árbol + detalle (Equipos, Inventario, OT, PM…) ─ */
+      .cmms-split-layout,
+      .inv-split-container,
+      .eq-split-container,
+      .ot-split-container {
+        display: grid;
+        grid-template-columns: minmax(260px, ${LAYOUT.splitTreeMax}px) minmax(0, 1fr);
+        gap: 14px;
+        align-items: start;
+        padding: 12px 14px;
+      }
+      .cmms-split-layout.cmms-split-stack,
+      .inv-split-container.inv-split-stack,
+      .eq-split-container.cmms-split-stack,
+      .ot-split-container.ot-split-stack {
+        grid-template-columns: 1fr;
+      }
+      .cmms-split-kanban,
+      .inv-kanban-with-detail,
+      .ot-kanban-with-detail {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 0;
+      }
+      @media (min-width: 1025px) {
+        .cmms-split-kanban.has-detail,
+        .inv-kanban-with-detail.has-detail,
+        .ot-kanban-with-detail.has-detail {
+          grid-template-columns: minmax(0, 1fr) minmax(${LAYOUT.splitDetailMin}px, ${LAYOUT.splitDetailMax}px);
+        }
+      }
+      @media (max-width: 1024px) {
+        .cmms-split-layout,
+        .inv-split-container,
+        .eq-split-container,
+        .ot-split-container { grid-template-columns: 1fr; }
+      }
 
       @media (max-width: 1100px) {
         .cmms-stat-grid { grid-template-columns: repeat(2, 1fr); }

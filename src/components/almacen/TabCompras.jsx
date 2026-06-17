@@ -917,12 +917,6 @@ tbody td { padding: 7px 9px; font-size: 11px; border-bottom: 1px solid #EEF3F7; 
           padding={0}
           style={{ marginBottom: 0 }}
         >
-          <style>{`
-            .inv-split-container { display: grid; grid-template-columns: minmax(300px, 380px) 1fr; gap: 16px; align-items: start; padding: 16px; }
-            .inv-split-container.inv-split-stack { grid-template-columns: 1fr; }
-            .inv-kanban-with-detail { display: grid; grid-template-columns: 1fr; gap: 0; }
-            @media (min-width: 1025px) { .inv-kanban-with-detail.has-detail { grid-template-columns: 1fr minmax(380px, 480px); } }
-          `}</style>
           {listaOrdenada.length === 0 ? (
             <EmptyState icon={ShoppingCart} title="Sin OCs en este filtro" description={compras.length === 0 ? "Crea la primera orden de compra." : "Prueba otro filtro o limpia la búsqueda."} />
           ) : vista === "kanban" ? (

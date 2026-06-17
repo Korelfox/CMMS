@@ -51,6 +51,10 @@ export const tint = (color, pct = 10) => `color-mix(in srgb, ${color} ${pct}%, t
 export const THEME_VARS = `
   :root {
     ${Object.entries(HEX_LIGHT).map(([k, v]) => `--c-${k}: ${v};`).join("\n    ")}
+    --layout-max-width: ${1920}px;
+    --layout-pad-x: 18px;
+    --layout-pad-y: 22px;
+    --layout-pad-bottom: 48px;
     color-scheme: light;
   }
   [data-theme="dark"] {
@@ -86,6 +90,17 @@ export const radius = { sm: 6, md: 8, lg: 12, xl: 16, pill: 999 };
 
 // Escala de espaciado (px) — layout y gutters del design system Tier 2
 export const space = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24, xxl: 32, xxxl: 48 };
+
+/** Ancho máximo del área de trabajo y paddings del shell (monitores anchos). */
+export const LAYOUT = {
+  maxWidth: 1920,
+  workPadX: 18,
+  workPadY: 22,
+  workPadBottom: 48,
+  splitTreeMax: 320,
+  splitDetailMin: 400,
+  splitDetailMax: 520,
+};
 
 // Roles y jerarquía (refleja el enum app.rol_usuario del esquema SQL)
 export const ROLES = {

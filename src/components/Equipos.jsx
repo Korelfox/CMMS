@@ -961,12 +961,6 @@ export default function Equipos() {
           padding={0}
           style={{ marginBottom: 0 }}
         >
-          <style>{`
-            .inv-split-container { display: grid; grid-template-columns: minmax(300px, 380px) 1fr; gap: 16px; align-items: start; padding: 16px; }
-            .inv-split-container.inv-split-stack { grid-template-columns: 1fr; }
-            .inv-kanban-with-detail { display: grid; grid-template-columns: 1fr; gap: 0; }
-            @media (min-width: 1025px) { .inv-kanban-with-detail.has-detail { grid-template-columns: 1fr minmax(360px, 420px); } }
-          `}</style>
           {listaEnriquecida.length === 0 ? (
             <EmptyState icon={Layers} title="Sin equipos en este filtro" description="Prueba otro filtro de estado o limpia la búsqueda." />
           ) : vista === "kanban" ? (
@@ -1039,13 +1033,6 @@ export default function Equipos() {
         style={{ marginBottom: 0 }}
       >
         <style>{`
-          .eq-split-container {
-            display: grid;
-            grid-template-columns: minmax(280px, 360px) 1fr;
-            gap: 16px;
-            align-items: start;
-            padding: 16px;
-          }
           .eq-tree-node {
             position: relative;
             display: flex;
@@ -1073,15 +1060,12 @@ export default function Equipos() {
           .eq-tree-node-brecha:hover {
             background: color-mix(in srgb, ${C.amber} 6%, transparent);
           }
-          @media (max-width: 1024px) {
-            .eq-split-container { grid-template-columns: 1fr; }
-          }
         `}</style>
 
         {equipos.length === 0 ? (
           <Empty><NotaJerarquia /></Empty>
         ) : (
-          <div className="eq-split-container">
+          <div className="eq-split-container inv-split-container">
             <EquipoTreePanel
               busqueda={busqueda}
               setBusqueda={setBusqueda}
