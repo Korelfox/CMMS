@@ -3,16 +3,19 @@ import {
   Anchor, LayoutDashboard, Ship, Sailboat, CalendarClock, Calendar, Inbox, ClipboardList,
   Package, Warehouse, Gauge, Activity, AlertTriangle, ClipboardCheck, DollarSign,
   TrendingUp, TrendingDown, FileText, History, Layers, Bell, LogOut, UserCircle, UserCog,
-  Wifi, WifiOff, RefreshCw, CheckCircle2, BarChart3, ShipWheel, Fuel, ShieldCheck, Fish,
-  Menu, X, Sun, Moon, Building2, Timer, Waves, ListTodo, Microscope, Wrench, CalendarRange,
+  RefreshCw, BarChart3, ShipWheel, Fuel, ShieldCheck, Fish,
+  X, Sun, Moon, Building2, Timer, Waves, ListTodo, Microscope, Wrench, CalendarRange,
   ShieldAlert, SlidersHorizontal, PiggyBank, Sparkles, Stethoscope, Bot, Scale, Sigma, Receipt, Replace, Network, Workflow, Radar,
 } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { fetchAll } from "../lib/db";
 import { useOnline, outboxCount, flushOutbox } from "../lib/offline";
-import { C, archivo, rolLabel, ROLES, isAdmin, isSuperAdmin, tint } from "../theme";
+import { C, archivo, rolLabel, ROLES, isAdmin, isSuperAdmin } from "../theme";
 import { Card, InlineSpinner, PageHead } from "../ui";
 import ErrorBoundary from "./ErrorBoundary";
+import { ShellProvider, useShell } from "../context/ShellContext";
+import ContextHeader from "./ContextHeader";
+import EmbarcacionPicker from "./EmbarcacionPicker";
 
 const Tablero       = lazy(() => import("./Tablero"));
 const Alertas       = lazy(() => import("./Alertas"));
@@ -178,6 +181,18 @@ const MODULOS = {
   empresas: Empresas,
 };
 
+function EmbarcacionPickerGate() {
+  const { necesitaPicker, embarcaciones, setEmbarcacionId, empresa } = useShell();
+  if (!necesitaPicker) return null;
+  return (
+    <EmbarcacionPicker
+      embarcaciones={embarcaciones}
+      onSelect={setEmbarcacionId}
+      empresaNombre={empresa?.nombre}
+    />
+  );
+}
+
 export default function AppShell() {
   const { profile, empresa, signOut } = useAuth();
   const online = useOnline();
@@ -311,7 +326,11 @@ export default function AppShell() {
     return () => { vivo = false; };
   }, [empresa?.id]);
 
+  const viewLabel = NAV.find((n) => n.id === view)?.label || "";
+
   return (
+    <ShellProvider onNavigate={navegar}>
+    <EmbarcacionPickerGate />
     <div style={{ display: "flex", height: "100vh", color: C.ink, overflow: "hidden" }}>
       {/* OVERLAY (solo móvil, al abrir el drawer) */}
       <div className={`cmms-overlay${sidebarOpen ? " cmms-overlay-open" : ""}`}
@@ -366,6 +385,13 @@ export default function AppShell() {
             <div style={{ minWidth: 0 }}>
               <div style={{ fontSize: 13, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{profile?.nombre || "Usuario"}</div>
               <div style={{ fontSize: 10, opacity: 0.55 }}>{rolLabel(profile?.rol)}</div>
+              {(armador || empresa?.puerto_base) && (
+                <div style={{ fontSize: 9.5, opacity: 0.45, marginTop: 4, lineHeight: 1.3 }}>
+                  {armador ? `Armador: ${armador}` : null}
+                  {armador && empresa?.puerto_base ? " · " : null}
+                  {empresa?.puerto_base || null}
+                </div>
+              )}
             </div>
           </div>
           <div style={{ display: "flex", gap: 7 }}>
@@ -382,86 +408,26 @@ export default function AppShell() {
 
       {/* CONTENIDO */}
       <main style={{ flex: 1, overflowY: "auto", background: C.mist }}>
-        {/* Barra superior: Armador + estado de conexión */}
-        <div className="cmms-topbar" style={{ position: "sticky", top: 0, zIndex: 20, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, background: online ? tint(C.surface, 92) : C.yellowBg, borderBottom: `1px solid ${online ? C.line : C.amber}`, backdropFilter: "blur(6px)" }}>
-          <span style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 12, color: C.slate, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-            <button className="cmms-hamburger" onClick={() => setSidebarOpen(true)}
-              aria-label="Abrir menú"
-              style={{ display: "none", background: "none", border: `1px solid ${C.line}`, borderRadius: 8, color: C.steel, cursor: "pointer", padding: 6, alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-              <Menu size={18} />
-            </button>
-            <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>
-              Armador: <strong style={{ color: C.steel }}>{armador || profile?.nombre || "—"}</strong>
-              {empresa?.puerto_base ? <span style={{ opacity: 0.7 }}> · {empresa.puerto_base}</span> : null}
-            </span>
-          </span>
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            {recienSync && (
-              <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 600, color: C.green }}>
-                <CheckCircle2 size={15} /> Sincronizado
-              </span>
-            )}
-            {pendientes > 0 && (
-              <button onClick={sincronizar} disabled={!online || sincronizando}
-                style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 600, color: "#7a5b00", background: C.amber, border: "none", borderRadius: 20, padding: "5px 12px", cursor: online && !sincronizando ? "pointer" : "default", opacity: online && !sincronizando ? 1 : 0.7 }}>
-                <RefreshCw size={13} className={sincronizando ? "spin" : ""} style={sincronizando ? { animation: "spin 1s linear infinite" } : undefined} />
-                {sincronizando ? "Sincronizando…" : `${pendientes} por subir`}
-              </button>
-            )}
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 600, color: online ? C.green : "#7a5b00" }}>
-              {online ? <Wifi size={15} /> : <WifiOff size={15} />}
-              {online ? "En línea" : "Sin conexión"}
-            </span>
-
-            {/* ── Refresh timer ── */}
-            <div style={{ position: "relative" }} ref={refreshCfgRef}>
-              <button onClick={() => setShowRefreshCfg((v) => !v)} title="Configurar actualización automática"
-                style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 700,
-                  color: refreshInterval > 0 && timeLeft < 60 ? C.amber : C.slate,
-                  background: showRefreshCfg ? tint(C.sky, 12) : "none",
-                  border: `1px solid ${showRefreshCfg ? tint(C.sky, 30) : C.line}`,
-                  borderRadius: 20, padding: "4px 10px", cursor: "pointer",
-                  fontFamily: "'IBM Plex Mono', monospace", transition: "color .2s" }}>
-                <RefreshCw size={12} />
-                {refreshInterval > 0 ? fmtTimer(timeLeft) : "—"}
-              </button>
-
-              {showRefreshCfg && (
-                <div style={{ position: "absolute", right: 0, top: "calc(100% + 6px)", background: C.surface,
-                  border: `1px solid ${C.line}`, borderRadius: 12, padding: "8px 6px", zIndex: 200, minWidth: 180,
-                  boxShadow: "0 6px 24px rgba(0,0,0,.14)" }}>
-                  <div style={{ fontSize: 10.5, color: C.slate, fontWeight: 700, textTransform: "uppercase",
-                    letterSpacing: 0.6, padding: "4px 10px 8px" }}>
-                    Actualización automática
-                  </div>
-                  {INTERVALOS_REFRESH.map((op) => (
-                    <button key={op.s}
-                      onClick={() => { setRefreshInterval(op.s); setTimeLeft(op.s || 0); setShowRefreshCfg(false); }}
-                      style={{ display: "block", width: "100%", textAlign: "left", padding: "7px 12px", borderRadius: 8,
-                        border: "none", background: refreshInterval === op.s ? tint(C.sky, 14) : "none",
-                        color: refreshInterval === op.s ? C.sky : C.ink, fontWeight: refreshInterval === op.s ? 700 : 400,
-                        fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>
-                      {op.label}
-                      {refreshInterval === op.s && refreshInterval > 0 && (
-                        <span style={{ fontSize: 11, color: C.steel, marginLeft: 8, fontFamily: "'IBM Plex Mono', monospace" }}>
-                          {fmtTimer(timeLeft)}
-                        </span>
-                      )}
-                    </button>
-                  ))}
-                  <div style={{ borderTop: `1px solid ${C.line}`, marginTop: 6, paddingTop: 6 }}>
-                    <button onClick={() => { forzarRefresh(); setShowRefreshCfg(false); }}
-                      style={{ display: "flex", alignItems: "center", gap: 7, width: "100%", padding: "7px 12px",
-                        borderRadius: 8, border: "none", background: "none", color: C.sky,
-                        fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
-                      <RefreshCw size={13} /> Actualizar ahora
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
+        <ContextHeader
+          online={online}
+          pendientes={pendientes}
+          sincronizando={sincronizando}
+          recienSync={recienSync}
+          onSync={sincronizar}
+          onMenuClick={() => setSidebarOpen(true)}
+          viewLabel={viewLabel}
+          refreshInterval={refreshInterval}
+          timeLeft={timeLeft}
+          showRefreshCfg={showRefreshCfg}
+          setShowRefreshCfg={setShowRefreshCfg}
+          refreshCfgRef={refreshCfgRef}
+          intervalosRefresh={INTERVALOS_REFRESH}
+          fmtTimer={fmtTimer}
+          onSelectRefreshInterval={(s) => { setRefreshInterval(s); setTimeLeft(s || 0); setShowRefreshCfg(false); }}
+          onForzarRefresh={forzarRefresh}
+          dark={dark}
+          onToggleTema={toggleTema}
+        />
 
         {/* ── Tab bar de acceso rápido ─────────────────────────────────── */}
         {recientes.length > 1 && (
@@ -621,7 +587,10 @@ export default function AppShell() {
         .cmms-tab-close:hover             { opacity: 1 !important; color: var(--c-red); background: var(--c-redBg); }
 
         @media (max-width: 760px) {
-          .cmms-topbar    { padding: 8px 14px; }
+          .cmms-topbar, .cmms-context-header { padding: 8px 14px; }
+          .cmms-context-breadcrumb { display: none; }
+          .cmms-refresh-cfg, .cmms-theme-toggle { display: none !important; }
+          .cmms-offline-banner { padding: 8px 14px !important; }
           .cmms-work-area { padding: 16px 12px 40px; }
           .cmms-tabs-bar  { padding: 0 8px; }
           .cmms-tab       { padding: 0 8px; font-size: 11.5px; }
@@ -640,11 +609,12 @@ export default function AppShell() {
           .cmms-overlay.cmms-overlay-open { display: block !important; }
         }
         @media (max-width: 440px) {
-          .cmms-topbar    { padding: 7px 9px; }
+          .cmms-topbar, .cmms-context-header { padding: 7px 9px; }
           .cmms-work-area { padding: 14px 7px 40px; }
           .cmms-tab-label { max-width: 60px; font-size: 11px; }
         }
       `}</style>
     </div>
+    </ShellProvider>
   );
 }
