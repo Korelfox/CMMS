@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { validarLectura, tendenciaHorasDia, diasHasta, diasDesde, puntoHorometro, idsBajoPunto } from "../src/lib/horometro.js";
+import { validarLectura, tendenciaHorasDia, diasHasta, diasDesde, puntoHorometro, idsBajoPunto, prioridadPuntoHorometro, compararPuntosHorometro } from "../src/lib/horometro.js";
 
 const dia = (n) => new Date(Date.UTC(2026, 5, n)); // junio 2026
 
@@ -117,5 +117,33 @@ describe("diasHasta / diasDesde", () => {
   it("diasDesde mide antigüedad de la lectura", () => {
     expect(diasDesde(dia(1), dia(8))).toBeCloseTo(7, 5);
     expect(diasDesde(null)).toBeNull();
+  });
+});
+
+describe("orden bandeja horómetros", () => {
+  const eq = (sistema) => ({ sistema, id_visible: "", embarcacion_id: "e1" });
+
+  it("prioriza rol operacional de la flota", () => {
+    expect(prioridadPuntoHorometro(eq("Motor Principal"))).toBe(0);
+    expect(prioridadPuntoHorometro(eq("Motor Generador"))).toBe(1);
+    expect(prioridadPuntoHorometro(eq("Motor Diesel"))).toBe(2);
+    expect(prioridadPuntoHorometro(eq("Generador de Emergencia"))).toBe(3);
+    expect(prioridadPuntoHorometro(eq("Compresor Frigorífico"))).toBe(4);
+    expect(prioridadPuntoHorometro(eq("Bomba Hidráulica"))).toBe(5);
+  });
+
+  it("ordena por rol antes que por nombre", () => {
+    const lista = [
+      eq("Compresor Frigorífico"),
+      eq("Motor Principal"),
+      eq("Generador de Emergencia"),
+      eq("Motor Generador"),
+    ].sort(compararPuntosHorometro);
+    expect(lista.map((e) => e.sistema)).toEqual([
+      "Motor Principal",
+      "Motor Generador",
+      "Generador de Emergencia",
+      "Compresor Frigorífico",
+    ]);
   });
 });

@@ -5,7 +5,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { fetchAll, insertRow, logActivity, rpcCall } from "../lib/db";
-import { validarLectura, tendenciaHorasDia, diasDesde, modoHorometro, puntoHorometro, idsBajoPunto } from "../lib/horometro";
+import { validarLectura, tendenciaHorasDia, diasDesde, modoHorometro, puntoHorometro, idsBajoPunto, compararPuntosHorometro } from "../lib/horometro";
 import { buildEquipoTree } from "../lib/equipTree";
 import { useArbolColapsable, BotonesColapsar, colorTipo, fondoTipo } from "../lib/arbolColapsable";
 import { C, num, canOperate, tint, shadow, archivo } from "../theme";
@@ -238,14 +238,8 @@ export default function Horometros() {
         const hxd = tendenciaHorasDia(lecs);
         return { eq: e, ultima, dias, tone, label, hxd, lecs };
       })
-      .sort((a, b) => {
-        const prio = (d) => (d == null || d > 30 ? 0 : d > 7 ? 1 : 2);
-        const pa = prio(a.dias);
-        const pb = prio(b.dias);
-        if (pa !== pb) return pa - pb;
-        return (a.eq.sistema || "").localeCompare(b.eq.sistema || "", "es");
-      });
-  }, [equiposNave, lecturasDe]);
+      .sort((a, b) => compararPuntosHorometro(a.eq, b.eq, embName));
+  }, [equiposNave, lecturasDe, embName]);
 
   const kpis = useMemo(() => {
     const puntos = equiposNave.filter((e) => modoHorometro(e) === "propio");
@@ -496,7 +490,7 @@ export default function Horometros() {
       ) : (
         <Section
           title="Bandeja de lectura"
-          description="Ingresa las horas directamente en cada máquina — ordenadas por urgencia. La lectura se propaga al subárbol automáticamente."
+          description="Ingresa las horas en el orden operacional de la flota — Motor principal, generadores y compresor. La lectura se propaga al subárbol automáticamente."
           padding={18}
           style={{ marginBottom: 20 }}
         >
@@ -504,8 +498,8 @@ export default function Horometros() {
             <Zap size={15} color={C.cyan} />
             <span style={{ fontSize: 12.5, color: C.slate, fontWeight: 600 }}>
               {kpis.atrasados > 0
-                ? `${kpis.atrasados} máquina(s) requieren lectura urgente`
-                : "Toca una tarjeta, ingresa las horas y pulsa Enter o el botón de guardar"}
+                ? `${kpis.atrasados} máquina(s) requieren lectura — orden: Motor principal → Motor generador → Motor diesel → Gen. emergencia → Compresor`
+                : "Orden: Motor principal · Motor generador · Motor diesel · Generador emergencia · Compresor frigorífico"}
             </span>
           </div>
           <div className="horo-bandeja">

@@ -107,3 +107,37 @@ export function puntoHorometro(equipo, byId) {
 export function idsBajoPunto(propioId, equipos, byId) {
   return equipos.filter((e) => puntoHorometro(e, byId) === propioId).map((e) => e.id);
 }
+
+/** Orden de lectura en bandeja: rol operacional de la máquina (flota pesquera). */
+const ORDEN_ROL_HOROMETRO = [
+  { id: "motor_principal", re: /motor\s+principal/i },
+  { id: "motor_generador", re: /motor\s+generador/i },
+  { id: "motor_diesel", re: /motor\s+diesel/i },
+  { id: "generador_emergencia", re: /generador\s+(de\s+)?emergencia/i },
+  { id: "compresor_frigorifico", re: /compresor\s+frigor[ií]fic/i },
+];
+
+function textoEquipoHorometro(eq) {
+  return `${eq?.sistema || ""} ${eq?.id_visible || ""}`;
+}
+
+/** Índice de prioridad (menor = primero en bandeja). Equipos no listados al final. */
+export function prioridadPuntoHorometro(equipo) {
+  const t = textoEquipoHorometro(equipo);
+  for (let i = 0; i < ORDEN_ROL_HOROMETRO.length; i++) {
+    if (ORDEN_ROL_HOROMETRO[i].re.test(t)) return i;
+  }
+  return ORDEN_ROL_HOROMETRO.length;
+}
+
+/** Comparador para bandeja de horómetros (rol → nave → nombre). */
+export function compararPuntosHorometro(a, b, embNameFn = null) {
+  const pa = prioridadPuntoHorometro(a);
+  const pb = prioridadPuntoHorometro(b);
+  if (pa !== pb) return pa - pb;
+  if (embNameFn) {
+    const ce = embNameFn(a.embarcacion_id).localeCompare(embNameFn(b.embarcacion_id), "es");
+    if (ce !== 0) return ce;
+  }
+  return (a.sistema || "").localeCompare(b.sistema || "", "es");
+}
