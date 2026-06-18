@@ -60,4 +60,21 @@ describe("campoAccion", () => {
     expect(acc?.kind).toBe("ot_start");
     expect(acc?.otId).toBe("b");
   });
+
+  it("PM vencido en Campo navega a planpm con planId", () => {
+    const acc = sugerirSiguienteAccion({
+      ots: [],
+      planesEval: [{
+        tone: "red",
+        label: "Vencido · 120%",
+        plan: { id: "plan-9", descripcion: "Cambio aceite" },
+        equipo: { id: "eq-1" },
+      }],
+      embarcacionId: "emb-1",
+    });
+    expect(acc?.cta).toBe("Ver plan PM");
+    expect(acc?.destino).toBe("planpm");
+    expect(acc?.params?.planId).toBe("plan-9");
+    expect(acc?.params?.campo).toBe(true);
+  });
 });

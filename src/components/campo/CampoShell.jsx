@@ -138,7 +138,7 @@ export default function CampoShell({
               <OrdenesTrabajo
                 key={`ots-campo-${refreshTick}-${openOtWizard ? "w" : "n"}`}
                 navParams={navParamsCampo}
-                onNavigate={onNavigate}
+                onNavigate={campoNavigate}
               />
             )}
             {tab === "horometros" && (
