@@ -188,7 +188,7 @@ export default function AppShell() {
   const navegar = useCallback((destino, params = null) => {
     const campoInline = new Set([
       ...CAMPO_TABS.map((t) => t.id),
-      "solicitudes", "activos", "inventario", "planpm",
+      "solicitudes", "inventario", "planpm",
     ]);
     // Solo los roles con acceso a Oficina se cambian de modo al navegar fuera
     // de lo inline; los operativos a bordo se mantienen en Campo.

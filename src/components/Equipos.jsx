@@ -1040,7 +1040,7 @@ export default function Equipos({ navParams }) {
                 title={selectedEquipo?.id_visible || "Equipo"}
                 subtitle={selectedEquipo?.sistema || "—"}
                 onBack={cerrarMobileDetail}
-                backLabel={isCampo ? "Activos" : "Kanban"}
+                backLabel={isCampo ? "Volver" : "Kanban"}
               >
                 <div style={{ margin: "-16px -14px", minHeight: "calc(100vh - 148px)" }}>
                   {renderEquipoDetail(false)}
@@ -1069,7 +1069,7 @@ export default function Equipos({ navParams }) {
                 title={selectedEquipo?.id_visible || "Equipo"}
                 subtitle={selectedEquipo?.sistema || "—"}
                 onBack={cerrarMobileDetail}
-                backLabel={isCampo ? "Activos" : "Cola"}
+                backLabel={isCampo ? "Volver" : "Cola"}
               >
                 <div style={{ margin: "-16px -14px", minHeight: "calc(100vh - 148px)" }}>
                   {renderEquipoDetail(false)}

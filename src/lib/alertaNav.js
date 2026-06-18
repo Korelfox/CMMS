@@ -5,7 +5,7 @@ import { ALERTA_NAV } from "./alertas";
 /** Destinos que Campo puede abrir sin cambiar a Oficina (tab o stack). */
 export const CAMPO_INLINE_DEST = new Set([
   "hoy", "trabajo", "horometros", "mas",
-  "solicitudes", "activos", "inventario", "planpm", "prezarpe", "ots",
+  "solicitudes", "inventario", "planpm", "prezarpe", "ots",
 ]);
 
 /**
@@ -80,11 +80,8 @@ export function resolveAlertaNav(alerta, { appMode = "oficina", embarcacionId } 
       params.vista = "cola";
       if (appMode === "campo") {
         params.campo = true;
-        return {
-          destino: "activos",
-          params,
-          campoEvent: { tab: "activos", params },
-        };
+        params.tab = "plan";
+        return { destino: "planpm", params, campoEvent: null };
       }
       break;
 
@@ -139,11 +136,8 @@ export function resolveAlertaNav(alerta, { appMode = "oficina", embarcacionId } 
       if (emb) params.embFiltro = emb;
       if (appMode === "campo") {
         params.campo = true;
-        return {
-          destino: "activos",
-          params: { ...params, vista: "cola" },
-          campoEvent: { tab: "activos", params: { ...params, vista: "cola" } },
-        };
+        params.tab = "plan";
+        return { destino: "planpm", params: { ...params, embFiltro: emb }, campoEvent: null };
       }
       break;
 

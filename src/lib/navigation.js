@@ -7,7 +7,7 @@ import {
   BarChart3, ShipWheel, Fuel, ShieldCheck, Fish, Timer, Waves, ListTodo, Microscope,
   Wrench, CalendarRange, ShieldAlert, SlidersHorizontal, PiggyBank, Sparkles,
   Stethoscope, Bot, Scale, Sigma, Receipt, Replace, Network, Workflow, Radar, Anchor,
-  Sun, Search, MoreHorizontal,
+  Sun, MoreHorizontal,
 } from "lucide-react";
 
 /** Metadatos de cada módulo (id → label, icono, permisos). */
@@ -23,7 +23,6 @@ export const NAV_META = {
   prezarpe:     { label: "Prezarpe", icon: ShipWheel },
   cumplimiento: { label: "Cumplimiento", icon: ShieldCheck },
   horometros:   { label: "Horómetros", icon: Timer },
-  activos:      { label: "Activos", icon: Search },
   planpm:       { label: "Plan Preventivo", icon: CalendarClock },
   solicitudes:  { label: "Solicitudes", icon: Inbox },
   ots:          { label: "Órdenes de Trabajo", icon: ClipboardList },

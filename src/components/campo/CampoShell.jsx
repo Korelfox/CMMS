@@ -6,7 +6,6 @@ import { InlineSpinner, ghostBtn } from "../../ui";
 import ErrorBoundary from "../ErrorBoundary";
 import CampoHoy from "./CampoHoy";
 import CampoMas from "./CampoMas";
-import CampoActivos from "./CampoActivos";
 import CampoHorometros from "./CampoHorometros";
 import { useShell } from "../../context/ShellContext";
 
@@ -15,15 +14,12 @@ const Solicitudes = lazy(() => import("../Solicitudes"));
 const Inventario = lazy(() => import("../Inventario"));
 const PlanPM = lazy(() => import("../PlanPM"));
 const Prezarpe = lazy(() => import("../Prezarpe"));
-const Equipos = lazy(() => import("../Equipos"));
 
 const STACK_MODULOS = {
   solicitudes: Solicitudes,
-  activos: CampoActivos,
   inventario: Inventario,
   planpm: PlanPM,
   prezarpe: Prezarpe,
-  equipos: Equipos,
 };
 
 function readTab() {
@@ -76,16 +72,11 @@ export default function CampoShell({
         setTab("horometros");
         return;
       }
-      if (destTab === "activos") {
-        setStackModule({ id: "activos", params: { campo: true, ...(params || {}) } });
-        onTabChange?.("activos");
-        return;
-      }
       if (destTab && CAMPO_TABS.some((t) => t.id === destTab)) setTab(destTab);
     };
     window.addEventListener("cmms-campo-nav", fn);
     return () => window.removeEventListener("cmms-campo-nav", fn);
-  }, [irTrabajo]); // eslint-disable-line react-hooks/exhaustive-deps -- onTabChange es prop; evita re-suscribir el listener
+  }, [irTrabajo]);
 
   useEffect(() => {
     if (openOtWizard && tab === "trabajo") {
@@ -127,7 +118,6 @@ export default function CampoShell({
               <Mod
                 navParams={{ ...navParamsCampo, ...stackModule.params }}
                 onNavigate={campoNavigate}
-                {...(stackModule.id === "activos" ? { onIrTrabajo: irTrabajo } : {})}
               />
             </Suspense>
           </ErrorBoundary>
