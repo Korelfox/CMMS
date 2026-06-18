@@ -1774,3 +1774,440 @@ export const TIPO_REPUESTO_META = {
   alternativo: { label: "Alt.",      tone: "yellow", desc: "Equivalente alternativo" },
   generico:    { label: "Genérico",  tone: "slate",  desc: "Genérico certificado" },
 };
+
+// ============================================================
+//  PLANTILLA PESQUERA INICIAL — 8 sistemas esenciales (~80 nodos)
+//  Para el armador/supervisor que parte desde cero.
+//  Códigos idénticos a PLANTILLA_PESQUERA: cargar después
+//  "Esencial" o "Completa" agrega solo los nodos que falten.
+// ============================================================
+export const PLANTILLA_PESQUERA_INICIAL = [
+
+  // ── 1. PROPULSIÓN PRINCIPAL ──
+  {
+    cod: "PROP", nom: "Propulsión Principal", crit: "A", tipo: "sistema",
+    hijos: [
+      {
+        cod: "PROP-MTR", nom: "Motor Principal", crit: "A", tipo: "subsistema", mtbf: 12000,
+        hijos: [
+          {
+            cod: "PROP-MTR-LUB", nom: "Sistema de Lubricación", crit: "A", tipo: "subsistema",
+            hijos: [
+              comp("PROP-MTR-LUB-FLT", "Filtro de Aceite", {
+                rep: [
+                  ["FLT-ACE-CAT", "Filtro Aceite CAT (OEM)", "oem"],
+                  ["FLT-ACE-DON", "Filtro Aceite Donaldson", "alternativo"],
+                  ["FLT-ACE-GEN", "Filtro Aceite Genérico Certificado", "generico"],
+                ],
+                pm: [
+                  ["Cambio de aceite de motor", 250],
+                  ["Cambio de filtro de aceite", 250],
+                  ["Análisis de aceite (muestra a laboratorio)", 1000],
+                ] }),
+              inst("PROP-MTR-LUB-SEN", "Sensor de Presión / Temperatura Aceite", {
+                param: PM_ACEITE,
+                rep: [
+                  ["SEN-PRE-CAT", "Sensor Presión Aceite CAT (OEM)", "oem"],
+                  ["SEN-TEM-CAT", "Sensor Temperatura Aceite CAT (OEM)", "oem"],
+                ],
+                pm: [["Calibración de sensores / instrumentos", 4000]] }),
+            ],
+          },
+          {
+            cod: "PROP-MTR-FW", nom: "Refrigeración – Agua Dulce", crit: "A", tipo: "subsistema",
+            hijos: [
+              comp("PROP-MTR-FW-BMP", "Bomba de Agua Dulce", {
+                rep: [
+                  ["BMP-AD-CAT", "Bomba Agua Dulce CAT (OEM)", "oem"],
+                  ["BMP-AD-SKF", "Bomba Agua Dulce SKF (alternativo)", "alternativo"],
+                  ["BRG-6312-ZZ", "Rodamiento 6312-ZZ", "generico"],
+                ],
+                pm: [
+                  ["Limpieza de circuito de agua dulce", 1000],
+                  ["Engrase / lubricación general", 2000],
+                ] }),
+              comp("PROP-MTR-FW-TER", "Termostato", {
+                rep: [
+                  ["TER-CAT", "Termostato CAT (OEM)", "oem"],
+                  ["TER-GEN", "Termostato Genérico", "generico"],
+                ],
+                pm: [["Inspección visual / por condición", 2000]] }),
+              comp("PROP-MTR-FW-MNG", "Mangueras y Abrazaderas A.D.", {
+                rep: [
+                  ["MNG-AD-CAT", "Manguera Agua Dulce CAT (OEM)", "oem"],
+                  ["MNG-AD-GEN", "Manguera Agua Dulce Genérica", "generico"],
+                ],
+                pm: [["Inspección visual / por condición", 2000]] }),
+              inst("PROP-MTR-FW-SEN", "Sensor de Temperatura A.D.", { param: PM_REFRIG, rep: [
+                ["SEN-TEM-CAT", "Sensor Temperatura CAT (OEM)", "oem"],
+                ["SEN-TEM-ALT", "Sensor Temperatura Alternativo", "alternativo"],
+              ] }),
+            ],
+          },
+          {
+            cod: "PROP-MTR-SW", nom: "Refrigeración – Agua de Mar", crit: "A", tipo: "subsistema",
+            hijos: [
+              comp("PROP-MTR-SW-FIL", "Filtro / Strainer de Agua de Mar", {
+                rep: [
+                  ["STR-AM-OEM", "Canasto Filtro Agua Mar (OEM)", "oem"],
+                  ["JD-STR-001", "Junta Filtro Agua Mar", "generico"],
+                ],
+                pm: [
+                  ["Inspección visual / por condición", null, "semanal"],
+                  ["Inspección visual / por condición", 250],
+                ] }),
+              comp("PROP-MTR-SW-BMP", "Bomba de Agua de Mar (Impeller)", {
+                rep: [
+                  ["IMP-AM-OEM", "Impeller Bomba Agua Mar (OEM)", "oem"],
+                  ["IMP-AM-ALT", "Impeller Alternativo", "alternativo"],
+                  ["KIT-SEL-AM", "Kit Sellos/Junta Bomba Agua Mar", "generico"],
+                ],
+                pm: [
+                  ["Revisión de bomba de agua de mar (impeller)", 500],
+                  ["Limpieza de radiador / intercambiador de calor", 1000],
+                ] }),
+              comp("PROP-MTR-SW-ANO", "Ánodos de Zinc del Motor", {
+                rep: [
+                  ["ANO-ZN-OEM", "Ánodo de Zinc Motor (OEM)", "oem"],
+                  ["ANO-ZN-GEN", "Ánodo de Zinc Genérico", "generico"],
+                ],
+                pm: [["Inspección de ánodos de sacrificio", 1000]] }),
+            ],
+          },
+          {
+            cod: "PROP-MTR-FUEL", nom: "Sistema de Combustible", crit: "A", tipo: "subsistema",
+            hijos: [
+              comp("PROP-MTR-FUEL-FT1", "Filtro Primario (separador Racor)", {
+                rep: [
+                  ["FT1-RAC-OEM", "Elemento Racor Primario (OEM)", "oem"],
+                  ["FT1-RAC-DON", "Elemento Racor Donaldson", "alternativo"],
+                  ["FT1-RAC-GEN", "Elemento Racor Genérico", "generico"],
+                ],
+                pm: [
+                  ["Verificar fugas (combustible, aceite, refrigerante)", null, "diario"],
+                  ["Cambio de filtros de combustible", 500],
+                ] }),
+              comp("PROP-MTR-FUEL-FT2", "Filtro Secundario (fino)", {
+                rep: [
+                  ["FT2-CAT", "Filtro Fino CAT (OEM)", "oem"],
+                  ["FT2-DON", "Filtro Fino Donaldson", "alternativo"],
+                  ["FT2-GEN", "Filtro Fino Genérico Certificado", "generico"],
+                ],
+                pm: [["Cambio de filtros de combustible", 500]] }),
+              comp("PROP-MTR-FUEL-INY", "Inyectores", {
+                rep: [
+                  ["INY-3406-CAT", "Inyectores CAT 3406 (kit)", "oem"],
+                  ["INY-3406-ALT", "Inyectores Alternativos (kit)", "alternativo"],
+                ],
+                pm: [["Prueba de retorno de inyectores", 1000]] }),
+            ],
+          },
+          {
+            cod: "PROP-MTR-AIR", nom: "Admisión y Sobrealimentación", crit: "A", tipo: "subsistema",
+            hijos: [
+              comp("PROP-MTR-AIR-FIL", "Filtro de Aire", {
+                rep: [
+                  ["FIL-AIRE-CAT", "Filtro Aire CAT (OEM)", "oem"],
+                  ["FIL-AIRE-GEN", "Filtro Aire Genérico", "generico"],
+                ],
+                pm: [["Cambio de filtro de aire", 500]] }),
+            ],
+          },
+          {
+            cod: "PROP-MTR-START", nom: "Sistema de Arranque", crit: "A", tipo: "subsistema",
+            hijos: [
+              comp("PROP-MTR-START-BAT", "Baterías de Arranque", {
+                rep: [
+                  ["BAT-12V-100AH-CAT", "Batería 12V 100Ah (OEM)", "oem"],
+                  ["BAT-12V-100AH-MAT", "Batería 12V 100Ah Matin", "alternativo"],
+                  ["BAT-12V-100AH-GEN", "Batería 12V 100Ah Genérica", "generico"],
+                ],
+                pm: [["Revisión de banco de baterías", 500]] }),
+              comp("PROP-MTR-START-CAB", "Cables y Bornes de Arranque", {
+                rep: [
+                  ["CAB-50-CAT", "Cable 50mm CAT (OEM)", "oem"],
+                  ["CAB-50-GEN", "Cable 50mm Genérico", "generico"],
+                ],
+                pm: [["Inspección visual / por condición", 1000]] }),
+            ],
+          },
+          {
+            cod: "PROP-MTR-CTRL", nom: "Control, Monitoreo y Seguridad", crit: "A", tipo: "subsistema",
+            hijos: [
+              inst("PROP-MTR-CTRL-RPM", "Sensor de RPM", { param: PM_RPM_VIB, rep: [
+                ["RPM-CAT", "Sensor RPM CAT (OEM)", "oem"],
+                ["RPM-ALT", "Sensor RPM Alternativo", "alternativo"],
+              ] }),
+              comp("PROP-MTR-CTRL-SAF", "Paradas de Seguridad (sobrevel. / baja presión)", {
+                rep: [["KIT-SAF-CAT", "Kit Paradas de Seguridad (OEM)", "oem"]],
+                pm: [
+                  ["Verificar presión y temperatura de operación (ronda)", null, "diario"],
+                  ["Verificar nivel de aceite en cárter", null, "diario"],
+                  ["Verificar fugas (combustible, aceite, refrigerante)", null, "diario"],
+                  ["Inspección visual de soportes y montajes", null, "semanal"],
+                  ["Inspección de aislación térmica", null, "semanal"],
+                  ["Prueba de alarmas y paradas de seguridad", 1000],
+                ] }),
+            ],
+          },
+        ],
+      },
+      {
+        cod: "PROP-RED", nom: "Reductora", crit: "A", tipo: "subsistema", fuente: "PROP-MTR",
+        hijos: [
+          comp("PROP-RED-ACE", "Aceite y Filtro de Reductora", {
+            rep: [["FLT-RED-OEM", "Filtro Reductora (OEM)", "oem"], ["ACE-RED-GEN", "Aceite Reductora (balde)", "generico"]],
+            pm: [["Cambio de aceite de reductora", 1000]] }),
+          inst("PROP-RED-SEN", "Sensor Presión/Temp Reductora", {
+            param: PM_ACE_RED,
+            rep: [["SEN-PRE-RED", "Sensor Presión Reductora", "oem"]] }),
+        ],
+      },
+      {
+        cod: "PROP-EJE", nom: "Eje y Bocina", crit: "A", tipo: "subsistema", fuente: "PROP-MTR",
+        hijos: [
+          comp("PROP-EJE-SEL", "Sello de Bocina", {
+            rep: [["SEL-BOC-OEM", "Sello de Bocina (OEM)", "oem"], ["KIT-SEL-BOC", "Kit Sellos Bocina", "generico"]],
+            pm: [["Inspección visual / por condición", 2000]] }),
+          comp("PROP-EJE-CHU", "Chumaceras de Apoyo", {
+            rep: [["CHU-OEM", "Chumacera de Apoyo (OEM)", "oem"]],
+            pm: [["Engrase / lubricación general", 1000]] }),
+        ],
+      },
+      {
+        cod: "PROP-HEL", nom: "Hélice", crit: "A", tipo: "subsistema", fuente: "PROP-MTR",
+        hijos: [
+          comp("PROP-HEL-ANO", "Ánodos de Eje / Hélice", {
+            rep: [["ANO-EJE-GEN", "Ánodo de Eje (genérico)", "generico"]],
+            pm: [["Inspección de ánodos de sacrificio", 1000]] }),
+        ],
+      },
+    ],
+  },
+
+  // ── 2. GENERADORES ELECTRICIDAD ──
+  {
+    cod: "GEN", nom: "Generadores Electricidad", crit: "A", tipo: "sistema",
+    hijos: [
+      {
+        cod: "GEN-MTR", nom: "Motor Generador", crit: "A", tipo: "subsistema", mtbf: 18000,
+        hijos: [
+          {
+            cod: "GEN-MTR-LUB", nom: "Sistema de Lubricación", crit: "A", tipo: "subsistema",
+            hijos: [
+              comp("GEN-MTR-LUB-FLT", "Filtro de Aceite", {
+                rep: [
+                  ["FLT-GEN-CAT", "Filtro Aceite Generador (OEM)", "oem"],
+                  ["FLT-GEN-DON", "Filtro Aceite Donaldson", "alternativo"],
+                  ["FLT-GEN-GEN", "Filtro Aceite Genérico", "generico"],
+                ],
+                pm: [
+                  ["Cambio de aceite de motor", 250],
+                  ["Cambio de filtro de aceite", 250],
+                ] }),
+              inst("GEN-MTR-LUB-SEN", "Sensor de Presión de Aceite", { param: PM_ACE_SIMPLE, rep: [
+                ["SEN-PRE-CAT", "Sensor Presión CAT (OEM)", "oem"],
+                ["SEN-PRE-ALT", "Sensor Presión Alternativo", "alternativo"],
+              ] }),
+            ],
+          },
+          {
+            cod: "GEN-MTR-FW", nom: "Refrigeración – Agua Dulce", crit: "A", tipo: "subsistema",
+            hijos: [
+              comp("GEN-MTR-FW-BMP", "Bomba de Agua Dulce", {
+                rep: [["BMP-AD-GEN", "Bomba Agua Dulce Generador (OEM)", "oem"]],
+                pm: [["Engrase / lubricación general", 2000]] }),
+              comp("GEN-MTR-FW-TER", "Termostato", {
+                rep: [["TER-GEN-OEM", "Termostato Generador (OEM)", "oem"]],
+                pm: [["Inspección visual / por condición", 2000]] }),
+              inst("GEN-MTR-FW-SEN", "Sensor de Temperatura A.D.", { param: PM_REFRIG, rep: [
+                ["SEN-TEM-CAT", "Sensor Temperatura CAT (OEM)", "oem"],
+              ] }),
+            ],
+          },
+          {
+            cod: "GEN-MTR-SW", nom: "Refrigeración – Agua de Mar", crit: "A", tipo: "subsistema",
+            hijos: [
+              comp("GEN-MTR-SW-FIL", "Filtro / Strainer de Agua de Mar", {
+                rep: [["STR-AM-GEN", "Canasto Filtro Agua Mar Generador", "generico"]],
+                pm: [["Inspección visual / por condición", 250]] }),
+              comp("GEN-MTR-SW-BMP", "Bomba de Agua de Mar (Impeller)", {
+                rep: [
+                  ["IMP-AM-GEN-OEM", "Impeller Bomba Agua Mar Generador (OEM)", "oem"],
+                  ["IMP-AM-GEN-ALT", "Impeller Alternativo", "alternativo"],
+                ],
+                pm: [["Revisión de bomba de agua de mar (impeller)", 500]] }),
+              comp("GEN-MTR-SW-ANO", "Ánodos de Zinc", {
+                rep: [["ANO-ZN-GEN", "Ánodo de Zinc Genérico", "generico"]],
+                pm: [["Inspección de ánodos de sacrificio", 1000]] }),
+            ],
+          },
+          {
+            cod: "GEN-MTR-FUEL", nom: "Sistema de Combustible", crit: "A", tipo: "subsistema",
+            hijos: [
+              comp("GEN-MTR-FUEL-FLT", "Filtro de Combustible (separador Racor)", {
+                rep: [
+                  ["FLT-COMB-GEN-CAT", "Filtro Combustible Generador (OEM)", "oem"],
+                  ["FLT-COMB-GEN-DON", "Filtro Combustible Donaldson", "alternativo"],
+                  ["FLT-COMB-GEN-GEN", "Filtro Combustible Genérico", "generico"],
+                ],
+                pm: [["Cambio de filtros de combustible", 500]] }),
+            ],
+          },
+          {
+            cod: "GEN-MTR-AEX", nom: "Admisión y Escape", crit: "A", tipo: "subsistema",
+            hijos: [
+              comp("GEN-MTR-AEX-FIL", "Filtro de Aire", {
+                rep: [["FIL-AIRE-GEN-OEM", "Filtro Aire Generador (OEM)", "oem"], ["FIL-AIRE-GEN", "Filtro Aire Genérico", "generico"]],
+                pm: [["Cambio de filtro de aire", 500]] }),
+              comp("GEN-MTR-AEX-COD", "Codo de Escape Húmedo (Wet Elbow)", {
+                rep: [["COD-ESC-GEN-OEM", "Codo Escape Húmedo Generador (OEM)", "oem"]],
+                pm: [["Inspección visual / por condición", 1000]] }),
+            ],
+          },
+          {
+            cod: "GEN-MTR-ALT", nom: "Alternador", crit: "A", tipo: "subsistema",
+            hijos: [
+              comp("GEN-MTR-ALT-BRG", "Rodamiento Alternador", {
+                rep: [
+                  ["BRG-6312-ZZ-FAG", "Rodamiento 6312-ZZ FAG (OEM)", "oem"],
+                  ["BRG-6312-ZZ-SKF", "Rodamiento 6312-ZZ SKF (alternativo)", "alternativo"],
+                ],
+                pm: [["Engrase / lubricación general", 2000]] }),
+              comp("GEN-MTR-ALT-REG", "Regulador de Voltaje (AVR)", {
+                rep: [
+                  ["REG-220V-CAT", "AVR 220V (OEM)", "oem"],
+                  ["REG-220V-ALT", "AVR 220V Alternativo", "alternativo"],
+                ],
+                pm: [["Prueba de alarmas y paradas de seguridad", null, "semanal"]] }),
+            ],
+          },
+          {
+            cod: "GEN-MTR-START", nom: "Sistema de Arranque", crit: "A", tipo: "subsistema",
+            hijos: [
+              comp("GEN-MTR-START-BAT", "Baterías", {
+                rep: [
+                  ["BAT-12V-100AH-CAT", "Batería 12V 100Ah (OEM)", "oem"],
+                  ["BAT-12V-100AH-GEN", "Batería 12V 100Ah Genérica", "generico"],
+                ],
+                pm: [["Revisión de banco de baterías", 500]] }),
+            ],
+          },
+        ],
+      },
+    ],
+  },
+
+  // ── 3. GOBIERNO / SERVOTIMÓN ──
+  {
+    cod: "STEER", nom: "Gobierno / Servotimón", crit: "A", tipo: "sistema",
+    hijos: [
+      comp("STEER-CIL", "Cilindros / Actuador del Timón", {
+        rep: [["KIT-SEL-TIM", "Kit Sellos Cilindro Timón", "generico"]],
+        pm: [["Inspección visual / por condición", 2000]] }),
+      comp("STEER-EMG", "Gobierno de Emergencia", {
+        rep: [["BMB-MAN-TIM", "Bomba Manual de Emergencia", "oem"]],
+        pm: [["Prueba de emergencia del gobierno", null, "semestral"]] }),
+    ],
+  },
+
+  // ── 4. COMBUSTIBLE DE NAVE ──
+  {
+    cod: "FUEL", nom: "Combustible de Nave", crit: "A", tipo: "sistema",
+    hijos: [
+      { cod: "FUEL-TNK", nom: "Tanques de Combustible",     crit: "A", tipo: "subsistema" },
+      { cod: "FUEL-BMP", nom: "Bomba de Trasiego",          crit: "A", tipo: "subsistema" },
+      { cod: "FUEL-SEP", nom: "Separador Agua-Combustible", crit: "A", tipo: "subsistema" },
+    ],
+  },
+
+  // ── 5. CONTRAINCENDIOS ──
+  {
+    cod: "FIRE", nom: "Contraincendios", crit: "A", tipo: "sistema",
+    hijos: [
+      comp("FIRE-RED", "Colector, Hidrantes y Mangueras", {
+        rep: [["MNG-CI-GEN", "Manguera CI 1½\" (rollo)", "generico"], ["BOQ-CI-GEN", "Boquilla/Lanza CI", "generico"]],
+        pm: [["Inspección visual / por condición", 500]] }),
+      comp("FIRE-DET", "Detección (humo / calor) y Paro Remoto", {
+        rep: [["DET-HUM-OEM", "Detector de Humo", "oem"], ["DET-CAL-OEM", "Detector de Calor", "oem"]],
+        pm: [["Prueba de alarmas y paradas de seguridad", 1000]] }),
+      comp("FIRE-EXT", "Extintores Portátiles", {
+        rep: [["EXT-PQS-6", "Extintor PQS 6kg", "generico"], ["EXT-CO2-5", "Extintor CO₂ 5kg", "generico"]],
+        pm: [
+          ["Control visual de extintores (ubicación, precinto, presión)", null, "mensual"],
+          ["Control reglamentario de extintores portátiles", null, "anual"],
+        ] }),
+    ],
+  },
+
+  // ── 6. ACHIQUE Y SENTINAS ──
+  {
+    cod: "BILGE", nom: "Achique y Sentinas", crit: "A", tipo: "sistema",
+    hijos: [
+      comp("BILGE-BMP", "Bombas de Achique", {
+        rep: [["BMP-ACH-OEM", "Bomba de Achique (OEM)", "oem"], ["BMP-ACH-ALT", "Bomba de Achique Alternativa", "alternativo"], ["KIT-SEL-ACH", "Kit Sellos Bomba Achique", "generico"]],
+        pm: [["Prueba de alarmas y paradas de seguridad", 1000], ["Engrase / lubricación general", 1000]] }),
+      comp("BILGE-ALM", "Alarmas de Nivel de Sentina", {
+        rep: [["SEN-NIV-OEM", "Sensor de Nivel de Sentina", "oem"]],
+        pm: [["Prueba de alarmas y paradas de seguridad", 500]] }),
+    ],
+  },
+
+  // ── 7. COMUNICACIONES (GMDSS esencial) ──
+  {
+    cod: "COMM", nom: "Comunicaciones (GMDSS)", crit: "A", tipo: "sistema",
+    hijos: [
+      { cod: "COMM-VHF", nom: "VHF / DSC", crit: "A", tipo: "subsistema",
+        pm: [
+          ["Prueba de transmisión/recepción VHF/DSC", null, "semanal"],
+          ["Certificación GMDSS del equipo VHF", null, "anual"],
+        ] },
+      comp("COMM-EPI", "EPIRB / Baliza de Emergencia", {
+        rep: [["BAT-EPIRB-OEM", "Batería EPIRB (OEM)", "oem"]],
+        pm: [
+          ["Autotest de EPIRB", null, "mensual"],
+          ["Verificación de caducidad de batería EPIRB", null, "semestral"],
+          ["Servicio y registro EPIRB (certificación)", null, "anual"],
+        ] }),
+      comp("COMM-SART", "SART / Radar Transponder", {
+        rep: [["BAT-SART-OEM", "Batería SART (OEM)", "oem"]],
+        pm: [
+          ["Autotest de SART", null, "mensual"],
+          ["Verificación de caducidad de batería SART", null, "semestral"],
+          ["Servicio y registro SART", null, "anual"],
+        ] }),
+    ],
+  },
+
+  // ── 8. SEGURIDAD (SALVAMENTO) ──
+  {
+    cod: "SAF", nom: "Seguridad (Salvamento)", crit: "A", tipo: "sistema",
+    hijos: [
+      comp("SAF-BAL", "Balsa Salvavidas", {
+        rep: [["KIT-BAL-SRV", "Servicio Anual Balsa (kit)", "oem"]],
+        pm: [["Revisión de balsa salvavidas", null, "anual"]] }),
+      comp("SAF-CHA", "Chalecos y Trajes de Inmersión", {
+        rep: [["CHA-SV-GEN", "Chaleco Salvavidas", "generico"], ["TRA-INM-GEN", "Traje de Inmersión", "generico"]],
+        pm: [["Inspección visual / por condición", null, "semestral"]] }),
+      comp("SAF-ARO", "Aros Salvavidas y Señales", {
+        rep: [["ARO-SV-GEN", "Aro Salvavidas", "generico"], ["LUZ-ARO-GEN", "Luz/Rabiza de Aro", "generico"]],
+        pm: [["Inspección visual / por condición", null, "semestral"]] }),
+      comp("SAF-BOT", "Botiquín / Primeros Auxilios", {
+        rep: [["BOT-1AUX", "Botiquín Náutico (recarga)", "generico"]],
+        pm: [["Inspección visual / por condición", null, "anual"]] }),
+    ],
+  },
+];
+
+export function contarNodosInicial() {
+  const contar = (nodos) => (nodos || []).reduce((s, n) => s + 1 + contar(n.hijos || []), 0);
+  return contar(PLANTILLA_PESQUERA_INICIAL);
+}
+export function contarRepuestosInicial() {
+  const contar = (nodos) => (nodos || []).reduce((s, n) => s + (n.rep ? n.rep.length : 0) + contar(n.hijos || []), 0);
+  return contar(PLANTILLA_PESQUERA_INICIAL);
+}
+export function contarPlanesPMInicial() {
+  const contar = (nodos) => (nodos || []).reduce((s, n) => s + (n.pm ? n.pm.length : 0) + contar(n.hijos || []), 0);
+  return contar(PLANTILLA_PESQUERA_INICIAL);
+}
