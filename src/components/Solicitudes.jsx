@@ -12,6 +12,7 @@ import {
 } from "../ui";
 import EquipoPicker from "./EquipoPicker";
 import { folioOT } from "../lib/ot";
+import { useShellOptional } from "../context/ShellContext";
 import SavedViewsBar from "./SavedViewsBar";
 import SplitDetailLayout from "./detail/SplitDetailLayout";
 import DetailShell from "./detail/DetailShell";
@@ -38,7 +39,10 @@ function slaInfo(sol) {
 
 export default function Solicitudes({ navParams }) {
   const { profile } = useAuth();
+  const shell = useShellOptional();
   const isMobile = useMediaQuery("(max-width: 1024px)");
+  const isCampo = !!navParams?.campo;
+  const formCompact = isMobile || isCampo;
   const [embarcaciones, setEmbarcaciones] = useState([]);
   const [equipos, setEquipos] = useState([]);
   const [solicitudes, setSolicitudes] = useState([]);
@@ -84,6 +88,16 @@ export default function Solicitudes({ navParams }) {
       if (isMobile) setShowMobileDetail(true);
     }
   }, [navParams?.filtro, navParams?.slaVencido, navParams?.solicitudId, isMobile]);
+
+  useEffect(() => {
+    if (!isCampo) return;
+    const emb = navParams?.embFiltro || shell?.embarcacionId;
+    if (emb) setForm((f) => ({ ...f, embarcacion_id: emb }));
+  }, [isCampo, navParams?.embFiltro, shell?.embarcacionId]);
+
+  useEffect(() => {
+    if (isCampo && !loading && !navParams?.solicitudId) setShowForm(true);
+  }, [isCampo, loading, navParams?.solicitudId]);
 
   const solViews = useMemo(() => mergeViews(SOL_BUILTIN_VIEWS, savedViews), [savedViews]);
 
@@ -205,28 +219,43 @@ export default function Solicitudes({ navParams }) {
       </div>
 
       {showForm && (
-        <Card style={{ marginBottom: 16, background: C.mist }}>
+        <Card style={{ marginBottom: 16, background: C.mist }} className={isCampo ? "cmms-campo-polish" : undefined}>
           <div style={{ fontWeight: 700, fontSize: 15, color: C.abyss, marginBottom: 14 }}>Nueva Solicitud</div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12 }}>
+          <div style={{
+            display: "grid",
+            gridTemplateColumns: formCompact ? "1fr" : "repeat(4, 1fr)",
+            gap: formCompact ? 14 : 12,
+          }}>
             <Field label="Solicitante"><input value={form.solicitante} onChange={(e) => setForm({ ...form, solicitante: e.target.value })} style={inputStyle()} /></Field>
             <Field label="Embarcación">
-              <select value={form.embarcacion_id} onChange={(e) => { setForm({ ...form, embarcacion_id: e.target.value, sistema: "" }); setSelEq(null); }} style={inputStyle()}>
-                <option value="">— Selecciona —</option>
-                {embarcaciones.map((v) => <option key={v.id} value={v.id}>{v.nombre}</option>)}
-              </select>
+              {isCampo && form.embarcacion_id ? (
+                <div style={{ ...inputStyle(), background: C.surface, color: C.ink, fontWeight: 600 }}>
+                  {embName(form.embarcacion_id)}
+                </div>
+              ) : (
+                <select value={form.embarcacion_id} onChange={(e) => { setForm({ ...form, embarcacion_id: e.target.value, sistema: "" }); setSelEq(null); }} style={inputStyle()}>
+                  <option value="">— Selecciona —</option>
+                  {embarcaciones.map((v) => <option key={v.id} value={v.id}>{v.nombre}</option>)}
+                </select>
+              )}
             </Field>
-            <Field label="Sistema">
-              <EquipoPicker equipos={equiposDeNave} value={selEq}
-                placeholder="Buscar sistema o equipo…"
-                onChange={(eq) => { setSelEq(eq?.id || null); setForm((f) => ({ ...f, sistema: eq?.sistema || "" })); }} />
+            <Field label="Sistema" span={formCompact ? undefined : 1}>
+              <EquipoPicker
+                equipos={equiposDeNave}
+                value={selEq}
+                mobile={formCompact}
+                disabled={!form.embarcacion_id}
+                placeholder={form.embarcacion_id ? "Buscar sistema o equipo…" : "Primero elige embarcación"}
+                onChange={(eq) => { setSelEq(eq?.id || null); setForm((f) => ({ ...f, sistema: eq?.sistema || "" })); }}
+              />
             </Field>
             <Field label="Prioridad"><select value={form.prioridad} onChange={(e) => setForm({ ...form, prioridad: e.target.value })} style={inputStyle()}>{PRIORIDADES.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}</select></Field>
-            <Field label="Descripción" span={3}><input value={form.descripcion} onChange={(e) => setForm({ ...form, descripcion: e.target.value })} style={inputStyle()} placeholder="Qué se necesita" /></Field>
+            <Field label="Descripción" span={formCompact ? undefined : 3}><input value={form.descripcion} onChange={(e) => setForm({ ...form, descripcion: e.target.value })} style={inputStyle()} placeholder="Qué se necesita" /></Field>
             <Field label="Fecha"><input type="date" value={form.fecha} onChange={(e) => setForm({ ...form, fecha: e.target.value })} style={inputStyle()} /></Field>
           </div>
-          <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
-            <button onClick={crear} style={primaryBtn}>Enviar solicitud</button>
-            <button onClick={() => { setShowForm(false); setError(null); }} style={ghostBtn}>Cancelar</button>
+          <div style={{ display: "flex", gap: 8, marginTop: 14, flexWrap: "wrap" }}>
+            <button type="button" onClick={crear} className={isCampo ? "cmms-campo-touch" : undefined} style={{ ...primaryBtn, ...(formCompact ? { flex: 1, justifyContent: "center" } : {}) }}>Enviar solicitud</button>
+            <button type="button" onClick={() => { setShowForm(false); setError(null); }} className={isCampo ? "cmms-campo-touch" : undefined} style={ghostBtn}>Cancelar</button>
           </div>
         </Card>
       )}
