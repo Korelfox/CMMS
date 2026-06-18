@@ -32,7 +32,9 @@ export default function CampoCopiloto({ onIrOT, onNavigate }) {
       const scoped = filterByEmbarcacion(o, embarcacionId);
       const eqScoped = filterByEmbarcacion(eqs, embarcacionId);
       setOts(scoped.filter((ot) => ot.estado !== "cerrada"));
-      setPlanesEval(evaluarPlanes(pls, eqScoped).filter((r) => r.tone === "red" || r.tone === "yellow"));
+      const eqIds = new Set(eqScoped.map((e) => e.id));
+      const plsScoped = pls.filter((p) => p.activo && eqIds.has(p.equipo_id));
+      setPlanesEval(evaluarPlanes(plsScoped, eqScoped).filter((r) => r.tone === "red" || r.tone === "yellow"));
       setAlertas(alertasParaEmbarcacion({
         ordenes_trabajo: o,
         equipos: eqs,

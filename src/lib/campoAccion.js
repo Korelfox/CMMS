@@ -100,7 +100,9 @@ export function alertasParaEmbarcacion(raw, embarcacionId, empresa) {
   const ots = filterByEmbarcacion(raw.ordenes_trabajo || [], embarcacionId);
   const equipos = filterByEmbarcacion(raw.equipos || [], embarcacionId);
   const embarcaciones = (raw.embarcaciones || []).filter((e) => e.id === embarcacionId);
-  const planesEval = evaluarPlanes(raw.planes_pm || [], equipos, raw.lecturas_horometro || []);
+  const eqIds = new Set(equipos.map((e) => e.id));
+  const plsFiltrados = (raw.planes_pm || []).filter((p) => p.activo && eqIds.has(p.equipo_id));
+  const planesEval = evaluarPlanes(plsFiltrados, equipos);
   return generarAlertas({
     embarcaciones,
     equipos,
