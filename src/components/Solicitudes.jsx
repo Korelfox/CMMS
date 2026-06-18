@@ -21,6 +21,7 @@ import { useMediaQuery } from "../lib/useMediaQuery";
 import {
   loadSavedViews, addSavedView, removeSavedView, mergeViews, SOL_BUILTIN_VIEWS,
 } from "../lib/savedViews";
+import TaskCard from "./campo/TaskCard";
 
 const SOL_SAVED_VIEWS_KEY = "cmms-sol-saved-views";
 
@@ -143,7 +144,10 @@ export default function Solicitudes({ navParams }) {
       });
       setSolicitudes((p) => [nueva, ...p]);
       logActivity(profile, "Crear solicitud", `${folio} · ${nueva.descripcion}`);
-      setForm(blank()); setSelEq(null); setShowForm(false);
+      const embKeep = form.embarcacion_id;
+      setForm({ ...blank(), embarcacion_id: embKeep });
+      setSelEq(null);
+      if (!isCampo) setShowForm(false);
     } catch (e) { setError("No se pudo crear: " + e.message); }
   }
 
@@ -201,7 +205,122 @@ export default function Solicitudes({ navParams }) {
     if (selectedId && rowRef.current) rowRef.current.scrollIntoView({ block: "nearest", behavior: "smooth" });
   }, [selectedId]);
 
-  if (loading) return <div><PageHead kicker="Portal de Requerimientos" title="Solicitudes" /><Card><InlineSpinner label="Cargando solicitudes…" /></Card></div>;
+  if (loading) {
+    return isCampo
+      ? <InlineSpinner label="Cargando solicitudes…" />
+      : <div><PageHead kicker="Portal de Requerimientos" title="Solicitudes" /><Card><InlineSpinner label="Cargando solicitudes…" /></Card></div>;
+  }
+
+  const embCampoId = navParams?.embFiltro || shell?.embarcacionId;
+  const listaCampo = isCampo
+    ? solicitudes.filter((s) => !embCampoId || s.embarcacion_id === embCampoId)
+    : lista;
+
+  const formBlock = showForm && (
+    <Card style={{ marginBottom: 16, background: C.mist }} className={isCampo ? "cmms-campo-polish" : undefined}>
+      <div style={{ fontWeight: 700, fontSize: 15, color: C.abyss, marginBottom: 14 }}>Nueva Solicitud</div>
+      <div style={{
+        display: "grid",
+        gridTemplateColumns: formCompact ? "1fr" : "repeat(4, 1fr)",
+        gap: formCompact ? 14 : 12,
+      }}>
+        <Field label="Solicitante"><input value={form.solicitante} onChange={(e) => setForm({ ...form, solicitante: e.target.value })} style={inputStyle()} /></Field>
+        <Field label="Embarcación">
+          {isCampo && form.embarcacion_id ? (
+            <div style={{ ...inputStyle(), background: C.surface, color: C.ink, fontWeight: 600 }}>
+              {embName(form.embarcacion_id)}
+            </div>
+          ) : (
+            <select value={form.embarcacion_id} onChange={(e) => { setForm({ ...form, embarcacion_id: e.target.value, sistema: "" }); setSelEq(null); }} style={inputStyle()}>
+              <option value="">— Selecciona —</option>
+              {embarcaciones.map((v) => <option key={v.id} value={v.id}>{v.nombre}</option>)}
+            </select>
+          )}
+        </Field>
+        <Field label="Sistema" span={formCompact ? undefined : 1}>
+          <EquipoPicker
+            equipos={equiposDeNave}
+            value={selEq}
+            mobile={formCompact}
+            disabled={!form.embarcacion_id}
+            placeholder={form.embarcacion_id ? "Buscar sistema o equipo…" : "Primero elige embarcación"}
+            onChange={(eq) => { setSelEq(eq?.id || null); setForm((f) => ({ ...f, sistema: eq?.sistema || "" })); }}
+          />
+        </Field>
+        <Field label="Prioridad"><select value={form.prioridad} onChange={(e) => setForm({ ...form, prioridad: e.target.value })} style={inputStyle()}>{PRIORIDADES.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}</select></Field>
+        <Field label="Descripción" span={formCompact ? undefined : 3}><input value={form.descripcion} onChange={(e) => setForm({ ...form, descripcion: e.target.value })} style={inputStyle()} placeholder="Qué se necesita" /></Field>
+        <Field label="Fecha"><input type="date" value={form.fecha} onChange={(e) => setForm({ ...form, fecha: e.target.value })} style={inputStyle()} /></Field>
+      </div>
+      <div style={{ display: "flex", gap: 8, marginTop: 14, flexWrap: "wrap" }}>
+        <button type="button" onClick={crear} className={isCampo ? "cmms-campo-touch" : undefined} style={{ ...primaryBtn, ...(formCompact ? { flex: 1, justifyContent: "center" } : {}) }}>Enviar solicitud</button>
+        <button type="button" onClick={() => { setShowForm(false); setError(null); }} className={isCampo ? "cmms-campo-touch" : undefined} style={ghostBtn}>Cancelar</button>
+      </div>
+    </Card>
+  );
+
+  if (isCampo) {
+    const pendientesCampo = listaCampo.filter((s) => s.estado === "pendiente");
+    const selectedCampo = listaCampo.find((s) => s.id === selectedId) || null;
+
+    if (showMobileDetail && selectedCampo) {
+      return (
+        <DetailShell title={selectedCampo.folio || "Solicitud"} onBack={() => setShowMobileDetail(false)} campo backLabel="Solicitudes">
+          <SolicitudDetailPanel
+            sol={selectedCampo}
+            embName={embName}
+            sla={slaInfo(selectedCampo)}
+            profile={profile}
+            onConvertir={convertir}
+            onRechazar={rechazar}
+            onEliminar={eliminar}
+          />
+        </DetailShell>
+      );
+    }
+
+    return (
+      <div className="cmms-campo-polish" style={{ padding: "4px 0" }}>
+        <div style={{ fontSize: 17, fontWeight: 700, color: C.ink, marginBottom: 4 }}>Nueva solicitud</div>
+        <div style={{ fontSize: 13, color: C.slate, marginBottom: 14 }}>
+          Reporta fallas o pedidos para {embName(form.embarcacion_id) || "tu embarcación"}
+        </div>
+
+        <ErrorBanner onRetry={cargar}>{error}</ErrorBanner>
+        {formBlock}
+
+        {!showForm && (
+          <button type="button" className="cmms-campo-touch" onClick={() => { setShowForm(true); setError(null); }} style={{ ...primaryBtn, width: "100%", justifyContent: "center", marginBottom: 16 }}>
+            <Plus size={16} /> Nueva solicitud
+          </button>
+        )}
+
+        <div style={{ fontSize: 12, fontWeight: 700, color: C.slate, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 10 }}>
+          Mis solicitudes · {pendientesCampo.length} pendiente{pendientesCampo.length !== 1 ? "s" : ""}
+        </div>
+
+        {listaCampo.length === 0 ? (
+          <Empty>Sin solicitudes registradas para esta embarcación.</Empty>
+        ) : (
+          listaCampo.slice(0, 20).map((s) => {
+            const sla = slaInfo(s);
+            const prioTone = s.prioridad === "critica" ? "red" : s.prioridad === "alta" ? "amber" : "steel";
+            return (
+              <TaskCard
+                key={s.id}
+                tone={sla?.tone === "red" ? "red" : sla?.tone === "yellow" ? "amber" : prioTone}
+                badge={s.folio}
+                badgeLabel={lk(PRIORIDADES, s.prioridad)}
+                title={s.descripcion || "—"}
+                subtitle={s.sistema || undefined}
+                meta={`${lk(ESTADOS_SOLICITUD, s.estado)}${sla ? ` · SLA ${sla.label}` : ""}`}
+                onClick={() => seleccionarSol(s.id)}
+              />
+            );
+          })
+        )}
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -218,47 +337,7 @@ export default function Solicitudes({ navParams }) {
         <KPI label="Convertidas a OT" value={convertidas} tone={C.green} sub={`${solicitudes.length} totales`} />
       </div>
 
-      {showForm && (
-        <Card style={{ marginBottom: 16, background: C.mist }} className={isCampo ? "cmms-campo-polish" : undefined}>
-          <div style={{ fontWeight: 700, fontSize: 15, color: C.abyss, marginBottom: 14 }}>Nueva Solicitud</div>
-          <div style={{
-            display: "grid",
-            gridTemplateColumns: formCompact ? "1fr" : "repeat(4, 1fr)",
-            gap: formCompact ? 14 : 12,
-          }}>
-            <Field label="Solicitante"><input value={form.solicitante} onChange={(e) => setForm({ ...form, solicitante: e.target.value })} style={inputStyle()} /></Field>
-            <Field label="Embarcación">
-              {isCampo && form.embarcacion_id ? (
-                <div style={{ ...inputStyle(), background: C.surface, color: C.ink, fontWeight: 600 }}>
-                  {embName(form.embarcacion_id)}
-                </div>
-              ) : (
-                <select value={form.embarcacion_id} onChange={(e) => { setForm({ ...form, embarcacion_id: e.target.value, sistema: "" }); setSelEq(null); }} style={inputStyle()}>
-                  <option value="">— Selecciona —</option>
-                  {embarcaciones.map((v) => <option key={v.id} value={v.id}>{v.nombre}</option>)}
-                </select>
-              )}
-            </Field>
-            <Field label="Sistema" span={formCompact ? undefined : 1}>
-              <EquipoPicker
-                equipos={equiposDeNave}
-                value={selEq}
-                mobile={formCompact}
-                disabled={!form.embarcacion_id}
-                placeholder={form.embarcacion_id ? "Buscar sistema o equipo…" : "Primero elige embarcación"}
-                onChange={(eq) => { setSelEq(eq?.id || null); setForm((f) => ({ ...f, sistema: eq?.sistema || "" })); }}
-              />
-            </Field>
-            <Field label="Prioridad"><select value={form.prioridad} onChange={(e) => setForm({ ...form, prioridad: e.target.value })} style={inputStyle()}>{PRIORIDADES.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}</select></Field>
-            <Field label="Descripción" span={formCompact ? undefined : 3}><input value={form.descripcion} onChange={(e) => setForm({ ...form, descripcion: e.target.value })} style={inputStyle()} placeholder="Qué se necesita" /></Field>
-            <Field label="Fecha"><input type="date" value={form.fecha} onChange={(e) => setForm({ ...form, fecha: e.target.value })} style={inputStyle()} /></Field>
-          </div>
-          <div style={{ display: "flex", gap: 8, marginTop: 14, flexWrap: "wrap" }}>
-            <button type="button" onClick={crear} className={isCampo ? "cmms-campo-touch" : undefined} style={{ ...primaryBtn, ...(formCompact ? { flex: 1, justifyContent: "center" } : {}) }}>Enviar solicitud</button>
-            <button type="button" onClick={() => { setShowForm(false); setError(null); }} className={isCampo ? "cmms-campo-touch" : undefined} style={ghostBtn}>Cancelar</button>
-          </div>
-        </Card>
-      )}
+      {formBlock}
 
       <SavedViewsBar
         views={solViews}

@@ -11,12 +11,12 @@ import { FotoInput, FotoGaleria } from "../Fotos";
 import { Bloque, Semaforo, NivelItem, Stepper, StepperRef } from "./widgets";
 import { HOY, SEGURIDAD_FIJA } from "./util";
 
-export function VistaFlota({ embarcaciones, mareaAbierta, varadas = [], docsVencidos, puedeOperar, puedeBorrar, onIniciar, onRecalada, onEliminarZarpe, onRetornoFalla }) {
+export function VistaFlota({ embarcaciones, mareaAbierta, varadas = [], docsVencidos, puedeOperar, puedeBorrar, onIniciar, onRecalada, onEliminarZarpe, onRetornoFalla, isCampo = false }) {
   if (embarcaciones.length === 0) {
     return <Card><Empty><Ship size={30} color={C.amber} style={{ marginBottom: 10 }} /><br />Registra al menos una embarcación para usar el prezarpe.</Empty></Card>;
   }
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 14 }}>
+    <div style={{ display: "grid", gridTemplateColumns: isCampo ? "1fr" : "repeat(auto-fill, minmax(300px, 1fr))", gap: 14 }}>
       {embarcaciones.map((n) => {
         const marea = mareaAbierta(n.id);
         const navegando = !!marea;
@@ -47,12 +47,12 @@ export function VistaFlota({ embarcaciones, mareaAbierta, varadas = [], docsVenc
                     {marea._pending && <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 700, color: "#7a5b00", background: C.amber, padding: "1px 6px", borderRadius: 20 }}><Clock size={9} /> Pendiente</span>}
                   </div>
                   {puedeOperar && (
-                    <div style={{ display: "flex", gap: 8 }}>
-                      <button onClick={() => onRecalada(marea)} style={{ ...ghostBtn, flex: 1, justifyContent: "center", padding: "11px", color: C.steel, borderColor: C.steel }}><Anchor size={16} /> Recalada</button>
-                      <button onClick={() => onRetornoFalla(marea)} style={{ ...ghostBtn, flex: 1, justifyContent: "center", padding: "11px", color: "#fff", background: C.red, borderColor: C.red }}><AlertTriangle size={16} /> Retorno por falla</button>
+                    <div style={{ display: "flex", gap: 8, flexDirection: isCampo ? "column" : "row" }}>
+                      <button type="button" className={isCampo ? "cmms-campo-touch" : undefined} onClick={() => onRecalada(marea)} style={{ ...ghostBtn, flex: 1, justifyContent: "center", padding: isCampo ? "12px" : "11px", color: C.steel, borderColor: C.steel }}><Anchor size={16} /> Recalada</button>
+                      <button type="button" className={isCampo ? "cmms-campo-touch" : undefined} onClick={() => onRetornoFalla(marea)} style={{ ...ghostBtn, flex: 1, justifyContent: "center", padding: isCampo ? "12px" : "11px", color: "#fff", background: C.red, borderColor: C.red }}><AlertTriangle size={16} /> Retorno por falla</button>
                     </div>
                   )}
-                  {puedeBorrar && <button onClick={() => onEliminarZarpe(marea)} style={{ ...ghostBtn, width: "100%", justifyContent: "center", padding: "9px", marginTop: 8, color: C.red, borderColor: C.red, fontSize: 12.5 }}><Trash2 size={14} /> Eliminar zarpe (creado por error)</button>}
+                  {puedeBorrar && <button type="button" className={isCampo ? "cmms-campo-touch" : undefined} onClick={() => onEliminarZarpe(marea)} style={{ ...ghostBtn, width: "100%", justifyContent: "center", padding: isCampo ? "12px" : "9px", marginTop: 8, color: C.red, borderColor: C.red, fontSize: 12.5 }}><Trash2 size={14} /> Eliminar zarpe (creado por error)</button>}
                 </div>
               ) : enVarada ? (
                 <div style={{ fontSize: 12.5, color: C.indigo, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, fontWeight: 600 }}>
@@ -60,7 +60,7 @@ export function VistaFlota({ embarcaciones, mareaAbierta, varadas = [], docsVenc
                 </div>
               ) : (
                 puedeOperar
-                  ? <button onClick={() => onIniciar(n)} style={{ ...primaryBtn, width: "100%", justifyContent: "center", padding: "12px" }}><ClipboardCheck size={17} /> Iniciar prezarpe</button>
+                  ? <button type="button" className={isCampo ? "cmms-campo-touch" : undefined} onClick={() => onIniciar(n)} style={{ ...primaryBtn, width: "100%", justifyContent: "center", padding: isCampo ? "14px" : "12px" }}><ClipboardCheck size={17} /> Iniciar prezarpe</button>
                   : <div style={{ fontSize: 12.5, color: C.slate, textAlign: "center" }}>En puerto</div>
               )}
             </div>

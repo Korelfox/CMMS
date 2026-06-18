@@ -14,10 +14,11 @@ export default function DetailShell({
   footer,
   progress,
   className = "",
+  campo = false,
 }) {
   return (
     <div
-      className={`cmms-detail-shell ${className}`.trim()}
+      className={`cmms-detail-shell${campo ? " cmms-detail-shell-campo" : ""} ${className}`.trim()}
       role="dialog"
       aria-modal="true"
       aria-label={title || "Detalle"}

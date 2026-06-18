@@ -554,7 +554,7 @@ export default function OrdenesTrabajo({ navParams }) {
         {error && (
           <div style={{ marginBottom: 12, padding: "10px 12px", borderRadius: 10, background: C.redBg, border: `1px solid ${tint(C.red, 30)}`, color: C.red, fontSize: 13 }}>
             {error}
-            <button type="button" onClick={cargar} style={{ ...ghostBtn, marginLeft: 10, padding: "4px 10px", fontSize: 12 }}>Reintentar</button>
+            <button type="button" onClick={cargar} className="cmms-campo-touch" style={{ ...ghostBtn, marginLeft: 10, padding: "8px 12px", fontSize: 12 }}>Reintentar</button>
           </div>
         )}
 

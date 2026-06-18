@@ -73,7 +73,7 @@ function OTCampoRepuestos({ ot, onSkip }) {
           ))}
         </div>
       )}
-      <button type="button" onClick={onSkip} style={{ ...ghostBtn, width: "100%", justifyContent: "center" }}>
+      <button type="button" onClick={onSkip} className="cmms-campo-touch" style={{ ...ghostBtn, width: "100%", justifyContent: "center" }}>
         Omitir paso
       </button>
     </div>
@@ -105,22 +105,23 @@ export default function OTCampoWizard({
   const footer = (
     <>
       {idx > 0 && (
-        <button type="button" onClick={() => setStep((s) => prevCampoStep(s))} style={{ ...ghostBtn, flex: 1, justifyContent: "center" }}>
+        <button type="button" className="cmms-campo-touch" onClick={() => setStep((s) => prevCampoStep(s))} style={{ ...ghostBtn, flex: 1, justifyContent: "center" }}>
           Anterior
         </button>
       )}
       {step === "repuestos" && (
-        <button type="button" onClick={() => irSiguiente(true)} style={{ ...ghostBtn, flex: 1, justifyContent: "center" }}>
+        <button type="button" className="cmms-campo-touch" onClick={() => irSiguiente(true)} style={{ ...ghostBtn, flex: 1, justifyContent: "center" }}>
           Omitir paso
         </button>
       )}
       {step !== "cierre" && (
         <button
           type="button"
+          className="cmms-campo-touch"
           onClick={() => irSiguiente(step === "fotos")}
           style={{ ...primaryBtn, flex: 1, justifyContent: "center" }}
         >
-          {step === "fotos" ? "Siguiente" : "Siguiente"}
+          Siguiente
         </button>
       )}
     </>
@@ -135,6 +136,7 @@ export default function OTCampoWizard({
       backLabel="Lista"
       progress={progress}
       footer={footer}
+      campo
     >
       {ot.descripcion && (
         <div style={{
@@ -163,10 +165,12 @@ export default function OTCampoWizard({
             <button
               key={s.id}
               type="button"
+              className="cmms-campo-touch"
               onClick={() => setStep(s.id)}
               style={{
                 flex: "0 0 auto",
-                minWidth: 72,
+                minWidth: 76,
+                minHeight: 44,
                 padding: "8px 12px",
                 fontSize: 11,
                 fontWeight: active ? 700 : 600,
@@ -216,6 +220,7 @@ export default function OTCampoWizard({
           {ot.estado !== "cerrada" && puedeOperar && online && !ot._pending ? (
             <button
               type="button"
+              className="cmms-campo-touch"
               onClick={() => onCambiarEstado?.(ot, "cerrada")}
               style={{ ...primaryBtn, width: "100%", justifyContent: "center" }}
             >

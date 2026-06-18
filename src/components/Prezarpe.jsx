@@ -332,6 +332,7 @@ export default function Prezarpe({ navParams }) {
 
       {vista === "flota" && (
         <VistaFlota embarcaciones={embarcacionesVista} mareaAbierta={mareaAbierta} varadas={varadas} docsVencidos={docsVencidos} puedeOperar={puedeOperar} puedeBorrar={puedeBorrar}
+          isCampo={isCampo}
           onIniciar={iniciarPrezarpe} onRecalada={abrirRecalada} onEliminarZarpe={pedirEliminarZarpe}
           onRetornoFalla={(m) => { setMareaFalla(m); setVista("retorno_falla"); }} />
       )}

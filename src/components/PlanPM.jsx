@@ -10,7 +10,7 @@ import { C, archivo, num, canOperate, isAdmin, tint, shadow } from "../theme";
 import {
   Card, Pill, FilterBtn, primaryBtn, ghostBtn, exportBtn,
   inputStyle, bluInput, thStyle, tdStyle, Field, Empty, InlineSpinner, GuiaColapsable,
-  ModuleShell, StatGrid, HeroStat, Toolbar, Section, EmptyState,
+  ModuleShell, StatGrid, HeroStat, Toolbar, Section, EmptyState, ErrorBanner,
 } from "../ui";
 import ComboInput from "./ComboInput";
 import { TAREAS_PM } from "../lib/tareasPM";
@@ -29,6 +29,9 @@ import PMQueuePanel from "./planpm/PMQueuePanel";
 import PMPlanDetailPanel from "./planpm/PMPlanDetailPanel";
 import { PMBar, PMBarCalendario } from "./planpm/PMBars";
 import { folioOT } from "../lib/ot";
+import DetailShell from "./detail/DetailShell";
+import TaskCard from "./campo/TaskCard";
+import { useShellOptional } from "../context/ShellContext";
 
 const HOY = () => new Date().toISOString().slice(0, 10);
 const INTERVALOS_COMUNES = [50, 100, 250, 500, 1000, 2000, 4000, 8000];
@@ -43,6 +46,8 @@ const VISTAS = [
 
 export default function PlanPM({ onNavigate, navParams }) {
   const { profile } = useAuth();
+  const shell = useShellOptional();
+  const isCampo = !!navParams?.campo;
   const [embarcaciones, setEmbarcaciones] = useState([]);
   const [equipos,    setEquipos]    = useState([]);
   const [planes,     setPlanes]     = useState([]);
@@ -78,7 +83,10 @@ export default function PlanPM({ onNavigate, navParams }) {
     if (navParams?.tab === "plan" || navParams?.tab === "historial") setTab(navParams.tab);
     if (navParams?.fEstado) setViewFilters((f) => ({ ...(f || {}), fEstado: navParams.fEstado }));
     if (navParams?.planId) setTab("plan");
-  }, [navParams?.filtro, navParams?.tab, navParams?.fEstado, navParams?.planId]);
+    if (isCampo && (navParams?.embFiltro || shell?.embarcacionId)) {
+      setFiltro(navParams?.embFiltro || shell.embarcacionId);
+    }
+  }, [navParams?.filtro, navParams?.tab, navParams?.fEstado, navParams?.planId, navParams?.embFiltro, isCampo, shell?.embarcacionId]);
 
   useEffect(() => {
     planpmStore.set({ planes, historial, equipos, embarcaciones });
@@ -148,7 +156,30 @@ export default function PlanPM({ onNavigate, navParams }) {
   }, [planes, equipos, historial, idsNave]);
 
   if (loading) {
-    return <ModuleShell kicker="Mantenimiento preventivo" title="Plan Preventivo" loading />;
+    return isCampo
+      ? <InlineSpinner label="Cargando plan PM…" />
+      : <ModuleShell kicker="Mantenimiento preventivo" title="Plan Preventivo" loading />;
+  }
+
+  if (isCampo) {
+    return (
+      <div className="cmms-campo-polish" style={{ padding: "4px 0" }}>
+        <ErrorBanner onRetry={cargar}>{error}</ErrorBanner>
+        <TabPlan
+          lista={lista} equipos={equipos} setEquipos={setEquipos}
+          planes={planes} setPlanes={setPlanes}
+          historial={historial} setHistorial={setHistorial}
+          embarcaciones={embarcaciones} embName={embName}
+          profile={profile} puedeOperar={puedeOperar} puedeBorrar={puedeBorrar}
+          setError={setError} onNavigate={onNavigate}
+          handlersRef={handlersRef}
+          kpis={kpis}
+          navParams={navParams}
+          viewFilters={viewFilters}
+          isCampo
+        />
+      </div>
+    );
   }
 
   const heroVariant = kpis.vencidos > 0 ? "critical" : kpis.proximos > 0 ? "warn" : "ok";
@@ -248,11 +279,12 @@ export default function PlanPM({ onNavigate, navParams }) {
 // ─────────────────────────────────────────────────────────────────
 // TAB PLAN
 // ─────────────────────────────────────────────────────────────────
-function TabPlan({ lista, equipos, setEquipos, planes, setPlanes, historial, setHistorial, embName, profile, puedeOperar, puedeBorrar, setError, onNavigate, handlersRef, navParams, viewFilters }) {
+function TabPlan({ lista, equipos, setEquipos, planes, setPlanes, historial, setHistorial, embName, profile, puedeOperar, puedeBorrar, setError, onNavigate, handlersRef, navParams, viewFilters, isCampo = false }) {
   const [selectedId, setSelectedId] = useState(null);
   const [selectedPlanId, setSelectedPlanId] = useState(null);
   const [detailOpen, setDetailOpen] = useState(true);
-  const [vista, setVista] = useState("kanban");
+  const [showCampoDetail, setShowCampoDetail] = useState(false);
+  const [vista, setVista] = useState(isCampo ? "cola" : "kanban");
   const [vistaTabla, setVistaTabla] = useState("arbol");
   const [fEstado, setFEstado] = useState("all");
   const [rightTab, setRightTab] = useState("planes");
@@ -279,6 +311,7 @@ function TabPlan({ lista, equipos, setEquipos, planes, setPlanes, historial, set
       setSelectedPlanId(navParams.planId);
       setVista("cola");
       setDetailOpen(true);
+      if (isCampo) setShowCampoDetail(true);
     }
     if (navParams?.equipoId) {
       setSelectedId(navParams.equipoId);
@@ -286,7 +319,7 @@ function TabPlan({ lista, equipos, setEquipos, planes, setPlanes, historial, set
       setVistaTabla("arbol");
     }
     if (navParams?.fEstado) setFEstado(navParams.fEstado);
-  }, [navParams?.planId, navParams?.equipoId, navParams?.fEstado]);
+  }, [navParams?.planId, navParams?.equipoId, navParams?.fEstado, isCampo]);
 
   useEffect(() => {
     const saved = localStorage.getItem(VISTA_KEY);
@@ -615,6 +648,72 @@ tbody td{padding:5px 8px;vertical-align:middle}
     onEliminar: eliminarPlan,
     onVerEquipo: (eqId) => { setSelectedId(eqId); setVista("tabla"); setVistaTabla("arbol"); },
   };
+
+  if (isCampo) {
+    if (showCampoDetail && selectedEval) {
+      return (
+        <DetailShell
+          title={selectedEval.plan.descripcion}
+          subtitle={selectedEval.equipo?.sistema || selectedEval.equipo?.id_visible}
+          onBack={() => setShowCampoDetail(false)}
+          campo
+          backLabel="Plan PM"
+        >
+          <PMPlanDetailPanel {...planDetailProps} />
+        </DetailShell>
+      );
+    }
+
+    return (
+      <div>
+        <div style={{ fontSize: 17, fontWeight: 700, color: C.ink, marginBottom: 4 }}>Plan preventivo</div>
+        <div style={{ fontSize: 13, color: C.slate, marginBottom: 14 }}>
+          {evaluadosFiltrados.length} tarea{evaluadosFiltrados.length !== 1 ? "s" : ""} · toca para registrar PM
+        </div>
+
+        <div style={{ position: "relative", marginBottom: 12 }}>
+          <Search size={18} color={C.slate} style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)" }} />
+          <input
+            value={busqueda}
+            onChange={(e) => setBusqueda(e.target.value)}
+            placeholder="Buscar tarea o equipo…"
+            className="cmms-campo-touch"
+            style={{ ...inputStyle(), width: "100%", paddingLeft: 42, fontSize: 16, minHeight: 48 }}
+          />
+        </div>
+
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 14 }}>
+          {[["all", "Todos"], ["red", "Vencido"], ["yellow", "Próximo"], ["green", "OK"]].map(([v, lbl]) => {
+            const n = v === "all" ? null : evaluados.filter((x) => x.tone === v).length;
+            const tone = v === "red" ? C.red : v === "yellow" ? C.amber : v === "green" ? C.green : C.slate;
+            return (
+              <FilterBtn key={v} active={fEstado === v} color={fEstado === v ? tone : undefined} onClick={() => setFEstado(v)}>
+                {lbl}{n != null && n > 0 ? ` (${n})` : ""}
+              </FilterBtn>
+            );
+          })}
+        </div>
+
+        {evaluadosFiltrados.length === 0 ? (
+          <EmptyState icon={CalendarClock} title="Sin tareas PM" description="No hay mantenimientos pendientes en este filtro." />
+        ) : (
+          evaluadosFiltrados.map(({ plan, equipo, tone, label }) => (
+            <TaskCard
+              key={plan.id}
+              tone={tone === "red" ? "red" : tone === "yellow" ? "amber" : tone === "green" ? "green" : "steel"}
+              badge={equipo?.id_visible}
+              badgeLabel={label}
+              title={plan.descripcion}
+              subtitle={equipo?.sistema || undefined}
+              meta={embName(equipo?.embarcacion_id)}
+              cta="Registrar PM"
+              onClick={() => { setSelectedPlanId(plan.id); setShowCampoDetail(true); }}
+            />
+          ))
+        )}
+      </div>
+    );
+  }
 
   return (
     <div>

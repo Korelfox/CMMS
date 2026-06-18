@@ -27,6 +27,7 @@ import DetailShell from "./detail/DetailShell";
 import SplitDetailLayout from "./detail/SplitDetailLayout";
 import { ordenarItemsInv } from "../lib/inventarioKanban";
 import { useMediaQuery } from "../lib/useMediaQuery";
+import TaskCard from "./campo/TaskCard";
 
 // Prefijos de tipo de repuesto para el código (SKU). Formato: TIPO-SUBTIPO-ESPEC
 const PREFIJOS_SKU = [
@@ -100,6 +101,7 @@ export default function Inventario({ navParams }) {
   const puedeOperar = canOperate(profile?.rol);
   const puedeBorrar = isAdmin(profile?.rol);
   const isMobile = useMediaQuery("(max-width: 1024px)");
+  const isCampo = !!navParams?.campo;
   const isTabla = vista === "tabla";
   const NCOLS = 12 + (puedeOperar ? 1 : 0) + (puedeBorrar ? 1 : 0);
 
@@ -131,6 +133,10 @@ export default function Inventario({ navParams }) {
       if (navParams?.campo || isMobile) setShowMobileDetail(true);
     }
     if (navParams?.vista && VISTAS.some((v) => v.id === navParams.vista)) setVista(navParams.vista);
+    if (navParams?.campo) {
+      setVista("cola");
+      setSoloConStock(true);
+    }
   }, [navParams?.filtroStock, navParams?.itemId, navParams?.campo, navParams?.vista, isMobile]);
 
   useEffect(() => {
@@ -399,9 +405,9 @@ export default function Inventario({ navParams }) {
   const itemPanel = destinoPanel ? items.find((i) => i.id === destinoPanel) : null;
 
   if (loading) {
-    return (
-      <ModuleShell kicker="Repuestos · ABC + Min-Máx" title="Inventario de Repuestos" loading />
-    );
+    return isCampo
+      ? <InlineSpinner label="Cargando inventario…" />
+      : <ModuleShell kicker="Repuestos · ABC + Min-Máx" title="Inventario de Repuestos" loading />;
   }
 
   const detailProps = {
@@ -435,7 +441,66 @@ export default function Inventario({ navParams }) {
     onTabChange: setDetailTab,
   };
 
-  const showFullscreen = isMobile && showMobileDetail && selectedItem;
+  const showFullscreen = (isMobile || isCampo) && showMobileDetail && selectedItem;
+
+  if (isCampo) {
+    if (showFullscreen) {
+      return (
+        <DetailShell title={selectedItem.codigo} subtitle={selectedItem.descripcion} onBack={cerrarMobileDetail} campo backLabel="Inventario">
+          <InventarioDetailPanel {...detailProps} />
+        </DetailShell>
+      );
+    }
+
+    return (
+      <div className="cmms-campo-polish" style={{ padding: "4px 0" }}>
+        <div style={{ fontSize: 17, fontWeight: 700, color: C.ink, marginBottom: 4 }}>Inventario</div>
+        <div style={{ fontSize: 13, color: C.slate, marginBottom: 14 }}>
+          Stock a bordo · {listaOrdenada.length} ítem{listaOrdenada.length !== 1 ? "s" : ""}
+        </div>
+
+        <ErrorBanner onRetry={cargar}>{error}</ErrorBanner>
+
+        <div style={{ position: "relative", marginBottom: 12 }}>
+          <Search size={18} color={C.slate} style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)" }} />
+          <input
+            value={busqueda}
+            onChange={(e) => setBusqueda(e.target.value)}
+            placeholder="Buscar código o descripción…"
+            className="cmms-campo-touch"
+            style={{ ...inputStyle(), width: "100%", paddingLeft: 42, fontSize: 16, minHeight: 48 }}
+          />
+        </div>
+
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 14 }}>
+          <FilterBtn active={filtroStock === "all"} onClick={() => setFiltroStock("all")}>Todos</FilterBtn>
+          <FilterBtn active={filtroStock === "bajo"} onClick={() => setFiltroStock("bajo")} color={C.red}>Bajo mínimo</FilterBtn>
+          <FilterBtn active={filtroStock === "revisar"} onClick={() => setFiltroStock("revisar")} color={C.amber}>Revisar</FilterBtn>
+        </div>
+
+        {listaOrdenada.length === 0 ? (
+          <EmptyState icon={Package} title="Sin ítems" description="No hay repuestos que coincidan con la búsqueda." />
+        ) : (
+          listaOrdenada.slice(0, 50).map((item) => {
+            const st = estadoStock(item);
+            const tone = st.key === "bajo" ? "red" : st.key === "revisar" ? "amber" : "steel";
+            return (
+              <TaskCard
+                key={item.id}
+                tone={tone}
+                badge={item.codigo}
+                badgeLabel={item.abc ? `Clase ${item.abc}` : undefined}
+                title={item.descripcion || item.codigo}
+                subtitle={item.categoria || undefined}
+                meta={`Stock ${item.total} ${item.unidad || "un"} · ${st.label}`}
+                onClick={() => seleccionarItem(item.id)}
+              />
+            );
+          })
+        )}
+      </div>
+    );
+  }
 
   return (
     <ModuleShell

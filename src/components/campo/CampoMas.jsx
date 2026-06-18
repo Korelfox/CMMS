@@ -1,5 +1,5 @@
 import React from "react";
-import { Inbox, Search, Package, RefreshCw, ChevronRight, Anchor } from "lucide-react";
+import { Inbox, Search, Package, RefreshCw, ChevronRight, Anchor, CalendarClock } from "lucide-react";
 import { C, tint } from "../../theme";
 import { Card, primaryBtn } from "../../ui";
 const LINKS = [
@@ -7,6 +7,7 @@ const LINKS = [
   { id: "solicitudes", label: "Nueva solicitud", sub: "Reportar falla o pedido", icon: Inbox, tone: C.sky },
   { id: "activos", label: "Activos", sub: "Buscar equipo", icon: Search, tone: C.steel },
   { id: "inventario", label: "Inventario", sub: "Stock a bordo", icon: Package, tone: C.amber },
+  { id: "planpm", label: "Plan PM", sub: "Mantenimiento preventivo", icon: CalendarClock, tone: C.green },
 ];
 
 export default function CampoMas({ onSync, pendientes, sincronizando, online, onNavigate }) {
@@ -58,6 +59,7 @@ export default function CampoMas({ onSync, pendientes, sincronizando, online, on
         </div>
         <button
           type="button"
+          className="cmms-campo-touch"
           onClick={onSync}
           disabled={!online || sincronizando}
           style={{ ...primaryBtn, width: "100%", justifyContent: "center", opacity: !online || sincronizando ? 0.6 : 1 }}
