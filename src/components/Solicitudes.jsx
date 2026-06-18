@@ -51,6 +51,7 @@ export default function Solicitudes({ navParams }) {
   const [error, setError] = useState(null);
   const [filtro, setFiltro] = useState("pendiente");
   const [slaVencidoOnly, setSlaVencidoOnly] = useState(false);
+  const [soloReposicion, setSoloReposicion] = useState(false);
   const [selectedId, setSelectedId] = useState(null);
   const [detailOpen, setDetailOpen] = useState(true);
   const [showMobileDetail, setShowMobileDetail] = useState(false);
@@ -193,11 +194,14 @@ export default function Solicitudes({ navParams }) {
   const porVencer = pendientes.filter((s) => { const i = slaInfo(s); return i && i.pct >= 0.75 && i.pct < 1; }).length;
   const convertidas = solicitudes.filter((s) => s.estado === "convertida").length;
 
+  const nReposicion = solicitudes.filter((s) => s.sistema === "Reposición").length;
+
   const lista = useMemo(() => {
     let l = filtro === "all" ? solicitudes : solicitudes.filter((s) => s.estado === filtro);
     if (slaVencidoOnly) l = l.filter((s) => { const i = slaInfo(s); return i && i.pct >= 1; });
+    if (soloReposicion) l = l.filter((s) => s.sistema === "Reposición");
     return l;
-  }, [solicitudes, filtro, slaVencidoOnly]);
+  }, [solicitudes, filtro, slaVencidoOnly, soloReposicion]);
 
   const selected = solicitudes.find((s) => s.id === selectedId) || null;
 
@@ -355,6 +359,11 @@ export default function Solicitudes({ navParams }) {
           return <FilterBtn key={s.value} active={filtro === s.value && !slaVencidoOnly} onClick={() => { setFiltro(s.value); setSlaVencidoOnly(false); }}>{s.label} ({n})</FilterBtn>;
         })}
         <FilterBtn active={slaVencidoOnly} onClick={() => { setFiltro("pendiente"); setSlaVencidoOnly(true); }}>SLA vencido ({vencidasSLA})</FilterBtn>
+        {nReposicion > 0 && (
+          <FilterBtn active={soloReposicion} color={C.cyan} onClick={() => setSoloReposicion((v) => !v)}>
+            Reposición ({nReposicion})
+          </FilterBtn>
+        )}
       </div>
 
       {isMobile && showMobileDetail && selected ? (
@@ -400,7 +409,12 @@ export default function Solicitudes({ navParams }) {
                           >
                             <td style={{ ...tdStyle, fontFamily: "'IBM Plex Mono', monospace", fontWeight: 600, color: C.steel }}>{s.folio || "—"}</td>
                             <td style={{ ...tdStyle, maxWidth: 280, fontSize: 12.5 }}>
-                              <div>{s.descripcion}</div>
+                              <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                                {s.sistema === "Reposición" && (
+                                  <Pill tone="cyan">Reposición</Pill>
+                                )}
+                                <span>{s.descripcion}</span>
+                              </div>
                               <div style={{ fontSize: 11, color: C.slate, marginTop: 2 }}>{embName(s.embarcacion_id)} · {s.solicitante}</div>
                             </td>
                             <td style={tdStyle}><Pill tone={tn(PRIORIDADES, s.prioridad)}>{lk(PRIORIDADES, s.prioridad)}</Pill></td>

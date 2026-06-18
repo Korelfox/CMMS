@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useMemo } from "react";
-import { Package, Plus, Trash2, Download, X, Pencil, Check, Tag, Search, ChevronDown, ChevronRight, List, FolderTree, Layers, Columns3, Table2, AlertTriangle } from "lucide-react";
+import { Package, Plus, Trash2, Download, X, Pencil, Check, Tag, Search, ChevronDown, ChevronRight, List, FolderTree, Layers, Columns3, Table2, AlertTriangle, Bell } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { useShellOptional } from "../context/ShellContext";
 import { fetchAll, insertRow, updateRow, deleteRow, upsertRow, logActivity } from "../lib/db";
@@ -99,6 +99,8 @@ export default function Inventario({ navParams }) {
   const [filasEditando, setFilasEditando] = useState(new Map()); // id → snapshot campos editables
   const [bodegas, setBodegas] = useState([]);
   const [stockPanel, setStockPanel] = useState(null); // item_id | null
+  const [solicitando, setSolicitando] = useState(() => new Set());
+  const [solicitados, setSolicitados] = useState(() => new Set());
   const puedeOperar = canOperate(profile?.rol);
   const puedeBorrar = isAdmin(profile?.rol);
   const isMobile = useMediaQuery("(max-width: 1024px)");
@@ -395,6 +397,31 @@ export default function Inventario({ navParams }) {
     catch (e) { setItems(respaldo); setError("No se pudo eliminar: " + e.message); }
   }
 
+  async function solicitarReposicion(item, bordoQty, st) {
+    setSolicitando((p) => new Set([...p, item.id]));
+    try {
+      const HOY = new Date().toISOString().slice(0, 10);
+      const prioridad = st.key === "bajo" ? "alta" : "media";
+      const folio = `REP-${item.codigo}-${Date.now().toString(36).slice(-4).toUpperCase()}`;
+      await insertRow("solicitudes", profile.empresa_id, {
+        folio,
+        solicitante: profile.nombre,
+        embarcacion_id: embarcacionId || null,
+        sistema: "Reposición",
+        descripcion: `[${item.codigo}] ${item.descripcion} · Pañol: ${bordoQty} ${item.unidad || "un"} (mín ${item.stock_min})`,
+        prioridad,
+        fecha: HOY,
+        estado: "pendiente",
+        created_by: profile.id,
+      });
+      setSolicitados((p) => new Set([...p, item.id]));
+    } catch (e) {
+      setError("No se pudo crear la solicitud: " + e.message);
+    } finally {
+      setSolicitando((p) => { const n = new Set(p); n.delete(item.id); return n; });
+    }
+  }
+
   function exportar() {
     const filas = [
       ["Código", "ABC", "Descripción", "Categoría", "Tipo", "Grupo intercambio", "Unidad", "Stock Total", "Mín", "Máx", "Precio", "Valor", "Proveedor", "Lead días", "Destino (naves/equipos)"],
@@ -515,17 +542,50 @@ export default function Inventario({ navParams }) {
             const bordoQty = stockBordo(item.id);
             const st = estadoStockOf(bordoQty, item.stock_min, item.stock_max);
             const tone = st.key === "bajo" ? "red" : st.key === "revisar" ? "amber" : "steel";
+            const needsBtn = st.key === "bajo" || st.key === "revisar";
+            const yaEnviado = solicitados.has(item.id);
+            const enviando = solicitando.has(item.id);
             return (
-              <TaskCard
-                key={item.id}
-                tone={tone}
-                badge={item.codigo}
-                badgeLabel={item.abc ? `Clase ${item.abc}` : undefined}
-                title={item.descripcion || item.codigo}
-                subtitle={item.categoria || undefined}
-                meta={`Stock ${bordoQty} ${item.unidad || "un"} · ${st.label}`}
-                onClick={() => seleccionarItem(item.id)}
-              />
+              <div key={item.id}>
+                <TaskCard
+                  tone={tone}
+                  badge={item.codigo}
+                  badgeLabel={item.abc ? `Clase ${item.abc}` : undefined}
+                  title={item.descripcion || item.codigo}
+                  subtitle={item.categoria || undefined}
+                  meta={`Stock ${bordoQty} ${item.unidad || "un"} · ${st.label}`}
+                  onClick={() => seleccionarItem(item.id)}
+                  style={needsBtn ? { marginBottom: 0, borderBottomLeftRadius: 0, borderBottomRightRadius: 0 } : undefined}
+                />
+                {needsBtn && (
+                  <button
+                    type="button"
+                    className="cmms-campo-touch"
+                    onClick={() => solicitarReposicion(item, bordoQty, st)}
+                    disabled={yaEnviado || enviando}
+                    style={{
+                      display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+                      width: "100%", marginBottom: 10,
+                      padding: "9px 14px",
+                      borderRadius: "0 0 10px 10px",
+                      border: `1px solid ${tint(tone === "red" ? C.red : C.amber, 35)}`,
+                      borderTop: "none",
+                      background: yaEnviado ? tint(C.green, 10) : "transparent",
+                      color: yaEnviado ? C.green : tone === "red" ? C.red : C.amber,
+                      fontSize: 12.5, fontWeight: 700,
+                      cursor: yaEnviado ? "default" : "pointer",
+                      fontFamily: "inherit",
+                    }}
+                  >
+                    {yaEnviado
+                      ? <><Check size={13} /> Reposición solicitada</>
+                      : enviando
+                        ? "Enviando…"
+                        : <><Bell size={13} /> Solicitar reposición</>
+                    }
+                  </button>
+                )}
+              </div>
             );
           })
         )}

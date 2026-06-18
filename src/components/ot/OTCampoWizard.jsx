@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useCallback } from "react";
-import { Package, CheckCircle2 } from "lucide-react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
+import { Package, CheckCircle2, AlertTriangle, Check } from "lucide-react";
 import { C, lk, tint } from "../../theme";
 import { ESTADOS_OT, PRIORIDADES } from "../../theme";
-import { primaryBtn, ghostBtn, Pill, Empty } from "../../ui";
-import { fetchAll } from "../../lib/db";
-import { repuestosDeEquipo } from "../../lib/diagnostico";
+import { primaryBtn, ghostBtn, Pill, Empty, bluInput } from "../../ui";
+import { fetchAll, insertRow, upsertRow, updateRow } from "../../lib/db";
+import { useAuth } from "../../lib/auth";
+import { useShellOptional } from "../../context/ShellContext";
 import DetailShell from "../detail/DetailShell";
 import ChecklistOT from "./ChecklistOT";
 import { FotoGaleria } from "../Fotos";
@@ -12,74 +13,202 @@ import {
   CAMPO_WIZARD_STEPS, stepIndex, nextCampoStep, prevCampoStep,
 } from "../../lib/otCampoFlow";
 
+// ── Paso "Repuestos": lista interactiva de items vinculados al equipo ────────
 function OTCampoRepuestos({ ot, onSkip }) {
-  const [items, setItems] = useState([]);
+  const { profile } = useAuth();
+  const shell = useShellOptional();
+  const embarcacionId = shell?.embarcacionId ?? null;
+
+  const [rawItems, setRawItems] = useState([]);
+  const [dests, setDests] = useState([]);
+  const [stockData, setStockData] = useState([]);
+  const [bodegas, setBodegas] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [guardando, setGuardando] = useState(false);
+  const [listo, setListo] = useState(false);
+  const [error, setError] = useState(null);
+  const [consumido, setConsumo] = useState({});
 
   useEffect(() => {
     let vivo = true;
+    setConsumo({});
+    setListo(false);
+    setError(null);
     (async () => {
       try {
-        const [its, dests, stock] = await Promise.all([
+        const [its, destsData, stockRaw, bodsData] = await Promise.all([
           fetchAll("inventario_items"),
           fetchAll("inventario_item_destinos"),
           fetchAll("stock"),
+          fetchAll("bodegas"),
         ]);
-        if (vivo) {
-          setItems(ot?.equipo_id ? repuestosDeEquipo(its, dests, stock, ot.equipo_id) : []);
-        }
+        if (!vivo) return;
+        setRawItems(its);
+        setDests(destsData);
+        setStockData(stockRaw);
+        setBodegas(bodsData);
       } finally {
         if (vivo) setLoading(false);
       }
     })();
     return () => { vivo = false; };
-  }, [ot?.equipo_id]);
+  }, [ot?.id]);
 
-  if (!ot?.equipo_id) {
+  const panolActivo = useMemo(
+    () => bodegas.find((b) => b.tipo === "a_bordo" && b.embarcacion_id === embarcacionId) ?? null,
+    [bodegas, embarcacionId],
+  );
+
+  const stockEnPanol = useCallback(
+    (itemId) => {
+      if (!panolActivo) return 0;
+      const e = stockData.find((s) => s.item_id === itemId && s.bodega_id === panolActivo.id);
+      return e ? Number(e.cantidad) || 0 : 0;
+    },
+    [panolActivo, stockData],
+  );
+
+  const items = useMemo(() => {
+    if (!ot?.equipo_id || !rawItems.length) return [];
+    const itemIds = new Set(dests.filter((d) => d.equipo_id === ot.equipo_id).map((d) => d.item_id));
+    if (!itemIds.size) return [];
+    return rawItems
+      .filter((it) => itemIds.has(it.id))
+      .map((it) => ({ ...it, stockPanol: stockEnPanol(it.id) }));
+  }, [rawItems, dests, stockEnPanol, ot?.equipo_id]);
+
+  async function registrarConsumo() {
+    const lineas = Object.entries(consumido).filter(([, q]) => Number(q) > 0);
+    if (!lineas.length) { onSkip(); return; }
+    if (!panolActivo) { setError("No hay pañol configurado para esta nave."); return; }
+    setGuardando(true);
+    setError(null);
+    try {
+      const HOY = new Date().toISOString().slice(0, 10);
+      let costoParcial = 0;
+      for (const [itemId, rawQty] of lineas) {
+        const qty = Number(rawQty);
+        if (!qty) continue;
+        const item = rawItems.find((i) => i.id === itemId);
+        if (!item) continue;
+        const actual = stockEnPanol(itemId);
+        await upsertRow("stock", profile.empresa_id, {
+          item_id: itemId, bodega_id: panolActivo.id, cantidad: Math.max(0, actual - qty),
+        }, "item_id,bodega_id");
+        await insertRow("movimientos", profile.empresa_id, {
+          tipo: "salida",
+          item_id: itemId,
+          bodega_from: panolActivo.id,
+          bodega_to: null,
+          cantidad: qty,
+          ot_id: ot.id,
+          responsable: profile.nombre,
+          fecha: HOY,
+          motivo: `Consumo OT ${ot.folio}`,
+          created_by: profile.id,
+        });
+        costoParcial += qty * (item.precio || 0);
+      }
+      if (costoParcial > 0) {
+        await updateRow("ordenes_trabajo", ot.id, {
+          costo_mat: (ot.costo_mat || 0) + costoParcial,
+          costos_por: profile.nombre,
+          costos_fecha: new Date().toISOString(),
+        });
+      }
+      setListo(true);
+    } catch (e) {
+      setError("Error al registrar: " + e.message);
+    } finally {
+      setGuardando(false);
+    }
+  }
+
+  if (!ot?.equipo_id) return <Empty>Sin equipo vinculado — puedes omitir este paso.</Empty>;
+  if (loading) return <Empty>Cargando repuestos…</Empty>;
+
+  if (listo) {
     return (
-      <Empty>Sin equipo vinculado — puedes omitir este paso.</Empty>
+      <div style={{ textAlign: "center", padding: "24px 0" }}>
+        <Check size={32} color={C.green} style={{ marginBottom: 8 }} />
+        <div style={{ fontSize: 14, fontWeight: 700, color: C.ink, marginBottom: 4 }}>Consumo registrado</div>
+        <div style={{ fontSize: 12.5, color: C.slate, marginBottom: 16 }}>Stock del pañol actualizado.</div>
+        <button type="button" className="cmms-campo-touch" onClick={onSkip}
+          style={{ ...primaryBtn, width: "100%", justifyContent: "center" }}>
+          Continuar al cierre
+        </button>
+      </div>
     );
   }
 
-  if (loading) return <Empty>Cargando repuestos…</Empty>;
-
   return (
     <div>
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
         <Package size={18} color={C.steel} />
         <span style={{ fontSize: 14, fontWeight: 700, color: C.ink }}>Repuestos consumidos</span>
         <Pill tone="steel">opcional</Pill>
       </div>
+
+      {!panolActivo && embarcacionId && (
+        <div style={{ display: "flex", gap: 8, alignItems: "flex-start", background: tint(C.amber, 10), border: `1px solid ${tint(C.amber, 35)}`, borderRadius: 8, padding: "10px 12px", marginBottom: 12, fontSize: 12.5 }}>
+          <AlertTriangle size={14} color={C.amber} style={{ flexShrink: 0, marginTop: 1 }} />
+          <span>Esta nave no tiene pañol — el consumo no descuenta stock.</span>
+        </div>
+      )}
+      {error && (
+        <div style={{ fontSize: 12.5, color: C.red, marginBottom: 8, padding: "8px 10px", borderRadius: 8, background: C.redBg }}>{error}</div>
+      )}
+
       {items.length === 0 ? (
         <p style={{ fontSize: 13, color: C.slate, margin: "0 0 12px" }}>No hay repuestos enlazados a este equipo.</p>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 12 }}>
-          {items.map((r) => (
-            <div
-              key={r.codigo}
-              style={{
-                padding: "10px 12px",
-                borderRadius: 10,
-                border: `1px solid ${r.stock > 0 ? C.line : tint(C.red, 30)}`,
-                background: r.stock > 0 ? C.surface : C.redBg,
-              }}
-            >
-              <div style={{ fontSize: 13, fontWeight: 700, color: C.ink }}>{r.codigo}</div>
-              <div style={{ fontSize: 12, color: C.slate, marginTop: 2, lineHeight: 1.4, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflowWrap: "anywhere" }}>{r.descripcion}</div>
-              <div style={{ fontSize: 11.5, marginTop: 4, color: r.stock > 0 ? C.green : C.red, fontWeight: 600 }}>
-                Stock: {r.stock} {r.unidad}
+          {items.map((r) => {
+            const qty = consumido[r.id] ?? "";
+            const bajo = r.stock_min > 0 && r.stockPanol <= r.stock_min;
+            return (
+              <div key={r.id} style={{ padding: "10px 12px", borderRadius: 10, border: `1px solid ${bajo ? tint(C.red, 30) : C.line}`, background: bajo ? C.redBg : C.surface }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: C.ink }}>{r.codigo}</div>
+                    <div style={{ fontSize: 11.5, color: C.slate, marginTop: 1, lineHeight: 1.3, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflowWrap: "anywhere" }}>
+                      {r.descripcion}
+                    </div>
+                    <div style={{ fontSize: 11, marginTop: 3, fontWeight: 600, color: bajo ? C.red : C.green }}>
+                      Pañol: {r.stockPanol} {r.unidad}
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2, flexShrink: 0 }}>
+                    <span style={{ fontSize: 10, color: C.slate, fontWeight: 600 }}>Usado</span>
+                    <input
+                      type="number" min="0" max={r.stockPanol} value={qty}
+                      onChange={(e) => setConsumo((p) => ({ ...p, [r.id]: e.target.value }))}
+                      disabled={!panolActivo}
+                      className="cmms-campo-touch"
+                      style={{ ...bluInput, width: 64, textAlign: "right", minHeight: 40, fontSize: 15 }}
+                    />
+                    <span style={{ fontSize: 10, color: C.slate }}>{r.unidad}</span>
+                  </div>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
-      <button type="button" onClick={onSkip} className="cmms-campo-touch" style={{ ...ghostBtn, width: "100%", justifyContent: "center" }}>
+
+      <button type="button" className="cmms-campo-touch" onClick={registrarConsumo} disabled={guardando}
+        style={{ ...primaryBtn, width: "100%", justifyContent: "center", marginBottom: 8 }}>
+        {guardando ? "Registrando…" : "Registrar consumo"}
+      </button>
+      <button type="button" onClick={onSkip} className="cmms-campo-touch"
+        style={{ ...ghostBtn, width: "100%", justifyContent: "center" }}>
         Omitir paso
       </button>
     </div>
   );
 }
 
+// ── Wizard principal ─────────────────────────────────────────────────────────
 export default function OTCampoWizard({
   ot,
   onBack,
