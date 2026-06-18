@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef, lazy, Suspense } from "react";
 import {
-  Anchor, LogOut, UserCircle, X, Sun, Moon,
+  Anchor, LogOut, UserCircle, X, Sun, Moon, BarChart3,
 } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { fetchAll } from "../lib/db";
@@ -13,7 +13,7 @@ import ContextHeader from "./ContextHeader";
 import EmbarcacionPicker from "./EmbarcacionPicker";
 import CampoShell from "./campo/CampoShell";
 import {
-  OFICINA_GROUPS, ANALISIS_IDS, NAV_META, allNavItems, labelForView, CAMPO_TABS,
+  OFICINA_GROUPS, ANALISIS_IDS, ANALISIS_HUB_ID, NAV_META, allNavItems, labelForView, CAMPO_TABS,
 } from "../lib/navigation";
 import { readAppMode, writeAppMode } from "../lib/embarcacionActiva";
 
@@ -64,6 +64,7 @@ const ReemplazarReparar   = lazy(() => import("./ReemplazarReparar"));
 const ArquitecturaIA      = lazy(() => import("./ArquitecturaIA"));
 const OTAutonomas         = lazy(() => import("./OTAutonomas"));
 const Vigilante           = lazy(() => import("./Vigilante"));
+const HubAnalisis         = lazy(() => import("./HubAnalisis"));
 
 const INTERVALOS_REFRESH = [
   { label: "5 min",       s: 300  },
@@ -128,6 +129,7 @@ const MODULOS = {
   rentabilidad:  Rentabilidad,
   usuarios: Usuarios,
   empresas: Empresas,
+  analisis: HubAnalisis,
 };
 
 function EmbarcacionPickerGate() {
@@ -384,17 +386,15 @@ function AppShellLayout({
           {ANALISIS_IDS.some((id) => navById[id]) && (
             <div style={{ marginBottom: 12, paddingTop: 4, borderTop: "1px solid rgba(255,255,255,.08)" }}>
               <div style={{ fontSize: 9.5, letterSpacing: 2, textTransform: "uppercase", opacity: 0.4, padding: "8px 12px 6px", fontWeight: 600 }}>Análisis</div>
-              {ANALISIS_IDS.filter((id) => navById[id]).map((id) => {
-                const meta = NAV_META[id];
-                const active = view === id;
-                const Icon = meta.icon;
+              {(() => {
+                const inHub = view === ANALISIS_HUB_ID || ANALISIS_IDS.includes(view);
                 return (
-                  <button key={id} onClick={() => navegar(id)}
-                    style={{ width: "100%", display: "flex", alignItems: "center", gap: 11, padding: "7px 12px", marginBottom: 2, borderRadius: 8, border: "none", cursor: "pointer", textAlign: "left", background: active ? "rgba(255,255,255,.12)" : "transparent", color: active ? C.gold : "rgba(255,255,255,.72)", fontWeight: active ? 600 : 500, fontSize: 12, fontFamily: "inherit" }}>
-                    <Icon size={15} strokeWidth={active ? 2.4 : 2} /><span>{meta.label}</span>
+                  <button onClick={() => navegar(ANALISIS_HUB_ID)}
+                    style={{ width: "100%", display: "flex", alignItems: "center", gap: 11, padding: "8px 12px", marginBottom: 2, borderRadius: 8, border: "none", cursor: "pointer", textAlign: "left", background: inHub ? "rgba(255,255,255,.12)" : "transparent", color: inHub ? C.gold : "rgba(255,255,255,.85)", fontWeight: inHub ? 600 : 500, fontSize: 12.5, fontFamily: "inherit" }}>
+                    <BarChart3 size={16} strokeWidth={inHub ? 2.4 : 2} /><span>Hub Análisis</span>
                   </button>
                 );
-              })}
+              })()}
             </div>
           )}
         </nav>

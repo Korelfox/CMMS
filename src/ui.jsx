@@ -688,11 +688,47 @@ export function DesignSystemStyles() {
           grid-template-columns: minmax(0, 1fr) minmax(${LAYOUT.splitDetailMin}px, ${LAYOUT.splitDetailMax}px);
         }
       }
+      /* Split colapsable — panel detalle on/off (Fase 4) */
+      .cmms-split-detail {
+        display: grid;
+        gap: 14px;
+        align-items: start;
+        padding: 12px 14px;
+      }
+      .cmms-split-detail.detail-open:not(.cmms-split-detail--stack) {
+        grid-template-columns: minmax(260px, ${LAYOUT.splitTreeMax}px) minmax(0, 1fr);
+      }
+      .cmms-split-detail:not(.detail-open):not(.cmms-split-detail--stack) {
+        grid-template-columns: 1fr;
+      }
+      .cmms-split-detail--queue-wide.detail-open {
+        grid-template-columns: minmax(${LAYOUT.splitQueueMin}px, ${LAYOUT.splitQueueMax}px) minmax(0, 1fr);
+      }
+      .cmms-split-detail--queue-wide:not(.detail-open) {
+        grid-template-columns: 1fr;
+      }
+      .cmms-split-detail--table-wide.detail-open {
+        grid-template-columns: minmax(${LAYOUT.splitTableMin}px, ${LAYOUT.splitTableMax}px) minmax(0, 1fr);
+      }
+      .cmms-split-detail--table-wide:not(.detail-open) {
+        grid-template-columns: 1fr;
+      }
+      .cmms-split-detail-pane {
+        position: relative;
+        min-width: 0;
+      }
+      .cmms-split-detail-close {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        z-index: 4;
+      }
       @media (max-width: 1024px) {
         .cmms-split-layout,
         .inv-split-container,
         .eq-split-container,
-        .ot-split-container { grid-template-columns: 1fr; }
+        .ot-split-container,
+        .cmms-split-detail { grid-template-columns: 1fr; }
       }
 
       @media (max-width: 1100px) {

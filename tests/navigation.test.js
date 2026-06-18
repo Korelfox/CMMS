@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
-  OFICINA_GROUPS, ANALISIS_IDS, CAMPO_TABS, NAV_META, filterNavIds, allNavItems, labelForView,
+  OFICINA_GROUPS, ANALISIS_IDS, ANALISIS_HUB_ID, CAMPO_TABS, NAV_META, filterNavIds, allNavItems, labelForView,
 } from "../src/lib/navigation.js";
 
 describe("navigation", () => {
@@ -23,6 +23,7 @@ describe("navigation", () => {
   it("resuelve etiquetas", () => {
     expect(labelForView("hoy")).toBe("Hoy");
     expect(labelForView("ots")).toBe(NAV_META.ots.label);
+    expect(labelForView(ANALISIS_HUB_ID)).toBe("Análisis");
   });
 
   it("allNavItems incluye operación y análisis visibles", () => {

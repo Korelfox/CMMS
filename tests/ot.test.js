@@ -56,6 +56,9 @@ describe("OT · filtro de lista", () => {
   it("all devuelve todas", () => expect(filtrarOTs(ots, "all")).toHaveLength(2));
   it("filtra por estado", () => expect(filtrarOTs(ots, "cerrada").map((o) => o.id)).toEqual([1]));
   it("filtra por embarcación", () => expect(filtrarOTs(ots, "n2").map((o) => o.id)).toEqual([2]));
+  it("filtra OT abiertas (no cerradas)", () => {
+    expect(filtrarOTs(ots, "abiertas").map((o) => o.id)).toEqual([2]);
+  });
 });
 
 describe("OT · validación de OT nueva", () => {

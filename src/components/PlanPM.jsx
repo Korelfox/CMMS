@@ -18,6 +18,12 @@ import { statusPlan, statusPlanCalendario, diasDesde, DIAS_POR_UNIDAD, LABEL_UNI
 import { ordenarPlanesPM } from "../lib/planpmKanban";
 import { useMediaQuery } from "../lib/useMediaQuery";
 import PMKanban from "./planpm/PMKanban";
+import SavedViewsBar from "./SavedViewsBar";
+import {
+  loadSavedViews, addSavedView, removeSavedView, mergeViews, PM_BUILTIN_VIEWS,
+} from "../lib/savedViews";
+
+const PM_SAVED_VIEWS_KEY = "cmms-pm-saved-views";
 import PMQueuePanel from "./planpm/PMQueuePanel";
 import PMPlanDetailPanel from "./planpm/PMPlanDetailPanel";
 import { PMBar, PMBarCalendario } from "./planpm/PMBars";
@@ -43,6 +49,8 @@ export default function PlanPM({ onNavigate }) {
   const [loading,    setLoading]    = useState(true);
   const [error,      setError]      = useState(null);
   const [filtro,     setFiltro]     = useState("all");
+  const [savedViews, setSavedViews] = useState(() => loadSavedViews(PM_SAVED_VIEWS_KEY));
+  const [activeViewId, setActiveViewId] = useState(null);
   const [tab,        setTab]        = useState("plan"); // "plan" | "historial"
   const puedeOperar = canOperate(profile?.rol);
   const puedeBorrar = isAdmin(profile?.rol);
@@ -68,6 +76,34 @@ export default function PlanPM({ onNavigate }) {
   }, [planes, historial, equipos, embarcaciones]);
 
   const embName = (id) => embarcaciones.find((e) => e.id === id)?.nombre || "—";
+
+  const pmViews = useMemo(() => {
+    const embPresets = embarcaciones.map((e) => ({
+      id: `__emb-${e.id}`,
+      name: e.nombre,
+      builtin: true,
+      filters: { filtro: e.id },
+    }));
+    return mergeViews([...PM_BUILTIN_VIEWS, ...embPresets], savedViews);
+  }, [embarcaciones, savedViews]);
+
+  function aplicarVistaPm(view) {
+    if (view?.filters?.filtro != null) setFiltro(view.filters.filtro);
+    setActiveViewId(view.id);
+  }
+
+  function guardarVistaPm(name) {
+    const entry = addSavedView(PM_SAVED_VIEWS_KEY, { name, filters: { filtro } });
+    if (entry) {
+      setSavedViews(loadSavedViews(PM_SAVED_VIEWS_KEY));
+      setActiveViewId(entry.id);
+    }
+  }
+
+  function eliminarVistaPm(id) {
+    setSavedViews(removeSavedView(PM_SAVED_VIEWS_KEY, id));
+    if (activeViewId === id) setActiveViewId(null);
+  }
 
   // Ids de equipos de la nave en foco (o toda la flota). El filtro por nave
   // aplica a TODO el módulo: árbol del plan, KPIs e historial.
@@ -120,7 +156,16 @@ export default function PlanPM({ onNavigate }) {
         </button>
       }
       toolbar={
-        <Toolbar
+        <>
+          <SavedViewsBar
+            views={pmViews}
+            activeViewId={activeViewId}
+            onApply={aplicarVistaPm}
+            onSave={guardarVistaPm}
+            onDelete={eliminarVistaPm}
+            saveLabel="Guardar filtro de nave"
+          />
+          <Toolbar
           left={
             <>
               {[["plan", CalendarClock, "Plan de mantenimiento"], ["historial", History, "Historial PM"]].map(([id, Icon, lbl]) => (
@@ -143,6 +188,7 @@ export default function PlanPM({ onNavigate }) {
             </>
           }
         />
+        </>
       }
     >
       {tab === "plan" && (

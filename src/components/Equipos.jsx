@@ -28,6 +28,8 @@ import EquipoTreePanel from "./equipos/EquipoTreePanel";
 import EquipoDetailPanel from "./equipos/EquipoDetailPanel";
 import EquipoOptimizePanel from "./equipos/EquipoOptimizePanel";
 import EquipoExplorePanel from "./equipos/EquipoExplorePanel";
+import DetailShell from "./detail/DetailShell";
+import SplitDetailLayout from "./detail/SplitDetailLayout";
 import { FichaBody } from "./equipos/FichaEquipo";
 import { PropOpBody } from "./equipos/PropOpModal";
 import { equiposStore } from "./equipos/equiposStore";
@@ -81,6 +83,8 @@ export default function Equipos({ navParams }) {
   const [destinos,    setDestinos]    = useState([]);
   const [busqueda,    setBusqueda]    = useState("");
   const [selectedId,  setSelectedId]  = useState(null);
+  const [showMobileDetail, setShowMobileDetail] = useState(false);
+  const [detailOpen, setDetailOpen] = useState(true);
   const [modo,        setModo]        = useState("gestionar");
   const [vista,       setVista]       = useState("kanban");
   const [vistaTabla,  setVistaTabla]  = useState("arbol");
@@ -92,6 +96,7 @@ export default function Equipos({ navParams }) {
   const handlersRef = useRef({});
   const arbolRef = useRef(null);
   const isMobile = useMediaQuery("(max-width: 1024px)");
+  const isCampo = !!navParams?.campo;
   const isTabla = vista === "tabla";
 
   // Espeja el estado a la fuente viva que leen las ventanas (drill-down).
@@ -625,6 +630,37 @@ export default function Equipos({ navParams }) {
     if (!isTabla && !selectedId && listaEnriquecida.length > 0) setSelectedId(listaEnriquecida[0].equipo.id);
   }, [vista, fEstado, busqueda, listaEnriquecida.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  function seleccionarEquipo(id, tab) {
+    setSelectedId(id);
+    if (tab) setDetailTab(tab);
+    setDetailOpen(true);
+    if (isMobile) setShowMobileDetail(true);
+  }
+
+  function cerrarMobileDetail() {
+    setShowMobileDetail(false);
+  }
+
+  const selectedEquipo = equipos.find((e) => e.id === selectedId);
+  const showFullscreen = isMobile && showMobileDetail && selectedId;
+
+  function renderEquipoDetail(embedded = true) {
+    return (
+      <EquipoDetailPanel
+        nodeId={selectedId}
+        handlers={handlersRef.current}
+        puedeOperar={puedeOperar}
+        puedeBorrar={puedeBorrar}
+        eqDirty={eqDirty}
+        posInfo={posInfo}
+        onSelectNode={seleccionarEquipo}
+        activeTab={detailTab}
+        onTabChange={setDetailTab}
+        embedded={embedded}
+      />
+    );
+  }
+
   useEffect(() => {
     if (loading || modoInicializado.current) return;
     modoInicializado.current = true;
@@ -976,21 +1012,63 @@ export default function Equipos({ navParams }) {
           {listaEnriquecida.length === 0 ? (
             <EmptyState icon={Layers} title="Sin equipos en este filtro" description="Prueba otro filtro de estado o limpia la búsqueda." />
           ) : vista === "kanban" ? (
-            <div className={`inv-kanban-with-detail${selectedId ? " has-detail" : ""}`}>
-              <EquipoKanban lista={listaEnriquecida} selectedId={selectedId} onSelect={setSelectedId} embName={embName} />
-              {selectedId && (
-                <div style={{ padding: 16, borderLeft: isMobile ? "none" : `1px solid ${C.foam}`, borderTop: isMobile ? `1px solid ${C.foam}` : "none", minHeight: 420 }}>
-                  <EquipoDetailPanel nodeId={selectedId} handlers={handlersRef.current} puedeOperar={puedeOperar} puedeBorrar={puedeBorrar} eqDirty={eqDirty} posInfo={posInfo} onSelectNode={setSelectedId} activeTab={detailTab} onTabChange={setDetailTab} embedded />
+            <>
+            {!(isMobile && showFullscreen) && (
+            <SplitDetailLayout
+              variant="kanban"
+              stack={isMobile}
+              hasSelection={!!selectedId}
+              selectionKey={selectedId}
+              detailOpen={detailOpen}
+              onDetailOpenChange={setDetailOpen}
+              queue={
+              <EquipoKanban lista={listaEnriquecida} selectedId={selectedId} onSelect={(id) => seleccionarEquipo(id)} embName={embName} />
+              }
+              detail={renderEquipoDetail(true)}
+            />
+            )}
+            {showFullscreen && (
+              <DetailShell
+                title={selectedEquipo?.id_visible || "Equipo"}
+                subtitle={selectedEquipo?.sistema || "—"}
+                onBack={cerrarMobileDetail}
+                backLabel={isCampo ? "Activos" : "Kanban"}
+              >
+                <div style={{ margin: "-16px -14px", minHeight: "calc(100vh - 148px)" }}>
+                  {renderEquipoDetail(false)}
                 </div>
-              )}
-            </div>
+              </DetailShell>
+            )}
+            </>
           ) : (
-            <div className={`inv-split-container inv-split-queue-wide${isMobile ? " inv-split-stack" : ""}`}>
-              <EquipoQueuePanel lista={listaEnriquecida} selectedId={selectedId} onSelect={setSelectedId} busqueda={busqueda} setBusqueda={setBusqueda} embName={embName} panelHeight={isMobile ? "auto" : "calc(100vh - 320px)"} />
-              {(!isMobile || selectedId) && (
-                <EquipoDetailPanel nodeId={selectedId} handlers={handlersRef.current} puedeOperar={puedeOperar} puedeBorrar={puedeBorrar} eqDirty={eqDirty} posInfo={posInfo} onSelectNode={setSelectedId} activeTab={detailTab} onTabChange={setDetailTab} embedded />
-              )}
-            </div>
+            <>
+            {!(isMobile && showFullscreen) && (
+            <SplitDetailLayout
+              variant="queue-wide"
+              stack={isMobile}
+              hasSelection={!!selectedId}
+              selectionKey={selectedId}
+              detailOpen={detailOpen}
+              onDetailOpenChange={setDetailOpen}
+              queue={
+              <EquipoQueuePanel lista={listaEnriquecida} selectedId={selectedId} onSelect={(id) => seleccionarEquipo(id)} busqueda={busqueda} setBusqueda={setBusqueda} embName={embName} panelHeight={isMobile ? "auto" : "calc(100vh - 320px)"} />
+              }
+              detail={renderEquipoDetail(true)}
+            />
+            )}
+            {showFullscreen && (
+              <DetailShell
+                title={selectedEquipo?.id_visible || "Equipo"}
+                subtitle={selectedEquipo?.sistema || "—"}
+                onBack={cerrarMobileDetail}
+                backLabel={isCampo ? "Activos" : "Cola"}
+              >
+                <div style={{ margin: "-16px -14px", minHeight: "calc(100vh - 148px)" }}>
+                  {renderEquipoDetail(false)}
+                </div>
+              </DetailShell>
+            )}
+            </>
           )}
         </Section>
       ) : vistaTabla === "plano" ? (

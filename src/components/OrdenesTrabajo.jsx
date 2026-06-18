@@ -21,6 +21,11 @@ import OTKanban from "./ot/OTKanban";
 import OTValorizarPanel from "./ot/OTValorizarPanel";
 import OTCampoWizard from "./ot/OTCampoWizard";
 import DetailShell from "./detail/DetailShell";
+import SplitDetailLayout from "./detail/SplitDetailLayout";
+import SavedViewsBar from "./SavedViewsBar";
+import {
+  loadSavedViews, addSavedView, removeSavedView, mergeViews, OT_BUILTIN_VIEWS,
+} from "../lib/savedViews";
 import { otStore } from "./ot/otStore";
 import { useMediaQuery } from "../lib/useMediaQuery";
 import { useShellOptional } from "../context/ShellContext";
@@ -28,6 +33,7 @@ import { findOtEnEjecucion } from "../lib/otCampoFlow";
 
 const HOY = () => new Date().toISOString().slice(0, 10);
 const VISTA_KEY = "cmms-ot-vista";
+const SAVED_VIEWS_KEY = "cmms-ot-saved-views";
 const VISTAS = [
   { id: "cola", label: "Cola", icon: List },
   { id: "kanban", label: "Kanban", icon: Columns3 },
@@ -57,6 +63,9 @@ export default function OrdenesTrabajo({ navParams }) {
   const [busqueda, setBusqueda] = useState("");
   const [detailTab, setDetailTab] = useState("resumen");
   const [showMobileDetail, setShowMobileDetail] = useState(false);
+  const [detailOpen, setDetailOpen] = useState(true);
+  const [savedViews, setSavedViews] = useState(() => loadSavedViews(SAVED_VIEWS_KEY));
+  const [activeViewId, setActiveViewId] = useState(null);
   const campoWizardLaunched = useRef(false);
   const [auditViols, setAuditViols] = useState(null);
   const [auditAbierto, setAuditAbierto] = useState(false);
@@ -180,11 +189,44 @@ export default function OrdenesTrabajo({ navParams }) {
     setSelectedId(id);
     setOtDestacadaId(null);
     if (tab) setDetailTab(tab);
+    setDetailOpen(true);
     if (isMobile) setShowMobileDetail(true);
   }
 
   function cerrarMobileDetail() {
     setShowMobileDetail(false);
+  }
+
+  const otViews = useMemo(
+    () => mergeViews(OT_BUILTIN_VIEWS.filter((v) => v.id !== "__sin_valorizar" || puedeCostos), savedViews),
+    [savedViews, puedeCostos],
+  );
+
+  function aplicarVista(view) {
+    if (!view?.filters) return;
+    const { filtro: f, embFiltro: emb, busqueda: q, vista: v } = view.filters;
+    if (f != null) setFiltro(f);
+    if (emb != null) setEmbFiltro(emb);
+    if (q != null) setBusqueda(q);
+    if (v && VISTAS.some((x) => x.id === v)) setVista(v);
+    setOtDestacadaId(null);
+    setActiveViewId(view.id);
+  }
+
+  function guardarVistaActual(name) {
+    const entry = addSavedView(SAVED_VIEWS_KEY, {
+      name,
+      filters: { filtro, embFiltro, busqueda, vista },
+    });
+    if (entry) {
+      setSavedViews(loadSavedViews(SAVED_VIEWS_KEY));
+      setActiveViewId(entry.id);
+    }
+  }
+
+  function eliminarVista(id) {
+    setSavedViews(removeSavedView(SAVED_VIEWS_KEY, id));
+    if (activeViewId === id) setActiveViewId(null);
   }
 
   useEffect(() => {
@@ -454,12 +496,12 @@ export default function OrdenesTrabajo({ navParams }) {
   const embColorFn = (id) => embarcaciones.find((e) => e.id === id)?.color;
 
   function renderOTDetailPanel(ot, { embedded = true, valorizar = isValorizar } = {}) {
-    if (!ot) return null;
     return (
       <OTDetailPanel
         ot={ot}
+        otId={ot?.id}
         embName={embName}
-        embColor={embColorFn(ot.embarcacion_id)}
+        embColor={ot ? embColorFn(ot.embarcacion_id) : undefined}
         puedeOperar={puedeOperar}
         puedeBorrar={puedeBorrar}
         puedeCostos={puedeCostos}
@@ -523,6 +565,14 @@ export default function OrdenesTrabajo({ navParams }) {
               </span>
             </div>
           )}
+          <SavedViewsBar
+            views={otViews}
+            activeViewId={activeViewId}
+            onApply={aplicarVista}
+            onSave={guardarVistaActual}
+            onDelete={eliminarVista}
+            saveLabel="Guardar filtros actuales"
+          />
           <Toolbar
             left={
               <>
@@ -747,7 +797,14 @@ export default function OrdenesTrabajo({ navParams }) {
         ) : vista === "kanban" ? (
           <>
             {!(isMobile && showFullscreen) && (
-            <div className={`ot-kanban-with-detail${selectedOT && !isMobile ? " has-detail" : ""}`}>
+            <SplitDetailLayout
+              variant="kanban"
+              stack={isMobile}
+              hasSelection={!!selectedOT}
+              selectionKey={selectedOT?.id}
+              detailOpen={detailOpen}
+              onDetailOpenChange={setDetailOpen}
+              queue={
               <OTKanban
                 lista={lista}
                 selectedId={selectedOT?.id}
@@ -755,12 +812,9 @@ export default function OrdenesTrabajo({ navParams }) {
                 embName={embName}
                 embarcaciones={embarcaciones}
               />
-              {!isMobile && selectedOT && (
-              <div style={{ padding: 16, borderLeft: `1px solid ${C.foam}`, minHeight: 420 }}>
-                {renderOTDetailPanel(selectedOT)}
-              </div>
-              )}
-            </div>
+              }
+              detail={renderOTDetailPanel(selectedOT)}
+            />
             )}
             {showFullscreen && isCampo && (
               <OTCampoWizard
@@ -790,7 +844,14 @@ export default function OrdenesTrabajo({ navParams }) {
         ) : (
           <>
             {!(isMobile && showFullscreen) && (
-          <div className={`ot-split-container${isMobile ? " ot-split-stack" : ""}`}>
+          <SplitDetailLayout
+            variant="queue-wide"
+            stack={isMobile}
+            hasSelection={!!selectedOT}
+            selectionKey={selectedOT?.id}
+            detailOpen={detailOpen}
+            onDetailOpenChange={setDetailOpen}
+            queue={
             <OTQueuePanel
               lista={listaVista}
               selectedId={selectedOT?.id}
@@ -802,8 +863,9 @@ export default function OrdenesTrabajo({ navParams }) {
               embarcaciones={embarcaciones}
               panelHeight={isMobile ? "auto" : isValorizar ? "calc(100vh - 420px)" : "calc(100vh - 320px)"}
             />
-            {!isMobile && renderOTDetailPanel(selectedOT)}
-          </div>
+            }
+            detail={renderOTDetailPanel(selectedOT)}
+          />
             )}
             {showFullscreen && isCampo && (
               <OTCampoWizard

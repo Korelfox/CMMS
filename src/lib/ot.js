@@ -72,6 +72,7 @@ export function ordenarOTs(ots = []) {
 // Aplica el filtro de la lista de OTs (por estado, valorización o embarcación).
 export function filtrarOTs(ots = [], filtro = "all") {
   if (filtro === "all") return ots;
+  if (filtro === "abiertas") return ots.filter((o) => o.estado !== "cerrada");
   if (filtro === "sin_valorizar") return ots.filter(sinValorizar);
   if (ESTADOS_FILTRABLES.includes(filtro)) return ots.filter((o) => o.estado === filtro);
   return ots.filter((o) => o.embarcacion_id === filtro);

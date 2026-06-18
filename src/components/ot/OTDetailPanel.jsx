@@ -49,9 +49,21 @@ export default function OTDetailPanel({
   const tab = activeTab ?? tabInternal;
   const setTab = onTabChange ?? setTabInternal;
 
+  const visibleTabs = useMemo(
+    () => TABS.filter((t) => {
+      if ((t.id === "costos" || t.id === "trazabilidad") && !puedeCostos) return false;
+      return true;
+    }),
+    [puedeCostos],
+  );
+
   useEffect(() => {
     if (activeTab == null) setTabInternal("resumen");
   }, [ot?.id, activeTab]);
+
+  useEffect(() => {
+    if (!visibleTabs.some((t) => t.id === tab)) setTab(visibleTabs[0]?.id || "resumen");
+  }, [visibleTabs, tab, setTab]);
 
   useEffect(() => {
     if (valorizarMode && ot) setTab("costos");
@@ -112,7 +124,7 @@ export default function OTDetailPanel({
         </div>
 
         <div style={{ display: "flex", gap: 4, flexWrap: "wrap", paddingBottom: 10 }}>
-          {TABS.map((t) => {
+          {visibleTabs.map((t) => {
             const Icon = t.icon;
             const active = tab === t.id;
             return (

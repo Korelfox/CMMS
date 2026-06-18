@@ -23,6 +23,8 @@ import {
 import InventarioQueuePanel from "./inventario/InventarioQueuePanel";
 import InventarioKanban from "./inventario/InventarioKanban";
 import InventarioDetailPanel from "./inventario/InventarioDetailPanel";
+import DetailShell from "./detail/DetailShell";
+import SplitDetailLayout from "./detail/SplitDetailLayout";
 import { ordenarItemsInv } from "../lib/inventarioKanban";
 import { useMediaQuery } from "../lib/useMediaQuery";
 
@@ -84,6 +86,8 @@ export default function Inventario() {
   const [vista, setVista] = useState("kanban");
   const [vistaTabla, setVistaTabla] = useState("plano");
   const [selectedId, setSelectedId] = useState(null);
+  const [showMobileDetail, setShowMobileDetail] = useState(false);
+  const [detailOpen, setDetailOpen] = useState(true);
   const [detailTab, setDetailTab] = useState("resumen");
   const [busqueda, setBusqueda] = useState("");
   const [filtroABC, setFiltroABC] = useState("all");   // all | A | B | C
@@ -224,6 +228,12 @@ export default function Inventario() {
   function seleccionarItem(id, tab) {
     setSelectedId(id);
     if (tab) setDetailTab(tab);
+    setDetailOpen(true);
+    if (isMobile) setShowMobileDetail(true);
+  }
+
+  function cerrarMobileDetail() {
+    setShowMobileDetail(false);
   }
 
   // ── Destinos ─────────────────────────────────────────────────
@@ -415,6 +425,8 @@ export default function Inventario() {
     activeTab: detailTab,
     onTabChange: setDetailTab,
   };
+
+  const showFullscreen = isMobile && showMobileDetail && selectedItem;
 
   return (
     <ModuleShell
@@ -749,20 +761,49 @@ export default function Inventario() {
               description="Prueba otro filtro ABC/stock o limpia la búsqueda."
             />
           ) : vista === "kanban" ? (
-            <div className={`inv-kanban-with-detail${selectedItem ? " has-detail" : ""}`}>
+            <>
+            {!(isMobile && showFullscreen) && (
+            <SplitDetailLayout
+              variant="kanban"
+              stack={isMobile}
+              hasSelection={!!selectedItem}
+              selectionKey={selectedItem?.id}
+              detailOpen={detailOpen}
+              onDetailOpenChange={setDetailOpen}
+              queue={
               <InventarioKanban
                 lista={listaOrdenada}
                 selectedId={selectedItem?.id}
                 onSelect={(id) => seleccionarItem(id)}
               />
-              {selectedItem && (
-                <div style={{ padding: 16, borderLeft: isMobile ? "none" : `1px solid ${C.foam}`, borderTop: isMobile ? `1px solid ${C.foam}` : "none", minHeight: 420 }}>
+              }
+              detail={<InventarioDetailPanel {...detailProps} />}
+            />
+            )}
+            {showFullscreen && (
+              <DetailShell
+                title={selectedItem?.codigo || "Ítem"}
+                subtitle={selectedItem?.descripcion || "—"}
+                onBack={cerrarMobileDetail}
+                backLabel="Kanban"
+              >
+                <div style={{ margin: "-16px -14px", minHeight: "calc(100vh - 148px)" }}>
                   <InventarioDetailPanel {...detailProps} />
                 </div>
-              )}
-            </div>
+              </DetailShell>
+            )}
+            </>
           ) : (
-            <div className={`inv-split-container${isMobile ? " inv-split-stack" : ""}`}>
+            <>
+            {!(isMobile && showFullscreen) && (
+            <SplitDetailLayout
+              variant="default"
+              stack={isMobile}
+              hasSelection={!!selectedItem}
+              selectionKey={selectedItem?.id}
+              detailOpen={detailOpen}
+              onDetailOpenChange={setDetailOpen}
+              queue={
               <InventarioQueuePanel
                 lista={listaOrdenada}
                 selectedId={selectedItem?.id}
@@ -771,10 +812,23 @@ export default function Inventario() {
                 setBusqueda={setBusqueda}
                 panelHeight={isMobile ? "auto" : "calc(100vh - 320px)"}
               />
-              {(!isMobile || selectedItem) && (
-                <InventarioDetailPanel {...detailProps} />
-              )}
-            </div>
+              }
+              detail={<InventarioDetailPanel {...detailProps} />}
+            />
+            )}
+            {showFullscreen && (
+              <DetailShell
+                title={selectedItem?.codigo || "Ítem"}
+                subtitle={selectedItem?.descripcion || "—"}
+                onBack={cerrarMobileDetail}
+                backLabel="Cola"
+              >
+                <div style={{ margin: "-16px -14px", minHeight: "calc(100vh - 148px)" }}>
+                  <InventarioDetailPanel {...detailProps} />
+                </div>
+              </DetailShell>
+            )}
+            </>
           )}
         </Section>
       ) : (
