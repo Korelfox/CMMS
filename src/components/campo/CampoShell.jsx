@@ -298,6 +298,10 @@ export default function CampoShell({
           .cmms-campo-tab { font-size: 12px; }
         }
         @keyframes cmms-spin { to { transform: rotate(360deg); } }
+        @keyframes cmms-shimmer {
+          0% { background-position: 200% 0; }
+          100% { background-position: -200% 0; }
+        }
         .cmms-spin { animation: cmms-spin .8s linear infinite; }
       `}</style>
     </div>

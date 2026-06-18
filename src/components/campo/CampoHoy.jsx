@@ -9,6 +9,7 @@ import { EmptyState, InlineSpinner, ghostBtn } from "../../ui";
 import { ordenarOtsCampo, agruparProgramacion, labelProgFecha } from "../../lib/campoHoy";
 import TaskCard from "./TaskCard";
 import CampoSection from "./CampoSection";
+import CampoTiempoWidget from "./CampoTiempoWidget";
 
 const HOY = () => new Date().toISOString().slice(0, 10);
 
@@ -70,8 +71,6 @@ export default function CampoHoy({ onIrTrabajo }) {
   const totalProg = prog.hoy.length + prog.atrasadas.length + prog.proximas.length;
   const vacio = otsOrdenadas.length === 0 && totalProg === 0;
 
-  if (loading) return <InlineSpinner label="Cargando turno…" />;
-
   return (
     <div className="cmms-campo-polish" style={{ padding: "4px 0" }}>
       <div style={{ marginBottom: 8 }}>
@@ -84,7 +83,11 @@ export default function CampoHoy({ onIrTrabajo }) {
         </div>
       </div>
 
-      {vacio ? (
+      <CampoTiempoWidget />
+
+      {loading ? (
+        <InlineSpinner label="Cargando turno…" />
+      ) : vacio ? (
         <EmptyState
           icon={ClipboardList}
           title="Turno al día"
@@ -151,7 +154,7 @@ export default function CampoHoy({ onIrTrabajo }) {
         </>
       )}
 
-      {!vacio && (
+      {!loading && !vacio && (
         <button
           type="button"
           className="cmms-campo-touch"
