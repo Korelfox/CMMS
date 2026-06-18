@@ -5,7 +5,7 @@ import { ALERTA_NAV } from "./alertas";
 /** Destinos que Campo puede abrir sin cambiar a Oficina (tab o stack). */
 export const CAMPO_INLINE_DEST = new Set([
   "hoy", "trabajo", "activos", "mas",
-  "solicitudes", "horometros", "inventario", "planpm", "ots",
+  "solicitudes", "horometros", "inventario", "planpm", "prezarpe", "ots",
 ]);
 
 /**
@@ -100,6 +100,10 @@ export function resolveAlertaNav(alerta, { appMode = "oficina", embarcacionId } 
     case "consumo":
       if (emb) params.embFiltro = emb;
       params.vista = "flota";
+      if (appMode === "campo") {
+        params.campo = true;
+        return { destino: "prezarpe", params, campoEvent: null };
+      }
       break;
 
     case "documento":

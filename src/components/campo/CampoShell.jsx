@@ -7,18 +7,21 @@ import ErrorBoundary from "../ErrorBoundary";
 import CampoHoy from "./CampoHoy";
 import CampoMas from "./CampoMas";
 import CampoActivos from "./CampoActivos";
+import { useShell } from "../../context/ShellContext";
 
 const OrdenesTrabajo = lazy(() => import("../OrdenesTrabajo"));
 const Solicitudes = lazy(() => import("../Solicitudes"));
 const Horometros = lazy(() => import("../Horometros"));
 const Inventario = lazy(() => import("../Inventario"));
 const PlanPM = lazy(() => import("../PlanPM"));
+const Prezarpe = lazy(() => import("../Prezarpe"));
 
 const STACK_MODULOS = {
   solicitudes: Solicitudes,
   horometros: Horometros,
   inventario: Inventario,
   planpm: PlanPM,
+  prezarpe: Prezarpe,
 };
 
 function readTab() {
@@ -39,6 +42,7 @@ export default function CampoShell({
   sincronizando,
   online,
 }) {
+  const { embarcacionId } = useShell();
   const [tab, setTab] = useState(readTab);
   const [stackModule, setStackModule] = useState(null);
   const [openOtWizard, setOpenOtWizard] = useState(false);
@@ -84,13 +88,18 @@ export default function CampoShell({
   }, [openOtWizard, tab]);
 
   const campoNavigate = useCallback((dest, params = null) => {
+    const p = {
+      campo: true,
+      ...(embarcacionId && !params?.embFiltro ? { embFiltro: embarcacionId } : {}),
+      ...(params || {}),
+    };
     if (STACK_MODULOS[dest]) {
-      setStackModule({ id: dest, params });
+      setStackModule({ id: dest, params: p });
       onTabChange?.(dest);
       return;
     }
-    onNavigate?.(dest, params);
-  }, [onNavigate, onTabChange]);
+    onNavigate?.(dest, p);
+  }, [onNavigate, onTabChange, embarcacionId]);
 
   const navParamsCampo = { campo: true, openWizard: openOtWizard, otId: launchOtId, ...campoParams };
 

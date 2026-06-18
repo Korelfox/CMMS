@@ -34,6 +34,13 @@ describe("alertaNav", () => {
     expect(r.campoEvent?.tab).toBe("trabajo");
     expect(r.campoEvent?.otId).toBe("x");
   });
+
+  it("consumo en Campo abre prezarpe con embarcación", () => {
+    const r = resolveAlertaNav({ cat: "consumo", embId: "emb-1" }, { appMode: "campo" });
+    expect(r.destino).toBe("prezarpe");
+    expect(r.params?.embFiltro).toBe("emb-1");
+    expect(r.params?.campo).toBe(true);
+  });
 });
 
 describe("campoAccion", () => {

@@ -1,8 +1,9 @@
 import React from "react";
-import { Inbox, Timer, Package, RefreshCw, ChevronRight } from "lucide-react";
+import { Inbox, Timer, Package, RefreshCw, ChevronRight, Anchor } from "lucide-react";
 import { C, tint } from "../../theme";
 import { Card, primaryBtn } from "../../ui";
 const LINKS = [
+  { id: "prezarpe", label: "Prezarpe", sub: "Checklist antes de zarpar", icon: Anchor, tone: C.cyan },
   { id: "solicitudes", label: "Nueva solicitud", sub: "Reportar falla o pedido", icon: Inbox, tone: C.sky },
   { id: "horometros", label: "Horómetro", sub: "Registrar lectura", icon: Timer, tone: C.steel },
   { id: "inventario", label: "Inventario", sub: "Stock a bordo", icon: Package, tone: C.amber },
@@ -11,7 +12,7 @@ const LINKS = [
 export default function CampoMas({ onSync, pendientes, sincronizando, online, onNavigate }) {
 
   return (
-    <div style={{ padding: "4px 0" }}>
+    <div className="cmms-campo-polish" style={{ padding: "4px 0" }}>
       <div style={{ fontSize: 16, fontWeight: 700, color: C.ink, marginBottom: 14 }}>Accesos rápidos</div>
       {LINKS.map((item) => {
         const Icon = item.icon;
@@ -20,6 +21,7 @@ export default function CampoMas({ onSync, pendientes, sincronizando, online, on
             key={item.id}
             type="button"
             onClick={() => onNavigate?.(item.id)}
+            className="cmms-campo-touch"
             style={{
               display: "flex",
               alignItems: "center",

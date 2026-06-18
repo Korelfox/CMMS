@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
   Ship, Anchor, Fuel, Droplet, Gauge, Check, X, AlertTriangle,
   ArrowLeft, Camera, ClipboardCheck, Waves, CloudOff, Clock, Trash2,
@@ -15,10 +15,13 @@ import { Card, PageHead, Pill, primaryBtn, ghostBtn, InlineSpinner, ErrorBanner,
 import { FotoInput, FotoGaleria } from "./Fotos";
 import { HOY, SEGURIDAD_FIJA } from "./prezarpe/util";
 import { VistaFlota, VistaClima, VistaChecklist, VistaRecalada, VistaRetornoFalla, VistaHistorial, VistaInforme, ModalEliminar } from "./prezarpe/vistas";
+import { useShellOptional } from "../context/ShellContext";
 
 
 export default function Prezarpe({ navParams }) {
   const { profile, empresa } = useAuth();
+  const shell = useShellOptional();
+  const isCampo = !!navParams?.campo;
   const online = useOnline();
   const [embarcaciones, setEmbarcaciones] = useState([]);
   const [equipos, setEquipos] = useState([]);
@@ -69,6 +72,13 @@ export default function Prezarpe({ navParams }) {
     }
     if (navParams?.vista) setVista(navParams.vista);
   }, [navParams?.embFiltro, navParams?.vista, embarcaciones]);
+
+  const embCampoId = navParams?.embFiltro || (isCampo ? shell?.embarcacionId : null);
+  const embarcacionesVista = useMemo(() => {
+    if (!embCampoId) return embarcaciones;
+    return embarcaciones.filter((e) => e.id === embCampoId);
+  }, [embarcaciones, embCampoId]);
+
   useEffect(() => {
     const f = () => cargar();
     window.addEventListener("cmms-synced", f);
@@ -283,18 +293,33 @@ export default function Prezarpe({ navParams }) {
     } catch (e) { setError("No se pudo eliminar: " + e.message); }
   }
 
-  if (loading) return <div><PageHead kicker="Flota · Operación" title="Prezarpe & Mareas" /><Card><InlineSpinner label="Cargando flota…" /></Card></div>;
+  if (loading) {
+    return (
+      <div className={isCampo ? "cmms-campo-polish" : undefined}>
+        {!isCampo && <PageHead kicker="Flota · Operación" title="Prezarpe & Mareas" />}
+        <Card><InlineSpinner label="Cargando flota…" /></Card>
+      </div>
+    );
+  }
 
   return (
-    <div>
-      <PageHead kicker="Flota · Operación" title="Prezarpe & Mareas"
-        sub="Antes de cada zarpe, inspecciona la embarcación y registra niveles, abastecimiento y horómetros. La lectura de horómetros actualiza el Plan Preventivo."
-        action={(vista === "flota" || vista === "historial") && (
-          <div style={{ display: "flex", gap: 8 }} className="no-print">
-            <button onClick={() => setVista("flota")} style={vista === "flota" ? primaryBtn : ghostBtn}>Operación</button>
-            <button onClick={() => setVista("historial")} style={vista === "historial" ? primaryBtn : ghostBtn}>Historial</button>
-          </div>
-        )} />
+    <div className={isCampo ? "cmms-campo-polish" : undefined}>
+      {!isCampo && (
+        <PageHead kicker="Flota · Operación" title="Prezarpe & Mareas"
+          sub="Antes de cada zarpe, inspecciona la embarcación y registra niveles, abastecimiento y horómetros. La lectura de horómetros actualiza el Plan Preventivo."
+          action={(vista === "flota" || vista === "historial") && (
+            <div style={{ display: "flex", gap: 8 }} className="no-print">
+              <button onClick={() => setVista("flota")} style={vista === "flota" ? primaryBtn : ghostBtn}>Operación</button>
+              <button onClick={() => setVista("historial")} style={vista === "historial" ? primaryBtn : ghostBtn}>Historial</button>
+            </div>
+          )} />
+      )}
+      {isCampo && (vista === "flota" || vista === "historial") && (
+        <div style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
+          <button type="button" onClick={() => setVista("flota")} className="cmms-campo-touch" style={vista === "flota" ? primaryBtn : ghostBtn}>Operación</button>
+          <button type="button" onClick={() => setVista("historial")} className="cmms-campo-touch" style={vista === "historial" ? primaryBtn : ghostBtn}>Historial</button>
+        </div>
+      )}
 
       <ErrorBanner onRetry={cargar}>{error}</ErrorBanner>
 
@@ -306,7 +331,7 @@ export default function Prezarpe({ navParams }) {
       )}
 
       {vista === "flota" && (
-        <VistaFlota embarcaciones={embarcaciones} mareaAbierta={mareaAbierta} varadas={varadas} docsVencidos={docsVencidos} puedeOperar={puedeOperar} puedeBorrar={puedeBorrar}
+        <VistaFlota embarcaciones={embarcacionesVista} mareaAbierta={mareaAbierta} varadas={varadas} docsVencidos={docsVencidos} puedeOperar={puedeOperar} puedeBorrar={puedeBorrar}
           onIniciar={iniciarPrezarpe} onRecalada={abrirRecalada} onEliminarZarpe={pedirEliminarZarpe}
           onRetornoFalla={(m) => { setMareaFalla(m); setVista("retorno_falla"); }} />
       )}
@@ -341,7 +366,7 @@ export default function Prezarpe({ navParams }) {
           onGuardar={(datos) => guardarRetornoFalla(mareaFalla, datos)} />
       )}
       {vista === "historial" && (
-        <VistaHistorial prezarpes={prezarpes} embName={embName} mareas={mareas} puedeBorrar={puedeBorrar}
+        <VistaHistorial prezarpes={embCampoId ? prezarpes.filter((p) => p.embarcacion_id === embCampoId) : prezarpes} embName={embName} mareas={embCampoId ? mareas.filter((m) => m.embarcacion_id === embCampoId) : mareas} puedeBorrar={puedeBorrar}
           onAbrir={(p) => { setPrezarpeSel(p); setVista("informe"); }} onEliminar={pedirEliminarPrezarpe} />
       )}
       {vista === "informe" && (
