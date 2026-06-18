@@ -295,6 +295,8 @@ function TabPlan({ lista, equipos, setEquipos, planes, setPlanes, historial, set
   const [regForm, setRegForm] = useState({ realizado_por: "", notas: "", crearOT: false });
   const [editHitoId, setEditHitoId] = useState(null); // plan_pm_id
   const [hitoForm, setHitoForm] = useState({ horas: "", fecha: "" });
+  const [editandoPlan, setEditandoPlan] = useState(null); // plan_pm_id en edición
+  const [editPlanForm, setEditPlanForm] = useState({ descripcion: "", tipo_disparador: "horas", intervalo_horas: 250, intervalo_calendario: 1, unidad_calendario: "mensual" });
 
   const isMobile = useMediaQuery("(max-width: 1024px)");
   const isTabla = vista === "tabla";
@@ -452,6 +454,30 @@ function TabPlan({ lista, equipos, setEquipos, planes, setPlanes, historial, set
     } catch (e) {
       setPlanes((p) => p.map((x) => x.id === plan.id ? { ...x, ...prev } : x));
       setError("No se pudo guardar el hito: " + e.message);
+      throw e;
+    }
+  }
+
+  async function updatePlan(plan, form) {
+    const esCalendario = form.tipo_disparador === "calendario";
+    const update = {
+      descripcion:          form.descripcion.trim(),
+      tipo_disparador:      form.tipo_disparador,
+      intervalo_horas:      esCalendario ? null : +form.intervalo_horas,
+      intervalo_calendario: esCalendario ? +form.intervalo_calendario : null,
+      unidad_calendario:    esCalendario ? form.unidad_calendario : null,
+    };
+    const prev = { descripcion: plan.descripcion, tipo_disparador: plan.tipo_disparador, intervalo_horas: plan.intervalo_horas, intervalo_calendario: plan.intervalo_calendario, unidad_calendario: plan.unidad_calendario };
+    setPlanes((p) => p.map((x) => x.id === plan.id ? { ...x, ...update } : x));
+    try {
+      await updateRow("planes_pm", plan.id, update);
+      const cadaLabel = esCalendario
+        ? `cada ${update.intervalo_calendario} ${LABEL_UNIDAD[update.unidad_calendario] || update.unidad_calendario}`
+        : `cada ${update.intervalo_horas}h`;
+      logActivity(profile, "Editar plan PM", `${update.descripcion} · ${cadaLabel}`);
+    } catch (e) {
+      setPlanes((p) => p.map((x) => x.id === plan.id ? { ...x, ...prev } : x));
+      setError("No se pudo actualizar el plan: " + e.message);
       throw e;
     }
   }
@@ -1297,6 +1323,36 @@ tbody td{padding:5px 8px;vertical-align:middle}
                             >
                               <Edit3 size={13} /> Ajustar Hito
                             </button>
+                            <button
+                              onClick={() => {
+                                if (editandoPlan === plan.id) {
+                                  setEditandoPlan(null);
+                                } else {
+                                  setEditandoPlan(plan.id);
+                                  setEditHitoId(null);
+                                  setRegistrando(null);
+                                  setEditPlanForm({
+                                    descripcion:          plan.descripcion,
+                                    tipo_disparador:      plan.tipo_disparador,
+                                    intervalo_horas:      plan.intervalo_horas || 250,
+                                    intervalo_calendario: plan.intervalo_calendario || 1,
+                                    unidad_calendario:    plan.unidad_calendario || "mensual",
+                                  });
+                                }
+                              }}
+                              style={{
+                                ...ghostBtn,
+                                padding: "6px 12px",
+                                fontSize: 12,
+                                color: editandoPlan === plan.id ? C.sky : C.slate,
+                                borderColor: editandoPlan === plan.id ? C.sky : C.line,
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: 4
+                              }}
+                            >
+                              <Edit3 size={13} /> {editandoPlan === plan.id ? "Cancelar" : "Editar plan"}
+                            </button>
                             {puedeBorrar && (
                               <button
                                 onClick={() => eliminarPlan(plan.id)}
@@ -1351,6 +1407,82 @@ tbody td{padding:5px 8px;vertical-align:middle}
                                   Cancelar
                                 </button>
                               </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* FORMULARIO EDITAR PLAN IN-PLACE */}
+                        {editandoPlan === plan.id && (
+                          <div style={{ marginTop: 12, padding: 14, background: tint(C.sky, 8), border: `1px solid ${C.sky}40`, borderRadius: 10 }}>
+                            <div style={{ fontSize: 12, fontWeight: 700, color: C.abyss, marginBottom: 10 }}>
+                              Editar plan · <em>{plan.descripcion}</em>
+                            </div>
+                            <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+                              {["horas", "calendario"].map((t) => (
+                                <button
+                                  key={t}
+                                  type="button"
+                                  onClick={() => setEditPlanForm((p) => ({ ...p, tipo_disparador: t }))}
+                                  style={{ ...ghostBtn, padding: "4px 10px", fontSize: 11, background: editPlanForm.tipo_disparador === t ? tint(C.sky, 15) : undefined, borderColor: editPlanForm.tipo_disparador === t ? C.sky : C.line, color: editPlanForm.tipo_disparador === t ? C.sky : C.slate }}
+                                >
+                                  {t === "horas" ? "Por horas" : "Calendario"}
+                                </button>
+                              ))}
+                            </div>
+                            <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 10, marginBottom: 12 }}>
+                              <Field label="Descripción de tarea">
+                                <input
+                                  value={editPlanForm.descripcion}
+                                  onChange={(e) => setEditPlanForm((p) => ({ ...p, descripcion: e.target.value }))}
+                                  style={inputStyle()}
+                                />
+                              </Field>
+                              {editPlanForm.tipo_disparador === "horas" ? (
+                                <Field label="Intervalo (horas)">
+                                  <input
+                                    type="number"
+                                    value={editPlanForm.intervalo_horas}
+                                    onFocus={(e) => e.target.select()}
+                                    onChange={(e) => setEditPlanForm((p) => ({ ...p, intervalo_horas: +e.target.value }))}
+                                    style={{ ...inputStyle(), fontFamily: "monospace" }}
+                                  />
+                                </Field>
+                              ) : (
+                                <Field label="Intervalo">
+                                  <div style={{ display: "flex", gap: 6 }}>
+                                    <input
+                                      type="number"
+                                      value={editPlanForm.intervalo_calendario}
+                                      onFocus={(e) => e.target.select()}
+                                      onChange={(e) => setEditPlanForm((p) => ({ ...p, intervalo_calendario: +e.target.value }))}
+                                      style={{ ...inputStyle(), width: 60, fontFamily: "monospace" }}
+                                    />
+                                    <select
+                                      value={editPlanForm.unidad_calendario}
+                                      onChange={(e) => setEditPlanForm((p) => ({ ...p, unidad_calendario: e.target.value }))}
+                                      style={inputStyle()}
+                                    >
+                                      {UNIDADES_CAL.map((u) => <option key={u} value={u}>{LABEL_UNIDAD[u] || u}</option>)}
+                                    </select>
+                                  </div>
+                                </Field>
+                              )}
+                            </div>
+                            <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
+                              <button
+                                onClick={async () => {
+                                  try {
+                                    await updatePlan(plan, editPlanForm);
+                                    setEditandoPlan(null);
+                                  } catch { /* error manejado */ }
+                                }}
+                                style={{ ...primaryBtn, padding: "6px 14px", fontSize: 12 }}
+                              >
+                                Guardar cambios
+                              </button>
+                              <button onClick={() => setEditandoPlan(null)} style={{ ...ghostBtn, padding: "6px 12px", fontSize: 12 }}>
+                                Cancelar
+                              </button>
                             </div>
                           </div>
                         )}
