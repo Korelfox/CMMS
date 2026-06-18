@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useMemo } from "react";
-import { Package, Plus, Trash2, Download, X, Pencil, Check, Tag, Search, ChevronDown, ChevronRight, List, FolderTree, Layers, Columns3, Table2, AlertTriangle, Bell } from "lucide-react";
+import { Package, Plus, Trash2, Download, X, Pencil, Check, Tag, Search, ChevronDown, ChevronRight, List, FolderTree, Layers, Columns3, Table2, AlertTriangle, Bell, PackagePlus } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { useShellOptional } from "../context/ShellContext";
 import { fetchAll, insertRow, updateRow, deleteRow, upsertRow, logActivity } from "../lib/db";
@@ -101,6 +101,13 @@ export default function Inventario({ navParams }) {
   const [stockPanel, setStockPanel] = useState(null); // item_id | null
   const [solicitando, setSolicitando] = useState(() => new Set());
   const [solicitados, setSolicitados] = useState(() => new Set());
+  const [tabCampo, setTabCampo] = useState("stock");
+  const [busquedaEntrada, setBusquedaEntrada] = useState("");
+  const [itemEntradaId, setItemEntradaId] = useState(null);
+  const [cantEntrada, setCantEntrada] = useState("");
+  const [notaEntrada, setNotaEntrada] = useState("");
+  const [ingresando, setIngresando] = useState(false);
+  const [ingresoOk, setIngresoOk] = useState(null); // { codigo, descripcion, cant, unidad }
   const puedeOperar = canOperate(profile?.rol);
   const puedeBorrar = isAdmin(profile?.rol);
   const isMobile = useMediaQuery("(max-width: 1024px)");
@@ -397,6 +404,47 @@ export default function Inventario({ navParams }) {
     catch (e) { setItems(respaldo); setError("No se pudo eliminar: " + e.message); }
   }
 
+  async function ingresarAlPanol() {
+    const cant = Number(cantEntrada);
+    if (!itemEntradaId || !cant || cant <= 0) return;
+    if (!panolActivo) { setError("No hay pañol configurado para esta nave."); return; }
+    setIngresando(true);
+    setError(null);
+    try {
+      const actual = stockMap.get(skey(itemEntradaId, panolActivo.id)) || 0;
+      const nueva = actual + cant;
+      await upsertRow("stock", profile.empresa_id, {
+        item_id: itemEntradaId, bodega_id: panolActivo.id, cantidad: nueva,
+      }, "item_id,bodega_id");
+      await insertRow("movimientos", profile.empresa_id, {
+        tipo: "entrada",
+        item_id: itemEntradaId,
+        bodega_from: null,
+        bodega_to: panolActivo.id,
+        cantidad: cant,
+        responsable: profile.nombre,
+        fecha: new Date().toISOString().slice(0, 10),
+        motivo: notaEntrada.trim() || "Recepción Campo",
+        created_by: profile.id,
+      });
+      setStockEntries((prev) => {
+        const idx = prev.findIndex((s) => s.item_id === itemEntradaId && s.bodega_id === panolActivo.id);
+        if (idx >= 0) { const c = [...prev]; c[idx] = { ...c[idx], cantidad: nueva }; return c; }
+        return [...prev, { item_id: itemEntradaId, bodega_id: panolActivo.id, cantidad: nueva, empresa_id: profile.empresa_id }];
+      });
+      const it = items.find((i) => i.id === itemEntradaId);
+      setIngresoOk({ codigo: it?.codigo || "", descripcion: it?.descripcion || "", cant, unidad: it?.unidad || "un" });
+      setItemEntradaId(null);
+      setCantEntrada("");
+      setNotaEntrada("");
+      setBusquedaEntrada("");
+    } catch (e) {
+      setError("Error al ingresar: " + e.message);
+    } finally {
+      setIngresando(false);
+    }
+  }
+
   async function solicitarReposicion(item, bordoQty, st) {
     setSolicitando((p) => new Set([...p, item.id]));
     try {
@@ -500,11 +548,30 @@ export default function Inventario({ navParams }) {
       );
     }
 
+    const tabStyle = (id) => ({
+      flex: 1, minHeight: 44, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6,
+      padding: "8px 12px", fontSize: 13, fontWeight: tabCampo === id ? 700 : 600,
+      border: `1px solid ${tabCampo === id ? tint(C.sky, 40) : C.line}`,
+      borderRadius: 8,
+      background: tabCampo === id ? tint(C.sky, 10) : C.surface,
+      color: tabCampo === id ? C.sky : C.slate,
+      cursor: "pointer", fontFamily: "inherit",
+    });
+
+    // Items filtrables para búsqueda en Ingresar (todo el catálogo)
+    const qEnt = busquedaEntrada.trim().toLowerCase();
+    const listaEntrada = qEnt
+      ? conABC.filter((i) => i.codigo.toLowerCase().includes(qEnt) || (i.descripcion || "").toLowerCase().includes(qEnt)).slice(0, 15)
+      : [];
+    const itemEntrada = itemEntradaId ? conABC.find((i) => i.id === itemEntradaId) : null;
+
     return (
       <div className="cmms-campo-polish" style={{ padding: "4px 0" }}>
         <div style={{ fontSize: 17, fontWeight: 700, color: C.ink, marginBottom: 4 }}>Inventario</div>
-        <div style={{ fontSize: 13, color: C.slate, marginBottom: 14 }}>
-          Stock a bordo · {listaCampo.length} ítem{listaCampo.length !== 1 ? "s" : ""}
+        <div style={{ fontSize: 13, color: C.slate, marginBottom: 12 }}>
+          {tabCampo === "stock"
+            ? `Stock a bordo · ${listaCampo.length} ítem${listaCampo.length !== 1 ? "s" : ""}`
+            : "Ingresar materiales al pañol"}
         </div>
 
         <ErrorBanner onRetry={cargar}>{error}</ErrorBanner>
@@ -518,76 +585,229 @@ export default function Inventario({ navParams }) {
           </div>
         )}
 
-        <div style={{ position: "relative", marginBottom: 12 }}>
-          <Search size={18} color={C.slate} style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)" }} />
-          <input
-            value={busqueda}
-            onChange={(e) => setBusqueda(e.target.value)}
-            placeholder="Buscar código o descripción…"
-            className="cmms-campo-touch"
-            style={{ ...inputStyle(), width: "100%", paddingLeft: 42, fontSize: 16, minHeight: 48 }}
-          />
+        {/* ── Pestañas ─────────────────────────────────────────── */}
+        <div style={{ display: "flex", gap: 6, marginBottom: 16 }}>
+          <button type="button" className="cmms-campo-touch" style={tabStyle("stock")} onClick={() => setTabCampo("stock")}>
+            <Package size={15} /> Stock
+          </button>
+          <button type="button" className="cmms-campo-touch" style={tabStyle("ingresar")} onClick={() => setTabCampo("ingresar")}>
+            <PackagePlus size={15} /> Ingresar
+          </button>
         </div>
 
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 14 }}>
-          <FilterBtn active={filtroStock === "all"} onClick={() => setFiltroStock("all")}>Todos</FilterBtn>
-          <FilterBtn active={filtroStock === "bajo"} onClick={() => setFiltroStock("bajo")} color={C.red}>Bajo mínimo</FilterBtn>
-          <FilterBtn active={filtroStock === "revisar"} onClick={() => setFiltroStock("revisar")} color={C.amber}>Revisar</FilterBtn>
-        </div>
+        {/* ── Pestaña Stock ────────────────────────────────────── */}
+        {tabCampo === "stock" && (
+          <>
+            <div style={{ position: "relative", marginBottom: 12 }}>
+              <Search size={18} color={C.slate} style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)" }} />
+              <input
+                value={busqueda}
+                onChange={(e) => setBusqueda(e.target.value)}
+                placeholder="Buscar código o descripción…"
+                className="cmms-campo-touch"
+                style={{ ...inputStyle(), width: "100%", paddingLeft: 42, fontSize: 16, minHeight: 48 }}
+              />
+            </div>
 
-        {listaCampo.length === 0 ? (
-          <EmptyState icon={Package} title="Sin ítems" description="No hay repuestos que coincidan con la búsqueda." />
-        ) : (
-          listaCampo.slice(0, 50).map((item) => {
-            const bordoQty = stockBordo(item.id);
-            const st = estadoStockOf(bordoQty, item.stock_min, item.stock_max);
-            const tone = st.key === "bajo" ? "red" : st.key === "revisar" ? "amber" : "steel";
-            const needsBtn = st.key === "bajo" || st.key === "revisar";
-            const yaEnviado = solicitados.has(item.id);
-            const enviando = solicitando.has(item.id);
-            return (
-              <div key={item.id}>
-                <TaskCard
-                  tone={tone}
-                  badge={item.codigo}
-                  badgeLabel={item.abc ? `Clase ${item.abc}` : undefined}
-                  title={item.descripcion || item.codigo}
-                  subtitle={item.categoria || undefined}
-                  meta={`Stock ${bordoQty} ${item.unidad || "un"} · ${st.label}`}
-                  onClick={() => seleccionarItem(item.id)}
-                  style={needsBtn ? { marginBottom: 0, borderBottomLeftRadius: 0, borderBottomRightRadius: 0 } : undefined}
-                />
-                {needsBtn && (
-                  <button
-                    type="button"
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 14 }}>
+              <FilterBtn active={filtroStock === "all"} onClick={() => setFiltroStock("all")}>Todos</FilterBtn>
+              <FilterBtn active={filtroStock === "bajo"} onClick={() => setFiltroStock("bajo")} color={C.red}>Bajo mínimo</FilterBtn>
+              <FilterBtn active={filtroStock === "revisar"} onClick={() => setFiltroStock("revisar")} color={C.amber}>Revisar</FilterBtn>
+            </div>
+
+            {listaCampo.length === 0 ? (
+              <EmptyState icon={Package} title="Sin ítems" description="No hay repuestos que coincidan con la búsqueda." />
+            ) : (
+              listaCampo.slice(0, 50).map((item) => {
+                const bordoQty = stockBordo(item.id);
+                const st = estadoStockOf(bordoQty, item.stock_min, item.stock_max);
+                const tone = st.key === "bajo" ? "red" : st.key === "revisar" ? "amber" : "steel";
+                const needsBtn = st.key === "bajo" || st.key === "revisar";
+                const yaEnviado = solicitados.has(item.id);
+                const enviando = solicitando.has(item.id);
+                return (
+                  <div key={item.id}>
+                    <TaskCard
+                      tone={tone}
+                      badge={item.codigo}
+                      badgeLabel={item.abc ? `Clase ${item.abc}` : undefined}
+                      title={item.descripcion || item.codigo}
+                      subtitle={item.categoria || undefined}
+                      meta={`Stock ${bordoQty} ${item.unidad || "un"} · ${st.label}`}
+                      onClick={() => seleccionarItem(item.id)}
+                      style={needsBtn ? { marginBottom: 0, borderBottomLeftRadius: 0, borderBottomRightRadius: 0 } : undefined}
+                    />
+                    {needsBtn && (
+                      <button
+                        type="button"
+                        className="cmms-campo-touch"
+                        onClick={() => solicitarReposicion(item, bordoQty, st)}
+                        disabled={yaEnviado || enviando}
+                        style={{
+                          display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+                          width: "100%", marginBottom: 10,
+                          padding: "9px 14px",
+                          borderRadius: "0 0 10px 10px",
+                          border: `1px solid ${tint(tone === "red" ? C.red : C.amber, 35)}`,
+                          borderTop: "none",
+                          background: yaEnviado ? tint(C.green, 10) : "transparent",
+                          color: yaEnviado ? C.green : tone === "red" ? C.red : C.amber,
+                          fontSize: 12.5, fontWeight: 700,
+                          cursor: yaEnviado ? "default" : "pointer",
+                          fontFamily: "inherit",
+                        }}
+                      >
+                        {yaEnviado
+                          ? <><Check size={13} /> Reposición solicitada</>
+                          : enviando
+                            ? "Enviando…"
+                            : <><Bell size={13} /> Solicitar reposición</>
+                        }
+                      </button>
+                    )}
+                  </div>
+                );
+              })
+            )}
+          </>
+        )}
+
+        {/* ── Pestaña Ingresar ─────────────────────────────────── */}
+        {tabCampo === "ingresar" && (
+          <div>
+            {/* Éxito tras ingresar */}
+            {ingresoOk && (
+              <div style={{ display: "flex", gap: 10, alignItems: "flex-start", background: tint(C.green, 10), border: `1px solid ${tint(C.green, 35)}`, borderRadius: 10, padding: "12px 14px", marginBottom: 16 }}>
+                <Check size={16} color={C.green} style={{ flexShrink: 0, marginTop: 1 }} />
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: C.ink }}>
+                    Entrada registrada — +{ingresoOk.cant} {ingresoOk.unidad}
+                  </div>
+                  <div style={{ fontSize: 12, color: C.slate, marginTop: 2 }}>
+                    {ingresoOk.codigo} · {ingresoOk.descripcion}
+                  </div>
+                </div>
+                <button type="button" onClick={() => setIngresoOk(null)}
+                  style={{ background: "none", border: "none", cursor: "pointer", color: C.slate, padding: 2 }}>
+                  <X size={14} />
+                </button>
+              </div>
+            )}
+
+            {/* Paso 1 — Buscar ítem */}
+            {!itemEntradaId ? (
+              <div>
+                <div style={{ fontSize: 12, fontWeight: 700, color: C.slate, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>
+                  Buscar ítem del catálogo
+                </div>
+                <div style={{ position: "relative", marginBottom: 8 }}>
+                  <Search size={18} color={C.slate} style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)" }} />
+                  <input
+                    value={busquedaEntrada}
+                    onChange={(e) => setBusquedaEntrada(e.target.value)}
+                    placeholder="Código o descripción…"
+                    autoFocus
                     className="cmms-campo-touch"
-                    onClick={() => solicitarReposicion(item, bordoQty, st)}
-                    disabled={yaEnviado || enviando}
-                    style={{
-                      display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
-                      width: "100%", marginBottom: 10,
-                      padding: "9px 14px",
-                      borderRadius: "0 0 10px 10px",
-                      border: `1px solid ${tint(tone === "red" ? C.red : C.amber, 35)}`,
-                      borderTop: "none",
-                      background: yaEnviado ? tint(C.green, 10) : "transparent",
-                      color: yaEnviado ? C.green : tone === "red" ? C.red : C.amber,
-                      fontSize: 12.5, fontWeight: 700,
-                      cursor: yaEnviado ? "default" : "pointer",
-                      fontFamily: "inherit",
-                    }}
-                  >
-                    {yaEnviado
-                      ? <><Check size={13} /> Reposición solicitada</>
-                      : enviando
-                        ? "Enviando…"
-                        : <><Bell size={13} /> Solicitar reposición</>
-                    }
-                  </button>
+                    style={{ ...inputStyle(), width: "100%", paddingLeft: 42, fontSize: 16, minHeight: 48 }}
+                  />
+                </div>
+                {busquedaEntrada.trim().length < 2 ? (
+                  <p style={{ fontSize: 13, color: C.slate, margin: "12px 0" }}>
+                    Escribe al menos 2 caracteres para buscar en el catálogo.
+                  </p>
+                ) : listaEntrada.length === 0 ? (
+                  <p style={{ fontSize: 13, color: C.slate, margin: "12px 0" }}>Sin resultados.</p>
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                    {listaEntrada.map((i) => {
+                      const bq = stockBordo(i.id);
+                      return (
+                        <button
+                          key={i.id}
+                          type="button"
+                          className="cmms-campo-touch"
+                          onClick={() => { setItemEntradaId(i.id); setBusquedaEntrada(""); }}
+                          style={{
+                            textAlign: "left", padding: "12px 14px", borderRadius: 10,
+                            border: `1px solid ${C.line}`, background: C.surface,
+                            cursor: "pointer", fontFamily: "inherit",
+                          }}
+                        >
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+                            <div>
+                              <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontWeight: 800, fontSize: 13, color: C.sky }}>{i.codigo}</span>
+                              <div style={{ fontSize: 13, color: C.ink, marginTop: 2, lineHeight: 1.3 }}>{i.descripcion}</div>
+                              <div style={{ fontSize: 11, color: C.slate, marginTop: 2 }}>{i.categoria || "—"}</div>
+                            </div>
+                            <div style={{ textAlign: "right", flexShrink: 0 }}>
+                              <div style={{ fontSize: 12, fontWeight: 700, color: bq > 0 ? C.green : C.slate }}>{bq} {i.unidad}</div>
+                              <div style={{ fontSize: 10, color: C.slate }}>pañol</div>
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
                 )}
               </div>
-            );
-          })
+            ) : (
+              /* Paso 2 — Cantidad e ingresar */
+              <div>
+                {/* Ítem seleccionado */}
+                <div style={{ padding: "12px 14px", borderRadius: 10, border: `1px solid ${C.sky}`, background: tint(C.sky, 8), marginBottom: 16 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                    <div>
+                      <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontWeight: 800, fontSize: 14, color: C.sky }}>{itemEntrada?.codigo}</span>
+                      <div style={{ fontSize: 13.5, fontWeight: 700, color: C.ink, marginTop: 2 }}>{itemEntrada?.descripcion}</div>
+                      <div style={{ fontSize: 12, color: C.slate, marginTop: 2 }}>
+                        Stock pañol actual: <strong>{stockBordo(itemEntradaId)} {itemEntrada?.unidad}</strong>
+                      </div>
+                    </div>
+                    <button type="button" onClick={() => setItemEntradaId(null)}
+                      style={{ background: "none", border: `1px solid ${C.line}`, borderRadius: 6, cursor: "pointer", color: C.slate, padding: "4px 8px", fontSize: 12, fontFamily: "inherit" }}>
+                      Cambiar
+                    </button>
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: 12 }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: C.slate, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>
+                    Cantidad a ingresar ({itemEntrada?.unidad || "un"})
+                  </div>
+                  <input
+                    type="number" min="1" value={cantEntrada} autoFocus
+                    onChange={(e) => setCantEntrada(e.target.value)}
+                    onFocus={(e) => e.target.select()}
+                    className="cmms-campo-touch"
+                    style={{ ...bluInput, width: "100%", fontSize: 20, minHeight: 52, textAlign: "center" }}
+                  />
+                </div>
+
+                <div style={{ marginBottom: 16 }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: C.slate, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>
+                    Nota (opcional)
+                  </div>
+                  <input
+                    value={notaEntrada}
+                    onChange={(e) => setNotaEntrada(e.target.value)}
+                    placeholder="Ej: Recepción de Puerto Montt"
+                    className="cmms-campo-touch"
+                    style={{ ...inputStyle(), width: "100%", fontSize: 15, minHeight: 48 }}
+                  />
+                </div>
+
+                <button
+                  type="button"
+                  className="cmms-campo-touch"
+                  onClick={ingresarAlPanol}
+                  disabled={!cantEntrada || Number(cantEntrada) <= 0 || ingresando || !panolActivo}
+                  style={{ ...primaryBtn, width: "100%", justifyContent: "center", fontSize: 15, minHeight: 52 }}
+                >
+                  {ingresando ? "Registrando…" : <><PackagePlus size={16} /> Registrar entrada al pañol</>}
+                </button>
+              </div>
+            )}
+          </div>
         )}
       </div>
     );
