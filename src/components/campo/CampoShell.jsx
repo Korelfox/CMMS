@@ -7,6 +7,7 @@ import ErrorBoundary from "../ErrorBoundary";
 import CampoHoy from "./CampoHoy";
 import CampoMas from "./CampoMas";
 import CampoHorometros from "./CampoHorometros";
+import CampoHomeFab from "./CampoHomeFab";
 import { useShell } from "../../context/ShellContext";
 
 const OrdenesTrabajo = lazy(() => import("../OrdenesTrabajo"));
@@ -61,9 +62,27 @@ export default function CampoShell({
     setTab("trabajo");
   }, []);
 
+  const irInicio = useCallback(() => {
+    setStackModule(null);
+    setOpenOtWizard(false);
+    setLaunchOtId(null);
+    setCampoParams({});
+    setTab("hoy");
+    onTabChange?.("hoy");
+    window.dispatchEvent(new CustomEvent("cmms-campo-home"));
+    requestAnimationFrame(() => {
+      document.querySelector(".cmms-campo-content")?.scrollTo?.({ top: 0, behavior: "smooth" });
+      document.querySelector(".cmms-work-area")?.scrollTo?.({ top: 0, behavior: "smooth" });
+    });
+  }, [onTabChange]);
+
   useEffect(() => {
     const fn = (e) => {
       const { tab: destTab, otId, params } = e.detail || {};
+      if (destTab === "hoy") {
+        irInicio();
+        return;
+      }
       if (destTab === "trabajo") {
         irTrabajo(otId || null);
         return;
@@ -78,7 +97,7 @@ export default function CampoShell({
     };
     window.addEventListener("cmms-campo-nav", fn);
     return () => window.removeEventListener("cmms-campo-nav", fn);
-  }, [irTrabajo]);
+  }, [irTrabajo, irInicio]);
 
   useEffect(() => {
     if (openOtWizard && tab === "trabajo") {
@@ -102,87 +121,96 @@ export default function CampoShell({
   }, [onNavigate, onTabChange, embarcacionId]);
 
   const navParamsCampo = { campo: true, openWizard: openOtWizard, otId: launchOtId, ...campoParams };
+  const inStack = !!stackModule;
+  const atHome = tab === "hoy" && !inStack;
 
-  if (stackModule) {
+  let body = null;
+  if (inStack) {
     const Mod = STACK_MODULOS[stackModule.id];
-    const label = NAV_META[stackModule.id]?.label || stackModule.id;
-    return (
-      <div className="cmms-campo-shell">
-        <div className="cmms-campo-stack-header">
-          <button type="button" className="cmms-campo-touch" onClick={() => { setStackModule(null); onTabChange?.(tab); }} style={{ ...ghostBtn, padding: "10px 14px", minHeight: 48 }}>
-            <ArrowLeft size={18} /> Volver
-          </button>
-          <span className="cmms-campo-stack-title">{label}</span>
-        </div>
-        <div className="cmms-campo-content cmms-campo-stack-body">
-          <ErrorBoundary key={stackModule.id}>
-            <Suspense fallback={<InlineSpinner label="Cargando…" />}>
-              <Mod
-                navParams={{ ...navParamsCampo, ...stackModule.params }}
-                onNavigate={campoNavigate}
-              />
-            </Suspense>
-          </ErrorBoundary>
-        </div>
-      </div>
+    body = (
+      <ErrorBoundary key={stackModule.id}>
+        <Suspense fallback={<InlineSpinner label="Cargando…" />}>
+          <Mod
+            navParams={{ ...navParamsCampo, ...stackModule.params }}
+            onNavigate={campoNavigate}
+          />
+        </Suspense>
+      </ErrorBoundary>
+    );
+  } else {
+    body = (
+      <ErrorBoundary key={tab}>
+        <Suspense fallback={<InlineSpinner label="Cargando…" />}>
+          {tab === "hoy" && (
+            <CampoHoy onIrTrabajo={irTrabajo} onNavigate={campoNavigate} />
+          )}
+          {tab === "trabajo" && (
+            <OrdenesTrabajo
+              key={`ots-campo-${refreshTick}-${openOtWizard ? "w" : "n"}`}
+              navParams={navParamsCampo}
+              onNavigate={campoNavigate}
+            />
+          )}
+          {tab === "horometros" && (
+            <CampoHorometros
+              key={`hor-campo-${refreshTick}`}
+              navParams={navParamsCampo}
+            />
+          )}
+          {tab === "mas" && (
+            <CampoMas
+              onNavigate={campoNavigate}
+              onSync={onSync}
+              pendientes={pendientes}
+              sincronizando={sincronizando}
+              online={online}
+              dark={dark}
+              onToggleTema={onToggleTema}
+            />
+          )}
+        </Suspense>
+      </ErrorBoundary>
     );
   }
 
   return (
-    <div className="cmms-campo-shell">
-      <div className="cmms-campo-content">
-        <ErrorBoundary key={tab}>
-          <Suspense fallback={<InlineSpinner label="Cargando…" />}>
-            {tab === "hoy" && (
-              <CampoHoy onIrTrabajo={irTrabajo} onNavigate={campoNavigate} />
-            )}
-            {tab === "trabajo" && (
-              <OrdenesTrabajo
-                key={`ots-campo-${refreshTick}-${openOtWizard ? "w" : "n"}`}
-                navParams={navParamsCampo}
-                onNavigate={campoNavigate}
-              />
-            )}
-            {tab === "horometros" && (
-              <CampoHorometros
-                key={`hor-campo-${refreshTick}`}
-                navParams={navParamsCampo}
-              />
-            )}
-            {tab === "mas" && (
-              <CampoMas
-                onNavigate={campoNavigate}
-                onSync={onSync}
-                pendientes={pendientes}
-                sincronizando={sincronizando}
-                online={online}
-                dark={dark}
-                onToggleTema={onToggleTema}
-              />
-            )}
-          </Suspense>
-        </ErrorBoundary>
+    <div className={`cmms-campo-shell${inStack ? " cmms-campo-shell--stack" : ""}`}>
+      {inStack && (
+        <div className="cmms-campo-stack-header">
+          <button type="button" className="cmms-campo-touch" onClick={() => { setStackModule(null); onTabChange?.(tab); }} style={{ ...ghostBtn, padding: "10px 14px", minHeight: 48 }}>
+            <ArrowLeft size={18} /> Volver
+          </button>
+          <span className="cmms-campo-stack-title">{NAV_META[stackModule.id]?.label || stackModule.id}</span>
+        </div>
+      )}
+
+      <div className={`cmms-campo-content${inStack ? " cmms-campo-stack-body" : ""}`}>
+        {body}
       </div>
 
-      <nav className="cmms-campo-tabs" role="tablist" aria-label="Navegación Campo">
-        {CAMPO_TABS.map((t) => {
-          const active = tab === t.id;
-          const Icon = t.icon;
-          return (
-            <button
-              key={t.id}
-              type="button"
-              role="tab"
-              aria-selected={active}
-              className={`cmms-campo-tab${active ? " cmms-campo-tab-active" : ""}`}
-              onClick={() => setTab(t.id)}
-            >
-              <Icon size={20} strokeWidth={active ? 2.4 : 2} />
-              <span>{t.label}</span>
-            </button>
-          );
-        })}
-      </nav>
+      {!inStack && (
+        <nav className="cmms-campo-tabs" role="tablist" aria-label="Navegación Campo">
+          {CAMPO_TABS.map((t) => {
+            const active = tab === t.id;
+            const Icon = t.icon;
+            return (
+              <button
+                key={t.id}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                className={`cmms-campo-tab${active ? " cmms-campo-tab-active" : ""}`}
+                onClick={() => setTab(t.id)}
+              >
+                <Icon size={20} strokeWidth={active ? 2.4 : 2} />
+                <span>{t.label}</span>
+              </button>
+            );
+          })}
+        </nav>
+      )}
+
+      <CampoHomeFab onClick={irInicio} atHome={atHome} inStack={inStack} />
 
       <style>{`
         .cmms-campo-shell {
