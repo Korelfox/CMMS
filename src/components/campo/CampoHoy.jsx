@@ -67,7 +67,7 @@ export default function CampoHoy({ onIrTrabajo, onNavigate }) {
           <div style={{ fontSize: 12, color: C.slate, marginBottom: 6 }}>OT en ejecución</div>
           <div style={{ fontWeight: 700, color: C.ink }}>{enEjecucion.folio}</div>
           <div style={{ fontSize: 13, color: C.slate, marginTop: 4 }}>{enEjecucion.descripcion || enEjecucion.titulo || "—"}</div>
-          <button type="button" onClick={onIrTrabajo} style={{ ...primaryBtn, marginTop: 10, width: "100%", justifyContent: "center" }}>
+          <button type="button" onClick={() => onIrTrabajo?.(enEjecucion.id)} style={{ ...primaryBtn, marginTop: 10, width: "100%", justifyContent: "center" }}>
             Continuar checklist
           </button>
         </Card>
@@ -81,7 +81,7 @@ export default function CampoHoy({ onIrTrabajo, onNavigate }) {
             <button
               key={ot.id}
               type="button"
-              onClick={onIrTrabajo}
+              onClick={() => onIrTrabajo?.(ot.id)}
               style={{
                 display: "block",
                 width: "100%",

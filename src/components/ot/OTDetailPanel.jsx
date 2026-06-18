@@ -57,7 +57,7 @@ export default function OTDetailPanel({
     if (valorizarMode && ot) setTab("costos");
   }, [valorizarMode, ot?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const panelHeight = embedded ? "calc(100vh - 320px)" : "100%";
+  const panelHeight = embedded ? "calc(100vh - 320px)" : "calc(100vh - 148px)";
   const minH = embedded ? 440 : 0;
 
   const checklistItems = useMemo(() => (Array.isArray(ot?.checklist) ? ot.checklist : []), [ot?.checklist]);

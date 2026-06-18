@@ -41,13 +41,27 @@ export default function CampoShell({
 }) {
   const [tab, setTab] = useState(readTab);
   const [stackModule, setStackModule] = useState(null);
+  const [openOtWizard, setOpenOtWizard] = useState(false);
+  const [launchOtId, setLaunchOtId] = useState(null);
 
   useEffect(() => {
     try { sessionStorage.setItem(CAMPO_TAB_KEY, tab); } catch { /* sin storage */ }
     if (!stackModule) onTabChange?.(tab);
   }, [tab, onTabChange, stackModule]);
 
-  const irTrabajo = useCallback(() => { setStackModule(null); setTab("trabajo"); }, []);
+  const irTrabajo = useCallback((otId = null) => {
+    setStackModule(null);
+    setLaunchOtId(otId);
+    setOpenOtWizard(true);
+    setTab("trabajo");
+  }, []);
+
+  useEffect(() => {
+    if (openOtWizard && tab === "trabajo") {
+      const t = setTimeout(() => { setOpenOtWizard(false); setLaunchOtId(null); }, 0);
+      return () => clearTimeout(t);
+    }
+  }, [openOtWizard, tab]);
 
   const campoNavigate = useCallback((dest, params = null) => {
     if (STACK_MODULOS[dest]) {
@@ -58,7 +72,7 @@ export default function CampoShell({
     onNavigate?.(dest, params);
   }, [onNavigate, onTabChange]);
 
-  const navParamsCampo = { campo: true };
+  const navParamsCampo = { campo: true, openWizard: openOtWizard, otId: launchOtId };
 
   if (stackModule) {
     const Mod = STACK_MODULOS[stackModule.id];
@@ -92,7 +106,7 @@ export default function CampoShell({
             )}
             {tab === "trabajo" && (
               <OrdenesTrabajo
-                key={`ots-campo-${refreshTick}`}
+                key={`ots-campo-${refreshTick}-${openOtWizard ? "w" : "n"}`}
                 navParams={navParamsCampo}
                 onNavigate={onNavigate}
               />
