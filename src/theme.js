@@ -135,6 +135,11 @@ export function isAdmin(rol) {
 export function isSuperAdmin(rol) {
   return rol === "super_admin";
 }
+// ¿Puede el rol entrar al Modo Oficina? Los operativos a bordo (capitán, maquinista,
+// contratista) quedan acotados al Modo Campo; los administrativos ven Campo y Oficina.
+export function canAccessOficina(rol) {
+  return isAdmin(rol);
+}
 
 // Estados de equipo: valor en BD ↔ etiqueta visible ↔ color
 export const ESTADOS_EQUIPO = [

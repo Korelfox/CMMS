@@ -56,6 +56,7 @@ export default function ContextHeader({
     empresa,
     appMode,
     toggleAppMode,
+    puedeOficina,
   } = useShell();
 
   const [embOpen, setEmbOpen] = useState(false);
@@ -403,21 +404,23 @@ export default function ContextHeader({
             )}
           </div>
 
-          <button
-            type="button"
-            onClick={toggleAppMode}
-            title={isOficina ? "Cambiar a Modo Campo" : "Cambiar a Modo Oficina"}
-            style={{
-              ...chipBtn,
-              maxWidth: "none",
-              fontSize: 11,
-              fontWeight: 600,
-              color: isOficina ? C.steel : C.ocean,
-              background: isOficina ? C.surface : tint(C.steel, 10),
-            }}
-          >
-            {isOficina ? "Oficina" : "Campo"}
-          </button>
+          {puedeOficina && (
+            <button
+              type="button"
+              onClick={toggleAppMode}
+              title={isOficina ? "Cambiar a Modo Campo" : "Cambiar a Modo Oficina"}
+              style={{
+                ...chipBtn,
+                maxWidth: "none",
+                fontSize: 11,
+                fontWeight: 600,
+                color: isOficina ? C.steel : C.ocean,
+                background: isOficina ? C.surface : tint(C.steel, 10),
+              }}
+            >
+              {isOficina ? "Oficina" : "Campo"}
+            </button>
+          )}
 
           {isOficina && (
             <button

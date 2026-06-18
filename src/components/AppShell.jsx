@@ -5,7 +5,7 @@ import {
 import { useAuth } from "../lib/auth";
 import { fetchAll } from "../lib/db";
 import { useOnline, outboxCount, flushOutbox } from "../lib/offline";
-import { C, archivo, rolLabel, ROLES, isAdmin, isSuperAdmin } from "../theme";
+import { C, archivo, rolLabel, ROLES, isAdmin, isSuperAdmin, canAccessOficina } from "../theme";
 import { Card, InlineSpinner, PageHead } from "../ui";
 import ErrorBoundary from "./ErrorBoundary";
 import { ShellProvider, useShell } from "../context/ShellContext";
@@ -190,13 +190,15 @@ export default function AppShell() {
       ...CAMPO_TABS.map((t) => t.id),
       "solicitudes", "activos", "inventario", "planpm",
     ]);
-    if (readAppMode() === "campo" && !campoInline.has(destino)) {
+    // Solo los roles con acceso a Oficina se cambian de modo al navegar fuera
+    // de lo inline; los operativos a bordo se mantienen en Campo.
+    if (canAccessOficina(profile?.rol) && readAppMode() === "campo" && !campoInline.has(destino)) {
       writeAppMode("oficina");
     }
     setView(destino);
     setNavParams(params);
     setSidebarOpen(false);
-  }, []);
+  }, [profile?.rol]);
   const [sincronizando, setSincronizando] = useState(false);
   const [recienSync, setRecienSync] = useState(false);
   // Oculta las entradas solo-admin a quien no lo es
@@ -629,7 +631,8 @@ function AppShellLayout({
           .cmms-refresh-cfg, .cmms-theme-toggle { display: none !important; }
           .cmms-offline-banner { padding: 8px 14px !important; }
           .cmms-work-area { padding: 16px 12px 40px; }
-          .cmms-campo-mode .cmms-work-area { padding: 12px 12px 0; }
+          .cmms-campo-mode .cmms-work-area { padding: 12px 12px 0; overflow-x: hidden; }
+          .cmms-campo-mode .cmms-tabs-bar { display: none !important; }
           .cmms-tabs-bar  { padding: 0 8px; }
           .cmms-tab       { padding: 0 8px; font-size: 11.5px; }
           .cmms-tab-label { max-width: 80px; }
