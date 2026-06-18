@@ -8,6 +8,7 @@ import { useFleetData } from "../hooks/useFleetData";
 import { C, archivo } from "../theme";
 import { evaluarPlanes } from "../lib/pm";
 import { generarAlertas, ALERTAS_FLEET_SPEC, ALERTA_NAV } from "../lib/alertas";
+import { navigateFromAlerta } from "../lib/alertaNav";
 import { Card, PageHead, Pill, FilterBtn, Empty, ErrorBanner, InlineSpinner } from "../ui";
 
 const CATEGORIAS = [
@@ -130,7 +131,7 @@ export default function Alertas({ onNavigate }) {
           const clicable = dest && onNavigate;
           return (
             <Card key={i}
-              onClick={clicable ? () => onNavigate(dest, (a.cat === "ot" || a.cat === "datos") && a.ref ? { otId: a.ref } : null) : undefined}
+              onClick={clicable ? () => navigateFromAlerta(onNavigate, a, { appMode: "oficina" }) : undefined}
               title={clicable ? `Ir a ${cat?.label} para gestionarla` : undefined}
               style={{ padding: 0, overflow: "hidden", borderLeft: `4px solid ${borderC}`, background: bg, cursor: clicable ? "pointer" : "default" }}>
               <div style={{ padding: "12px 16px", display: "grid", gridTemplateColumns: "auto 1fr auto", gap: 12, alignItems: "center" }}>

@@ -19,7 +19,7 @@ const TABS = [
   { id: "compras", label: "Compras", icon: ShoppingCart },
 ];
 
-export default function Almacen() {
+export default function Almacen({ navParams }) {
   const { profile, empresa } = useAuth();
   const [embarcaciones, setEmbarcaciones] = useState([]);
   const [bodegas, setBodegas] = useState([]);
@@ -67,6 +67,10 @@ export default function Almacen() {
   useEffect(() => {
     localStorage.setItem(TAB_KEY, tab);
   }, [tab]);
+
+  useEffect(() => {
+    if (navParams?.tab && TABS.some((t) => t.id === navParams.tab)) setTab(navParams.tab);
+  }, [navParams?.tab]);
 
   const stockMap = useMemo(() => {
     const m = new Map();

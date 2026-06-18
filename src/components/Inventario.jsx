@@ -70,7 +70,7 @@ const VISTAS = [
   { id: "tabla", label: "Tabla", icon: Table2 },
 ];
 
-export default function Inventario() {
+export default function Inventario({ navParams }) {
   const { profile } = useAuth();
   const [items, setItems] = useState([]);
   const [stockEntries, setStockEntries] = useState([]);
@@ -123,6 +123,15 @@ export default function Inventario() {
     finally { setLoading(false); }
   }, []);
   useEffect(() => { cargar(); }, [cargar]);
+
+  useEffect(() => {
+    if (navParams?.filtroStock) setFiltroStock(navParams.filtroStock);
+    if (navParams?.itemId) {
+      setSelectedId(navParams.itemId);
+      if (navParams?.campo || isMobile) setShowMobileDetail(true);
+    }
+    if (navParams?.vista && VISTAS.some((v) => v.id === navParams.vista)) setVista(navParams.vista);
+  }, [navParams?.filtroStock, navParams?.itemId, navParams?.campo, navParams?.vista, isMobile]);
 
   useEffect(() => {
     const saved = localStorage.getItem(VISTA_KEY);

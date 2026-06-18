@@ -169,7 +169,7 @@ function HorometroLecturaCard({
   );
 }
 
-export default function Horometros() {
+export default function Horometros({ navParams }) {
   const { profile } = useAuth();
   const [embarcaciones, setEmbarcaciones] = useState([]);
   const [equipos, setEquipos] = useState([]);
@@ -201,6 +201,11 @@ export default function Horometros() {
     finally { setLoading(false); }
   }, []);
   useEffect(() => { cargar(); }, [cargar]);
+
+  useEffect(() => {
+    if (navParams?.embFiltro) setFiltro(navParams.embFiltro);
+    if (navParams?.equipoId) setHistAbierto(navParams.equipoId);
+  }, [navParams?.embFiltro, navParams?.equipoId]);
 
   const cargarUltimoLog = useCallback(async () => {
     try {

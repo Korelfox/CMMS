@@ -130,7 +130,7 @@ export default function OrdenesTrabajo({ navParams }) {
       setOtDestacadaId(navParams.otId);
       setSelectedId(navParams.otId);
       setFiltro("all");
-      setDetailTab(navParams?.campo ? "ejecucion" : "resumen");
+      setDetailTab(navParams.detailTab || (navParams?.campo ? "ejecucion" : "resumen"));
       if (navParams?.campo && isMobile) setShowMobileDetail(true);
     } else {
       setOtDestacadaId(null);

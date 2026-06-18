@@ -26,7 +26,7 @@ function slaInfo(sol) {
   return { objetivo, transcurridas, pct, tone, label };
 }
 
-export default function Solicitudes() {
+export default function Solicitudes({ navParams }) {
   const { profile } = useAuth();
   const [embarcaciones, setEmbarcaciones] = useState([]);
   const [equipos, setEquipos] = useState([]);
@@ -57,6 +57,10 @@ export default function Solicitudes() {
     finally { setLoading(false); }
   }, []);
   useEffect(() => { cargar(); }, [cargar]);
+
+  useEffect(() => {
+    if (navParams?.filtro) setFiltro(navParams.filtro);
+  }, [navParams?.filtro]);
 
   function embName(id) { return embarcaciones.find((e) => e.id === id)?.nombre || "—"; }
 

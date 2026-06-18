@@ -875,7 +875,7 @@ function TarjetaPlantilla({ p, plantillaItemsMap, onClick }) {
 }
 
 // ── Componente principal ─────────────────────────────────────────────────────
-export default function Varada({ onNavigate }) {
+export default function Varada({ onNavigate, navParams }) {
   const { profile } = useAuth();
   const empresaId   = profile?.empresa_id;
 
@@ -920,6 +920,11 @@ export default function Varada({ onNavigate }) {
     finally { setLoading(false); }
   }, []);
   useEffect(() => { cargar(); }, [cargar]);
+
+  useEffect(() => {
+    if (navParams?.embFiltro) setFiltroEmb(navParams.embFiltro);
+    if (navParams?.varadaId) setVaradaActual(navParams.varadaId);
+  }, [navParams?.embFiltro, navParams?.varadaId]);
 
   const lista = filtroEmb === "all" ? varadas : varadas.filter((v) => v.embarcacion_id === filtroEmb);
   const embName = (id) => embarcaciones.find((e) => e.id === id)?.nombre || "—";

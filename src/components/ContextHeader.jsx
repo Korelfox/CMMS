@@ -6,7 +6,7 @@ import { C, tint } from "../theme";
 import { Pill, ghostBtn } from "../ui";
 import { useShell } from "../context/ShellContext";
 import { useHeaderAlertas } from "../hooks/useHeaderAlertas";
-import { ALERTA_NAV } from "../lib/alertas";
+import { navigateFromAlerta } from "../lib/alertaNav";
 
 const chipBtn = {
   display: "inline-flex",
@@ -79,8 +79,7 @@ export default function ContextHeader({
   const syncDisabled = !online || sincronizando;
 
   function irAlerta(a) {
-    const dest = ALERTA_NAV[a.cat] || "alertas";
-    onNavigate?.(dest);
+    navigateFromAlerta(onNavigate, a, { appMode, embarcacionId });
     setAlertOpen(false);
   }
 

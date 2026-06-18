@@ -53,6 +53,9 @@ export function alertasPM(planesEval, embsById) {
       titulo: `PM ${r.label.toLowerCase()} · ${r.plan.descripcion}`,
       detalle: `${nave} · ${eq?.sistema || "equipo"} · ${transcurrido} (intervalo ${num(r.limite, 0)} ${unidad})`,
       ts: r.plan.fecha_ult_pm || eq?.updated_at,
+      ref: r.plan.id,
+      embId: eq?.embarcacion_id,
+      equipoId: eq?.id,
     });
   }
   return result;
@@ -73,6 +76,9 @@ export function alertasPdM(mediciones, equipos, embsById) {
       titulo: `Condición ${ev.label.toLowerCase()} · ${ult.parametro} · ${eq?.sistema || "equipo"}`,
       detalle: `${nave} · ${num(ult.valor, 1)} ${ult.unidad || ""} (alerta ${ult.limite_alerta ?? "—"} / crítico ${ult.limite_critico ?? "—"}) · medido ${ult.fecha}`,
       ts: ult.fecha,
+      ref: ult.id,
+      embId: eq?.embarcacion_id,
+      equipoId: ult.equipo_id,
     });
   }
   return result;
@@ -92,6 +98,7 @@ export function alertasStock(items, stock, destinos, equipos) {
       titulo: `Sin repuesto de equipo crítico · ${item.descripcion}`,
       detalle: `Stock agotado en todas las bodegas · respalda a ${nombres}${equiposA.length > 3 ? ` (+${equiposA.length - 3})` : ""} (criticidad A) · gestiona compra o redistribución`,
       ts: item.updated_at,
+      ref: item.id,
     });
   }
 
@@ -105,6 +112,7 @@ export function alertasStock(items, stock, destinos, equipos) {
         titulo: `Stock bajo · ${it.descripcion}`,
         detalle: `${total} ${it.unidad || "Un"} disponibles (mínimo ${it.stock_min}) · ${total === 0 ? "AGOTADO" : `repón ${(it.stock_max || it.stock_min) - total} ${it.unidad || "Un"}`}`,
         ts: it.updated_at,
+        ref: it.id,
       });
     }
   }
@@ -122,7 +130,7 @@ export function alertasOTs(ots, embsById) {
       cat: "ot", sev: o.prioridad === "critica" ? "red" : "amber",
       titulo: `OT ${o.prioridad === "critica" ? "crítica" : "alta"} abierta · ${o.folio || ""}`,
       detalle: `${nave} · ${o.sistema} · ${o.descripcion?.slice(0, 80) || ""}`,
-      ts: o.fecha, ref: o.id,
+      ts: o.fecha, ref: o.id, embId: o.embarcacion_id,
     });
   }
   return result;
@@ -142,6 +150,8 @@ export function alertasSLA(solicitudes, embsById) {
         titulo: `SLA vencido · ${s.folio || ""} · ${lk(PRIORIDADES, s.prioridad)}`,
         detalle: `${nave} · ${num(transcurridas, 1)}h de espera (objetivo ${obj}h) · ${s.descripcion?.slice(0, 60) || ""}`,
         ts: s.created_at,
+        ref: s.id,
+        embId: s.embarcacion_id,
       });
     } else if (transcurridas >= obj * 0.75) {
       result.push({
@@ -149,6 +159,8 @@ export function alertasSLA(solicitudes, embsById) {
         titulo: `SLA por vencer · ${s.folio || ""}`,
         detalle: `${nave} · ${num(transcurridas, 1)}h de espera (objetivo ${obj}h)`,
         ts: s.created_at,
+        ref: s.id,
+        embId: s.embarcacion_id,
       });
     }
   }
@@ -166,6 +178,8 @@ export function alertasEquipos(equipos, embsById) {
       titulo: `${eq.sistema} · ${eq.estado === "fuera_servicio" ? "Fuera de servicio" : "En reparación"}`,
       detalle: `${nave} · ${eq.id_visible}`,
       ts: eq.updated_at,
+      ref: eq.id,
+      embId: eq.embarcacion_id,
     });
   }
   return result;
@@ -183,6 +197,7 @@ export function alertasCompras(compras) {
         titulo: `Compra atrasada · ${c.folio || ""}`,
         detalle: `${c.proveedor} · ${num(dias, 0)} días desde envío (lead ${c.lead_dias}d)`,
         ts: c.fecha,
+        ref: c.id,
       });
     }
   }
@@ -210,6 +225,8 @@ export function alertasConsumoAceite(prezarpes, equipos, embsById) {
       titulo: `Consumo de aceite · ${eq?.sistema || eq?.id_visible || "equipo"}`,
       detalle: `${nave} · nivel bajo en ${info.n} prezarpe${info.n !== 1 ? "s" : ""} · ${info.n >= 2 ? "posible fuga o desgaste, revisar" : "vigilar consumo"}`,
       ts: info.ts,
+      ref: eqId,
+      embId: eq?.embarcacion_id,
     });
   }
   return result;
@@ -225,10 +242,10 @@ export function alertasDocumentos(documentos, embsById, hoy) {
     const venc = new Date(d.vencimiento + "T00:00:00");
     const nave = embsById.get(d.embarcacion_id)?.nombre || "—";
     if (venc < hoyD) {
-      result.push({ cat: "documento", sev: "red", titulo: `Documento vencido · ${d.tipo}`, detalle: `${nave} · venció el ${d.vencimiento}`, ts: d.vencimiento });
+      result.push({ cat: "documento", sev: "red", titulo: `Documento vencido · ${d.tipo}`, detalle: `${nave} · venció el ${d.vencimiento}`, ts: d.vencimiento, ref: d.id, embId: d.embarcacion_id });
     } else {
       const dh = diasHabiles(hoyD, venc);
-      if (dh <= 15) result.push({ cat: "documento", sev: "amber", titulo: `Documento por vencer · ${d.tipo}`, detalle: `${nave} · vence el ${d.vencimiento} (${dh} días háb.)`, ts: d.vencimiento });
+      if (dh <= 15) result.push({ cat: "documento", sev: "amber", titulo: `Documento por vencer · ${d.tipo}`, detalle: `${nave} · vence el ${d.vencimiento} (${dh} días háb.)`, ts: d.vencimiento, ref: d.id, embId: d.embarcacion_id });
     }
   }
   return result;
@@ -246,6 +263,8 @@ export function alertasFMECA(fallas, embsById) {
       titulo: `Riesgo ${rpn >= 200 ? "crítico" : "alto"} FMECA · ${f.modo} (RPN ${rpn})`,
       detalle: `${nave} · ${f.sistema} · ${f.accion ? `acción recomendada: ${f.accion}` : "sin acción de mitigación definida — define inspección, PM o rediseño"}`,
       ts: f.fecha,
+      ref: f.id,
+      embId: f.embarcacion_id,
     });
   }
   return result;
@@ -262,7 +281,7 @@ export function alertasDatosISO(ots, embsById) {
         cat: "datos", sev: "amber",
         titulo: `OT sin codificación de falla · ${o.folio || ""}`,
         detalle: `${nave} · ${o.sistema || ""} · correctiva cerrada sin modo de falla ISO 14224 — Pareto y MTBF la pierden`,
-        ts: o.cerrada_fecha || o.fecha, ref: o.id,
+        ts: o.cerrada_fecha || o.fecha, ref: o.id, embId: o.embarcacion_id,
       });
     }
     if (sinValorizar(o)) {
@@ -270,7 +289,7 @@ export function alertasDatosISO(ots, embsById) {
         cat: "datos", sev: "amber",
         titulo: `OT sin valorizar · ${o.folio || ""}`,
         detalle: `${nave} · ${o.sistema || ""} · cerrada sin costos de MO/materiales — el costo real del mantenimiento queda subestimado`,
-        ts: o.cerrada_fecha || o.fecha, ref: o.id,
+        ts: o.cerrada_fecha || o.fecha, ref: o.id, embId: o.embarcacion_id,
       });
     }
   }
@@ -292,6 +311,8 @@ export function alertasVaradas(varadas, embsById, hoy) {
         titulo: `Varada atrasada · ${v.nombre}`,
         detalle: `${nave} · lleva ${dias} día${dias !== 1 ? "s" : ""} sobre el plan (fin estimado ${v.fecha_fin_estimada}) · actualiza la fecha o cierra la varada`,
         ts: v.fecha_fin_estimada,
+        ref: v.id,
+        embId: v.embarcacion_id,
       });
     } else if (v.estado === "planificacion" && v.fecha_inicio && v.fecha_inicio <= hoyISO) {
       result.push({
@@ -299,6 +320,8 @@ export function alertasVaradas(varadas, embsById, hoy) {
         titulo: `Varada sin iniciar · ${v.nombre}`,
         detalle: `${nave} · fecha de inicio ${v.fecha_inicio} ya pasó — cambia el estado a "En ejecución" si los trabajos comenzaron`,
         ts: v.fecha_inicio,
+        ref: v.id,
+        embId: v.embarcacion_id,
       });
     }
   }
@@ -321,12 +344,18 @@ export function alertasHorometros(equipos, lecturas, planesEval, embsById) {
       result.push({ cat: "horometro", sev: "red",
         titulo: `Sin lectura de horómetro · ${eq.sistema}`,
         detalle: `${nave} · ${eq.id_visible} · ${dias == null ? "nunca registrada" : `última hace ${Math.round(dias)} días`} — ingresar en Horómetros`,
-        ts: ultima?.fecha || eq.updated_at });
+        ts: ultima?.fecha || eq.updated_at,
+        ref: eq.id,
+        embId: eq.embarcacion_id,
+      });
     } else if (dias > 7) {
       result.push({ cat: "horometro", sev: "amber",
         titulo: `Lectura de horómetro atrasada · ${eq.sistema}`,
         detalle: `${nave} · ${eq.id_visible} · última hace ${Math.round(dias)} días (objetivo ≤7 días) — ingresar en Horómetros`,
-        ts: ultima?.fecha });
+        ts: ultima?.fecha,
+        ref: eq.id,
+        embId: eq.embarcacion_id,
+      });
     }
   }
 

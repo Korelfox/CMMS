@@ -134,6 +134,15 @@ export default function Equipos({ navParams }) {
     }
   }, [navParams?.campo, navParams?.embFiltro, shell?.embarcacionId]);
 
+  useEffect(() => {
+    if (navParams?.equipoId) {
+      setSelectedId(navParams.equipoId);
+      if (isMobile || navParams?.campo) setShowMobileDetail(true);
+    }
+    if (navParams?.modo && MODOS.some((m) => m.id === navParams.modo)) setModo(navParams.modo);
+    if (navParams?.vista && VISTAS.some((v) => v.id === navParams.vista)) setVista(navParams.vista);
+  }, [navParams?.equipoId, navParams?.modo, navParams?.vista, navParams?.campo, isMobile]);
+
   function embName(id)  { return embarcaciones.find((e) => e.id === id)?.nombre || "—"; }
   function embColor(id) { return embarcaciones.find((e) => e.id === id)?.color  || C.steel; }
   function eqName(id)   { const e = equipos.find((q) => q.id === id); return e ? `${e.id_visible} · ${e.sistema}` : "—"; }

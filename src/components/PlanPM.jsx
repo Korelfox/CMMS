@@ -40,7 +40,7 @@ const VISTAS = [
   { id: "tabla", label: "Tabla", icon: Table2 },
 ];
 
-export default function PlanPM({ onNavigate }) {
+export default function PlanPM({ onNavigate, navParams }) {
   const { profile } = useAuth();
   const [embarcaciones, setEmbarcaciones] = useState([]);
   const [equipos,    setEquipos]    = useState([]);
@@ -70,6 +70,11 @@ export default function PlanPM({ onNavigate }) {
     finally { setLoading(false); }
   }, []);
   useEffect(() => { cargar(); }, [cargar]);
+
+  useEffect(() => {
+    if (navParams?.filtro) setFiltro(navParams.filtro);
+    if (navParams?.tab === "plan" || navParams?.tab === "historial") setTab(navParams.tab);
+  }, [navParams?.filtro, navParams?.tab]);
 
   useEffect(() => {
     planpmStore.set({ planes, historial, equipos, embarcaciones });
