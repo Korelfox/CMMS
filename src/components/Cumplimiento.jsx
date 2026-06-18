@@ -22,7 +22,7 @@ const TIPOS_DOC_DEFAULT = [
 const HOY = () => new Date().toISOString().slice(0, 10);
 // estadoDoc, docDe y diasHabilesEntre viven ahora en lib/cumplimiento (testeables).
 
-export default function Cumplimiento() {
+export default function Cumplimiento({ navParams }) {
   const { profile } = useAuth();
   const [embarcaciones, setEmbarcaciones] = useState([]);
   const [documentos, setDocumentos] = useState([]);
@@ -48,6 +48,11 @@ export default function Cumplimiento() {
     finally { setLoading(false); }
   }, []);
   useEffect(() => { cargar(); }, [cargar]);
+
+  useEffect(() => {
+    const emb = navParams?.filtro || navParams?.embFiltro;
+    if (emb) setFiltro(emb);
+  }, [navParams?.filtro, navParams?.embFiltro]);
 
   // Nombres de tipos a mostrar (catálogo de la empresa; si está vacío, los por defecto).
   const tiposDoc = useMemo(() => (

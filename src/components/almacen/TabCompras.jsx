@@ -52,7 +52,7 @@ const calcETA = (fecha, lead_dias) => {
 // ── Componente principal ──────────────────────────────────────
 export default function TabCompras({
   profile, items, bodegas, compras, comprasItems, stockMap,
-  itemDesc, itemPrecio, whName, ocInit, onOcInitUsed, recargar, setError,
+  itemDesc, itemPrecio, whName, ocInit, onOcInitUsed, initialCompraId, onCompraNavUsed, recargar, setError,
 }) {
   const [showForm,   setShowForm]   = useState(false);
   const [form,       setForm]       = useState(() => FORM_EMPTY(bodegas));
@@ -89,6 +89,15 @@ export default function TabCompras({
       onOcInitUsed?.();
     }
   }, [ocInit]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!initialCompraId || !compras.length) return;
+    if (!compras.some((c) => c.id === initialCompraId)) return;
+    setSelectedId(initialCompraId);
+    setDetalleId(initialCompraId);
+    setVista("cola");
+    onCompraNavUsed?.();
+  }, [initialCompraId, compras, onCompraNavUsed]);
 
   useEffect(() => {
     const saved = localStorage.getItem(VISTA_KEY);

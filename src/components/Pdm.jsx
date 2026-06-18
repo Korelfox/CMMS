@@ -14,7 +14,7 @@ import ComboInput from "./ComboInput";
 const HOY = () => new Date().toISOString().slice(0, 10);
 const blank = () => ({ equipo_id: "", tipo: "aceite", parametro: "", valor: "", unidad: "", limite_alerta: "", limite_critico: "", fecha: HOY(), nota: "" });
 
-export default function Pdm() {
+export default function Pdm({ navParams }) {
   const { profile } = useAuth();
   const [embarcaciones, setEmbarcaciones] = useState([]);
   const [equipos, setEquipos]     = useState([]);
@@ -42,6 +42,11 @@ export default function Pdm() {
   }, []);
   useEffect(() => { cargar(); }, [cargar]);
 
+  useEffect(() => {
+    if (navParams?.embFiltro) setFiltro(navParams.embFiltro);
+    if (navParams?.equipoId) setForm((f) => ({ ...f, equipo_id: navParams.equipoId }));
+  }, [navParams?.embFiltro, navParams?.equipoId]);
+
   const eqDe = useCallback((id) => equipos.find((e) => e.id === id), [equipos]);
 
   // Series (equipo+tipo+parámetro) → la [0] es la última medición.
@@ -62,6 +67,12 @@ export default function Pdm() {
         return (orden[a.estado.key] - orden[b.estado.key]) || (new Date(b.ult.fecha) - new Date(a.ult.fecha));
       });
   }, [mediciones, filtro, tipoFiltro, eqDe]);
+
+  useEffect(() => {
+    if (!navParams?.equipoId) return;
+    const match = series.find((s) => s.ult.equipo_id === navParams.equipoId);
+    if (match) setHistAbierta(match.key);
+  }, [navParams?.equipoId, series]);
 
   const kpis = useMemo(() => ({
     total:   series.length,

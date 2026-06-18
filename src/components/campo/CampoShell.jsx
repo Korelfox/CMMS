@@ -6,9 +6,9 @@ import { InlineSpinner, ghostBtn } from "../../ui";
 import ErrorBoundary from "../ErrorBoundary";
 import CampoHoy from "./CampoHoy";
 import CampoMas from "./CampoMas";
+import CampoActivos from "./CampoActivos";
 
 const OrdenesTrabajo = lazy(() => import("../OrdenesTrabajo"));
-const Equipos = lazy(() => import("../Equipos"));
 const Solicitudes = lazy(() => import("../Solicitudes"));
 const Horometros = lazy(() => import("../Horometros"));
 const Inventario = lazy(() => import("../Inventario"));
@@ -132,7 +132,11 @@ export default function CampoShell({
               />
             )}
             {tab === "activos" && (
-              <Equipos key={`eq-campo-${refreshTick}`} navParams={navParamsCampo} onNavigate={onNavigate} />
+              <CampoActivos
+                key={`act-campo-${refreshTick}`}
+                onIrTrabajo={irTrabajo}
+                onNavigate={campoNavigate}
+              />
             )}
             {tab === "mas" && (
               <CampoMas
@@ -173,9 +177,18 @@ export default function CampoShell({
           flex-direction: column;
           min-height: calc(100vh - var(--context-header-h, 52px));
         }
+        .cmms-campo-polish {
+          font-size: 16px;
+        }
+        .cmms-campo-polish .cmms-campo-touch,
+        .cmms-campo-touch {
+          min-height: 48px;
+          min-width: 48px;
+        }
         .cmms-campo-content {
           flex: 1;
           padding-bottom: 76px;
+          font-size: 15px;
         }
         .cmms-campo-tabs {
           position: fixed;
@@ -203,7 +216,7 @@ export default function CampoShell({
           background: none;
           cursor: pointer;
           font-family: inherit;
-          font-size: 10.5px;
+          font-size: 11px;
           font-weight: 600;
           color: ${C.slate};
           border-radius: 10px;

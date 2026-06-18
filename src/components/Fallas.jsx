@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback } from "react";
 import { AlertTriangle, Plus, Trash2, Download } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { fetchAll, insertRow, updateRow, deleteRow, logActivity } from "../lib/db";
-import { C, archivo, isAdmin, canOperate } from "../theme";
+import { C, archivo, isAdmin, canOperate, tint } from "../theme";
 import {
   Card, PageHead, Pill, primaryBtn, ghostBtn, exportBtn, inputStyle, bluInput,
   thStyle, tdStyle, FilterBtn, Field, Empty, ErrorBanner, InlineSpinner,
@@ -17,13 +17,14 @@ const nivelRPN = (r) =>
   r >= 50  ? ["yellow", "Medio"] :
              ["green", "Bajo"];
 
-export default function Fallas() {
+export default function Fallas({ navParams }) {
   const { profile } = useAuth();
   const [embarcaciones, setEmbarcaciones] = useState([]);
   const [fallas, setFallas] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [filtro, setFiltro] = useState("all");
+  const [highlightId, setHighlightId] = useState(null);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(blank());
   const puedeOperar = canOperate(profile?.rol);
@@ -45,6 +46,11 @@ export default function Fallas() {
     finally { setLoading(false); }
   }, []);
   useEffect(() => { cargar(); }, [cargar]);
+
+  useEffect(() => {
+    if (navParams?.embFiltro) setFiltro(navParams.embFiltro);
+    if (navParams?.fallaId) setHighlightId(navParams.fallaId);
+  }, [navParams?.embFiltro, navParams?.fallaId]);
 
   function embName(id) { return embarcaciones.find((e) => e.id === id)?.nombre || "—"; }
 
@@ -173,7 +179,7 @@ export default function Fallas() {
                 lista.map((f) => {
                   const [tone, label] = nivelRPN(f._rpn);
                   return (
-                    <tr key={f.id}>
+                    <tr key={f.id} style={{ background: highlightId === f.id ? tint(C.sky, 10) : undefined }}>
                       <td style={{ ...tdStyle, fontFamily: "'IBM Plex Mono', monospace", fontSize: 12 }}>{f.fecha}</td>
                       <td style={tdStyle}>{embName(f.embarcacion_id)}</td>
                       <td style={tdStyle}><input value={f.sistema} disabled={!puedeOperar} onChange={(e) => onChangeLocal(f.id, "sistema", e.target.value)} onBlur={(e) => commit(f.id, "sistema", e.target.value)} style={inputStyle(130)} /></td>

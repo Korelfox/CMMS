@@ -17,7 +17,7 @@ import { HOY, SEGURIDAD_FIJA } from "./prezarpe/util";
 import { VistaFlota, VistaClima, VistaChecklist, VistaRecalada, VistaRetornoFalla, VistaHistorial, VistaInforme, ModalEliminar } from "./prezarpe/vistas";
 
 
-export default function Prezarpe() {
+export default function Prezarpe({ navParams }) {
   const { profile, empresa } = useAuth();
   const online = useOnline();
   const [embarcaciones, setEmbarcaciones] = useState([]);
@@ -62,6 +62,13 @@ export default function Prezarpe() {
     } finally { setLoading(false); }
   }, []);
   useEffect(() => { cargar(); }, [cargar]);
+  useEffect(() => {
+    if (navParams?.embFiltro && embarcaciones.length) {
+      const emb = embarcaciones.find((e) => e.id === navParams.embFiltro);
+      if (emb) setNave(emb);
+    }
+    if (navParams?.vista) setVista(navParams.vista);
+  }, [navParams?.embFiltro, navParams?.vista, embarcaciones]);
   useEffect(() => {
     const f = () => cargar();
     window.addEventListener("cmms-synced", f);

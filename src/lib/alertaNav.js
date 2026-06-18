@@ -99,10 +99,12 @@ export function resolveAlertaNav(alerta, { appMode = "oficina", embarcacionId } 
 
     case "consumo":
       if (emb) params.embFiltro = emb;
+      params.vista = "flota";
       break;
 
     case "documento":
-      if (emb) params.embFiltro = emb;
+      if (emb) params.filtro = emb;
+      if (alerta.ref) params.docId = alerta.ref;
       break;
 
     case "compra":
@@ -112,6 +114,7 @@ export function resolveAlertaNav(alerta, { appMode = "oficina", embarcacionId } 
 
     case "fmeca":
       if (emb) params.embFiltro = emb;
+      if (alerta.ref) params.fallaId = alerta.ref;
       break;
 
     case "varada":

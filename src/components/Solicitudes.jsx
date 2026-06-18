@@ -1,9 +1,9 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { Inbox, Plus, Trash2, ArrowRight, X, Clock } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { fetchAll, insertRow, updateRow, deleteRow, logActivity } from "../lib/db";
 import {
-  C, archivo, isAdmin, canOperate,
+  C, archivo, isAdmin, canOperate, tint,
   PRIORIDADES, ESTADOS_SOLICITUD, SLA_HORAS, lk, tn,
 } from "../theme";
 import {
@@ -12,6 +12,16 @@ import {
 } from "../ui";
 import EquipoPicker from "./EquipoPicker";
 import { folioOT } from "../lib/ot";
+import SavedViewsBar from "./SavedViewsBar";
+import SplitDetailLayout from "./detail/SplitDetailLayout";
+import DetailShell from "./detail/DetailShell";
+import SolicitudDetailPanel from "./solicitudes/SolicitudDetailPanel";
+import { useMediaQuery } from "../lib/useMediaQuery";
+import {
+  loadSavedViews, addSavedView, removeSavedView, mergeViews, SOL_BUILTIN_VIEWS,
+} from "../lib/savedViews";
+
+const SOL_SAVED_VIEWS_KEY = "cmms-sol-saved-views";
 
 const HOY = () => new Date().toISOString().slice(0, 10);
 
@@ -28,15 +38,23 @@ function slaInfo(sol) {
 
 export default function Solicitudes({ navParams }) {
   const { profile } = useAuth();
+  const isMobile = useMediaQuery("(max-width: 1024px)");
   const [embarcaciones, setEmbarcaciones] = useState([]);
   const [equipos, setEquipos] = useState([]);
   const [solicitudes, setSolicitudes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [filtro, setFiltro] = useState("pendiente");
+  const [slaVencidoOnly, setSlaVencidoOnly] = useState(false);
+  const [selectedId, setSelectedId] = useState(null);
+  const [detailOpen, setDetailOpen] = useState(true);
+  const [showMobileDetail, setShowMobileDetail] = useState(false);
+  const [savedViews, setSavedViews] = useState(() => loadSavedViews(SOL_SAVED_VIEWS_KEY));
+  const [activeViewId, setActiveViewId] = useState(null);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(blank());
-  const [selEq, setSelEq] = useState(null); // equipo elegido en el picker (para mostrar el chip)
+  const [selEq, setSelEq] = useState(null);
+  const rowRef = useRef(null);
   const puedeOperar = canOperate(profile?.rol);
   const puedeBorrar = isAdmin(profile?.rol);
 
@@ -60,7 +78,40 @@ export default function Solicitudes({ navParams }) {
 
   useEffect(() => {
     if (navParams?.filtro) setFiltro(navParams.filtro);
-  }, [navParams?.filtro]);
+    if (navParams?.slaVencido) setSlaVencidoOnly(true);
+    if (navParams?.solicitudId) {
+      setSelectedId(navParams.solicitudId);
+      setDetailOpen(true);
+      if (isMobile) setShowMobileDetail(true);
+    }
+  }, [navParams?.filtro, navParams?.slaVencido, navParams?.solicitudId, isMobile]);
+
+  const solViews = useMemo(() => mergeViews(SOL_BUILTIN_VIEWS, savedViews), [savedViews]);
+
+  function aplicarVistaSol(view) {
+    if (view?.filters?.filtro) setFiltro(view.filters.filtro);
+    setSlaVencidoOnly(!!view?.filters?.slaVencido);
+    setActiveViewId(view.id);
+  }
+
+  function guardarVistaSol(name) {
+    const entry = addSavedView(SOL_SAVED_VIEWS_KEY, { name, filters: { filtro, slaVencido: slaVencidoOnly } });
+    if (entry) {
+      setSavedViews(loadSavedViews(SOL_SAVED_VIEWS_KEY));
+      setActiveViewId(entry.id);
+    }
+  }
+
+  function eliminarVistaSol(id) {
+    setSavedViews(removeSavedView(SOL_SAVED_VIEWS_KEY, id));
+    if (activeViewId === id) setActiveViewId(null);
+  }
+
+  function seleccionarSol(id) {
+    setSelectedId(id);
+    setDetailOpen(true);
+    if (isMobile) setShowMobileDetail(true);
+  }
 
   function embName(id) { return embarcaciones.find((e) => e.id === id)?.nombre || "—"; }
 
@@ -125,7 +176,17 @@ export default function Solicitudes({ navParams }) {
   const porVencer = pendientes.filter((s) => { const i = slaInfo(s); return i && i.pct >= 0.75 && i.pct < 1; }).length;
   const convertidas = solicitudes.filter((s) => s.estado === "convertida").length;
 
-  const lista = filtro === "all" ? solicitudes : solicitudes.filter((s) => s.estado === filtro);
+  const lista = useMemo(() => {
+    let l = filtro === "all" ? solicitudes : solicitudes.filter((s) => s.estado === filtro);
+    if (slaVencidoOnly) l = l.filter((s) => { const i = slaInfo(s); return i && i.pct >= 1; });
+    return l;
+  }, [solicitudes, filtro, slaVencidoOnly]);
+
+  const selected = solicitudes.find((s) => s.id === selectedId) || null;
+
+  useEffect(() => {
+    if (selectedId && rowRef.current) rowRef.current.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }, [selectedId]);
 
   if (loading) return <div><PageHead kicker="Portal de Requerimientos" title="Solicitudes" /><Card><InlineSpinner label="Cargando solicitudes…" /></Card></div>;
 
@@ -171,71 +232,101 @@ export default function Solicitudes({ navParams }) {
         </Card>
       )}
 
+      <SavedViewsBar
+        views={solViews}
+        activeViewId={activeViewId}
+        onApply={aplicarVistaSol}
+        onSave={guardarVistaSol}
+        onDelete={eliminarVistaSol}
+        saveLabel="Guardar filtros actuales"
+      />
+
       <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
-        <FilterBtn active={filtro === "all"} onClick={() => setFiltro("all")}>Todas ({solicitudes.length})</FilterBtn>
+        <FilterBtn active={filtro === "all"} onClick={() => { setFiltro("all"); setSlaVencidoOnly(false); }}>Todas ({solicitudes.length})</FilterBtn>
         {ESTADOS_SOLICITUD.map((s) => {
           const n = solicitudes.filter((x) => x.estado === s.value).length;
-          return <FilterBtn key={s.value} active={filtro === s.value} onClick={() => setFiltro(s.value)}>{s.label} ({n})</FilterBtn>;
+          return <FilterBtn key={s.value} active={filtro === s.value && !slaVencidoOnly} onClick={() => { setFiltro(s.value); setSlaVencidoOnly(false); }}>{s.label} ({n})</FilterBtn>;
         })}
+        <FilterBtn active={slaVencidoOnly} onClick={() => { setFiltro("pendiente"); setSlaVencidoOnly(true); }}>SLA vencido ({vencidasSLA})</FilterBtn>
       </div>
 
-      <Card style={{ padding: 0, overflow: "hidden" }}>
-        <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 1000 }}>
-            <thead><tr>
-              <th style={thStyle}>Folio</th><th style={thStyle}>Fecha</th><th style={thStyle}>Solicitante</th>
-              <th style={thStyle}>Embarcación</th><th style={thStyle}>Descripción</th>
-              <th style={thStyle}>Prioridad</th><th style={thStyle}>SLA</th>
-              <th style={thStyle}>Estado</th><th style={thStyle}>Acciones</th>
-            </tr></thead>
-            <tbody>
-              {lista.length === 0 ? <tr><td colSpan={9}><Empty>Sin solicitudes en este filtro.</Empty></td></tr> :
-                lista.map((s) => {
-                  const sla = slaInfo(s);
-                  return (
-                    <tr key={s.id}>
-                      <td style={{ ...tdStyle, fontFamily: "'IBM Plex Mono', monospace", fontWeight: 600, color: C.steel }}>{s.folio || "—"}</td>
-                      <td style={{ ...tdStyle, fontFamily: "'IBM Plex Mono', monospace", fontSize: 12 }}>{s.fecha}</td>
-                      <td style={{ ...tdStyle, fontSize: 12.5 }}>{s.solicitante}</td>
-                      <td style={tdStyle}>{embName(s.embarcacion_id)}</td>
-                      <td style={{ ...tdStyle, maxWidth: 260, fontSize: 12.5 }}>
-                        <div>{s.descripcion}</div>
-                        {s.sistema && <div style={{ fontSize: 11, color: C.slate, marginTop: 2 }}>{s.sistema}</div>}
-                      </td>
-                      <td style={tdStyle}><Pill tone={tn(PRIORIDADES, s.prioridad)}>{lk(PRIORIDADES, s.prioridad)}</Pill></td>
-                      <td style={tdStyle}>
-                        {sla ? (
-                          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                            <Clock size={12} color={sla.tone === "red" ? C.red : sla.tone === "yellow" ? C.amber : C.green} />
-                            <span style={{ fontSize: 11.5, fontFamily: "'IBM Plex Mono', monospace", fontWeight: 600 }}>{sla.transcurridas.toFixed(1)}/{sla.objetivo}h</span>
-                            <Pill tone={sla.tone}>{sla.label}</Pill>
-                          </div>
-                        ) : <span style={{ fontSize: 11, color: C.slate }}>—</span>}
-                      </td>
-                      <td style={tdStyle}><Pill tone={tn(ESTADOS_SOLICITUD, s.estado)}>{lk(ESTADOS_SOLICITUD, s.estado)}</Pill></td>
-                      <td style={tdStyle}>
-                        <div style={{ display: "flex", gap: 6 }}>
-                          {s.estado === "pendiente" && isAdmin(profile?.rol) && (
-                            <>
-                              <button onClick={() => convertir(s)} title="Convertir a OT"
-                                style={{ ...ghostBtn, padding: "5px 9px", fontSize: 11.5, color: C.green, borderColor: C.green }}>
-                                <ArrowRight size={13} /> OT
-                              </button>
-                              <button onClick={() => rechazar(s)} title="Rechazar"
-                                style={{ ...ghostBtn, padding: "5px 9px", fontSize: 11.5, color: C.red, borderColor: C.red }}>
-                                <X size={13} />
-                              </button>
-                            </>
-                          )}
-                          {puedeBorrar && <button onClick={() => eliminar(s.id)} style={{ background: "none", border: "none", cursor: "pointer", color: C.slate }}><Trash2 size={14} /></button>}
-                        </div>
-                      </td>
-                    </tr>);
-                })}
-            </tbody>
-          </table>
-        </div>
-      </Card>
+      {isMobile && showMobileDetail && selected ? (
+        <DetailShell title={selected.folio || "Solicitud"} onBack={() => setShowMobileDetail(false)}>
+          <SolicitudDetailPanel
+            sol={selected}
+            embName={embName}
+            sla={slaInfo(selected)}
+            profile={profile}
+            onConvertir={convertir}
+            onRechazar={rechazar}
+            onEliminar={eliminar}
+          />
+        </DetailShell>
+      ) : (
+        <SplitDetailLayout
+          variant="queue-wide"
+          stack={isMobile}
+          hasSelection={!!selected}
+          selectionKey={selected?.id}
+          detailOpen={detailOpen}
+          onDetailOpenChange={setDetailOpen}
+          queue={
+            <Card style={{ padding: 0, overflow: "hidden" }}>
+              <div style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 720 }}>
+                  <thead><tr>
+                    <th style={thStyle}>Folio</th><th style={thStyle}>Descripción</th>
+                    <th style={thStyle}>Prioridad</th><th style={thStyle}>SLA</th>
+                    <th style={thStyle}>Estado</th>
+                  </tr></thead>
+                  <tbody>
+                    {lista.length === 0 ? <tr><td colSpan={5}><Empty>Sin solicitudes en este filtro.</Empty></td></tr> :
+                      lista.map((s) => {
+                        const sla = slaInfo(s);
+                        const active = selectedId === s.id;
+                        return (
+                          <tr
+                            key={s.id}
+                            ref={active ? rowRef : undefined}
+                            onClick={() => seleccionarSol(s.id)}
+                            style={{ cursor: "pointer", background: active ? tint(C.sky, 8) : undefined }}
+                          >
+                            <td style={{ ...tdStyle, fontFamily: "'IBM Plex Mono', monospace", fontWeight: 600, color: C.steel }}>{s.folio || "—"}</td>
+                            <td style={{ ...tdStyle, maxWidth: 280, fontSize: 12.5 }}>
+                              <div>{s.descripcion}</div>
+                              <div style={{ fontSize: 11, color: C.slate, marginTop: 2 }}>{embName(s.embarcacion_id)} · {s.solicitante}</div>
+                            </td>
+                            <td style={tdStyle}><Pill tone={tn(PRIORIDADES, s.prioridad)}>{lk(PRIORIDADES, s.prioridad)}</Pill></td>
+                            <td style={tdStyle}>
+                              {sla ? (
+                                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                                  <Clock size={12} color={sla.tone === "red" ? C.red : sla.tone === "yellow" ? C.amber : C.green} />
+                                  <Pill tone={sla.tone}>{sla.label}</Pill>
+                                </div>
+                              ) : <span style={{ fontSize: 11, color: C.slate }}>—</span>}
+                            </td>
+                            <td style={tdStyle}><Pill tone={tn(ESTADOS_SOLICITUD, s.estado)}>{lk(ESTADOS_SOLICITUD, s.estado)}</Pill></td>
+                          </tr>
+                        );
+                      })}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
+          }
+          detail={
+            <SolicitudDetailPanel
+              sol={selected}
+              embName={embName}
+              sla={selected ? slaInfo(selected) : null}
+              profile={profile}
+              onConvertir={convertir}
+              onRechazar={rechazar}
+              onEliminar={eliminar}
+            />
+          }
+        />
+      )}
     </div>
   );
 }

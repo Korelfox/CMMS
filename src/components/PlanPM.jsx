@@ -19,6 +19,7 @@ import { ordenarPlanesPM } from "../lib/planpmKanban";
 import { useMediaQuery } from "../lib/useMediaQuery";
 import PMKanban from "./planpm/PMKanban";
 import SavedViewsBar from "./SavedViewsBar";
+import SplitDetailLayout from "./detail/SplitDetailLayout";
 import {
   loadSavedViews, addSavedView, removeSavedView, mergeViews, PM_BUILTIN_VIEWS,
 } from "../lib/savedViews";
@@ -51,6 +52,7 @@ export default function PlanPM({ onNavigate, navParams }) {
   const [filtro,     setFiltro]     = useState("all");
   const [savedViews, setSavedViews] = useState(() => loadSavedViews(PM_SAVED_VIEWS_KEY));
   const [activeViewId, setActiveViewId] = useState(null);
+  const [viewFilters, setViewFilters] = useState(null);
   const [tab,        setTab]        = useState("plan"); // "plan" | "historial"
   const puedeOperar = canOperate(profile?.rol);
   const puedeBorrar = isAdmin(profile?.rol);
@@ -74,7 +76,9 @@ export default function PlanPM({ onNavigate, navParams }) {
   useEffect(() => {
     if (navParams?.filtro) setFiltro(navParams.filtro);
     if (navParams?.tab === "plan" || navParams?.tab === "historial") setTab(navParams.tab);
-  }, [navParams?.filtro, navParams?.tab]);
+    if (navParams?.fEstado) setViewFilters((f) => ({ ...(f || {}), fEstado: navParams.fEstado }));
+    if (navParams?.planId) setTab("plan");
+  }, [navParams?.filtro, navParams?.tab, navParams?.fEstado, navParams?.planId]);
 
   useEffect(() => {
     planpmStore.set({ planes, historial, equipos, embarcaciones });
@@ -94,11 +98,12 @@ export default function PlanPM({ onNavigate, navParams }) {
 
   function aplicarVistaPm(view) {
     if (view?.filters?.filtro != null) setFiltro(view.filters.filtro);
+    setViewFilters(view?.filters || null);
     setActiveViewId(view.id);
   }
 
   function guardarVistaPm(name) {
-    const entry = addSavedView(PM_SAVED_VIEWS_KEY, { name, filters: { filtro } });
+    const entry = addSavedView(PM_SAVED_VIEWS_KEY, { name, filters: { filtro, ...(viewFilters?.fEstado ? { fEstado: viewFilters.fEstado } : {}) } });
     if (entry) {
       setSavedViews(loadSavedViews(PM_SAVED_VIEWS_KEY));
       setActiveViewId(entry.id);
@@ -227,7 +232,10 @@ export default function PlanPM({ onNavigate, navParams }) {
             profile={profile} puedeOperar={puedeOperar} puedeBorrar={puedeBorrar}
             setError={setError} onNavigate={onNavigate}
             handlersRef={handlersRef}
-            kpis={kpis} />
+            kpis={kpis}
+            navParams={navParams}
+            viewFilters={viewFilters}
+          />
         </>
       )}
       {tab === "historial" && (
@@ -240,9 +248,10 @@ export default function PlanPM({ onNavigate, navParams }) {
 // ─────────────────────────────────────────────────────────────────
 // TAB PLAN
 // ─────────────────────────────────────────────────────────────────
-function TabPlan({ lista, equipos, setEquipos, planes, setPlanes, historial, setHistorial, embName, profile, puedeOperar, puedeBorrar, setError, onNavigate, handlersRef, kpis }) {
+function TabPlan({ lista, equipos, setEquipos, planes, setPlanes, historial, setHistorial, embName, profile, puedeOperar, puedeBorrar, setError, onNavigate, handlersRef, kpis, navParams, viewFilters }) {
   const [selectedId, setSelectedId] = useState(null);
   const [selectedPlanId, setSelectedPlanId] = useState(null);
+  const [detailOpen, setDetailOpen] = useState(true);
   const [vista, setVista] = useState("kanban");
   const [vistaTabla, setVistaTabla] = useState("arbol");
   const [fEstado, setFEstado] = useState("all");
@@ -260,6 +269,24 @@ function TabPlan({ lista, equipos, setEquipos, planes, setPlanes, historial, set
 
   const arbol = useArbolColapsable(lista);
   const busq = busqueda.trim().toLowerCase();
+
+  useEffect(() => {
+    if (viewFilters?.fEstado) setFEstado(viewFilters.fEstado);
+  }, [viewFilters?.fEstado]);
+
+  useEffect(() => {
+    if (navParams?.planId) {
+      setSelectedPlanId(navParams.planId);
+      setVista("cola");
+      setDetailOpen(true);
+    }
+    if (navParams?.equipoId) {
+      setSelectedId(navParams.equipoId);
+      setVista("tabla");
+      setVistaTabla("arbol");
+    }
+    if (navParams?.fEstado) setFEstado(navParams.fEstado);
+  }, [navParams?.planId, navParams?.equipoId, navParams?.fEstado]);
 
   useEffect(() => {
     const saved = localStorage.getItem(VISTA_KEY);
@@ -656,11 +683,19 @@ tbody td{padding:5px 8px;vertical-align:middle}
               )}
             </div>
           ) : (
-            <div className={`inv-split-container inv-split-queue-wide${isMobile ? " inv-split-stack" : ""}`}>
-              <PMQueuePanel lista={evaluadosFiltrados} selectedId={selectedEval?.plan.id} onSelect={setSelectedPlanId}
-                busqueda={busqueda} setBusqueda={setBusqueda} embName={embName} panelHeight={isMobile ? "auto" : "calc(100vh - 320px)"} />
-              {(!isMobile || selectedEval) && <PMPlanDetailPanel {...planDetailProps} />}
-            </div>
+            <SplitDetailLayout
+              variant="queue-wide"
+              stack={isMobile}
+              hasSelection={!!selectedEval}
+              selectionKey={selectedEval?.plan.id}
+              detailOpen={detailOpen}
+              onDetailOpenChange={setDetailOpen}
+              queue={
+                <PMQueuePanel lista={evaluadosFiltrados} selectedId={selectedEval?.plan.id} onSelect={setSelectedPlanId}
+                  busqueda={busqueda} setBusqueda={setBusqueda} embName={embName} panelHeight={isMobile ? "auto" : "calc(100vh - 320px)"} />
+              }
+              detail={selectedEval ? <PMPlanDetailPanel {...planDetailProps} /> : null}
+            />
           )}
         </Section>
       ) : vistaTabla === "plano" ? (

@@ -35,6 +35,7 @@ export default function Almacen({ navParams }) {
   const [error, setError] = useState(null);
   const [tab, setTab] = useState("stock");
   const [ocInit, setOcInit] = useState(null);
+  const [compraNavId, setCompraNavId] = useState(null);
 
   const cargar = useCallback(async () => {
     setLoading(true); setError(null);
@@ -70,7 +71,11 @@ export default function Almacen({ navParams }) {
 
   useEffect(() => {
     if (navParams?.tab && TABS.some((t) => t.id === navParams.tab)) setTab(navParams.tab);
-  }, [navParams?.tab]);
+    if (navParams?.compraId) {
+      setCompraNavId(navParams.compraId);
+      setTab("compras");
+    }
+  }, [navParams?.tab, navParams?.compraId]);
 
   const stockMap = useMemo(() => {
     const m = new Map();
@@ -152,6 +157,7 @@ export default function Almacen({ navParams }) {
           comprasItems={comprasItems} stockMap={stockMap}
           itemDesc={itemDesc} itemPrecio={itemPrecio} whName={whName}
           ocInit={ocInit} onOcInitUsed={() => setOcInit(null)}
+          initialCompraId={compraNavId} onCompraNavUsed={() => setCompraNavId(null)}
           recargar={cargar} setError={setError} />
       )}
     </ModuleShell>

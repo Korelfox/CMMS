@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback, useMemo } from "react";
 import {
   AlertTriangle, ClipboardList, Wrench, Activity, DollarSign, History,
-  Sparkles, Bot, CalendarClock, RefreshCw, Ship, CheckCircle2,
+  Sparkles, Bot, CalendarClock, RefreshCw, Ship, CheckCircle2, ChevronRight,
 } from "lucide-react";
 import {
   BarChart, Bar, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer,
@@ -9,11 +9,14 @@ import {
 } from "recharts";
 import { useAuth } from "../lib/auth";
 import { fetchAll } from "../lib/db";
-import { C, archivo, clp, num, rolLabel, ESTADOS_OT, lk } from "../theme";
+import { C, archivo, clp, num, rolLabel, ESTADOS_OT, lk, tint } from "../theme";
 import { evaluarPlanes } from "../lib/pm";
+import { sugerirSiguienteAccionOficina } from "../lib/oficinaAccion";
+import { navigateFromAlerta } from "../lib/alertaNav";
+import { useShellOptional } from "../context/ShellContext";
 import {
   ModuleShell, StatGrid, HeroStat, ActionQueue, Section, DataTable,
-  LinkButton, Pill, EmptyState, HealthRing, ghostBtn, primaryBtn,
+  LinkButton, Pill, EmptyState, HealthRing, ghostBtn, primaryBtn, Card,
 } from "../ui";
 import PronosticoWidget from "./widgets/PronosticoWidget";
 
@@ -38,8 +41,10 @@ function saludTone(pct) {
   return { color: C.red, label: "Crítico" };
 }
 
-export default function Tablero({ onNavigate }) {
+export default function Tablero({ onNavigate, navParams }) {
   const { profile, empresa } = useAuth();
+  const shell = useShellOptional();
+  const climaRef = React.useRef(null);
   const [data, setData] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -48,7 +53,7 @@ export default function Tablero({ onNavigate }) {
     setLoading(true);
     setError(null);
     try {
-      const [embs, eqs, otsAll, sols, its, stk, bita, pls, vars] = await Promise.all([
+      const [embs, eqs, otsAll, sols, its, stk, bita, pls, vars, lecturas] = await Promise.all([
         fetchAll("embarcaciones"),
         fetchAll("equipos"),
         fetchAll("ordenes_trabajo", { order: { col: "fecha", asc: false } }),
@@ -58,8 +63,9 @@ export default function Tablero({ onNavigate }) {
         fetchAll("bitacora", { order: { col: "fecha", asc: false } }),
         fetchAll("planes_pm"),
         fetchAll("varadas"),
+        fetchAll("lecturas_horometro"),
       ]);
-      setData({ embs, eqs, ots: otsAll, sols, its, stk, bita: bita.slice(0, 8), planes: pls, varadas: vars });
+      setData({ embs, eqs, ots: otsAll, sols, its, stk, bita: bita.slice(0, 8), planes: pls, varadas: vars, lecturas });
     } catch (e) {
       setError("No se pudo cargar el tablero. " + e.message);
     } finally {
@@ -68,6 +74,17 @@ export default function Tablero({ onNavigate }) {
   }, []);
 
   useEffect(() => { cargar(); }, [cargar]);
+
+  useEffect(() => {
+    if (navParams?.seccion === "clima" && climaRef.current) {
+      climaRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [navParams?.seccion, loading]);
+
+  const planesEval = useMemo(() => {
+    const { planes = [], eqs = [], lecturas = [] } = data;
+    return evaluarPlanes(planes, eqs, lecturas);
+  }, [data]);
 
   const m = useMemo(() => {
     const { embs = [], eqs = [], ots = [], sols = [], its = [], stk = [], planes = [], varadas = [] } = data;
@@ -146,7 +163,36 @@ export default function Tablero({ onNavigate }) {
     };
   }, [data]);
 
-  const nav = (id) => onNavigate?.(id);
+  const siguienteOficina = useMemo(() => {
+    if (loading || !data.ots) return null;
+    const embId = shell?.embarcacionId;
+    let ots = data.ots || [];
+    let sols = data.sols || [];
+    if (embId) {
+      ots = ots.filter((o) => o.embarcacion_id === embId);
+      sols = sols.filter((s) => s.embarcacion_id === embId);
+    }
+    return sugerirSiguienteAccionOficina({
+      ots,
+      solicitudes: sols,
+      planesEval,
+      stockBajo: m?.stockBajo ?? 0,
+      embarcacionId: embId,
+    });
+  }, [loading, data, planesEval, shell?.embarcacionId, m?.stockBajo]);
+
+  const nav = (id, params) => onNavigate?.(id, params);
+
+  function ejecutarSiguienteOficina() {
+    if (!siguienteOficina) return;
+    if (siguienteOficina.alerta) {
+      navigateFromAlerta(nav, siguienteOficina.alerta, { appMode: "oficina", embarcacionId: shell?.embarcacionId });
+      return;
+    }
+    if (siguienteOficina.destino) {
+      nav(siguienteOficina.destino, siguienteOficina.params);
+    }
+  }
 
   const actionItems = useMemo(() => {
     if (!m || loading) return [];
@@ -290,6 +336,26 @@ export default function Tablero({ onNavigate }) {
     >
       {!loading && m && (
         <>
+          {siguienteOficina && (
+            <Card style={{ marginBottom: 20, padding: 16, border: `1px solid ${tint(C.sky, 35)}`, background: tint(C.sky, 6) }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                <Bot size={18} color={C.sky} />
+                <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.6, textTransform: "uppercase", color: C.sky }}>
+                  Copiloto · Siguiente acción
+                </span>
+                <Sparkles size={14} color={C.steel} style={{ marginLeft: "auto" }} />
+              </div>
+              <div style={{ fontWeight: 800, fontSize: 16, color: C.ink }}>{siguienteOficina.titulo}</div>
+              <div style={{ fontSize: 13, color: C.slate, marginTop: 4, lineHeight: 1.4 }}>{siguienteOficina.detalle}</div>
+              {siguienteOficina.razon && (
+                <div style={{ fontSize: 12, color: C.steel, marginTop: 8, fontStyle: "italic", lineHeight: 1.4 }}>{siguienteOficina.razon}</div>
+              )}
+              <button type="button" onClick={ejecutarSiguienteOficina} style={{ ...primaryBtn, marginTop: 12, display: "inline-flex", alignItems: "center", gap: 6 }}>
+                {siguienteOficina.cta} <ChevronRight size={16} />
+              </button>
+            </Card>
+          )}
+
           {/* ── KPIs + cola de acciones ─────────────────────────────── */}
           <div className="cmms-grid-2" style={{ marginBottom: 24 }}>
             <StatGrid
@@ -318,7 +384,7 @@ export default function Tablero({ onNavigate }) {
           </div>
 
           {/* ── Pronóstico marítimo + brief IA ────────────────────────── */}
-          <div style={{ marginBottom: 24 }}>
+          <div ref={climaRef} style={{ marginBottom: 24 }}>
             <PronosticoWidget
               puertoBase={empresa?.puerto_base}
               empresaId={empresa?.id}

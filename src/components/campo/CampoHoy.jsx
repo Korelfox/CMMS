@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo, useCallback } from "react";
-import { ClipboardList, Wrench, ChevronRight, Bot, Sparkles } from "lucide-react";
+import { ClipboardList, ChevronRight, Bot, Sparkles } from "lucide-react";
 import { useAuth } from "../../lib/auth";
 import { fetchAll } from "../../lib/db";
 import { useShell } from "../../context/ShellContext";
@@ -9,6 +9,8 @@ import { C, tint, lk, PRIORIDADES, ESTADOS_OT } from "../../theme";
 import { Card, Pill, primaryBtn, EmptyState, InlineSpinner } from "../../ui";
 import { sugerirSiguienteAccion, alertasParaEmbarcacion } from "../../lib/campoAccion";
 import { navigateFromAlerta } from "../../lib/alertaNav";
+import TaskCard from "./TaskCard";
+import ProgressStrip from "./ProgressStrip";
 
 function prioTone(p) {
   if (p === "critica") return "red";
@@ -88,7 +90,7 @@ export default function CampoHoy({ onIrTrabajo, onNavigate }) {
   if (loading) return <InlineSpinner label="Cargando turno…" />;
 
   return (
-    <div style={{ padding: "4px 0" }}>
+    <div className="cmms-campo-polish" style={{ padding: "4px 0" }}>
       <div style={{ marginBottom: 16 }}>
         <div style={{ fontSize: 18, fontWeight: 700, color: C.ink }}>
           Buenos días{profile?.nombre ? `, ${profile.nombre.split(" ")[0]}` : ""}
@@ -110,86 +112,60 @@ export default function CampoHoy({ onIrTrabajo, onNavigate }) {
           {siguienteAccion.razon && (
             <div style={{ fontSize: 11.5, color: C.steel, marginTop: 8, fontStyle: "italic", lineHeight: 1.4 }}>{siguienteAccion.razon}</div>
           )}
-          <button type="button" onClick={ejecutarSiguienteAccion} style={{ ...primaryBtn, marginTop: 12, width: "100%", justifyContent: "center" }}>
+          <button type="button" onClick={ejecutarSiguienteAccion} className="cmms-campo-touch" style={{ ...primaryBtn, marginTop: 12, width: "100%", justifyContent: "center" }}>
             {siguienteAccion.cta} <ChevronRight size={16} />
           </button>
         </Card>
       )}
 
-      {enEjecucion && siguienteAccion?.kind !== "ot_continue" && (
-        <Card style={{ marginBottom: 14, padding: 14, border: `1px solid ${tint(C.amber, 35)}`, background: tint(C.amber, 8) }}>
-          <div style={{ fontSize: 12, color: C.slate, marginBottom: 6 }}>OT en ejecución</div>
-          <div style={{ fontWeight: 700, color: C.ink }}>{enEjecucion.folio}</div>
-          <div style={{ fontSize: 13, color: C.slate, marginTop: 4 }}>{enEjecucion.descripcion || enEjecucion.titulo || "—"}</div>
-          <button type="button" onClick={() => onIrTrabajo?.(enEjecucion.id)} style={{ ...primaryBtn, marginTop: 10, width: "100%", justifyContent: "center" }}>
-            Continuar checklist
-          </button>
-        </Card>
-      )}
+      {enEjecucion && siguienteAccion?.kind !== "ot_continue" && (() => {
+        const pasos = Array.isArray(enEjecucion.checklist) ? enEjecucion.checklist : [];
+        const hechos = pasos.filter((p) => p.ok).length;
+        return (
+          <Card style={{ marginBottom: 14, padding: 14, border: `1px solid ${tint(C.amber, 35)}`, background: tint(C.amber, 8) }}>
+            <div style={{ fontSize: 12, color: C.slate, marginBottom: 6 }}>OT en ejecución</div>
+            <div style={{ fontWeight: 700, fontSize: 16, color: C.ink }}>{enEjecucion.folio}</div>
+            <div style={{ fontSize: 14, color: C.slate, marginTop: 4 }}>{enEjecucion.descripcion || enEjecucion.titulo || "—"}</div>
+            {pasos.length > 0 && (
+              <ProgressStrip current={hechos} total={pasos.length} label="Checklist" />
+            )}
+            <button type="button" className="cmms-campo-touch" onClick={() => onIrTrabajo?.(enEjecucion.id)} style={{ ...primaryBtn, marginTop: 6, width: "100%", justifyContent: "center" }}>
+              Continuar checklist
+            </button>
+          </Card>
+        );
+      })()}
 
       {priorizadas.length === 0 && planesEval.length === 0 ? (
         <EmptyState icon={ClipboardList} title="Sin trabajo pendiente" description="No hay OTs abiertas para esta embarcación hoy." />
       ) : (
         <>
           {priorizadas.slice(0, 5).map((ot) => (
-            <button
+            <TaskCard
               key={ot.id}
-              type="button"
+              tone={prioTone(ot.prioridad)}
+              badgeLabel={lk(PRIORIDADES, ot.prioridad)}
+              badge={ot.folio}
+              title={ot.descripcion || "—"}
+              meta={lk(ESTADOS_OT, ot.estado)}
               onClick={() => onIrTrabajo?.(ot.id)}
-              style={{
-                display: "block",
-                width: "100%",
-                textAlign: "left",
-                padding: 12,
-                marginBottom: 8,
-                borderRadius: 10,
-                border: `1px solid ${C.line}`,
-                background: C.surface,
-                cursor: "pointer",
-                fontFamily: "inherit",
-              }}
-            >
-              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-                <Pill tone={prioTone(ot.prioridad)}>{lk(PRIORIDADES, ot.prioridad)}</Pill>
-                <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontWeight: 800, fontSize: 13, color: C.steel }}>{ot.folio}</span>
-              </div>
-              <div style={{ fontSize: 13.5, fontWeight: 600, color: C.ink }}>{ot.descripcion || "—"}</div>
-              <div style={{ fontSize: 12, color: C.slate, marginTop: 4 }}>{lk(ESTADOS_OT, ot.estado)}</div>
-            </button>
+            />
           ))}
 
           {planesEval.slice(0, 3).map((pm) => (
-            <button
+            <TaskCard
               key={pm.plan.id}
-              type="button"
-              onClick={() => nav?.("planpm", { campo: true, filtro: embarcacionId, tab: "plan" })}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 10,
-                width: "100%",
-                textAlign: "left",
-                padding: 12,
-                marginBottom: 8,
-                borderRadius: 10,
-                border: `1px solid ${pm.tone === "red" ? tint(C.red, 30) : C.line}`,
-                background: pm.tone === "red" ? C.redBg : C.yellowBg,
-                cursor: "pointer",
-                fontFamily: "inherit",
-              }}
-            >
-              <Wrench size={16} color={C.steel} />
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 13, fontWeight: 600, color: C.ink }}>PM · {pm.plan.descripcion}</div>
-                <div style={{ fontSize: 11.5, color: C.slate }}>{pm.label}</div>
-              </div>
-              <ChevronRight size={16} color={C.slate} />
-            </button>
+              tone={pm.tone === "red" ? "red" : "amber"}
+              badgeLabel="PM"
+              title={pm.plan.descripcion}
+              subtitle={pm.label}
+              onClick={() => nav?.("planpm", { campo: true, filtro: embarcacionId, tab: "plan", planId: pm.plan.id })}
+            />
           ))}
         </>
       )}
 
-      <button type="button" onClick={() => nav?.("solicitudes", { campo: true })} style={{ ...primaryBtn, marginTop: 8, width: "100%", justifyContent: "center", background: "none", color: C.steel, border: `1px solid ${C.line}` }}>
+      <button type="button" className="cmms-campo-touch" onClick={() => nav?.("solicitudes", { campo: true })} style={{ ...primaryBtn, marginTop: 8, width: "100%", justifyContent: "center", background: "none", color: C.steel, border: `1px solid ${C.line}` }}>
         + Solicitud rápida
       </button>
     </div>

@@ -46,6 +46,14 @@ export const OT_BUILTIN_VIEWS = [
 /** Vistas rápidas integradas — Plan PM (filtro por nave). */
 export const PM_BUILTIN_VIEWS = [
   { id: "__flota", name: "Toda la flota", builtin: true, filters: { filtro: "all" } },
+  { id: "__vencidos", name: "PM vencidos", builtin: true, filters: { filtro: "all", fEstado: "red" } },
+];
+
+/** Vistas rápidas integradas — Solicitudes. */
+export const SOL_BUILTIN_VIEWS = [
+  { id: "__pendiente", name: "Pendientes", builtin: true, filters: { filtro: "pendiente" } },
+  { id: "__sla_vencido", name: "SLA vencido", builtin: true, filters: { filtro: "pendiente", slaVencido: true } },
+  { id: "__convertidas", name: "Convertidas", builtin: true, filters: { filtro: "convertida" } },
 ];
 
 export function mergeViews(builtin = [], saved = []) {
