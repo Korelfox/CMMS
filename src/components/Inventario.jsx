@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback, useMemo } from "react";
 import { Package, Plus, Trash2, Download, X, Pencil, Check, Tag, Search, ChevronDown, ChevronRight, List, FolderTree, Layers, Columns3, Table2, AlertTriangle } from "lucide-react";
 import { useAuth } from "../lib/auth";
+import { useShellOptional } from "../context/ShellContext";
 import { fetchAll, insertRow, updateRow, deleteRow, upsertRow, logActivity } from "../lib/db";
 import { C, clp, isAdmin, canOperate, tint } from "../theme";
 import { buildEquipoTree } from "../lib/equipTree";
@@ -102,6 +103,8 @@ export default function Inventario({ navParams }) {
   const puedeBorrar = isAdmin(profile?.rol);
   const isMobile = useMediaQuery("(max-width: 1024px)");
   const isCampo = !!navParams?.campo;
+  const shellCtx = useShellOptional();
+  const embarcacionId = shellCtx?.embarcacionId ?? null;
   const isTabla = vista === "tabla";
   const NCOLS = 12 + (puedeOperar ? 1 : 0) + (puedeBorrar ? 1 : 0);
 
@@ -165,6 +168,15 @@ export default function Inventario({ navParams }) {
     stockEntries.forEach((s) => { if (s.bodega_id) m.set(skey(s.item_id, s.bodega_id), Number(s.cantidad) || 0); });
     return m;
   }, [stockEntries]);
+
+  const panolActivo = useMemo(
+    () => (isCampo && embarcacionId ? bodegas.find((b) => b.tipo === "a_bordo" && b.embarcacion_id === embarcacionId) ?? null : null),
+    [isCampo, bodegas, embarcacionId],
+  );
+  const stockBordo = useCallback(
+    (itemId) => (panolActivo ? stockMap.get(skey(itemId, panolActivo.id)) ?? 0 : 0),
+    [panolActivo, stockMap],
+  );
 
   async function setCantidadInv(item_id, bodega_id, rawVal) {
     const v = Math.max(0, +rawVal || 0);
@@ -443,11 +455,20 @@ export default function Inventario({ navParams }) {
 
   const showFullscreen = (isMobile || isCampo) && showMobileDetail && selectedItem;
 
+  const estadoCampo = (item) => estadoStockOf(stockBordo(item.id), item.stock_min, item.stock_max);
+  const listaCampo = isCampo
+    ? listaOrdenada.filter((i) => (!soloConStock || stockBordo(i.id) > 0) && (filtroStock === "all" || estadoCampo(i).key === filtroStock))
+    : [];
+
   if (isCampo) {
     if (showFullscreen) {
       return (
         <DetailShell title={selectedItem.codigo} subtitle={selectedItem.descripcion} onBack={cerrarMobileDetail} campo backLabel="Inventario">
-          <InventarioDetailPanel {...detailProps} />
+          <InventarioDetailPanel
+            {...detailProps}
+            item={{ ...selectedItem, total: stockBordo(selectedItem.id) }}
+            bodegas={panolActivo ? [panolActivo] : []}
+          />
         </DetailShell>
       );
     }
@@ -456,10 +477,19 @@ export default function Inventario({ navParams }) {
       <div className="cmms-campo-polish" style={{ padding: "4px 0" }}>
         <div style={{ fontSize: 17, fontWeight: 700, color: C.ink, marginBottom: 4 }}>Inventario</div>
         <div style={{ fontSize: 13, color: C.slate, marginBottom: 14 }}>
-          Stock a bordo · {listaOrdenada.length} ítem{listaOrdenada.length !== 1 ? "s" : ""}
+          Stock a bordo · {listaCampo.length} ítem{listaCampo.length !== 1 ? "s" : ""}
         </div>
 
         <ErrorBanner onRetry={cargar}>{error}</ErrorBanner>
+
+        {!panolActivo && embarcacionId && (
+          <div style={{ display: "flex", gap: 10, alignItems: "flex-start", background: tint(C.amber, 10), borderRadius: 10, padding: "12px 14px", marginBottom: 12, border: `1px solid ${tint(C.amber, 35)}` }}>
+            <AlertTriangle size={16} color={C.amber} style={{ flexShrink: 0, marginTop: 2 }} />
+            <div style={{ fontSize: 13, color: C.ink, lineHeight: 1.5 }}>
+              Esta nave no tiene pañol asignado. Crea uno en <strong>Oficina → Almacén → Bodegas</strong>.
+            </div>
+          </div>
+        )}
 
         <div style={{ position: "relative", marginBottom: 12 }}>
           <Search size={18} color={C.slate} style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)" }} />
@@ -478,11 +508,12 @@ export default function Inventario({ navParams }) {
           <FilterBtn active={filtroStock === "revisar"} onClick={() => setFiltroStock("revisar")} color={C.amber}>Revisar</FilterBtn>
         </div>
 
-        {listaOrdenada.length === 0 ? (
+        {listaCampo.length === 0 ? (
           <EmptyState icon={Package} title="Sin ítems" description="No hay repuestos que coincidan con la búsqueda." />
         ) : (
-          listaOrdenada.slice(0, 50).map((item) => {
-            const st = estadoStock(item);
+          listaCampo.slice(0, 50).map((item) => {
+            const bordoQty = stockBordo(item.id);
+            const st = estadoStockOf(bordoQty, item.stock_min, item.stock_max);
             const tone = st.key === "bajo" ? "red" : st.key === "revisar" ? "amber" : "steel";
             return (
               <TaskCard
@@ -492,7 +523,7 @@ export default function Inventario({ navParams }) {
                 badgeLabel={item.abc ? `Clase ${item.abc}` : undefined}
                 title={item.descripcion || item.codigo}
                 subtitle={item.categoria || undefined}
-                meta={`Stock ${item.total} ${item.unidad || "un"} · ${st.label}`}
+                meta={`Stock ${bordoQty} ${item.unidad || "un"} · ${st.label}`}
                 onClick={() => seleccionarItem(item.id)}
               />
             );
