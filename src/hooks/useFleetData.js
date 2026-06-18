@@ -18,7 +18,6 @@ export function useFleetData(spec) {
     )
     .join("|");
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   const cargar = useCallback(async (forzar = false) => {
     if (forzar) invalidateCache(...spec.map((s) => (typeof s === "string" ? s : s.tabla)));
     setLoading(true);
@@ -41,7 +40,9 @@ export function useFleetData(spec) {
     } finally {
       setLoading(false);
     }
-  }, [specKey]); // spec is always a module-level const; specKey is its stable proxy
+    // spec is always a module-level const; specKey is its stable proxy
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [specKey]);
 
   useEffect(() => { cargar(); }, [cargar]);
 

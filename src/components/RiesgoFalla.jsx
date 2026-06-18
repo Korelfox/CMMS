@@ -1,7 +1,6 @@
 import React, { useState, useMemo } from "react";
 import {
-  ShieldAlert, ChevronDown, ChevronRight, AlertTriangle, CheckCircle2,
-  AlertCircle, TrendingDown, Wrench,
+  ChevronDown, ChevronRight, AlertTriangle, CheckCircle2, AlertCircle,
 } from "lucide-react";
 import { useFleetData } from "../hooks/useFleetData";
 import { evaluarPlanes } from "../lib/pm";
@@ -28,10 +27,12 @@ export default function RiesgoFalla({ onNavigate }) {
   const [zonaFiltro, setZonaFiltro] = useState("todas");
   const [expanded,   setExpanded]   = useState(null);
 
-  const embarcaciones = raw?.embarcaciones    || [];
-  const planes        = raw?.planes_pm        || [];
-  const equipos       = raw?.equipos          || [];
-  const ots           = raw?.ordenes_trabajo  || [];
+  const { embarcaciones, planes, equipos, ots } = useMemo(() => ({
+    embarcaciones: raw?.embarcaciones   || [],
+    planes:        raw?.planes_pm       || [],
+    equipos:       raw?.equipos         || [],
+    ots:           raw?.ordenes_trabajo || [],
+  }), [raw]);
 
   const hoy = useMemo(() => new Date().toISOString().slice(0, 10), []);
 
