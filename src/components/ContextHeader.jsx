@@ -422,29 +422,27 @@ export default function ContextHeader({
             </button>
           )}
 
-          {isOficina && (
-            <button
-              type="button"
-              className="cmms-theme-toggle"
-              onClick={onToggleTema}
-              title={dark ? "Modo día" : "Modo noche"}
-              aria-label="Cambiar tema"
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                justifyContent: "center",
-                width: 36,
-                height: 36,
-                borderRadius: 8,
-                border: `1px solid ${C.line}`,
-                background: C.surface,
-                color: dark ? C.gold : C.steel,
-                cursor: "pointer",
-              }}
-            >
-              {dark ? <Sun size={16} /> : <Moon size={16} />}
-            </button>
-          )}
+          <button
+            type="button"
+            className="cmms-theme-toggle"
+            onClick={onToggleTema}
+            title={dark ? "Modo día" : "Modo noche"}
+            aria-label="Cambiar tema"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: 36,
+              height: 36,
+              borderRadius: 8,
+              border: `1px solid ${C.line}`,
+              background: C.surface,
+              color: dark ? C.gold : C.steel,
+              cursor: "pointer",
+            }}
+          >
+            {dark ? <Sun size={16} /> : <Moon size={16} />}
+          </button>
         </div>
       </div>
 

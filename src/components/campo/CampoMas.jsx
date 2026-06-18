@@ -1,7 +1,7 @@
 import React from "react";
-import { Inbox, Package, RefreshCw, ChevronRight, Anchor, CalendarClock } from "lucide-react";
+import { Inbox, Package, RefreshCw, ChevronRight, Anchor, CalendarClock, Sun, Moon } from "lucide-react";
 import { C, tint } from "../../theme";
-import { Card, primaryBtn } from "../../ui";
+import { Card, primaryBtn, ghostBtn } from "../../ui";
 const LINKS = [
   { id: "prezarpe", label: "Prezarpe", sub: "Checklist antes de zarpar", icon: Anchor, tone: C.cyan },
   { id: "solicitudes", label: "Nueva solicitud", sub: "Reportar falla o pedido", icon: Inbox, tone: C.sky },
@@ -9,7 +9,7 @@ const LINKS = [
   { id: "planpm", label: "Plan PM", sub: "Mantenimiento preventivo", icon: CalendarClock, tone: C.green },
 ];
 
-export default function CampoMas({ onSync, pendientes, sincronizando, online, onNavigate }) {
+export default function CampoMas({ onSync, pendientes, sincronizando, online, onNavigate, dark = false, onToggleTema }) {
 
   return (
     <div className="cmms-campo-polish" style={{ padding: "4px 0" }}>
@@ -67,6 +67,26 @@ export default function CampoMas({ onSync, pendientes, sincronizando, online, on
           {sincronizando ? "Sincronizando…" : "Sincronizar ahora"}
         </button>
       </Card>
+
+      {onToggleTema && (
+        <button
+          type="button"
+          className="cmms-campo-touch"
+          onClick={onToggleTema}
+          style={{
+            ...ghostBtn,
+            width: "100%",
+            justifyContent: "center",
+            marginTop: 12,
+            padding: "12px 14px",
+            borderRadius: 12,
+            gap: 8,
+          }}
+        >
+          {dark ? <Sun size={18} color={C.gold} /> : <Moon size={18} color={C.steel} />}
+          {dark ? "Modo día" : "Modo noche"}
+        </button>
+      )}
     </div>
   );
 }

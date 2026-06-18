@@ -39,6 +39,8 @@ export default function CampoShell({
   pendientes,
   sincronizando,
   online,
+  dark = false,
+  onToggleTema,
 }) {
   const { embarcacionId } = useShell();
   const [tab, setTab] = useState(readTab);
@@ -154,6 +156,8 @@ export default function CampoShell({
                 pendientes={pendientes}
                 sincronizando={sincronizando}
                 online={online}
+                dark={dark}
+                onToggleTema={onToggleTema}
               />
             )}
           </Suspense>

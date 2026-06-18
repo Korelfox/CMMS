@@ -508,6 +508,8 @@ function AppShellLayout({
               pendientes={pendientes}
               sincronizando={sincronizando}
               online={online}
+              dark={dark}
+              onToggleTema={toggleTema}
             />
           ) : (
           <ErrorBoundary key={view}>
@@ -629,6 +631,7 @@ function AppShellLayout({
           .cmms-topbar, .cmms-context-header { padding: 8px 14px; }
           .cmms-context-breadcrumb { display: none; }
           .cmms-refresh-cfg, .cmms-theme-toggle { display: none !important; }
+          .cmms-campo-mode .cmms-theme-toggle { display: inline-flex !important; }
           .cmms-offline-banner { padding: 8px 14px !important; }
           .cmms-work-area { padding: 16px 12px 40px; }
           .cmms-campo-mode .cmms-work-area { padding: 12px 12px 0; overflow-x: hidden; }
