@@ -1,13 +1,20 @@
-import React, { useEffect, useState, useCallback, useMemo } from "react";
+import React, { useState, useMemo } from "react";
 import {
   ShieldAlert, ChevronDown, ChevronRight, AlertTriangle, CheckCircle2,
   AlertCircle, TrendingDown, Wrench,
 } from "lucide-react";
-import { fetchAll } from "../lib/db";
+import { useFleetData } from "../hooks/useFleetData";
 import { evaluarPlanes } from "../lib/pm";
 import { riesgoFlota } from "../lib/riesgo";
 import { C, archivo, num, tint } from "../theme";
 import { Card, PageHead, Pill, Empty, ErrorBanner, InlineSpinner } from "../ui";
+
+const SPEC = [
+  { tabla: "embarcaciones", opts: { order: { col: "codigo", asc: true } } },
+  "equipos",
+  "planes_pm",
+  "ordenes_trabajo",
+];
 
 const ZONA_META = {
   roja:    { tone: "red",    label: "Riesgo alto",  icon: AlertCircle },
@@ -16,30 +23,15 @@ const ZONA_META = {
 };
 
 export default function RiesgoFalla({ onNavigate }) {
-  const [embarcaciones, setEmbarcaciones] = useState([]);
-  const [planes,        setPlanes]        = useState([]);
-  const [equipos,       setEquipos]       = useState([]);
-  const [ots,           setOts]           = useState([]);
-  const [loading,       setLoading]       = useState(true);
-  const [error,         setError]         = useState(null);
-  const [embFiltro,     setEmbFiltro]     = useState("todas");
-  const [zonaFiltro,    setZonaFiltro]    = useState("todas");
-  const [expanded,      setExpanded]      = useState(null);
+  const [raw, loading, error, reload] = useFleetData(SPEC);
+  const [embFiltro,  setEmbFiltro]  = useState("todas");
+  const [zonaFiltro, setZonaFiltro] = useState("todas");
+  const [expanded,   setExpanded]   = useState(null);
 
-  const cargar = useCallback(async () => {
-    setLoading(true); setError(null);
-    try {
-      const [embs, pls, eqs, otsAll] = await Promise.all([
-        fetchAll("embarcaciones", { order: { col: "codigo", asc: true } }),
-        fetchAll("planes_pm"),
-        fetchAll("equipos"),
-        fetchAll("ordenes_trabajo"),
-      ]);
-      setEmbarcaciones(embs); setPlanes(pls); setEquipos(eqs); setOts(otsAll);
-    } catch (e) { setError("No se pudieron cargar los datos. " + e.message); }
-    finally { setLoading(false); }
-  }, []);
-  useEffect(() => { cargar(); }, [cargar]);
+  const embarcaciones = raw?.embarcaciones    || [];
+  const planes        = raw?.planes_pm        || [];
+  const equipos       = raw?.equipos          || [];
+  const ots           = raw?.ordenes_trabajo  || [];
 
   const hoy = useMemo(() => new Date().toISOString().slice(0, 10), []);
 
@@ -83,7 +75,7 @@ export default function RiesgoFalla({ onNavigate }) {
         title="Riesgo de Falla"
         sub="Score compuesto 0-100 por equipo: estado PM (vencido/próximo), proximidad al MTBF histórico y frecuencia de fallas correctivas recientes. Criticidad A amplifica × 1.4."
       />
-      <ErrorBanner onRetry={cargar}>{error}</ErrorBanner>
+      <ErrorBanner onRetry={reload}>{error}</ErrorBanner>
 
       {/* KPIs */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14, marginBottom: 16 }}>

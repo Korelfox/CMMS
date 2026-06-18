@@ -6,7 +6,6 @@
 //  no duplicarse entre los dos constructores de contexto.
 // ============================================================
 
-import { riesgoFlota } from "./riesgo";
 import { coberturaCriticos, scoreBacklog, diasAbierta } from "./operacional";
 import { analizarDesgasteFlota } from "./desgaste";
 import { estadoPresupuesto } from "./presupuesto";
@@ -95,13 +94,15 @@ export function topRiesgo(ranking = [], embarcaciones = [], n = 5) {
 
 // ── Contexto para Copiloto de Flota ─────────────────────────────────────────
 // Schema compacto optimizado para conversación: resume PMs, OTs, riesgo e
-// inventario. La función calcula el ranking de riesgo internamente.
+// inventario. Recibe riesgoRanking pre-calculado por el componente (igual que
+// construirContextoInforme) para evitar divergencia entre vistas.
 
 export function construirContextoCopiloto({
   empresa        = null,
   embarcaciones  = [],
   equipos        = [],
   planesEval     = [],
+  riesgoRanking  = [],
   ots            = [],
   items          = [],
   stock          = [],
@@ -130,8 +131,7 @@ export function construirContextoCopiloto({
   ).length;
 
   // Riesgo
-  const ranking = riesgoFlota({ planesEval, ots, equipos, hoy });
-  const topEquiposRiesgo = ranking.slice(0, 8).map((r) => {
+  const topEquiposRiesgo = riesgoRanking.slice(0, 8).map((r) => {
     const emb = embsById.get(r.equipo?.embarcacion_id);
     return {
       equipo:     r.equipo?.id_visible,
@@ -176,8 +176,8 @@ export function construirContextoCopiloto({
       correctivasUltimos30d,
     },
     riesgo: {
-      enZonaRoja:      ranking.filter((r) => r.zona === "roja").length,
-      enZonaAmarilla:  ranking.filter((r) => r.zona === "amarilla").length,
+      enZonaRoja:      riesgoRanking.filter((r) => r.zona === "roja").length,
+      enZonaAmarilla:  riesgoRanking.filter((r) => r.zona === "amarilla").length,
       topEquiposRiesgo,
     },
     inventario: {

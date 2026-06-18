@@ -5,6 +5,7 @@ import {
 import { useFleetData } from "../hooks/useFleetData";
 import { supabase } from "../lib/supabase";
 import { evaluarPlanes } from "../lib/pm";
+import { riesgoFlota } from "../lib/riesgo";
 import { construirContextoCopiloto } from "../lib/contextoIA";
 import { renderMarkdown } from "./Markdown";
 import { useAuth } from "../lib/auth";
@@ -46,17 +47,20 @@ export default function CopilotoFlota() {
 
   const data = useMemo(() => {
     if (!raw) return null;
+    const planesEval    = evaluarPlanes(raw.planes_pm, raw.equipos);
+    const riesgoRanking = riesgoFlota({ planesEval, ots: raw.ordenes_trabajo, equipos: raw.equipos, hoy });
     return {
       embs:       raw.embarcaciones,
       equipos:    raw.equipos,
-      planesEval: evaluarPlanes(raw.planes_pm, raw.equipos),
+      planesEval,
+      riesgoRanking,
       ots:        raw.ordenes_trabajo,
       items:      raw.inventario_items,
       destinos:   raw.inventario_item_destinos,
       stock:      raw.stock,
       lecturas:   raw.lecturas_horometro,
     };
-  }, [raw]);
+  }, [raw, hoy]);
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, streamText]);
 
   const hoy = useMemo(() => new Date().toISOString().slice(0, 10), []);
@@ -68,6 +72,7 @@ export default function CopilotoFlota() {
       embarcaciones: data.embs,
       equipos:       data.equipos,
       planesEval:    data.planesEval,
+      riesgoRanking: data.riesgoRanking,
       ots:           data.ots,
       items:         data.items,
       destinos:      data.destinos,

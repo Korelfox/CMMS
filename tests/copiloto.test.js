@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { construirResumenFlota } from "../src/lib/copiloto.js";
+import { riesgoFlota } from "../src/lib/riesgo.js";
 
 const HOY  = "2026-06-13";
 const EMB1 = "emb-1";
@@ -87,7 +88,8 @@ describe("construirResumenFlota", () => {
   });
 
   it("ranking de riesgo incluye score y zona", () => {
-    const r = construirResumenFlota({ empresa, embarcaciones, equipos, planesEval, ots, items, stock, destinos, hoy: HOY });
+    const riesgoRanking = riesgoFlota({ planesEval, ots, equipos, hoy: HOY });
+    const r = construirResumenFlota({ empresa, embarcaciones, equipos, planesEval, riesgoRanking, ots, items, stock, destinos, hoy: HOY });
     expect(r.riesgo.topEquiposRiesgo.length).toBeGreaterThan(0);
     const top = r.riesgo.topEquiposRiesgo[0];
     expect(top).toHaveProperty("score");
