@@ -6,9 +6,8 @@ import { C, isAdmin, canOperate, estadoLabel, estadoTone, num, tint, shadow } fr
 import { buildEquipoTree } from "../lib/equipTree";
 import { useArbolColapsable } from "../lib/arbolColapsable";
 import {
-  PLANTILLA_PESQUERA, PLANTILLA_PESQUERA_INICIAL,
+  PLANTILLA_PESQUERA,
   nodoIncluido, contarNodosPlantilla, contarRepuestosPlantilla, contarPlanesPMPlantilla,
-  contarNodosInicial, contarRepuestosInicial, contarPlanesPMInicial,
   TIPO_NODO_META, datosOperacionalesDesdeNodo, collectFuentesPlantilla,
 } from "../lib/plantillaPesquera";
 import { analizarBrechas } from "../lib/equipoBrechas";
@@ -332,15 +331,13 @@ export default function Equipos({ navParams }) {
     const targetId = filtro !== "all" ? filtro : (embarcaciones.length === 1 ? embarcaciones[0].id : null);
     const emb = embarcaciones.find((e) => e.id === targetId);
     if (!emb) { setError("Selecciona primero una embarcación en los filtros para precargar la plantilla."); return; }
-    const esInicial = modo === "inicial";
-    const plantillaActiva = esInicial ? PLANTILLA_PESQUERA_INICIAL : PLANTILLA_PESQUERA;
-    const modoEfectivo   = esInicial ? "completo" : modo;
-    const totalNodos = esInicial ? contarNodosInicial()     : contarNodosPlantilla(modoEfectivo);
-    const totalReps  = esInicial ? contarRepuestosInicial() : contarRepuestosPlantilla(modoEfectivo);
-    const totalPM    = esInicial ? contarPlanesPMInicial()  : contarPlanesPMPlantilla(modoEfectivo);
-    const etiqueta = esInicial
-      ? "INICIAL (8 sistemas esenciales: motor, generador, gobierno, combustible, CI, achique, GMDSS y salvamento)"
-      : modoEfectivo === "basico" ? "ESENCIAL (solo componentes básicos)" : "COMPLETA (incluye overhaul y mecánica profunda)";
+    const modoEfectivo = modo;
+    const totalNodos = contarNodosPlantilla(modoEfectivo);
+    const totalReps  = contarRepuestosPlantilla(modoEfectivo);
+    const totalPM    = contarPlanesPMPlantilla(modoEfectivo);
+    const etiqueta = modoEfectivo === "basico"
+      ? "ESENCIAL (componentes del día a día: filtros, aceite, impeller, baterías…)"
+      : "COMPLETA (incluye overhaul y mecánica profunda)";
     if (!window.confirm(`¿Precargar la plantilla ${etiqueta} (ISO 14224) en "${emb.nombre}"?\n\nSe crearán hasta ${totalNodos} nodos de equipos (sistemas → subsistemas → componentes → sensores), hasta ${totalReps} repuestos (SKU OEM/Alternativo/Genérico) en el Inventario y hasta ${totalPM} planes preventivos precargados, todo enlazado a su componente.\n\nLos nodos que ya existan en esta nave NO se duplican: puedes ejecutarla otra vez (incluso cambiando a Completa) para completar lo que falte. Puedes borrar después lo que no aplique.`)) return;
 
     setPrecargando(true); setError(null);
@@ -441,10 +438,10 @@ export default function Equipos({ navParams }) {
 
     const sincOriginal = () => setOriginal((o) => { const n = { ...o }; creados.forEach((c) => { n[c.id] = { ...c }; }); return n; });
     try {
-      for (const sis of plantillaActiva) await insertarNodo(sis, null, sis.nom);
+      for (const sis of PLANTILLA_PESQUERA) await insertarNodo(sis, null, sis.nom);
 
       // horas_fuente_id: hermanos (PROP-RED ← PROP-MTR) y reglas (STEER/FISH-VIR ← HPU-MTR).
-      for (const { cod, fuente } of collectFuentesPlantilla(plantillaActiva)) {
+      for (const { cod, fuente } of collectFuentesPlantilla()) {
         const nodeId   = existentesNave.get(`${emb.codigo}-${cod}`);
         const fuenteId = existentesNave.get(`${emb.codigo}-${fuente}`);
         if (!nodeId || !fuenteId) continue;
@@ -456,7 +453,7 @@ export default function Equipos({ navParams }) {
 
       setEquipos((p) => [...p, ...creados]);
       sincOriginal();
-      logActivity(profile, "Precargar plantilla pesquera", `${emb.nombre} · modo ${modo} · ${creados.length} nodos · ${itemsCreados.length} repuestos · ${planesCreados.length} planes PM · plantilla ${esInicial ? "inicial" : "pesquera"}`);
+      logActivity(profile, "Precargar plantilla pesquera", `${emb.nombre} · modo ${modo} · ${creados.length} nodos · ${itemsCreados.length} repuestos · ${planesCreados.length} planes PM`);
     } catch (e) {
       setError("Se interrumpió la precarga: " + e.message + ". Recarga la página para ver lo que sí se creó.");
       setEquipos((p) => [...p, ...creados]); sincOriginal();
@@ -876,17 +873,12 @@ export default function Equipos({ navParams }) {
               <div style={{ fontSize: 12, color: C.slate, marginTop: 2 }}>
                 {lista
                   ? <>Selecciona una <strong>nave</strong> en los filtros de arriba para precargar su jerarquía.</>
-                  : <>Genera el árbol de equipos con repuestos OEM/Alt./Genérico y planes PM para <strong>{embName(navePrecarga)}</strong>. <strong>Inicial</strong> ≈ {contarNodosInicial()} nodos (8 sistemas esenciales para partir); <strong>Esencial</strong> ≈ {contarNodosPlantilla("basico")} nodos (lo del día a día); <strong>Completa</strong> ≈ {contarNodosPlantilla("completo")} nodos (incluye overhaul). No duplica lo que ya exista; puedes ampliar cuando quieras.</>}
+                  : <>Genera el árbol de equipos con repuestos OEM/Alt./Genérico y planes PM para <strong>{embName(navePrecarga)}</strong>. <strong>Esencial</strong> ≈ {contarNodosPlantilla("basico")} nodos (filtros, aceite, impeller, ánodos, baterías…, lo del día a día); <strong>Completa</strong> ≈ {contarNodosPlantilla("completo")} nodos (incluye overhaul y mecánica profunda). No duplica lo que ya exista; puedes ampliar cuando quieras.</>}
               </div>
             </div>
             <div style={{ display: "flex", gap: 8, flexShrink: 0, flexWrap: "wrap" }}>
-              <button onClick={() => precargarPlantilla("inicial")} disabled={precargando || lista}
-                title={`Carga 8 sistemas esenciales: motor principal, generador, gobierno, combustible, contraincendios, achique, GMDSS y salvamento. ≈ ${contarNodosInicial()} nodos. Ideal para empezar sin abrumar.`}
-                style={{ ...ghostBtn, fontSize: 12.5, padding: "8px 14px", opacity: lista ? 0.5 : 1 }}>
-                {precargando ? "Precargando…" : <><Layers size={14} /> Precargar inicial</>}
-              </button>
               <button onClick={() => precargarPlantilla("basico")} disabled={precargando || lista}
-                title="Carga los componentes esenciales (filtros, aceite, impeller, ánodos, inyectores, baterías…) de todos los sistemas ISO 14224."
+                title={`Carga los componentes esenciales de los ${PLANTILLA_PESQUERA.length} sistemas ISO 14224 (filtros, aceite, impeller, ánodos, inyectores, baterías…). ≈ ${contarNodosPlantilla("basico")} nodos. Ideal para partir.`}
                 style={{ ...ghostBtn, fontSize: 12.5, padding: "8px 14px", opacity: lista ? 0.5 : 1 }}>
                 {precargando ? "Precargando…" : <><Layers size={14} /> Precargar esencial</>}
               </button>
