@@ -129,7 +129,7 @@ export default function Empresas() {
       setError(`Para confirmar, escribe exactamente el nombre de la empresa: "${empresaLimp?.nombre || ""}".`);
       return;
     }
-    if (!window.confirm(`ÚLTIMA CONFIRMACIÓN\n\nVas a BORRAR todos los datos operativos de mantención de "${empresaLimp.nombre}":\nequipos, OTs, inventario, planes PM e historial, compras, criticidad/CGM/Weibull, mareas, fallas, documentos, prezarpes, solicitudes, programación y auditorías.\n\nSe conservan: la empresa, sus usuarios, embarcaciones, bodegas, catálogos y la bitácora.\n\nEsta acción NO se puede deshacer. ¿Continuar?`)) return;
+    if (!window.confirm(`ÚLTIMA CONFIRMACIÓN\n\nVas a BORRAR COMPLETAMENTE el CMMS de "${empresaLimp.nombre}":\nembarcaciones, bodegas, equipos, OTs, inventario, planes PM e historial, compras, criticidad/CGM/Weibull, mareas, fallas, documentos, prezarpes, solicitudes, programación y auditorías.\n\nSe conservan únicamente: la empresa, sus usuarios, catálogos y la bitácora.\n\nEsta acción NO se puede deshacer. ¿Continuar?`)) return;
     setLimpiando(true); setError(null); setLimpMsg(null);
     try {
       const { data, error: e } = await supabase.rpc("app_limpiar_flota", { p_empresa: empresaLimp.id });
@@ -337,11 +337,11 @@ export default function Empresas() {
           <div style={{ fontWeight: 800, fontSize: 15, color: C.red }}>Zona peligrosa · Limpiar CMMS</div>
         </div>
         <div style={{ fontSize: 12.5, color: C.slate, marginBottom: 14, lineHeight: 1.55 }}>
-          Borra <strong>todos los datos operativos de mantención</strong> de una flota: equipos, órdenes de trabajo,
+          Borra <strong>completamente</strong> el CMMS de una flota: embarcaciones, bodegas, equipos, órdenes de trabajo,
           inventario y stock, compras, planes PM e historial, criticidad/CGM/Weibull, mareas y capturas, fallas,
           documentos, prezarpes, solicitudes, programación y auditorías.
-          <br />Se <strong>conservan</strong>: la empresa, sus usuarios, embarcaciones, bodegas, especies, tipos de
-          documento y la bitácora. <strong style={{ color: C.red }}>Esta acción no se puede deshacer.</strong>
+          <br />Se <strong>conservan únicamente</strong>: la empresa, sus usuarios, catálogos y la bitácora.{" "}
+          <strong style={{ color: C.red }}>Esta acción no se puede deshacer.</strong>
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto", gap: 10, alignItems: "end" }}>
           <Field label="Flota a limpiar">
