@@ -21,6 +21,7 @@ import OTKanban from "./ot/OTKanban";
 import OTValorizarPanel from "./ot/OTValorizarPanel";
 import OTCampoWizard from "./ot/OTCampoWizard";
 import DetailShell from "./detail/DetailShell";
+import CampoCopiloto from "./campo/CampoCopiloto";
 import TaskCard from "./campo/TaskCard";
 import SplitDetailLayout from "./detail/SplitDetailLayout";
 import SavedViewsBar from "./SavedViewsBar";
@@ -41,7 +42,7 @@ const VISTAS = [
   { id: "valorizar", label: "Valorizar", icon: DollarSign },
 ];
 
-export default function OrdenesTrabajo({ navParams }) {
+export default function OrdenesTrabajo({ navParams, onNavigate }) {
   const { profile } = useAuth();
   const shell = useShellOptional();
   const online = useOnline();
@@ -571,9 +572,13 @@ export default function OrdenesTrabajo({ navParams }) {
           />
         ) : (
           <>
+            <CampoCopiloto
+              onIrOT={(id) => { if (id) seleccionarOT(id, "ejecucion"); }}
+              onNavigate={onNavigate}
+            />
             <div style={{ fontSize: 17, fontWeight: 700, color: C.ink, marginBottom: 4 }}>Trabajo</div>
             <div style={{ fontSize: 13, color: C.slate, marginBottom: 14 }}>
-              {listaCampo.length} OT{listaCampo.length !== 1 ? "s" : ""} abierta{listaCampo.length !== 1 ? "s" : ""} · toca para ejecutar
+              {listaCampo.length} OT{listaCampo.length !== 1 ? "s" : ""} · ejecutar checklist y cierre
             </div>
             {listaCampo.length === 0 ? (
               <EmptyState icon={ClipboardList} title="Sin OTs abiertas" description="No hay órdenes pendientes para esta embarcación." />
