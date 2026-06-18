@@ -7,11 +7,11 @@ import ErrorBoundary from "../ErrorBoundary";
 import CampoHoy from "./CampoHoy";
 import CampoMas from "./CampoMas";
 import CampoActivos from "./CampoActivos";
+import CampoHorometros from "./CampoHorometros";
 import { useShell } from "../../context/ShellContext";
 
 const OrdenesTrabajo = lazy(() => import("../OrdenesTrabajo"));
 const Solicitudes = lazy(() => import("../Solicitudes"));
-const Horometros = lazy(() => import("../Horometros"));
 const Inventario = lazy(() => import("../Inventario"));
 const PlanPM = lazy(() => import("../PlanPM"));
 const Prezarpe = lazy(() => import("../Prezarpe"));
@@ -150,10 +150,9 @@ export default function CampoShell({
               />
             )}
             {tab === "horometros" && (
-              <Horometros
+              <CampoHorometros
                 key={`hor-campo-${refreshTick}`}
                 navParams={navParamsCampo}
-                onNavigate={campoNavigate}
               />
             )}
             {tab === "mas" && (
