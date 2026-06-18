@@ -234,7 +234,7 @@ export default function Tablero({ onNavigate, navParams }) {
       });
     }
     return items;
-  }, [m, loading]);
+  }, [m, loading]); // eslint-disable-line react-hooks/exhaustive-deps -- nav (router) es estable
 
   const heroVariant = !m ? "ok" : m.totalAlertas === 0 ? "ok" : m.totalAlertas <= 3 ? "warn" : "critical";
 

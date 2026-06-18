@@ -3,7 +3,7 @@ import { Inbox, Plus, Trash2, ArrowRight, X, Clock } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { fetchAll, insertRow, updateRow, deleteRow, logActivity } from "../lib/db";
 import {
-  C, archivo, isAdmin, canOperate, tint,
+  C, archivo, canOperate, tint,
   PRIORIDADES, ESTADOS_SOLICITUD, SLA_HORAS, lk, tn,
 } from "../theme";
 import {
@@ -56,7 +56,6 @@ export default function Solicitudes({ navParams }) {
   const [selEq, setSelEq] = useState(null);
   const rowRef = useRef(null);
   const puedeOperar = canOperate(profile?.rol);
-  const puedeBorrar = isAdmin(profile?.rol);
 
   function blank() {
     return { solicitante: profile?.nombre || "", embarcacion_id: "", sistema: "", descripcion: "", prioridad: "media", fecha: HOY() };

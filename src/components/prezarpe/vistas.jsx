@@ -1,13 +1,10 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { Ship, Anchor, Fuel, Droplet, Gauge, Check, X, AlertTriangle, ArrowLeft, Camera, ClipboardCheck, Waves, CloudOff, Clock, Trash2, Pencil, Plus, RotateCcw, Wrench, Cloud, Wind, ExternalLink } from "lucide-react";
 import {
   evaluarSemáforosOperacionales, precipProximasHoras, referenciasMareaOficial,
   etiquetaEventoMarea, analizarMarea, direccionViento,
 } from "../../lib/clima";
-import { insertRow, updateRow, deleteRow, logActivity } from "../../lib/db";
-import { useOnline, cacheTable, getCached, queueInsert, nuevoId } from "../../lib/offline";
-import { subirFotos, listarFotos, borrarFoto } from "../../lib/fotos";
-import { C, archivo, canOperate, isAdmin, tint } from "../../theme";
+import { C, archivo, tint } from "../../theme";
 import EquipoPicker from "../EquipoPicker";
 import { Card, Pill, primaryBtn, ghostBtn, thStyle, tdStyle, Empty, Field, inputStyle } from "../../ui";
 import { FotoInput, FotoGaleria } from "../Fotos";

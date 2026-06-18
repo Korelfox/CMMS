@@ -1,9 +1,9 @@
-import React, { useState } from "react";
+import React from "react";
 import { Gauge, TrendingUp, Clock, Wrench, AlertCircle, Printer } from "lucide-react";
 import { BarChart, Bar, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import { useAuth } from "../lib/auth";
 import { useFleetData } from "../hooks/useFleetData";
-import { C, archivo, clp, num, TIPOS_OT, lk } from "../theme";
+import { C, archivo, clp, num, TIPOS_OT } from "../theme";
 import { scheduleCompliance } from "../lib/pm";
 import { Card, PageHead, Pill, exportBtn, thStyle, tdStyle, Empty, ErrorBanner, InlineSpinner } from "../ui";
 
@@ -22,12 +22,9 @@ export default function KPIs() {
   const [raw, loading, error, reload] = useFleetData(SPEC);
 
   const embarcaciones = raw?.embarcaciones   || [];
-  const equipos       = raw?.equipos         || [];
   const ots           = raw?.ordenes_trabajo || [];
   const planes        = raw?.planes_pm       || [];
   const historial     = raw?.historial_pm    || [];
-
-  function embName(id) { return embarcaciones.find((e) => e.id === id)?.nombre || "—"; }
 
   // ───── Métricas globales (Pascual · Mora Gutiérrez) ────────────────────
   const correctivas = ots.filter((o) => o.tipo === "correctivo");

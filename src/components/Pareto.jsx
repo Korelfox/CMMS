@@ -8,7 +8,6 @@ import { useAuth } from "../lib/auth";
 import { fetchAll } from "../lib/db";
 import { C, archivo, clp, num, tint, lk } from "../theme";
 import { modoMeta, codigoLabel, CAUSAS_FALLA_ISO, MECANISMOS_FALLA_ISO } from "../lib/fallasISO";
-import { buildEquipoTree } from "../lib/equipTree";
 import { Card, PageHead, Pill, FilterBtn, thStyle, tdStyle, Empty, ErrorBanner, InlineSpinner } from "../ui";
 
 // Análisis de Pareto (80/20): qué pocos sistemas/equipos concentran la mayor

@@ -5,7 +5,7 @@ import { TipoChip, CritBadge } from "./equipos/arbolUI";
 import { useAuth } from "../lib/auth";
 import { fetchAll, insertRow, updateRow, deleteRow, logActivity } from "../lib/db";
 import { buildEquipoTree } from "../lib/equipTree";
-import { useArbolColapsable, BotonesColapsar, colorTipo, fondoTipo } from "../lib/arbolColapsable";
+import { useArbolColapsable, BotonesColapsar } from "../lib/arbolColapsable";
 import { C, archivo, num, canOperate, isAdmin, tint, shadow } from "../theme";
 import {
   Card, Pill, FilterBtn, primaryBtn, ghostBtn, exportBtn,
@@ -248,7 +248,7 @@ export default function PlanPM({ onNavigate, navParams }) {
 // ─────────────────────────────────────────────────────────────────
 // TAB PLAN
 // ─────────────────────────────────────────────────────────────────
-function TabPlan({ lista, equipos, setEquipos, planes, setPlanes, historial, setHistorial, embName, profile, puedeOperar, puedeBorrar, setError, onNavigate, handlersRef, kpis, navParams, viewFilters }) {
+function TabPlan({ lista, equipos, setEquipos, planes, setPlanes, historial, setHistorial, embName, profile, puedeOperar, puedeBorrar, setError, onNavigate, handlersRef, navParams, viewFilters }) {
   const [selectedId, setSelectedId] = useState(null);
   const [selectedPlanId, setSelectedPlanId] = useState(null);
   const [detailOpen, setDetailOpen] = useState(true);
@@ -340,7 +340,7 @@ function TabPlan({ lista, equipos, setEquipos, planes, setPlanes, historial, set
     if (busq && arbol.colapsarTodo) {
       arbol.colapsarTodo(false);
     }
-  }, [busq]);
+  }, [busq]); // eslint-disable-line react-hooks/exhaustive-deps -- solo reacciona a busq; arbol se redefine cada render
 
   const listaVisible = lista.filter((eq) => {
     if (!arbol.visible(eq)) return false;

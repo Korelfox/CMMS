@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Package, Warehouse, ShoppingCart, Check, X, Pencil } from "lucide-react";
 import { C, clp, tint } from "../../theme";
-import { Pill, primaryBtn, ghostBtn, inputStyle, bluInput } from "../../ui";
+import { Pill, primaryBtn, inputStyle, bluInput } from "../../ui";
 import { estadoStock } from "../../lib/stock";
 import { skey } from "./util";
 

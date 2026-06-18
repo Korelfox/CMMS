@@ -37,7 +37,7 @@ export function fichaCompleta(eq) {
   return !!(String(eq.marca || "").trim() || String(eq.modelo || "").trim());
 }
 
-function pushBrecha(out, tipo, eq) {
+function pushBrecha(out, tipo, _eq) {
   const meta = BRECHA_META[tipo];
   out.push({ tipo, ...meta });
 }

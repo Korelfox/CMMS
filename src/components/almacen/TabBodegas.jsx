@@ -39,7 +39,7 @@ export default function TabBodegas({ profile, empresa, embarcaciones, bodegas, s
       ...embarcaciones.map((e) => ({ codigo: `BOD-${e.codigo}`, nombre: `Pañol ${e.nombre}`, tipo: "a_bordo", embarcacion_id: e.id }))];
     try {
       for (const b of lista) {
-        try { await insertRow("bodegas", profile.empresa_id, b); } catch (_) { /* ignora duplicados */ }
+        try { await insertRow("bodegas", profile.empresa_id, b); } catch { /* ignora duplicados */ }
       }
       logActivity(profile, "Auto-crear bodegas", `${lista.length} bodegas por defecto`);
       recargar();

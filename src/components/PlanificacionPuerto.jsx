@@ -35,12 +35,14 @@ export default function PlanificacionPuerto({ onNavigate }) {
   const [hhDia,    setHhDia]    = useState(HH_DIA_DEFAULT);
   const [expanded, setExpanded] = useState(null);
 
-  const embarcaciones = raw?.embarcaciones            || [];
-  const mareas        = raw?.mareas                   || [];
-  const planes        = raw?.planes_pm                || [];
-  const equipos       = raw?.equipos                  || [];
-  const lecturas      = raw?.lecturas_horometro       || [];
-  const ots           = raw?.ordenes_trabajo          || [];
+  const { embarcaciones, mareas, planes, equipos, lecturas, ots } = useMemo(() => ({
+    embarcaciones: raw?.embarcaciones      || [],
+    mareas:        raw?.mareas             || [],
+    planes:        raw?.planes_pm          || [],
+    equipos:       raw?.equipos            || [],
+    lecturas:      raw?.lecturas_horometro || [],
+    ots:           raw?.ordenes_trabajo    || [],
+  }), [raw]);
 
   const hoy = useMemo(() => new Date().toISOString().slice(0, 10), []);
 

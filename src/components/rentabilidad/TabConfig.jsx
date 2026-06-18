@@ -1,10 +1,10 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { Fish, Plus, Trash2, Settings, BookOpen, ChevronDown, ChevronRight, Check, LayoutDashboard, Download, ExternalLink, Fuel } from "lucide-react";
 import { ComposedChart, Bar, Line, PieChart, Pie, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, ReferenceLine, Legend } from "recharts";
-import { insertRow, updateRow, deleteRow, upsertRow, logActivity } from "../../lib/db";
+import { logActivity } from "../../lib/db";
 import { supabase } from "../../lib/supabase";
-import { C, archivo, clp, num, isAdmin, canOperate, tint } from "../../theme";
-import { Card, Pill, FilterBtn, primaryBtn, ghostBtn, inputStyle, bluInput, thStyle, tdStyle, Field, Empty, GuiaColapsable } from "../../ui";
+import { C } from "../../theme";
+import { Card, Pill, FilterBtn, primaryBtn, bluInput, Field, Empty, GuiaColapsable } from "../../ui";
 
 
 export default function TabConfig({ profile, conf, setConf, setError }) {

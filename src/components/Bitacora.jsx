@@ -1,6 +1,5 @@
 import React, { useEffect, useState, useCallback, useMemo } from "react";
 import { History, Search, Download, User } from "lucide-react";
-import { useAuth } from "../lib/auth";
 import { fetchAll } from "../lib/db";
 import { C, archivo, rolLabel } from "../theme";
 import {
@@ -24,7 +23,6 @@ function tonoAccion(accion = "") {
 }
 
 export default function Bitacora() {
-  const { profile } = useAuth();
   const [entries, setEntries] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);

@@ -21,6 +21,7 @@ import OTKanban from "./ot/OTKanban";
 import OTValorizarPanel from "./ot/OTValorizarPanel";
 import OTCampoWizard from "./ot/OTCampoWizard";
 import DetailShell from "./detail/DetailShell";
+import TaskCard from "./campo/TaskCard";
 import SplitDetailLayout from "./detail/SplitDetailLayout";
 import SavedViewsBar from "./SavedViewsBar";
 import {
@@ -170,15 +171,22 @@ export default function OrdenesTrabajo({ navParams }) {
   const listaBase = otDestacada ? [otDestacada] : filtrarOTs(otsScope, filtro);
   const lista = useMemo(
     () => ordenarOTs(buscarOTs(listaBase, busqueda, embNameFn)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- embNameFn deriva de embarcaciones (ya en deps)
     [listaBase, busqueda, embarcaciones],
   );
 
   const listaValorizar = useMemo(
     () => ordenarOTs(buscarOTs(otsScope.filter(sinValorizar), busqueda, embNameFn)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- embNameFn deriva de embarcaciones (ya en deps)
     [otsScope, busqueda, embarcaciones],
   );
 
   const listaVista = isValorizar ? listaValorizar : lista;
+
+  const listaCampo = useMemo(
+    () => listaVista.filter((o) => o.estado !== "cerrada"),
+    [listaVista],
+  );
 
   const selectedOT = useMemo(
     () => ots.find((o) => o.id === selectedId) || listaVista[0] || null,
@@ -262,7 +270,7 @@ export default function OrdenesTrabajo({ navParams }) {
     campoWizardLaunched.current = true;
   }, [isCampo, isMobile, isValorizar, listaVista, navParams?.openWizard, navParams?.otId]);
 
-  const { abiertas, costoTotal, preventivas, propProactivo } = kpisOT(otsScope);
+  const { abiertas, costoTotal, propProactivo } = kpisOT(otsScope);
   const nSinValorizar = otsScope.filter(sinValorizar).length;
 
   function irValorizar() {
@@ -322,7 +330,7 @@ export default function OrdenesTrabajo({ navParams }) {
       });
     }
     return items;
-  }, [otsScope, nSinValorizar, nSinCodificar, nPendSync]);
+  }, [otsScope, nSinValorizar, nSinCodificar, nPendSync]); // eslint-disable-line react-hooks/exhaustive-deps -- irValorizar/seleccionarOT son handlers estables del componente
 
   async function crear() {
     const err = validarNuevaOT(form);
@@ -526,6 +534,66 @@ export default function OrdenesTrabajo({ navParams }) {
   if (loading) {
     return (
       <ModuleShell kicker="Nivel operativo" title="Órdenes de Trabajo" loading />
+    );
+  }
+
+  if (isCampo) {
+    return (
+      <div className="cmms-campo-polish" style={{ padding: "4px 0" }}>
+        {(!online || usandoCache) && (
+          <div style={{
+            display: "flex", alignItems: "center", gap: 8, background: C.yellowBg,
+            border: `1px solid ${C.amber}`, color: "#7a5b00", padding: "10px 12px",
+            borderRadius: 10, marginBottom: 12, fontSize: 12.5, lineHeight: 1.45,
+          }}>
+            <CloudOff size={16} style={{ flexShrink: 0 }} />
+            <span>{online ? "Mostrando copia local." : "Sin conexión — los cambios se sincronizan al volver señal."}</span>
+          </div>
+        )}
+
+        {error && (
+          <div style={{ marginBottom: 12, padding: "10px 12px", borderRadius: 10, background: C.redBg, border: `1px solid ${tint(C.red, 30)}`, color: C.red, fontSize: 13 }}>
+            {error}
+            <button type="button" onClick={cargar} style={{ ...ghostBtn, marginLeft: 10, padding: "4px 10px", fontSize: 12 }}>Reintentar</button>
+          </div>
+        )}
+
+        {showFullscreen && selectedOT ? (
+          <OTCampoWizard
+            ot={selectedOT}
+            onBack={cerrarMobileDetail}
+            puedeOperar={puedeOperar}
+            online={online}
+            usuario={profile?.nombre || ""}
+            onGuardarChecklist={guardarChecklist}
+            onCambiarEstado={cambiarEstado}
+            initialStep="checklist"
+          />
+        ) : (
+          <>
+            <div style={{ fontSize: 17, fontWeight: 700, color: C.ink, marginBottom: 4 }}>Trabajo</div>
+            <div style={{ fontSize: 13, color: C.slate, marginBottom: 14 }}>
+              {listaCampo.length} OT{listaCampo.length !== 1 ? "s" : ""} abierta{listaCampo.length !== 1 ? "s" : ""} · toca para ejecutar
+            </div>
+            {listaCampo.length === 0 ? (
+              <EmptyState icon={ClipboardList} title="Sin OTs abiertas" description="No hay órdenes pendientes para esta embarcación." />
+            ) : (
+              listaCampo.map((ot) => (
+                <TaskCard
+                  key={ot.id}
+                  tone={ot.prioridad === "critica" ? "red" : ot.prioridad === "alta" ? "amber" : "steel"}
+                  badge={ot.folio}
+                  badgeLabel={lk(PRIORIDADES, ot.prioridad)}
+                  title={ot.sistema || ot.folio}
+                  subtitle={ot.descripcion || undefined}
+                  meta={`${lk(ESTADOS_OT, ot.estado)}${ot._pending ? " · sync pendiente" : ""}`}
+                  onClick={() => seleccionarOT(ot.id, "ejecucion")}
+                />
+              ))
+            )}
+          </>
+        )}
+      </div>
     );
   }
 

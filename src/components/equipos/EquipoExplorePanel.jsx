@@ -5,7 +5,7 @@ import { TipoChip, CritBadge, RegistroBadge } from "./arbolUI";
 import { requiereFechaInstalacionEquipo, tieneFechaInstalacion } from "../../lib/plantillaPesquera";
 import { useEquiposData } from "./equiposStore";
 
-export default function EquipoExplorePanel({ nodeId, repsPorEquipo, onGestionar, onSelectNode }) {
+export default function EquipoExplorePanel({ nodeId, onGestionar, onSelectNode }) {
   const { equipos, destinos } = useEquiposData();
   const node = equipos.find((e) => e.id === nodeId);
 

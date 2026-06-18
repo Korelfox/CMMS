@@ -1,6 +1,6 @@
 import React from "react";
 import { C, archivo, tint } from "../../theme";
-import { Card, inputStyle, bluInput } from "../../ui";
+import { Card } from "../../ui";
 
 export function StepperRef({ label, unidad, icon, ini, value, onChange, step }) {
   return (

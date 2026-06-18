@@ -172,6 +172,7 @@ export default function TabStock({ profile, items, setItems, bodegas, stockMap, 
       valor: totalItem(i.id) * (i.precio || 0),
       abc: conABC.get(i.id),
     })),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- totalItem deriva de stockMap (ya en deps)
     [itemsFiltrados, stockMap, items, conABC],
   );
   const listaOrdenada = useMemo(() => ordenarItemsInv(itemsEnriquecidos), [itemsEnriquecidos]);
@@ -179,8 +180,6 @@ export default function TabStock({ profile, items, setItems, bodegas, stockMap, 
     () => itemsEnriquecidos.find((i) => i.id === selectedId) || listaOrdenada[0] || null,
     [itemsEnriquecidos, selectedId, listaOrdenada],
   );
-  const nBajoMin = items.filter((i) => estadoStock(i).key === "bajo").length;
-
   useEffect(() => {
     if (selectedId && !items.some((i) => i.id === selectedId)) setSelectedId(null);
   }, [items, selectedId]);

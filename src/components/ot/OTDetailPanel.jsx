@@ -3,7 +3,7 @@ import {
   ClipboardList, Settings2, DollarSign, Camera, FileText, Trash2, AlertTriangle, Check,
 } from "lucide-react";
 import { C, clp, lk, tn, tint } from "../../theme";
-import { Pill, Empty, primaryBtn, ghostBtn, bluInput } from "../../ui";
+import { Pill, Empty, primaryBtn, bluInput } from "../../ui";
 import { TIPOS_OT, PRIORIDADES, ESTADOS_OT } from "../../theme";
 import { costoOT, sinValorizar } from "../../lib/ot";
 import { MODOS_FALLA_ISO, requiereCodigoFalla } from "../../lib/fallasISO";

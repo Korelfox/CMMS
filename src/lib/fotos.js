@@ -36,7 +36,7 @@ export async function comprimirImagen(file, { maxLado = 1600, maxBytes = 800 * 1
 
   let q = 0.82, blob = null;
   for (let i = 0; i < 6; i++) {
-    // eslint-disable-next-line no-await-in-loop
+     
     blob = await new Promise((res) => canvas.toBlob(res, "image/jpeg", q));
     if (!blob || blob.size <= maxBytes || q <= 0.4) break;
     q -= 0.12;
@@ -61,7 +61,7 @@ export async function subirFoto(file, { empresaId, entidad, entidadId, profileId
 export async function subirFotos(files, ctx) {
   let ok = 0; const errores = [];
   for (const f of files) {
-    try { /* eslint-disable-next-line no-await-in-loop */ await subirFoto(f, ctx); ok++; }
+    try {   await subirFoto(f, ctx); ok++; }
     catch (e) { errores.push(e.message); }
   }
   return { ok, errores };

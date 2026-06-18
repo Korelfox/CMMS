@@ -6,15 +6,12 @@ import {
   ReferenceLine, Legend,
 } from "recharts";
 import { useAuth } from "../lib/auth";
-import { fetchAll, insertRow, updateRow, deleteRow, upsertRow, logActivity } from "../lib/db";
+import { fetchAll } from "../lib/db";
 import { supabase } from "../lib/supabase";
-import { C, archivo, clp, num, isAdmin, canOperate, tint } from "../theme";
+import { C } from "../theme";
 import {
-  Card, PageHead, Pill, FilterBtn, primaryBtn, ghostBtn,
-  inputStyle, bluInput, thStyle, tdStyle, Field, Empty, ErrorBanner, InlineSpinner, GuiaColapsable,
+  Card, PageHead, Pill, FilterBtn, Field, Empty, ErrorBanner, InlineSpinner, GuiaColapsable,
 } from "../ui";
-
-import { calcPL } from "./rentabilidad/calc";
 import TabDashboard from "./rentabilidad/TabDashboard";
 import TabMareas from "./rentabilidad/TabMareas";
 import TabEspecies from "./rentabilidad/TabEspecies";
@@ -54,7 +51,7 @@ export default function Rentabilidad({ onNavigate, navParams }) {
       if (empData) setConf(empData);
     } catch (e) { setError("No se pudo cargar rentabilidad. " + e.message); }
     finally { setLoading(false); }
-  }, [profile?.empresa_id]); // eslint-disable-line
+  }, [profile?.empresa_id]);  
   useEffect(() => { cargar(); }, [cargar]);
 
   // Navegar desde otro módulo con marea específica (ej. desde Consumos)

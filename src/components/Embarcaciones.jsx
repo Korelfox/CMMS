@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback, useMemo } from "react";
 import { Ship, Plus, Trash2, Anchor, Wifi, Copy, RefreshCw, Waves } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { fetchAll, insertRow, updateRow, deleteRow, logActivity } from "../lib/db";
-import { C, archivo, isAdmin, canOperate, tint } from "../theme";
+import { C, archivo, isAdmin, canOperate } from "../theme";
 import { estadoOperacionalNave } from "../lib/operacional";
 import {
   Card, Pill, primaryBtn, ghostBtn, inputStyle, Field,

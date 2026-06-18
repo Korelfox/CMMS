@@ -1,8 +1,8 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState } from "react";
 import { Fish, Plus, Trash2, Settings, BookOpen, ChevronDown, ChevronRight, Check, LayoutDashboard, Download, ExternalLink, Fuel } from "lucide-react";
 import { ComposedChart, Bar, Line, PieChart, Pie, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, ReferenceLine, Legend } from "recharts";
-import { insertRow, updateRow, deleteRow, upsertRow, logActivity } from "../../lib/db";
-import { C, archivo, clp, num, isAdmin, canOperate, tint } from "../../theme";
+import { insertRow, updateRow, deleteRow, logActivity } from "../../lib/db";
+import { C, isAdmin, canOperate, tint } from "../../theme";
 import { Card, Pill, FilterBtn, primaryBtn, ghostBtn, inputStyle, bluInput, thStyle, tdStyle, Field, Empty, GuiaColapsable } from "../../ui";
 
 

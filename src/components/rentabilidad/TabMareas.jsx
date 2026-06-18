@@ -1,9 +1,9 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { Fish, Plus, Trash2, Settings, BookOpen, ChevronDown, ChevronRight, Check, LayoutDashboard, Download, ExternalLink, Fuel, Printer } from "lucide-react";
 import { ComposedChart, Bar, Line, PieChart, Pie, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, ReferenceLine, Legend } from "recharts";
-import { insertRow, updateRow, deleteRow, upsertRow, logActivity } from "../../lib/db";
+import { insertRow, upsertRow, logActivity } from "../../lib/db";
 import { supabase } from "../../lib/supabase";
-import { C, archivo, clp, num, isAdmin, canOperate, tint } from "../../theme";
+import { C, clp, num, tint } from "../../theme";
 import { Card, Pill, FilterBtn, primaryBtn, ghostBtn, inputStyle, bluInput, thStyle, tdStyle, Field, Empty, GuiaColapsable } from "../../ui";
 import { calcPL } from "./calc";
 

@@ -5,7 +5,7 @@ import { fetchAll, upsertRow, logActivity } from "../lib/db";
 import { buildEquipoTree } from "../lib/equipTree";
 import { useArbolColapsable, BotonesColapsar, EquipoNodoLabel, fondoTipo } from "../lib/arbolColapsable";
 import { calcCT, catCT } from "../lib/calculos";
-import { C, archivo, isAdmin, tint } from "../theme";
+import { C, archivo, isAdmin } from "../theme";
 import { Card, PageHead, Pill, exportBtn, thStyle, tdStyle, Empty, ErrorBanner, InlineSpinner, FilterBtn, GuiaColapsable } from "../ui";
 
 // Dimensiones del modelo INGEMAN / Parra & Crespo

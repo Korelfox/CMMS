@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Package, Plus, X, Check } from "lucide-react";
-import { C, tint } from "../../theme";
+import { C } from "../../theme";
 import { Pill, inputStyle, primaryBtn, ghostBtn } from "../../ui";
 import { TIPO_REPUESTO_META } from "../../lib/plantillaPesquera";
 

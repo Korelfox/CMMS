@@ -98,7 +98,7 @@ export default function AuditoriaMES() {
     return qs.reduce((s, q) => s + getScore(q.num), 0) / qs.length;
   };
   const promGlobal = PREGUNTAS.reduce((s, q) => s + getScore(q.num), 0) / PREGUNTAS.length;
-  const [madTone, madLabel] = MADUREZ(promGlobal);
+  const [, madLabel] = MADUREZ(promGlobal);
   const pctGlobal = Math.round((promGlobal / 5) * 100);
 
   if (loading) return <div><PageHead kicker="Auditoría · MES" title="Auditoría de Madurez" /><Card><InlineSpinner label="Cargando auditoría…" /></Card></div>;

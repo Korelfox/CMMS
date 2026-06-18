@@ -144,7 +144,6 @@ export default function Equipos({ navParams }) {
   }, [navParams?.equipoId, navParams?.modo, navParams?.vista, navParams?.campo, isMobile]);
 
   function embName(id)  { return embarcaciones.find((e) => e.id === id)?.nombre || "—"; }
-  function embColor(id) { return embarcaciones.find((e) => e.id === id)?.color  || C.steel; }
   function eqName(id)   { const e = equipos.find((q) => q.id === id); return e ? `${e.id_visible} · ${e.sistema}` : "—"; }
 
   // Lista en orden de árbol según filtro de nave

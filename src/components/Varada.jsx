@@ -679,7 +679,7 @@ function ModalPlantilla({ plantillas, plantillaItemsMap, embarcaciones, onCrear,
   const [guardando, setGuardando] = useState(false);
 
   const plantilla  = plantillas.find((p) => p.id === plantillaId);
-  const items      = plantillaId ? (plantillaItemsMap.get(plantillaId) || []) : [];
+  const items      = useMemo(() => (plantillaId ? (plantillaItemsMap.get(plantillaId) || []) : []), [plantillaId, plantillaItemsMap]);
   const totalHH    = items.reduce((s, it) => s + (Number(it.horas_estimadas) || 0), 0);
   const criticos   = items.filter((it) => it.critico_zarpe).length;
 

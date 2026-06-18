@@ -90,10 +90,12 @@ export default function Almacen({ navParams }) {
 
   const valorTotal = useMemo(
     () => items.reduce((s, i) => s + totalItem(i.id) * (i.precio || 0), 0),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- totalItem deriva de stockMap+bodegas (ya en deps)
     [items, stockMap, bodegas],
   );
   const nBajoMin = useMemo(
     () => items.filter((i) => estadoStock(totalItem(i.id), i.stock_min, i.stock_max).key === "bajo").length,
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- totalItem deriva de stockMap+bodegas (ya en deps)
     [items, stockMap, bodegas],
   );
   const ocsAbiertas = compras.filter((o) => !["recibida", "cancelada"].includes(o.estado)).length;

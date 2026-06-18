@@ -82,7 +82,6 @@ export function priorizarTareas({
   planesEvalEmb = [],
   otsEmb        = [],
   equipos       = [],
-  items         = [],
   stock         = [],
   destinos      = [],
   hoy,

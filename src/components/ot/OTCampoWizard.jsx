@@ -65,7 +65,7 @@ function OTCampoRepuestos({ ot, onSkip }) {
               }}
             >
               <div style={{ fontSize: 13, fontWeight: 700, color: C.ink }}>{r.codigo}</div>
-              <div style={{ fontSize: 12, color: C.slate, marginTop: 2 }}>{r.descripcion}</div>
+              <div style={{ fontSize: 12, color: C.slate, marginTop: 2, lineHeight: 1.4, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflowWrap: "anywhere" }}>{r.descripcion}</div>
               <div style={{ fontSize: 11.5, marginTop: 4, color: r.stock > 0 ? C.green : C.red, fontWeight: 600 }}>
                 Stock: {r.stock} {r.unidad}
               </div>
@@ -129,13 +129,34 @@ export default function OTCampoWizard({
   return (
     <DetailShell
       title={ot.folio}
-      subtitle={ot.descripcion || ot.sistema || "—"}
+      subtitle={ot.sistema || undefined}
+      subtitleClamp={1}
       onBack={onBack}
       backLabel="Lista"
       progress={progress}
       footer={footer}
     >
-      <div style={{ display: "flex", gap: 4, marginBottom: 14, flexWrap: "wrap" }}>
+      {ot.descripcion && (
+        <div style={{
+          fontSize: 13,
+          color: C.slate,
+          lineHeight: 1.45,
+          marginBottom: 14,
+          padding: "10px 12px",
+          borderRadius: 10,
+          border: `1px solid ${C.line}`,
+          background: C.surface,
+          overflow: "hidden",
+          display: "-webkit-box",
+          WebkitLineClamp: 3,
+          WebkitBoxOrient: "vertical",
+          overflowWrap: "anywhere",
+        }}>
+          {ot.descripcion}
+        </div>
+      )}
+
+      <div className="cmms-campo-wizard-steps" style={{ display: "flex", gap: 6, marginBottom: 14, overflowX: "auto", WebkitOverflowScrolling: "touch", paddingBottom: 2 }}>
         {CAMPO_WIZARD_STEPS.map((s, i) => {
           const active = step === s.id;
           return (
@@ -144,11 +165,12 @@ export default function OTCampoWizard({
               type="button"
               onClick={() => setStep(s.id)}
               style={{
-                flex: "1 1 22%",
-                minWidth: 64,
-                padding: "6px 4px",
-                fontSize: 10,
+                flex: "0 0 auto",
+                minWidth: 72,
+                padding: "8px 12px",
+                fontSize: 11,
                 fontWeight: active ? 700 : 600,
+                whiteSpace: "nowrap",
                 border: `1px solid ${active ? tint(C.sky, 40) : C.line}`,
                 borderRadius: 8,
                 background: active ? tint(C.sky, 10) : C.surface,
@@ -165,7 +187,7 @@ export default function OTCampoWizard({
 
       {step === "checklist" && (
         !ot._pending && online ? (
-          <ChecklistOT ot={ot} puedeOperar={puedeOperar} usuario={usuario} onSave={(items) => onGuardarChecklist?.(ot, items)} />
+          <ChecklistOT ot={ot} puedeOperar={puedeOperar} usuario={usuario} campo onSave={(items) => onGuardarChecklist?.(ot, items)} />
         ) : (
           <Empty>Sin conexión o OT pendiente de sync — checklist no disponible.</Empty>
         )

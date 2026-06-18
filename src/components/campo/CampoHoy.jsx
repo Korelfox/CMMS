@@ -125,7 +125,11 @@ export default function CampoHoy({ onIrTrabajo, onNavigate }) {
           <Card style={{ marginBottom: 14, padding: 14, border: `1px solid ${tint(C.amber, 35)}`, background: tint(C.amber, 8) }}>
             <div style={{ fontSize: 12, color: C.slate, marginBottom: 6 }}>OT en ejecución</div>
             <div style={{ fontWeight: 700, fontSize: 16, color: C.ink }}>{enEjecucion.folio}</div>
-            <div style={{ fontSize: 14, color: C.slate, marginTop: 4 }}>{enEjecucion.descripcion || enEjecucion.titulo || "—"}</div>
+            <div style={{
+              fontSize: 14, color: C.slate, marginTop: 4, lineHeight: 1.4,
+              overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical",
+              overflowWrap: "anywhere",
+            }}>{enEjecucion.descripcion || enEjecucion.titulo || "—"}</div>
             {pasos.length > 0 && (
               <ProgressStrip current={hechos} total={pasos.length} label="Checklist" />
             )}
@@ -146,7 +150,8 @@ export default function CampoHoy({ onIrTrabajo, onNavigate }) {
               tone={prioTone(ot.prioridad)}
               badgeLabel={lk(PRIORIDADES, ot.prioridad)}
               badge={ot.folio}
-              title={ot.descripcion || "—"}
+              title={ot.sistema || ot.folio}
+              subtitle={ot.descripcion || undefined}
               meta={lk(ESTADOS_OT, ot.estado)}
               onClick={() => onIrTrabajo?.(ot.id)}
             />

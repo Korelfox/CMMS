@@ -67,7 +67,7 @@ export function PropOpBody({ node, onSave, onDone, puedeOperar = true, embedded 
     setHorasFuenteId(node.horas_fuente_id || "");
     setAco(!!node.consume_aceite);
     setNiv(node.nivel_tipo || "ninguno");
-  }, [node.id, node.horometro, node.horas_fuente_id, node.consume_aceite, node.nivel_tipo, node.ficha?._registro]);
+  }, [node.id, node.horometro, node.horas_fuente_id, node.consume_aceite, node.nivel_tipo, node.ficha?._registro]); // eslint-disable-line react-hooks/exhaustive-deps -- usa campos estables de node; el objeto cambia cada render
 
   const soloInstalacion = regCliente === "fecha";
   const usaHorometro = regCliente === "horas" || regCliente === "mixto";

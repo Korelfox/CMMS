@@ -4,7 +4,7 @@ import {
   AlertTriangle, Printer, Eye, Edit2, Ban, SquarePen, List, Columns3, Table2,
 } from "lucide-react";
 import { insertRow, updateRow, deleteRow, upsertRow, fetchAll, logActivity } from "../../lib/db";
-import { C, archivo, clp, isAdmin, tint } from "../../theme";
+import { C, clp, isAdmin, tint } from "../../theme";
 import { Card, Pill, primaryBtn, ghostBtn, FilterBtn, inputStyle, bluInput, thStyle, tdStyle, Field, Empty, Section, EmptyState } from "../../ui";
 import ComprasKanban from "./ComprasKanban";
 import ComprasQueuePanel from "./ComprasQueuePanel";
@@ -110,7 +110,6 @@ export default function TabCompras({
 
   // ── Helpers de ítems ─────────────────────────────────────────
   const itemCodigo    = (id) => items.find((i) => i.id === id)?.codigo    || "";
-  const itemCategoria = (id) => items.find((i) => i.id === id)?.categoria || "";
   const itemUnidad    = (id) => items.find((i) => i.id === id)?.unidad    || "u";
 
   const totalItem = (id) =>

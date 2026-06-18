@@ -3,7 +3,7 @@ import { Search, Wrench, ClipboardList, ChevronRight, ArrowLeft } from "lucide-r
 import { useShell } from "../../context/ShellContext";
 import { fetchAll } from "../../lib/db";
 import { filterByEmbarcacion } from "../../lib/embarcacionActiva";
-import { C, tint, lk, ESTADOS_OT, estadoLabel } from "../../theme";
+import { C, lk, ESTADOS_OT, estadoLabel } from "../../theme";
 import { Card, Pill, EmptyState, InlineSpinner, ghostBtn, primaryBtn, inputStyle } from "../../ui";
 import TaskCard from "./TaskCard";
 

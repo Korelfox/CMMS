@@ -7,6 +7,7 @@ import { ghostBtn } from "../../ui";
 export default function DetailShell({
   title,
   subtitle,
+  subtitleClamp = 1,
   onBack,
   backLabel = "Volver",
   children,
@@ -32,7 +33,17 @@ export default function DetailShell({
             </div>
           )}
           {subtitle && (
-            <div style={{ fontSize: 12, color: C.slate, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            <div style={{
+              fontSize: 12,
+              color: C.slate,
+              marginTop: 2,
+              lineHeight: 1.4,
+              overflow: "hidden",
+              overflowWrap: "anywhere",
+              ...(subtitleClamp > 1
+                ? { display: "-webkit-box", WebkitLineClamp: subtitleClamp, WebkitBoxOrient: "vertical" }
+                : { textOverflow: "ellipsis", whiteSpace: "nowrap" }),
+            }}>
               {subtitle}
             </div>
           )}

@@ -15,7 +15,7 @@ export default class ErrorBoundary extends React.Component {
   }
 
   componentDidCatch(error, info) {
-    // eslint-disable-next-line no-console
+     
     console.error("[CMMS] Error de UI:", error, info && info.componentStack);
     if (typeof window !== "undefined" && typeof window.__cmmsOnError === "function") {
       try { window.__cmmsOnError(error, info); } catch { /* el monitor no debe romper la app */ }

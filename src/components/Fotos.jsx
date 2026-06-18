@@ -59,7 +59,7 @@ export function FotoGaleria({ entidad, entidadId, puedeAgregar, puedeBorrar, onl
     catch (e) { setErr(e.message); }
     finally { setCargando(false); }
   }
-  useEffect(() => { if (entidadId) recargar(); /* eslint-disable-next-line */ }, [entidadId]);
+  useEffect(() => { if (entidadId) recargar();   }, [entidadId]); // eslint-disable-line react-hooks/exhaustive-deps -- recargar se redefine cada render; recarga al cambiar entidadId
 
   async function agregar(e) {
     const fs = Array.from(e.target.files || []); e.target.value = "";

@@ -1,6 +1,6 @@
 import React from "react";
 import { Search, X, ChevronDown, ChevronRight, ChevronUp, MoreHorizontal, PanelRightOpen, Trash2, AlertTriangle } from "lucide-react";
-import { C, estadoLabel, estadoTone, num, tint } from "../../theme";
+import { C, estadoLabel, estadoTone, num } from "../../theme";
 import { BRECHA_META } from "../../lib/equipoBrechas";
 import { Card, Pill, ghostBtn, inputStyle } from "../../ui";
 import { TipoChip, CritBadge, RegistroBadge } from "./arbolUI";

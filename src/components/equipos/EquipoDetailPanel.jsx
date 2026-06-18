@@ -67,9 +67,9 @@ export default function EquipoDetailPanel({
 
   const byIdEquipos = useMemo(() => new Map(equipos.map((e) => [e.id, e])), [equipos]);
 
-  useEffect(() => { if (node) setSysName(node.sistema || ""); }, [node?.id, node?.sistema]);
+  useEffect(() => { if (node) setSysName(node.sistema || ""); }, [node?.id, node?.sistema]); // eslint-disable-line react-hooks/exhaustive-deps -- usa node?.id/sistema estables; el objeto node cambia cada render
 
-  useEffect(() => { if (node && activeTab == null) setTabInternal("identidad"); }, [node?.id, activeTab]);
+  useEffect(() => { if (node && activeTab == null) setTabInternal("identidad"); }, [node?.id, activeTab]); // eslint-disable-line react-hooks/exhaustive-deps -- usa node?.id estable; el objeto node cambia cada render
 
   useEffect(() => {
     if (!tabsVisibles.some((t) => t.id === tab)) setTab(tabsVisibles[0]?.id || "identidad");

@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { Users, Copy, Check, Shield, Trash2, UserCog, RefreshCw } from "lucide-react";
 import { useAuth } from "../lib/auth";
-import { fetchAll, updateRow, deleteRow, logActivity } from "../lib/db";
+import { fetchAll, updateRow, logActivity } from "../lib/db";
 import { C, archivo, ROLES, rolLabel, isAdmin } from "../theme";
 import {
   Card, PageHead, Pill, inputStyle, thStyle, tdStyle, Empty, ErrorBanner, InlineSpinner,

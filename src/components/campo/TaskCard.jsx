@@ -57,9 +57,17 @@ export default function TaskCard({
           )}
         </div>
       )}
-      <div style={{ fontSize: 16, fontWeight: 700, color: C.ink, lineHeight: 1.35 }}>{title}</div>
+      <div style={{
+        fontSize: 16, fontWeight: 700, color: C.ink, lineHeight: 1.35,
+        overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical",
+        overflowWrap: "anywhere",
+      }}>{title}</div>
       {subtitle && (
-        <div style={{ fontSize: 14, color: C.slate, marginTop: 5, lineHeight: 1.4 }}>{subtitle}</div>
+        <div style={{
+          fontSize: 14, color: C.slate, marginTop: 5, lineHeight: 1.4,
+          overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical",
+          overflowWrap: "anywhere",
+        }}>{subtitle}</div>
       )}
       {meta && (
         <div style={{ fontSize: 13, color: C.steel, marginTop: 6 }}>{meta}</div>

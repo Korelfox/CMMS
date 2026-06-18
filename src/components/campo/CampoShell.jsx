@@ -83,7 +83,7 @@ export default function CampoShell({
     };
     window.addEventListener("cmms-campo-nav", fn);
     return () => window.removeEventListener("cmms-campo-nav", fn);
-  }, [irTrabajo]);
+  }, [irTrabajo]); // eslint-disable-line react-hooks/exhaustive-deps -- onTabChange es prop; evita re-suscribir el listener
 
   useEffect(() => {
     if (openOtWizard && tab === "trabajo") {
