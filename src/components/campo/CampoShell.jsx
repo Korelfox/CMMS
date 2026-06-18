@@ -18,7 +18,7 @@ const Prezarpe = lazy(() => import("../Prezarpe"));
 
 const STACK_MODULOS = {
   solicitudes: Solicitudes,
-  horometros: Horometros,
+  activos: CampoActivos,
   inventario: Inventario,
   planpm: PlanPM,
   prezarpe: Prezarpe,
@@ -69,9 +69,14 @@ export default function CampoShell({
         return;
       }
       if (params) setCampoParams(params);
-      if (destTab === "activos") {
+      if (destTab === "horometros") {
         setStackModule(null);
-        setTab("activos");
+        setTab("horometros");
+        return;
+      }
+      if (destTab === "activos") {
+        setStackModule({ id: "activos", params: { campo: true, ...(params || {}) } });
+        onTabChange?.("activos");
         return;
       }
       if (destTab && CAMPO_TABS.some((t) => t.id === destTab)) setTab(destTab);
@@ -117,7 +122,11 @@ export default function CampoShell({
         <div className="cmms-campo-content" style={{ paddingBottom: 24 }}>
           <ErrorBoundary key={stackModule.id}>
             <Suspense fallback={<InlineSpinner label="Cargando…" />}>
-              <Mod navParams={{ ...navParamsCampo, ...stackModule.params }} onNavigate={campoNavigate} />
+              <Mod
+                navParams={{ ...navParamsCampo, ...stackModule.params }}
+                onNavigate={campoNavigate}
+                {...(stackModule.id === "activos" ? { onIrTrabajo: irTrabajo } : {})}
+              />
             </Suspense>
           </ErrorBoundary>
         </div>
@@ -140,10 +149,10 @@ export default function CampoShell({
                 onNavigate={onNavigate}
               />
             )}
-            {tab === "activos" && (
-              <CampoActivos
-                key={`act-campo-${refreshTick}`}
-                onIrTrabajo={irTrabajo}
+            {tab === "horometros" && (
+              <Horometros
+                key={`hor-campo-${refreshTick}`}
+                navParams={navParamsCampo}
                 onNavigate={campoNavigate}
               />
             )}

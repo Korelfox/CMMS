@@ -1,11 +1,11 @@
 import React from "react";
-import { Inbox, Timer, Package, RefreshCw, ChevronRight, Anchor } from "lucide-react";
+import { Inbox, Search, Package, RefreshCw, ChevronRight, Anchor } from "lucide-react";
 import { C, tint } from "../../theme";
 import { Card, primaryBtn } from "../../ui";
 const LINKS = [
   { id: "prezarpe", label: "Prezarpe", sub: "Checklist antes de zarpar", icon: Anchor, tone: C.cyan },
   { id: "solicitudes", label: "Nueva solicitud", sub: "Reportar falla o pedido", icon: Inbox, tone: C.sky },
-  { id: "horometros", label: "Horómetro", sub: "Registrar lectura", icon: Timer, tone: C.steel },
+  { id: "activos", label: "Activos", sub: "Buscar equipo", icon: Search, tone: C.steel },
   { id: "inventario", label: "Inventario", sub: "Stock a bordo", icon: Package, tone: C.amber },
 ];
 

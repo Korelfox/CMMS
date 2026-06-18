@@ -188,7 +188,7 @@ export default function AppShell() {
   const navegar = useCallback((destino, params = null) => {
     const campoInline = new Set([
       ...CAMPO_TABS.map((t) => t.id),
-      "solicitudes", "horometros", "inventario", "planpm",
+      "solicitudes", "activos", "inventario", "planpm",
     ]);
     if (readAppMode() === "campo" && !campoInline.has(destino)) {
       writeAppMode("oficina");

@@ -17,7 +17,7 @@ describe("navigation", () => {
   });
 
   it("expone tabs Campo", () => {
-    expect(CAMPO_TABS.map((t) => t.id)).toEqual(["hoy", "trabajo", "activos", "mas"]);
+    expect(CAMPO_TABS.map((t) => t.id)).toEqual(["hoy", "trabajo", "horometros", "mas"]);
   });
 
   it("resuelve etiquetas", () => {

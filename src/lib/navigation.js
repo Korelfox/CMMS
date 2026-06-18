@@ -23,6 +23,7 @@ export const NAV_META = {
   prezarpe:     { label: "Prezarpe", icon: ShipWheel },
   cumplimiento: { label: "Cumplimiento", icon: ShieldCheck },
   horometros:   { label: "Horómetros", icon: Timer },
+  activos:      { label: "Activos", icon: Search },
   planpm:       { label: "Plan Preventivo", icon: CalendarClock },
   solicitudes:  { label: "Solicitudes", icon: Inbox },
   ots:          { label: "Órdenes de Trabajo", icon: ClipboardList },
@@ -152,7 +153,7 @@ export const ANALISIS_CARD_META = {
 export const CAMPO_TABS = [
   { id: "hoy", label: "Hoy", icon: Sun },
   { id: "trabajo", label: "Trabajo", icon: ClipboardList },
-  { id: "activos", label: "Activos", icon: Search },
+  { id: "horometros", label: "Horómetros", icon: Timer },
   { id: "mas", label: "Más", icon: MoreHorizontal },
 ];
 
