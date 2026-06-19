@@ -112,13 +112,17 @@ export default function CampoShell({
       ...(embarcacionId && !params?.embFiltro ? { embFiltro: embarcacionId } : {}),
       ...(params || {}),
     };
+    if (dest === "ots") {
+      irTrabajo(p.otId || null);
+      return;
+    }
     if (STACK_MODULOS[dest]) {
       setStackModule({ id: dest, params: p });
       onTabChange?.(dest);
       return;
     }
     onNavigate?.(dest, p);
-  }, [onNavigate, onTabChange, embarcacionId]);
+  }, [onNavigate, onTabChange, embarcacionId, irTrabajo]);
 
   const navParamsCampo = { campo: true, openWizard: openOtWizard, otId: launchOtId, ...campoParams };
   const inStack = !!stackModule;
