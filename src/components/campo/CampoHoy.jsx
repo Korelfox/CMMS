@@ -95,12 +95,38 @@ export default function CampoHoy({ onIrTrabajo }) {
         />
       ) : (
         <>
+          {totalProg > 0 && (
+            <>
+              <CampoSection
+                title="Programación"
+                sub={prog.atrasadas.length > 0 ? `${prog.atrasadas.length} atrasada${prog.atrasadas.length !== 1 ? "s" : ""}` : "Plan del turno"}
+                style={{ marginTop: 12 }}
+              />
+              {[...prog.atrasadas, ...prog.hoy, ...prog.proximas].map((item) => {
+                const esAtrasada = (item.fecha_programada || "").slice(0, 10) < hoy;
+                const esHoy = (item.fecha_programada || "").slice(0, 10) === hoy;
+                return (
+                  <TaskCard
+                    key={item.id}
+                    tone={esAtrasada ? "red" : esHoy ? "steel" : "green"}
+                    badge={item.ot_folio || "—"}
+                    badgeLabel={item.tipo || "Tarea"}
+                    title={item.sistema || "Sin sistema"}
+                    subtitle={`${labelProgFecha(item.fecha_programada, hoy)} · ${num(item.hh, 1)} h`}
+                    meta={esAtrasada ? "Atrasada" : esHoy ? "Programada hoy" : "Próxima"}
+                    onClick={() => abrirProg(item)}
+                  />
+                );
+              })}
+            </>
+          )}
+
           {otsOrdenadas.length > 0 && (
             <>
               <CampoSection
                 title="Órdenes de trabajo"
                 sub={`${otsOrdenadas.length} abierta${otsOrdenadas.length !== 1 ? "s" : ""}`}
-                style={{ marginTop: 12 }}
+                style={{ marginTop: totalProg > 0 ? 16 : 12 }}
               />
               {otsOrdenadas.slice(0, 8).map((ot) => (
                 <TaskCard
@@ -124,31 +150,6 @@ export default function CampoHoy({ onIrTrabajo }) {
                   Ver las {otsOrdenadas.length} OTs en Trabajo <ChevronRight size={16} />
                 </button>
               )}
-            </>
-          )}
-
-          {totalProg > 0 && (
-            <>
-              <CampoSection
-                title="Programación"
-                sub={prog.atrasadas.length > 0 ? `${prog.atrasadas.length} atrasada${prog.atrasadas.length !== 1 ? "s" : ""}` : "Plan del turno"}
-              />
-              {[...prog.atrasadas, ...prog.hoy, ...prog.proximas].map((item) => {
-                const esAtrasada = (item.fecha_programada || "").slice(0, 10) < hoy;
-                const esHoy = (item.fecha_programada || "").slice(0, 10) === hoy;
-                return (
-                  <TaskCard
-                    key={item.id}
-                    tone={esAtrasada ? "red" : esHoy ? "steel" : "green"}
-                    badge={item.ot_folio || "—"}
-                    badgeLabel={item.tipo || "Tarea"}
-                    title={item.sistema || "Sin sistema"}
-                    subtitle={`${labelProgFecha(item.fecha_programada, hoy)} · ${num(item.hh, 1)} h`}
-                    meta={esAtrasada ? "Atrasada" : esHoy ? "Programada hoy" : "Próxima"}
-                    onClick={() => abrirProg(item)}
-                  />
-                );
-              })}
             </>
           )}
         </>
