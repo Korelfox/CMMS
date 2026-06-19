@@ -30,20 +30,23 @@ export default function CampoHoy({ onIrTrabajo }) {
   const [loading, setLoading] = useState(true);
   const [ots, setOts] = useState([]);
   const [todasOts, setTodasOts] = useState([]);
+  const [equipos, setEquipos] = useState([]);
   const [programacion, setProgramacion] = useState([]);
 
   const cargar = useCallback(async () => {
     if (!embarcacionId) return;
     setLoading(true);
     try {
-      const [o, prog] = await Promise.all([
+      const [o, prog, eqs] = await Promise.all([
         fetchAll("ordenes_trabajo", { order: { col: "fecha", asc: false } }),
         fetchAll("programacion", { order: { col: "fecha_programada", asc: true } }),
+        fetchAll("equipos"),
       ]);
       const scoped = filterByEmbarcacion(o, embarcacionId);
       setTodasOts(scoped);
       setOts(scoped.filter((ot) => ot.estado !== "cerrada"));
       setProgramacion(filterByEmbarcacion(prog, embarcacionId));
+      setEquipos(filterByEmbarcacion(eqs, embarcacionId));
     } finally {
       setLoading(false);
     }
@@ -60,6 +63,12 @@ export default function CampoHoy({ onIrTrabajo }) {
     todasOts.forEach((ot) => { if (ot.folio) m.set(ot.folio, ot); });
     return m;
   }, [todasOts]);
+
+  const equipoPorId = useMemo(() => {
+    const m = new Map();
+    equipos.forEach((eq) => m.set(eq.id, eq));
+    return m;
+  }, [equipos]);
 
   function abrirOt(id) {
     if (id) onIrTrabajo?.(id);
@@ -140,18 +149,23 @@ export default function CampoHoy({ onIrTrabajo }) {
                 sub={`${otsOrdenadas.length} abierta${otsOrdenadas.length !== 1 ? "s" : ""}`}
                 style={{ marginTop: totalProg > 0 ? 16 : 12 }}
               />
-              {otsOrdenadas.slice(0, 8).map((ot) => (
-                <TaskCard
-                  key={ot.id}
-                  tone={otTone(ot)}
-                  badge={ot.folio}
-                  badgeLabel={ot.estado === "en_ejecucion" ? "En curso" : lk(PRIORIDADES, ot.prioridad)}
-                  title={ot.sistema || ot.folio}
-                  subtitle={ot.descripcion || undefined}
-                  meta={lk(ESTADOS_OT, ot.estado)}
-                  onClick={() => abrirOt(ot.id)}
-                />
-              ))}
+              {otsOrdenadas.slice(0, 8).map((ot) => {
+                const eq = ot.equipo_id ? equipoPorId.get(ot.equipo_id) : null;
+                const eqNombre = eq?.nombre || eq?.id_visible || null;
+                const eqCodigo = eq?.id_visible || null;
+                return (
+                  <TaskCard
+                    key={ot.id}
+                    tone={otTone(ot)}
+                    badge={ot.folio}
+                    badgeLabel={ot.estado === "en_ejecucion" ? "En curso" : lk(PRIORIDADES, ot.prioridad)}
+                    title={eqNombre || ot.sistema || ot.folio}
+                    subtitle={[eqCodigo && eqNombre ? eqCodigo : null, ot.descripcion].filter(Boolean).join(" · ") || undefined}
+                    meta={lk(ESTADOS_OT, ot.estado)}
+                    onClick={() => abrirOt(ot.id)}
+                  />
+                );
+              })}
               {otsOrdenadas.length > 8 && (
                 <button
                   type="button"

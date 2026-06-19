@@ -190,6 +190,12 @@ export default function OrdenesTrabajo({ navParams, onNavigate }) {
     [listaVista],
   );
 
+  const equipoPorId = useMemo(() => {
+    const m = new Map();
+    equipos.forEach((eq) => m.set(eq.id, eq));
+    return m;
+  }, [equipos]);
+
   const selectedOT = useMemo(() => {
     if (!selectedId) return null;
     return ots.find((o) => o.id === selectedId) || null;
@@ -632,18 +638,23 @@ export default function OrdenesTrabajo({ navParams, onNavigate }) {
             {listaCampo.length === 0 ? (
               <EmptyState icon={ClipboardList} title="Sin OTs abiertas" description="No hay órdenes pendientes para esta embarcación." />
             ) : (
-              listaCampo.map((ot) => (
-                <TaskCard
-                  key={ot.id}
-                  tone={ot.prioridad === "critica" ? "red" : ot.prioridad === "alta" ? "amber" : "steel"}
-                  badge={ot.folio}
-                  badgeLabel={lk(PRIORIDADES, ot.prioridad)}
-                  title={ot.sistema || ot.folio}
-                  subtitle={ot.descripcion || undefined}
-                  meta={`${lk(ESTADOS_OT, ot.estado)}${ot._pending ? " · sync pendiente" : ""}`}
-                  onClick={() => seleccionarOT(ot.id, "ejecucion")}
-                />
-              ))
+              listaCampo.map((ot) => {
+                const eq = ot.equipo_id ? equipoPorId.get(ot.equipo_id) : null;
+                const eqNombre = eq?.nombre || eq?.id_visible || null;
+                const eqCodigo = eq?.id_visible || null;
+                return (
+                  <TaskCard
+                    key={ot.id}
+                    tone={ot.prioridad === "critica" ? "red" : ot.prioridad === "alta" ? "amber" : "steel"}
+                    badge={ot.folio}
+                    badgeLabel={lk(PRIORIDADES, ot.prioridad)}
+                    title={eqNombre || ot.sistema || ot.folio}
+                    subtitle={[eqCodigo && eqNombre ? eqCodigo : null, ot.descripcion].filter(Boolean).join(" · ") || undefined}
+                    meta={`${lk(ESTADOS_OT, ot.estado)}${ot._pending ? " · sync pendiente" : ""}`}
+                    onClick={() => seleccionarOT(ot.id, "ejecucion")}
+                  />
+                );
+              })
             )}
           </>
         )}
