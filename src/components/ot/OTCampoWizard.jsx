@@ -289,7 +289,7 @@ export default function OTCampoWizard({
         </div>
       )}
 
-      <div className="cmms-campo-wizard-steps" style={{ display: "flex", gap: 6, marginBottom: 14, overflowX: "auto", WebkitOverflowScrolling: "touch", paddingBottom: 2 }}>
+      <div className="cmms-campo-wizard-steps" data-campo-no-swipe style={{ display: "flex", gap: 6, marginBottom: 14, overflowX: "auto", WebkitOverflowScrolling: "touch", paddingBottom: 2 }}>
         {CAMPO_WIZARD_STEPS.map((s, i) => {
           const active = step === s.id;
           return (

@@ -32,7 +32,7 @@ export default function TaskCard({
     <Comp
       type={as === "button" ? "button" : undefined}
       onClick={onClick}
-      className={interactive ? "cmms-campo-touch" : undefined}
+      className={interactive ? "cmms-campo-touch cmms-campo-elevated" : "cmms-campo-elevated"}
       style={{
         display: "block",
         width: "100%",

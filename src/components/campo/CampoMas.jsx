@@ -21,7 +21,7 @@ export default function CampoMas({ onSync, pendientes, sincronizando, online, on
             key={item.id}
             type="button"
             onClick={() => onNavigate?.(item.id)}
-            className="cmms-campo-touch"
+            className="cmms-campo-touch cmms-campo-elevated"
             style={{
               display: "flex",
               alignItems: "center",
@@ -49,7 +49,7 @@ export default function CampoMas({ onSync, pendientes, sincronizando, online, on
         );
       })}
 
-      <Card style={{ marginTop: 8, padding: 14 }}>
+      <Card className="cmms-campo-elevated" style={{ marginTop: 8, padding: 14 }}>
         <div style={{ fontSize: 13, fontWeight: 700, color: C.ink, marginBottom: 8 }}>Sincronización</div>
         <div style={{ fontSize: 12.5, color: C.slate, marginBottom: 12, lineHeight: 1.5 }}>
           {pendientes > 0

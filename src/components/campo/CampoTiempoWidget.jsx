@@ -103,6 +103,7 @@ export default function CampoTiempoWidget() {
 
   return (
     <div
+      className="cmms-campo-elevated"
       style={{
         position: "relative",
         marginBottom: 14,
@@ -111,7 +112,6 @@ export default function CampoTiempoWidget() {
         border: `1px solid ${tint(TONE_ACCENT[tone] || C.line, 28)}`,
         background: TONE_BG[tone] || TONE_BG.green,
         overflow: "hidden",
-        boxShadow: "0 4px 18px rgba(8,20,32,.06)",
       }}
     >
       <div style={{

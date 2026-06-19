@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, lazy, Suspense } from "react";
 import { ArrowLeft } from "lucide-react";
 import { CAMPO_TABS, CAMPO_TAB_KEY, NAV_META } from "../../lib/navigation";
+import { useCampoSwipe } from "../../lib/useCampoSwipe";
 import { C, tint } from "../../theme";
 import { InlineSpinner, ghostBtn } from "../../ui";
 import ErrorBoundary from "../ErrorBoundary";
@@ -50,6 +51,15 @@ export default function CampoShell({
   const [launchOtId, setLaunchOtId] = useState(null);
   const [campoParams, setCampoParams] = useState({});
 
+  const setTabDirect = useCallback((next) => setTab(next), []);
+
+  const { changeTab, swipeHandlers, paneClass } = useCampoSwipe({
+    enabled: !stackModule,
+    tabs: CAMPO_TABS,
+    tab,
+    onTabChange: setTabDirect,
+  });
+
   useEffect(() => {
     try { sessionStorage.setItem(CAMPO_TAB_KEY, tab); } catch { /* sin storage */ }
     if (!stackModule) onTabChange?.(tab);
@@ -90,14 +100,14 @@ export default function CampoShell({
       if (params) setCampoParams(params);
       if (destTab === "horometros") {
         setStackModule(null);
-        setTab("horometros");
+        changeTab("horometros");
         return;
       }
-      if (destTab && CAMPO_TABS.some((t) => t.id === destTab)) setTab(destTab);
+      if (destTab && CAMPO_TABS.some((t) => t.id === destTab)) changeTab(destTab);
     };
     window.addEventListener("cmms-campo-nav", fn);
     return () => window.removeEventListener("cmms-campo-nav", fn);
-  }, [irTrabajo, irInicio]);
+  }, [irTrabajo, irInicio, changeTab]);
 
   useEffect(() => {
     if (openOtWizard && tab === "trabajo") {
@@ -188,8 +198,11 @@ export default function CampoShell({
         </div>
       )}
 
-      <div className={`cmms-campo-content${inStack ? " cmms-campo-stack-body" : ""}`}>
-        {body}
+      <div
+        className={`cmms-campo-content${inStack ? " cmms-campo-stack-body" : ""}`}
+        {...(!inStack ? swipeHandlers : {})}
+      >
+        {!inStack ? <div key={tab} className={paneClass}>{body}</div> : body}
       </div>
 
       {!inStack && (
@@ -204,7 +217,7 @@ export default function CampoShell({
                 role="tab"
                 aria-selected={active}
                 className={`cmms-campo-tab${active ? " cmms-campo-tab-active" : ""}`}
-                onClick={() => setTab(t.id)}
+                onClick={() => changeTab(t.id)}
               >
                 <Icon size={20} strokeWidth={active ? 2.4 : 2} />
                 <span>{t.label}</span>
@@ -244,6 +257,43 @@ export default function CampoShell({
           font-size: 15px;
           min-width: 0;
           overflow-x: hidden;
+          touch-action: pan-y;
+        }
+        .cmms-campo-pane {
+          min-height: 100%;
+        }
+        @keyframes cmms-campo-slide-from-right {
+          from { opacity: 0.55; transform: translateX(28px); }
+          to { opacity: 1; transform: translateX(0); }
+        }
+        @keyframes cmms-campo-slide-from-left {
+          from { opacity: 0.55; transform: translateX(-28px); }
+          to { opacity: 1; transform: translateX(0); }
+        }
+        .cmms-campo-pane--from-right {
+          animation: cmms-campo-slide-from-right 0.26s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+        .cmms-campo-pane--from-left {
+          animation: cmms-campo-slide-from-left 0.26s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .cmms-campo-pane--from-right,
+          .cmms-campo-pane--from-left { animation: none; }
+        }
+        :root:not([data-theme="dark"]) .cmms-campo-shell {
+          --cmms-campo-shadow-sm: 0 2px 4px rgba(10,26,42,.08), 0 4px 10px rgba(10,26,42,.07);
+          --cmms-campo-shadow-md: 0 4px 10px rgba(10,26,42,.10), 0 10px 24px rgba(10,26,42,.12);
+          --cmms-campo-shadow-lg: 0 8px 20px rgba(10,26,42,.14), 0 18px 40px rgba(10,26,42,.10);
+        }
+        :root:not([data-theme="dark"]) .cmms-campo-shell .cmms-campo-elevated {
+          box-shadow: var(--cmms-campo-shadow-md) !important;
+        }
+        :root:not([data-theme="dark"]) .cmms-campo-tabs {
+          box-shadow: 0 -6px 20px rgba(10,26,42,.12), 0 -2px 6px rgba(10,26,42,.06);
+          border-top-color: transparent;
+        }
+        :root:not([data-theme="dark"]) .cmms-campo-home-fab {
+          box-shadow: var(--cmms-campo-shadow-lg) !important;
         }
         .cmms-campo-stack-body {
           padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px));
