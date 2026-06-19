@@ -80,6 +80,12 @@ export default function PlanPM({ onNavigate, navParams }) {
   useEffect(() => { cargar(); }, [cargar]);
 
   useEffect(() => {
+    const onSynced = () => cargar();
+    window.addEventListener("cmms-synced", onSynced);
+    return () => window.removeEventListener("cmms-synced", onSynced);
+  }, [cargar]);
+
+  useEffect(() => {
     if (navParams?.filtro) setFiltro(navParams.filtro);
     if (navParams?.tab === "plan" || navParams?.tab === "historial") setTab(navParams.tab);
     if (navParams?.fEstado) setViewFilters((f) => ({ ...(f || {}), fEstado: navParams.fEstado }));

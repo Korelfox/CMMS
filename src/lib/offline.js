@@ -49,7 +49,16 @@ function avisarCambio() { window.dispatchEvent(new CustomEvent("cmms-outbox")); 
 // Encola un INSERT. row debe traer ya su id (UUID) y empresa_id.
 export async function queueInsert(tabla, row, descripcion = "") {
   const localId = row.id || nuevoId();
-  const op = { localId, tabla, row: { ...row, id: localId }, ts: Date.now(), descripcion };
+  const op = { localId, tabla, tipo: "insert", row: { ...row, id: localId }, ts: Date.now(), descripcion };
+  await outboxStore.setItem(localId, op);
+  avisarCambio();
+  return op;
+}
+
+// Encola un UPDATE parcial. Solo toca los campos en `cambios` (igual que updateRow).
+export async function queueUpdate(tabla, id, cambios, descripcion = "") {
+  const localId = `upd_${id}_${Date.now()}`;
+  const op = { localId, tabla, tipo: "update", id, cambios, ts: Date.now(), descripcion };
   await outboxStore.setItem(localId, op);
   avisarCambio();
   return op;
@@ -71,9 +80,15 @@ export async function flushOutbox() {
   let ok = 0, fail = 0;
   for (const op of items) {
     try {
-      const { error } = await supabase.from(op.tabla).insert(op.row);
-      // 23505 = clave duplicada: ya estaba subida; la damos por buena.
-      if (error && error.code !== "23505") throw error;
+      if (op.tipo === "update") {
+        const { error } = await supabase.from(op.tabla).update(op.cambios).eq("id", op.id);
+        if (error) throw error;
+      } else {
+        // insert (tipo === "insert" o campo ausente — compatibilidad con ops antiguas)
+        const { error } = await supabase.from(op.tabla).insert(op.row);
+        // 23505 = clave duplicada: ya estaba subida; la damos por buena.
+        if (error && error.code !== "23505") throw error;
+      }
       await outboxStore.removeItem(op.localId);
       ok++;
     } catch (e) {

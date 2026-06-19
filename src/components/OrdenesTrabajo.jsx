@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback, useMemo, useRef } from "react"
 import { ClipboardList, Plus, Download, CloudOff, DollarSign, Check, RefreshCw, ShieldCheck, CheckCircle2, AlertTriangle, List, Columns3 } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { fetchAll, insertRow, updateRow, deleteRow, logActivity, rpcCall } from "../lib/db";
-import { useOnline, cacheTable, getCached, queueInsert, nuevoId } from "../lib/offline";
+import { useOnline, cacheTable, getCached, queueInsert, queueUpdate, nuevoId } from "../lib/offline";
 import { subirFotos } from "../lib/fotos";
 import { C, clp, isAdmin, canOperate, TIPOS_OT, PRIORIDADES, ESTADOS_OT, lk, tint } from "../theme";
 import {
@@ -451,6 +451,11 @@ export default function OrdenesTrabajo({ navParams, onNavigate }) {
     // Actualización optimista: la UI cambia al instante.
     setOts((p) => p.map((o) => (o.id === ot.id ? { ...o, ...cambios } : o)));
     setError(null);
+    if (!online) {
+      await queueUpdate("ordenes_trabajo", ot.id, cambios, `Estado ${ot.folio}: ${nuevoEstado}`);
+      logActivity(profile, "Cambiar estado OT", `${ot.folio}: ${lk(ESTADOS_OT, anterior)} → ${lk(ESTADOS_OT, nuevoEstado)}`);
+      return;
+    }
     try {
       await updateRow("ordenes_trabajo", ot.id, cambios);
       logActivity(profile, "Cambiar estado OT", `${ot.folio}: ${lk(ESTADOS_OT, anterior)} → ${lk(ESTADOS_OT, nuevoEstado)}`);
@@ -478,10 +483,14 @@ export default function OrdenesTrabajo({ navParams, onNavigate }) {
     }
   }
 
-  // Guarda el checklist de una OT (optimista; revierte si falla la red).
+  // Guarda el checklist de una OT (optimista; encola si está offline).
   async function guardarChecklist(ot, items) {
     const previo = ot.checklist;
     setOts((p) => p.map((o) => (o.id === ot.id ? { ...o, checklist: items } : o)));
+    if (!online) {
+      await queueUpdate("ordenes_trabajo", ot.id, { checklist: items }, `Checklist ${ot.folio}`);
+      return;
+    }
     try { await updateRow("ordenes_trabajo", ot.id, { checklist: items }); }
     catch (e) {
       setOts((p) => p.map((o) => (o.id === ot.id ? { ...o, checklist: previo } : o)));
