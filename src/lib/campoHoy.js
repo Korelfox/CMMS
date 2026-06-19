@@ -1,4 +1,19 @@
 const PRIO = { critica: 0, alta: 1, media: 2, baja: 3 };
+
+// Sube el árbol de equipos (max 3 saltos) hasta llegar al nodo sistema,
+// recogiendo los nombres intermedios. Permite contextualizar un componente:
+// "Filtro combustible" → ruta "Motor Principal" en lugar de solo "FUEL".
+export function rutaEquipo(eq, equipoPorId) {
+  if (!eq) return "";
+  const parts = [];
+  let cur = eq.parent_id ? equipoPorId.get(eq.parent_id) : null;
+  while (cur && parts.length < 3) {
+    if (cur.tipo_nodo === "sistema") break;
+    parts.unshift(cur.nombre || cur.id_visible || "");
+    cur = cur.parent_id ? equipoPorId.get(cur.parent_id) : null;
+  }
+  return parts.filter(Boolean).join(" › ");
+}
 const ESTADO = { en_ejecucion: 0, programada: 1, planificada: 2, solicitada: 3 };
 
 export function ordenarOtsCampo(ots) {

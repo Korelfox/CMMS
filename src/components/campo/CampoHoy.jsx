@@ -6,7 +6,7 @@ import { useShell } from "../../context/ShellContext";
 import { filterByEmbarcacion } from "../../lib/embarcacionActiva";
 import { C, lk, PRIORIDADES, ESTADOS_OT, num } from "../../theme";
 import { EmptyState, InlineSpinner, ghostBtn } from "../../ui";
-import { ordenarOtsCampo, agruparProgramacion, labelProgFecha } from "../../lib/campoHoy";
+import { ordenarOtsCampo, agruparProgramacion, labelProgFecha, rutaEquipo } from "../../lib/campoHoy";
 import TaskCard from "./TaskCard";
 import CampoSection from "./CampoSection";
 import CampoTiempoWidget from "./CampoTiempoWidget";
@@ -151,6 +151,7 @@ export default function CampoHoy({ onIrTrabajo }) {
               />
               {otsOrdenadas.slice(0, 8).map((ot) => {
                 const eq = ot.equipo_id ? equipoPorId.get(ot.equipo_id) : null;
+                const ruta = rutaEquipo(eq, equipoPorId);
                 return (
                   <TaskCard
                     key={ot.id}
@@ -158,7 +159,7 @@ export default function CampoHoy({ onIrTrabajo }) {
                     badge={ot.folio}
                     badgeLabel={ot.estado === "en_ejecucion" ? "En curso" : lk(PRIORIDADES, ot.prioridad)}
                     title={eq?.nombre || ot.sistema || ot.folio}
-                    subtitle={ot.descripcion || undefined}
+                    subtitle={[ruta, ot.descripcion].filter(Boolean).join(" · ") || undefined}
                     meta={lk(ESTADOS_OT, ot.estado)}
                     onClick={() => abrirOt(ot.id)}
                   />

@@ -12,6 +12,7 @@ import {
 } from "../ui";
 import { FotoInput } from "./Fotos";
 import { blankOT, folioOT, kpisOT, filtrarOTs, buscarOTs, ordenarOTs, sinValorizar, validarNuevaOT } from "../lib/ot";
+import { rutaEquipo } from "../lib/campoHoy";
 import { MODOS_FALLA_ISO, requiereCodigoFalla } from "../lib/fallasISO";
 import CierreFallaModal from "./ot/CierreFallaModal";
 import EquipoPicker from "./EquipoPicker";
@@ -640,6 +641,7 @@ export default function OrdenesTrabajo({ navParams, onNavigate }) {
             ) : (
               listaCampo.map((ot) => {
                 const eq = ot.equipo_id ? equipoPorId.get(ot.equipo_id) : null;
+                const ruta = rutaEquipo(eq, equipoPorId);
                 return (
                   <TaskCard
                     key={ot.id}
@@ -647,7 +649,7 @@ export default function OrdenesTrabajo({ navParams, onNavigate }) {
                     badge={ot.folio}
                     badgeLabel={lk(PRIORIDADES, ot.prioridad)}
                     title={eq?.nombre || ot.sistema || ot.folio}
-                    subtitle={ot.descripcion || undefined}
+                    subtitle={[ruta, ot.descripcion].filter(Boolean).join(" · ") || undefined}
                     meta={`${lk(ESTADOS_OT, ot.estado)}${ot._pending ? " · sync pendiente" : ""}`}
                     onClick={() => seleccionarOT(ot.id, "ejecucion")}
                   />
