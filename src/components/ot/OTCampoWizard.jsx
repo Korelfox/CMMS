@@ -212,6 +212,7 @@ function OTCampoRepuestos({ ot, onSkip }) {
 export default function OTCampoWizard({
   ot,
   onBack,
+  onHome,
   puedeOperar,
   online,
   usuario,
@@ -262,6 +263,7 @@ export default function OTCampoWizard({
       subtitle={ot.sistema || undefined}
       subtitleClamp={1}
       onBack={onBack}
+      onHome={onHome}
       backLabel="Lista"
       progress={progress}
       footer={footer}

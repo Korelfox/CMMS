@@ -1,10 +1,13 @@
 import React from "react";
+import { createPortal } from "react-dom";
 import { Home } from "lucide-react";
 import { C, tint } from "../../theme";
 
 /** Botón flotante para volver a la pantalla inicial (Hoy) en Modo Campo. */
 export default function CampoHomeFab({ onClick, atHome = false, inStack = false }) {
-  return (
+  if (typeof document === "undefined") return null;
+
+  return createPortal(
     <button
       type="button"
       className={`cmms-campo-home-fab cmms-campo-touch${inStack ? " cmms-campo-home-fab-stack" : ""}`}
@@ -17,7 +20,7 @@ export default function CampoHomeFab({ onClick, atHome = false, inStack = false 
         bottom: inStack
           ? "calc(16px + env(safe-area-inset-bottom, 0px))"
           : "calc(72px + env(safe-area-inset-bottom, 0px))",
-        zIndex: 40,
+        zIndex: 60,
         width: 48,
         height: 48,
         borderRadius: 14,
@@ -36,6 +39,7 @@ export default function CampoHomeFab({ onClick, atHome = false, inStack = false 
       }}
     >
       <Home size={22} strokeWidth={atHome ? 2 : 2.4} />
-    </button>
+    </button>,
+    document.body,
   );
 }

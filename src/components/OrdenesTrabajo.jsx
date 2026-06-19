@@ -69,6 +69,7 @@ export default function OrdenesTrabajo({ navParams, onNavigate }) {
   const [savedViews, setSavedViews] = useState(() => loadSavedViews(SAVED_VIEWS_KEY));
   const [activeViewId, setActiveViewId] = useState(null);
   const campoWizardLaunched = useRef(false);
+  const campoWizardDismissed = useRef(null);
   const [auditViols, setAuditViols] = useState(null);
   const [auditAbierto, setAuditAbierto] = useState(false);
   const [auditLoading, setAuditLoading] = useState(false);
@@ -189,9 +190,14 @@ export default function OrdenesTrabajo({ navParams, onNavigate }) {
     [listaVista],
   );
 
-  const selectedOT = useMemo(
-    () => ots.find((o) => o.id === selectedId) || listaVista[0] || null,
-    [ots, selectedId, listaVista],
+  const selectedOT = useMemo(() => {
+    if (!selectedId) return null;
+    return ots.find((o) => o.id === selectedId) || null;
+  }, [ots, selectedId]);
+
+  const selectedOTPanel = useMemo(
+    () => selectedOT || listaVista[0] || null,
+    [selectedOT, listaVista],
   );
 
   function seleccionarOT(id, tab) {
@@ -199,11 +205,27 @@ export default function OrdenesTrabajo({ navParams, onNavigate }) {
     setOtDestacadaId(null);
     if (tab) setDetailTab(tab);
     setDetailOpen(true);
-    if (isMobile) setShowMobileDetail(true);
+    if (isCampo) {
+      campoWizardDismissed.current = null;
+      setShowMobileDetail(true);
+    } else if (isMobile) {
+      setShowMobileDetail(true);
+    }
   }
 
   function cerrarMobileDetail() {
     setShowMobileDetail(false);
+    setDetailOpen(false);
+    if (isCampo && selectedId) {
+      campoWizardDismissed.current = selectedId;
+      campoWizardLaunched.current = true;
+    }
+  }
+
+  function irInicioCampo() {
+    cerrarMobileDetail();
+    setSelectedId(null);
+    window.dispatchEvent(new CustomEvent("cmms-campo-home"));
   }
 
   const otViews = useMemo(
@@ -248,14 +270,30 @@ export default function OrdenesTrabajo({ navParams, onNavigate }) {
     }
   }, [filtro, embFiltro, vista, listaVista.length, isMobile, selectedId]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  useEffect(() => {
+    if (!isCampo) return;
+    const fn = () => {
+      setShowMobileDetail(false);
+      setDetailOpen(false);
+      setSelectedId((id) => {
+        if (id) campoWizardDismissed.current = id;
+        return null;
+      });
+      campoWizardLaunched.current = true;
+    };
+    window.addEventListener("cmms-campo-home", fn);
+    return () => window.removeEventListener("cmms-campo-home", fn);
+  }, [isCampo]);
+
   // Campo móvil: OT en ejecución → wizard directo (Capa 3).
   useEffect(() => {
     if (navParams?.openWizard) campoWizardLaunched.current = false;
   }, [navParams?.openWizard]);
 
   useEffect(() => {
-    if (!isCampo || !isMobile || isValorizar) return;
+    if (!isCampo || isValorizar) return;
     if (navParams?.otId) {
+      campoWizardDismissed.current = null;
       setSelectedId(navParams.otId);
       setDetailTab("ejecucion");
       setShowMobileDetail(true);
@@ -264,12 +302,13 @@ export default function OrdenesTrabajo({ navParams, onNavigate }) {
     }
     const enEj = findOtEnEjecucion(listaVista);
     if (!enEj) return;
+    if (campoWizardDismissed.current === enEj.id) return;
     if (campoWizardLaunched.current && !navParams?.openWizard) return;
     setSelectedId(enEj.id);
     setDetailTab("ejecucion");
     setShowMobileDetail(true);
     campoWizardLaunched.current = true;
-  }, [isCampo, isMobile, isValorizar, listaVista, navParams?.openWizard, navParams?.otId]);
+  }, [isCampo, isValorizar, listaVista, navParams?.openWizard, navParams?.otId]);
 
   const { abiertas, costoTotal, propProactivo } = kpisOT(otsScope);
   const nSinValorizar = otsScope.filter(sinValorizar).length;
@@ -501,7 +540,7 @@ export default function OrdenesTrabajo({ navParams, onNavigate }) {
     trabajo_varada_huerfano:  { label: "Trabajo varada huérfano", tone: "yellow" },
   };
 
-  const showFullscreen = isMobile && showMobileDetail && selectedOT;
+  const showFullscreen = (isCampo || isMobile) && showMobileDetail && !!selectedOT;
   const embColorFn = (id) => embarcaciones.find((e) => e.id === id)?.color;
 
   function renderOTDetailPanel(ot, { embedded = true, valorizar = isValorizar } = {}) {
@@ -563,6 +602,7 @@ export default function OrdenesTrabajo({ navParams, onNavigate }) {
           <OTCampoWizard
             ot={selectedOT}
             onBack={cerrarMobileDetail}
+            onHome={irInicioCampo}
             puedeOperar={puedeOperar}
             online={online}
             usuario={profile?.nombre || ""}
@@ -873,26 +913,27 @@ export default function OrdenesTrabajo({ navParams, onNavigate }) {
             <SplitDetailLayout
               variant="kanban"
               stack={isMobile}
-              hasSelection={!!selectedOT}
-              selectionKey={selectedOT?.id}
+              hasSelection={!!selectedOTPanel}
+              selectionKey={selectedOTPanel?.id}
               detailOpen={detailOpen}
               onDetailOpenChange={setDetailOpen}
               queue={
               <OTKanban
                 lista={lista}
-                selectedId={selectedOT?.id}
+                selectedId={selectedOTPanel?.id}
                 onSelect={(id) => seleccionarOT(id, isCampo ? "ejecucion" : undefined)}
                 embName={embName}
                 embarcaciones={embarcaciones}
               />
               }
-              detail={renderOTDetailPanel(selectedOT)}
+              detail={renderOTDetailPanel(selectedOTPanel)}
             />
             )}
-            {showFullscreen && isCampo && (
+            {showFullscreen && isCampo && selectedOT && (
               <OTCampoWizard
                 ot={selectedOT}
                 onBack={cerrarMobileDetail}
+                onHome={irInicioCampo}
                 puedeOperar={puedeOperar}
                 online={online}
                 usuario={profile?.nombre || ""}
@@ -901,7 +942,7 @@ export default function OrdenesTrabajo({ navParams, onNavigate }) {
                 initialStep="checklist"
               />
             )}
-            {showFullscreen && !isCampo && (
+            {showFullscreen && !isCampo && selectedOT && (
               <DetailShell
                 title={selectedOT.folio}
                 subtitle={selectedOT.descripcion || selectedOT.sistema || "—"}
@@ -920,14 +961,14 @@ export default function OrdenesTrabajo({ navParams, onNavigate }) {
           <SplitDetailLayout
             variant="queue-wide"
             stack={isMobile}
-            hasSelection={!!selectedOT}
-            selectionKey={selectedOT?.id}
+            hasSelection={!!selectedOTPanel}
+            selectionKey={selectedOTPanel?.id}
             detailOpen={detailOpen}
             onDetailOpenChange={setDetailOpen}
             queue={
             <OTQueuePanel
               lista={listaVista}
-              selectedId={selectedOT?.id}
+              selectedId={selectedOTPanel?.id}
               onSelect={(id) => seleccionarOT(id, isValorizar ? "costos" : (isCampo ? "ejecucion" : undefined))}
               busqueda={busqueda}
               setBusqueda={setBusqueda}
@@ -937,13 +978,14 @@ export default function OrdenesTrabajo({ navParams, onNavigate }) {
               panelHeight={isMobile ? "auto" : isValorizar ? "calc(100vh - 420px)" : "calc(100vh - 320px)"}
             />
             }
-            detail={renderOTDetailPanel(selectedOT)}
+            detail={renderOTDetailPanel(selectedOTPanel)}
           />
             )}
-            {showFullscreen && isCampo && (
+            {showFullscreen && isCampo && selectedOT && (
               <OTCampoWizard
                 ot={selectedOT}
                 onBack={cerrarMobileDetail}
+                onHome={irInicioCampo}
                 puedeOperar={puedeOperar}
                 online={online}
                 usuario={profile?.nombre || ""}
@@ -952,7 +994,7 @@ export default function OrdenesTrabajo({ navParams, onNavigate }) {
                 initialStep="checklist"
               />
             )}
-            {showFullscreen && !isCampo && (
+            {showFullscreen && !isCampo && selectedOT && (
               <DetailShell
                 title={selectedOT.folio}
                 subtitle={selectedOT.descripcion || selectedOT.sistema || "—"}

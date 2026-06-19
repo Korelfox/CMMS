@@ -1,5 +1,5 @@
 import React from "react";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Home } from "lucide-react";
 import { C, tint } from "../../theme";
 import { ghostBtn } from "../../ui";
 
@@ -10,6 +10,7 @@ export default function DetailShell({
   subtitleClamp = 1,
   onBack,
   backLabel = "Volver",
+  onHome,
   children,
   footer,
   progress,
@@ -24,7 +25,12 @@ export default function DetailShell({
       aria-label={title || "Detalle"}
     >
       <header className="cmms-detail-shell-header">
-        <button type="button" onClick={onBack} style={{ ...ghostBtn, padding: "6px 10px", flexShrink: 0 }}>
+        <button
+          type="button"
+          className={campo ? "cmms-campo-touch" : undefined}
+          onClick={onBack}
+          style={{ ...ghostBtn, padding: "6px 10px", flexShrink: 0, minHeight: campo ? 48 : undefined }}
+        >
           <ArrowLeft size={16} /> {backLabel}
         </button>
         <div style={{ flex: 1, minWidth: 0, marginLeft: 8 }}>
@@ -49,6 +55,26 @@ export default function DetailShell({
             </div>
           )}
         </div>
+        {campo && onHome && (
+          <button
+            type="button"
+            className="cmms-campo-touch"
+            onClick={onHome}
+            aria-label="Ir a inicio"
+            title="Inicio"
+            style={{
+              ...ghostBtn,
+              padding: "6px 10px",
+              flexShrink: 0,
+              minHeight: 48,
+              minWidth: 48,
+              justifyContent: "center",
+              color: C.sky,
+            }}
+          >
+            <Home size={18} />
+          </button>
+        )}
       </header>
       {progress != null && (
         <div style={{ padding: "0 14px 10px", borderBottom: `1px solid ${C.line}` }}>
@@ -63,7 +89,7 @@ export default function DetailShell({
         .cmms-detail-shell {
           position: fixed;
           inset: 0;
-          z-index: 35;
+          z-index: 45;
           display: flex;
           flex-direction: column;
           background: ${C.mist};
