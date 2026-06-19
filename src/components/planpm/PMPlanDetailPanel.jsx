@@ -13,6 +13,8 @@ export default function PMPlanDetailPanel({
   puedeOperar,
   puedeBorrar,
   registrando,
+  regModo = "registrar",
+  setRegModo,
   regForm,
   setRegForm,
   setRegistrando,
@@ -21,6 +23,8 @@ export default function PMPlanDetailPanel({
   setHitoForm,
   setEditHitoId,
   onRegistrar,
+  onCrearOT,
+  onCerrarRegistro,
   onGuardarHito,
   onAbrirEditHito,
   onEliminar,
@@ -94,13 +98,25 @@ export default function PMPlanDetailPanel({
         {puedeOperar && (
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 12 }}>
             <button type="button"
-              onClick={() => { setRegistrando(isReg ? null : plan.id); setRegForm({ realizado_por: profile?.nombre || "", notas: "", crearOT: false }); }}
+              onClick={() => {
+                if (isReg) {
+                  onCerrarRegistro?.();
+                } else {
+                  setRegistrando(plan.id);
+                  setRegModo?.("registrar");
+                  setRegForm({ realizado_por: profile?.nombre || "", notas: "", crearOT: false });
+                }
+              }}
               style={{ ...primaryBtn, padding: "6px 12px", fontSize: 12, background: isReg ? C.slate : C.green, display: "inline-flex", alignItems: "center", gap: 4 }}>
               <Check size={13} /> {isReg ? "Cancelar" : "Registrar PM"}
             </button>
             {tone === "red" && !isReg && (
               <button type="button"
-                onClick={() => { setRegistrando(plan.id); setRegForm({ realizado_por: profile?.nombre || "", notas: "", crearOT: true }); }}
+                onClick={() => {
+                  setRegistrando(plan.id);
+                  setRegModo?.("crear_ot");
+                  setRegForm({ realizado_por: "", notas: "", crearOT: false });
+                }}
                 style={{ ...ghostBtn, padding: "6px 12px", fontSize: 12, borderColor: C.red, color: C.red, display: "inline-flex", alignItems: "center", gap: 4 }}>
                 <ClipboardList size={13} /> Crear OT
               </button>
@@ -119,7 +135,23 @@ export default function PMPlanDetailPanel({
         )}
 
         {isReg && (
-          <div style={{ marginBottom: 12, padding: 14, background: tint(C.green, 8), border: `1px solid ${C.green}40`, borderRadius: 10 }}>
+          <div style={{ marginBottom: 12, padding: 14, background: tint(regModo === "crear_ot" ? C.steel : C.green, 8), border: `1px solid ${regModo === "crear_ot" ? C.steel : C.green}40`, borderRadius: 10 }}>
+            {regModo === "crear_ot" ? (
+              <>
+                <div style={{ fontSize: 12, fontWeight: 700, color: C.abyss, marginBottom: 6 }}>Crear OT planificada</div>
+                <div style={{ fontSize: 11.5, color: C.slate, marginBottom: 12, lineHeight: 1.5 }}>
+                  Programa el PM vencido sin marcarlo como ejecutado. El semáforo solo cambia al registrar la realización.
+                </div>
+                <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
+                  <button type="button" onClick={async () => { await onCrearOT?.(plan); onCerrarRegistro?.(); }}
+                    style={{ ...primaryBtn, padding: "6px 14px", fontSize: 12 }}>
+                    <ClipboardList size={13} /> Crear OT planificada
+                  </button>
+                  <button type="button" onClick={() => onCerrarRegistro?.()} style={{ ...ghostBtn, padding: "6px 12px", fontSize: 12 }}>Cancelar</button>
+                </div>
+              </>
+            ) : (
+              <>
             <div style={{ fontSize: 12, fontWeight: 700, color: C.abyss, marginBottom: 10 }}>Registrar realización</div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: 10, marginBottom: 10 }}>
               <Field label="Realizado por">
@@ -135,11 +167,13 @@ export default function PMPlanDetailPanel({
                 Generar OT de cierre
               </label>
               <div style={{ display: "flex", gap: 6 }}>
-                <button type="button" onClick={async () => { await onRegistrar(plan, regForm); setRegistrando(null); setRegForm({ realizado_por: "", notas: "", crearOT: false }); }}
-                  style={{ ...primaryBtn, padding: "6px 14px", fontSize: 12 }}>Confirmar</button>
-                <button type="button" onClick={() => setRegistrando(null)} style={{ ...ghostBtn, padding: "6px 12px", fontSize: 12 }}>Cancelar</button>
+                <button type="button" onClick={async () => { await onRegistrar(plan, regForm); onCerrarRegistro?.(); }}
+                  style={{ ...primaryBtn, padding: "6px 14px", fontSize: 12 }}>Confirmar registro</button>
+                <button type="button" onClick={() => onCerrarRegistro?.()} style={{ ...ghostBtn, padding: "6px 12px", fontSize: 12 }}>Cancelar</button>
               </div>
             </div>
+              </>
+            )}
           </div>
         )}
 

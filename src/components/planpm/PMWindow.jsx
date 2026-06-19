@@ -73,6 +73,7 @@ export default function PMWindow({ equipoId, handlersRef, puedeOperar, puedeBorr
   const h = handlersRef.current;
 
   const [registrando, setRegistrando] = useState(null);
+  const [regModo, setRegModo] = useState("registrar");
   const [regForm, setRegForm] = useState({ realizado_por: "", notas: "", crearOT: false });
   const [editHitoId, setEditHitoId] = useState(null);
   const [hitoForm, setHitoForm] = useState({ horas: "", fecha: "" });
@@ -111,8 +112,13 @@ export default function PMWindow({ equipoId, handlersRef, puedeOperar, puedeBorr
   async function handleRegistrar(plan) {
     setGuardando(true);
     try {
-      await h.registrarPM(plan, regForm);
+      if (regModo === "crear_ot") {
+        await h.crearOTDesdePlan(plan);
+      } else {
+        await h.registrarPM(plan, regForm);
+      }
       setRegistrando(null);
+      setRegModo("registrar");
       setRegForm({ realizado_por: h.nombreUsuario || "", notas: "", crearOT: false });
     } catch { /* error ya mostrado por el handler */ }
     finally { setGuardando(false); }
@@ -140,8 +146,22 @@ export default function PMWindow({ equipoId, handlersRef, puedeOperar, puedeBorr
 
   function abrirRegistrar(plan) {
     setRegistrando(plan.id);
+    setRegModo("registrar");
     setRegForm({ realizado_por: h.nombreUsuario || "", notas: "", crearOT: false });
     setEditHitoId(null);
+  }
+
+  function abrirCrearOT(plan) {
+    setRegistrando(plan.id);
+    setRegModo("crear_ot");
+    setRegForm({ realizado_por: "", notas: "", crearOT: false });
+    setEditHitoId(null);
+  }
+
+  function cerrarRegistro() {
+    setRegistrando(null);
+    setRegModo("registrar");
+    setRegForm({ realizado_por: h.nombreUsuario || "", notas: "", crearOT: false });
   }
 
   function abrirHito(plan) {
@@ -252,12 +272,12 @@ export default function PMWindow({ equipoId, handlersRef, puedeOperar, puedeBorr
               {puedeOperar && (
                 <div style={{ padding: "8px 14px", display: "flex", gap: 7, flexWrap: "wrap", alignItems: "center", background: C.surface, borderTop: `1px solid ${C.foam}` }}>
                   <button
-                    onClick={() => isReg ? setRegistrando(null) : abrirRegistrar(plan)}
+                    onClick={() => isReg ? cerrarRegistro() : abrirRegistrar(plan)}
                     style={{ ...primaryBtn, padding: "5px 12px", fontSize: 12, background: isReg ? C.slate : C.green, borderColor: isReg ? C.slate : C.green }}>
                     <Check size={13} /> {isReg ? "Cancelar" : "Registrar PM"}
                   </button>
                   {tone === "red" && !isReg && (
-                    <button onClick={() => { abrirRegistrar(plan); setRegForm((f) => ({ ...f, crearOT: true })); }}
+                    <button onClick={() => abrirCrearOT(plan)}
                       style={{ ...ghostBtn, padding: "5px 12px", fontSize: 12, borderColor: C.red, color: C.red }}>
                       <ClipboardList size={13} /> Crear OT
                     </button>
@@ -278,7 +298,28 @@ export default function PMWindow({ equipoId, handlersRef, puedeOperar, puedeBorr
 
               {/* ── Formulario Registrar PM ── */}
               {isReg && (
-                <div style={{ padding: "16px 16px 14px", background: tint(C.green, 8), borderTop: `1px solid ${C.green}30` }}>
+                <div style={{ padding: "16px 16px 14px", background: tint(regModo === "crear_ot" ? C.steel : C.green, 8), borderTop: `1px solid ${regModo === "crear_ot" ? C.steel : C.green}30` }}>
+                  {regModo === "crear_ot" ? (
+                    <>
+                      <div style={{ fontSize: 12.5, fontWeight: 700, color: C.abyss, marginBottom: 6 }}>
+                        Crear OT planificada — {plan.descripcion}
+                      </div>
+                      <div style={{ fontSize: 11.5, color: C.slate, marginBottom: 14, lineHeight: 1.5 }}>
+                        Programa el PM vencido sin marcarlo como ejecutado. El semáforo solo cambia al registrar la realización.
+                      </div>
+                      <div style={{ display: "flex", gap: 8 }}>
+                        <button onClick={() => handleRegistrar(plan)} disabled={guardando}
+                          style={{ ...primaryBtn, minWidth: 180 }}>
+                          <ClipboardList size={14} />
+                          {guardando ? "Creando…" : "Crear OT planificada"}
+                        </button>
+                        <button onClick={cerrarRegistro} style={ghostBtn}>
+                          <X size={13} /> Cancelar
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    <>
                   <div style={{ fontSize: 12.5, fontWeight: 700, color: C.abyss, marginBottom: 14 }}>
                     Registrar PM — {plan.descripcion}
                     <span style={{ fontWeight: 400, color: C.slate, marginLeft: 8, fontFamily: "'IBM Plex Mono', monospace" }}>
@@ -310,10 +351,12 @@ export default function PMWindow({ equipoId, handlersRef, puedeOperar, puedeBorr
                       <Check size={14} />
                       {guardando ? "Guardando…" : `Confirmar PM${regForm.crearOT ? " + OT" : ""}`}
                     </button>
-                    <button onClick={() => setRegistrando(null)} style={ghostBtn}>
+                    <button onClick={cerrarRegistro} style={ghostBtn}>
                       <X size={13} /> Cancelar
                     </button>
                   </div>
+                    </>
+                  )}
                 </div>
               )}
 

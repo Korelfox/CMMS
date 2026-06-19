@@ -29,6 +29,7 @@ import PMQueuePanel from "./planpm/PMQueuePanel";
 import PMPlanDetailPanel from "./planpm/PMPlanDetailPanel";
 import { PMBar, PMBarCalendario } from "./planpm/PMBars";
 import { folioOT } from "../lib/ot";
+import { huellaPM } from "../lib/autoOT";
 import DetailShell from "./detail/DetailShell";
 import TaskCard from "./campo/TaskCard";
 import { useShellOptional } from "../context/ShellContext";
@@ -292,6 +293,7 @@ function TabPlan({ lista, equipos, setEquipos, planes, setPlanes, historial, set
   const [busqueda, setBusqueda] = useState("");
   const [newPlan, setNewPlan] = useState({ descripcion: "", tipo_disparador: "horas", intervalo_horas: 250, unidad_calendario: "mensual", intervalo_calendario: 1, horas_ult_pm: "", fecha_ult_pm: "" });
   const [registrando, setRegistrando] = useState(null); // plan_pm_id
+  const [regModo, setRegModo] = useState("registrar"); // registrar | crear_ot
   const [regForm, setRegForm] = useState({ realizado_por: "", notas: "", crearOT: false });
   const [editHitoId, setEditHitoId] = useState(null); // plan_pm_id
   const [hitoForm, setHitoForm] = useState({ horas: "", fecha: "" });
@@ -490,33 +492,89 @@ function TabPlan({ lista, equipos, setEquipos, planes, setPlanes, historial, set
     catch (e) { setPlanes((p) => [...p, plan]); setError("No se pudo eliminar: " + e.message); }
   }
 
+  function metaOTPreventiva(plan, eq) {
+    const esCalendario = plan.tipo_disparador === "calendario";
+    const horas = eq.horas_actual || 0;
+    const elapsed = esCalendario
+      ? diasDesde(plan.fecha_ult_pm)
+      : horas - (plan.horas_ult_pm || 0);
+    const [tone] = esCalendario
+      ? statusPlanCalendario(elapsed, plan.unidad_calendario, plan.intervalo_calendario ?? 1)
+      : statusPlan(elapsed, plan.intervalo_horas);
+    return {
+      prioridad: tone === "red" ? "alta" : tone === "yellow" ? "media" : "baja",
+      descripcion: esCalendario
+        ? `PM Cal · ${plan.descripcion}`
+        : `PM ${plan.intervalo_horas}h · ${plan.descripcion}`,
+      huella: huellaPM(plan),
+      fecha: HOY(),
+    };
+  }
+
+  async function crearOTDesdePlan(plan) {
+    const eq = equipos.find((e) => e.id === plan.equipo_id);
+    if (!eq) {
+      setError("No se encontró el equipo del plan.");
+      throw new Error("equipo no encontrado");
+    }
+    const meta = metaOTPreventiva(plan, eq);
+    const otsActuales = await fetchAll("ordenes_trabajo");
+    const existente = meta.huella ? otsActuales.find((o) => o.huella === meta.huella) : null;
+    if (existente) {
+      setError(`Ya existe una OT planificada para este ciclo (${existente.folio}).`);
+      onNavigate?.("ots", { otId: existente.id });
+      return existente;
+    }
+    const folio = folioOT(otsActuales, true);
+    const ot = await insertRow("ordenes_trabajo", profile.empresa_id, {
+      folio,
+      embarcacion_id: eq.embarcacion_id,
+      equipo_id: eq.id,
+      sistema: eq.sistema,
+      tipo: "preventivo",
+      descripcion: meta.descripcion,
+      prioridad: meta.prioridad,
+      fecha: meta.fecha,
+      estado: "planificada",
+      huella: meta.huella,
+      created_by: profile.id,
+    });
+    logActivity(profile, "Crear OT desde PM", `${ot.folio} · ${eq.sistema} · ${plan.descripcion}`);
+    onNavigate?.("ots", { otId: ot.id });
+    return ot;
+  }
+
+  function cerrarRegistro() {
+    setRegistrando(null);
+    setRegModo("registrar");
+    setRegForm({ realizado_por: profile?.nombre || "", notas: "", crearOT: false });
+  }
+
   async function registrarPM(plan, form) {
     const eq           = equipos.find((e) => e.id === plan.equipo_id);
     const horas        = eq?.horas_actual || 0;
     const fecha        = HOY();
     const esCalendario = plan.tipo_disparador === "calendario";
-    const elapsed      = esCalendario
-      ? diasDesde(plan.fecha_ult_pm)
-      : horas - (plan.horas_ult_pm || 0);
     let otId = null;
 
     try {
       if (form.crearOT && eq) {
-        const [tone] = esCalendario
-          ? statusPlanCalendario(elapsed, plan.unidad_calendario, plan.intervalo_calendario ?? 1)
-          : statusPlan(elapsed, plan.intervalo_horas);
-        const prio = tone === "red" ? "alta" : tone === "yellow" ? "media" : "baja";
+        const meta = metaOTPreventiva(plan, eq);
         const otsActuales = await fetchAll("ordenes_trabajo");
-        const folio = folioOT(otsActuales, true);
-        const ot = await insertRow("ordenes_trabajo", profile.empresa_id, {
-          folio, embarcacion_id: eq.embarcacion_id, equipo_id: eq.id,
-          sistema: eq.sistema, tipo: "preventivo",
-          descripcion: esCalendario
-            ? `PM Cal · ${plan.descripcion}`
-            : `PM ${plan.intervalo_horas}h · ${plan.descripcion}`,
-          prioridad: prio, fecha, estado: "planificada", created_by: profile.id,
-        });
-        otId = ot.id;
+        const existente = meta.huella ? otsActuales.find((o) => o.huella === meta.huella) : null;
+        if (existente) {
+          otId = existente.id;
+        } else {
+          const folio = folioOT(otsActuales, true);
+          const ot = await insertRow("ordenes_trabajo", profile.empresa_id, {
+            folio, embarcacion_id: eq.embarcacion_id, equipo_id: eq.id,
+            sistema: eq.sistema, tipo: "preventivo",
+            descripcion: meta.descripcion,
+            prioridad: meta.prioridad, fecha, estado: "planificada",
+            huella: meta.huella, created_by: profile.id,
+          });
+          otId = ot.id;
+        }
       }
       const pmUpdate = esCalendario ? { fecha_ult_pm: fecha } : { horas_ult_pm: horas, fecha_ult_pm: fecha };
       await updateRow("planes_pm", plan.id, pmUpdate);
@@ -650,7 +708,7 @@ tbody td{padding:5px 8px;vertical-align:middle}
   }
 
   handlersRef.current = {
-    registrarPM, guardarHito, agregarPlan, eliminarPlan,
+    registrarPM, crearOTDesdePlan, guardarHito, agregarPlan, eliminarPlan,
     nombreUsuario: profile?.nombre || "",
   };
 
@@ -661,6 +719,8 @@ tbody td{padding:5px 8px;vertical-align:middle}
     puedeOperar,
     puedeBorrar,
     registrando,
+    regModo,
+    setRegModo,
     regForm,
     setRegForm,
     setRegistrando,
@@ -669,6 +729,8 @@ tbody td{padding:5px 8px;vertical-align:middle}
     setHitoForm,
     setEditHitoId,
     onRegistrar: registrarPM,
+    onCrearOT: crearOTDesdePlan,
+    onCerrarRegistro: cerrarRegistro,
     onGuardarHito: guardarHito,
     onAbrirEditHito: abrirEditHito,
     onEliminar: eliminarPlan,
@@ -1278,7 +1340,15 @@ tbody td{padding:5px 8px;vertical-align:middle}
                         {puedeOperar && (
                           <div style={{ display: "flex", gap: 6, borderTop: `1px solid ${C.foam}`, paddingTop: 10, marginTop: 10 }}>
                             <button
-                              onClick={() => { setRegistrando(isReg ? null : plan.id); setRegForm({ realizado_por: profile.nombre || "", notas: "", crearOT: false }); }}
+                              onClick={() => {
+                                if (isReg) {
+                                  cerrarRegistro();
+                                } else {
+                                  setRegistrando(plan.id);
+                                  setRegModo("registrar");
+                                  setRegForm({ realizado_por: profile.nombre || "", notas: "", crearOT: false });
+                                }
+                              }}
                               style={{
                                 ...primaryBtn,
                                 padding: "6px 12px",
@@ -1293,7 +1363,11 @@ tbody td{padding:5px 8px;vertical-align:middle}
                             </button>
                             {tone === "red" && !isReg && (
                               <button
-                                onClick={() => { setRegistrando(plan.id); setRegForm({ realizado_por: profile.nombre || "", notas: "", crearOT: true }); }}
+                                onClick={() => {
+                                  setRegistrando(plan.id);
+                                  setRegModo("crear_ot");
+                                  setRegForm({ realizado_por: "", notas: "", crearOT: false });
+                                }}
                                 style={{
                                   ...ghostBtn,
                                   padding: "6px 12px",
@@ -1366,7 +1440,34 @@ tbody td{padding:5px 8px;vertical-align:middle}
 
                         {/* FORMULARIO REGISTRO PM IN-PLACE */}
                         {isReg && (
-                          <div style={{ marginTop: 12, padding: 14, background: tint(C.green, 8), border: `1px solid ${C.green}40`, borderRadius: 10 }}>
+                          <div style={{ marginTop: 12, padding: 14, background: tint(regModo === "crear_ot" ? C.steel : C.green, 8), border: `1px solid ${regModo === "crear_ot" ? C.steel : C.green}40`, borderRadius: 10 }}>
+                            {regModo === "crear_ot" ? (
+                              <>
+                                <div style={{ fontSize: 12, fontWeight: 700, color: C.abyss, marginBottom: 6 }}>
+                                  Crear OT planificada — <em>{plan.descripcion}</em>
+                                </div>
+                                <div style={{ fontSize: 11.5, color: C.slate, marginBottom: 12, lineHeight: 1.5 }}>
+                                  Genera una OT en estado planificada para programar el PM vencido. El semáforo no cambia hasta registrar la ejecución.
+                                </div>
+                                <div style={{ display: "flex", gap: 6 }}>
+                                  <button
+                                    onClick={async () => {
+                                      try {
+                                        await crearOTDesdePlan(plan);
+                                        cerrarRegistro();
+                                      } catch { /* error manejado */ }
+                                    }}
+                                    style={{ ...primaryBtn, padding: "6px 14px", fontSize: 12 }}
+                                  >
+                                    <ClipboardList size={13} /> Crear OT planificada
+                                  </button>
+                                  <button onClick={cerrarRegistro} style={{ ...ghostBtn, padding: "6px 12px", fontSize: 12 }}>
+                                    Cancelar
+                                  </button>
+                                </div>
+                              </>
+                            ) : (
+                              <>
                             <div style={{ fontSize: 12, fontWeight: 700, color: C.abyss, marginBottom: 10 }}>
                               Registrar realización de: <em>{plan.descripcion}</em>
                             </div>
@@ -1395,19 +1496,20 @@ tbody td{padding:5px 8px;vertical-align:middle}
                                   onClick={async () => {
                                     try {
                                       await registrarPM(plan, regForm);
-                                      setRegistrando(null);
-                                      setRegForm({ realizado_por: "", notas: "", crearOT: false });
+                                      cerrarRegistro();
                                     } catch { /* error manejado */ }
                                   }}
                                   style={{ ...primaryBtn, padding: "6px 14px", fontSize: 12 }}
                                 >
-                                  Confirmar Registro
+                                  Confirmar registro
                                 </button>
-                                <button onClick={() => setRegistrando(null)} style={{ ...ghostBtn, padding: "6px 12px", fontSize: 12 }}>
+                                <button onClick={cerrarRegistro} style={{ ...ghostBtn, padding: "6px 12px", fontSize: 12 }}>
                                   Cancelar
                                 </button>
                               </div>
                             </div>
+                              </>
+                            )}
                           </div>
                         )}
 
