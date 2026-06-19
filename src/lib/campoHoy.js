@@ -46,26 +46,20 @@ export function rutaEquipo(eq, equipoPorId) {
 
 /**
  * Etiqueta de equipo para el ejecutor en Campo.
- * titulo: qué equipo/componente · lineaEquipo: código + ubicación en la nave.
+ * titulo: qué equipo/componente · lineaEquipo: ubicación en la nave (sin código técnico).
  */
 export function describeEquipoCampo(eq, equipoPorId) {
   if (!eq) return { titulo: "", lineaEquipo: "" };
 
-  const codigo = (eq.id_visible || "").trim();
   const nombre = nombreEquipo(eq);
   const raiz = sistemaRaiz(eq, equipoPorId);
   const nombreRaiz = raiz ? nombreEquipo(raiz) : "";
   const ruta = rutaEquipo(eq, equipoPorId);
   const mm = [eq.marca, eq.modelo].filter(Boolean).join(" ").trim();
 
-  let titulo = nombre || codigo || "Equipo";
-  if (eq.tipo_nodo !== "sistema" && nombreRaiz && titulo === nombreRaiz && codigo) {
-    const tail = codigo.split("-").slice(-2).join("-");
-    if (tail && tail !== codigo) titulo = `${nombreRaiz} · ${tail.replace(/-/g, " ")}`;
-  }
+  const titulo = nombre || "Equipo";
 
   const lineaParts = [];
-  if (codigo) lineaParts.push(codigo);
   if (ruta) lineaParts.push(ruta);
   else if (nombreRaiz && nombreRaiz !== titulo) lineaParts.push(nombreRaiz);
   if (mm) lineaParts.push(mm);
@@ -80,7 +74,7 @@ export function describeOtCampo(ot, eq, equipoPorId) {
   if (!eq) {
     return {
       titulo: (ot?.sistema || ot?.folio || "OT").trim(),
-      lineaEquipo: ot?.folio || "",
+      lineaEquipo: "",
       trabajo,
     };
   }

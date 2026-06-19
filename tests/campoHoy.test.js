@@ -42,10 +42,10 @@ describe("campoHoy", () => {
     expect(rutaEquipo(bomba, ARBOL)).toBe("Propulsión › Motor principal");
   });
 
-  it("describeEquipoCampo prioriza código, ruta y criticidad", () => {
+  it("describeEquipoCampo muestra ruta y criticidad sin código técnico", () => {
     const d = describeEquipoCampo(ARBOL.get("bomba"), ARBOL);
     expect(d.titulo).toBe("Bomba agua fresca");
-    expect(d.lineaEquipo).toContain("DP-PROP-MTR-FW-BMP");
+    expect(d.lineaEquipo).not.toContain("DP-PROP");
     expect(d.lineaEquipo).toContain("Propulsión › Motor principal");
     expect(d.lineaEquipo).toContain("Crit. A");
   });
@@ -58,6 +58,6 @@ describe("campoHoy", () => {
     );
     expect(d.titulo).toBe("Bomba agua fresca");
     expect(d.trabajo).toBe("Cambio filtros");
-    expect(d.lineaEquipo).toContain("DP-PROP-MTR-FW-BMP");
+    expect(d.lineaEquipo).toContain("Propulsión › Motor principal");
   });
 });
