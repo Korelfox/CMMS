@@ -29,6 +29,7 @@ export default function CampoHoy({ onIrTrabajo }) {
   const { embarcacionId, embarcacionActiva } = useShell();
   const [loading, setLoading] = useState(true);
   const [ots, setOts] = useState([]);
+  const [todasOts, setTodasOts] = useState([]);
   const [programacion, setProgramacion] = useState([]);
 
   const cargar = useCallback(async () => {
@@ -39,7 +40,9 @@ export default function CampoHoy({ onIrTrabajo }) {
         fetchAll("ordenes_trabajo", { order: { col: "fecha", asc: false } }),
         fetchAll("programacion", { order: { col: "fecha_programada", asc: true } }),
       ]);
-      setOts(filterByEmbarcacion(o, embarcacionId).filter((ot) => ot.estado !== "cerrada"));
+      const scoped = filterByEmbarcacion(o, embarcacionId);
+      setTodasOts(scoped);
+      setOts(scoped.filter((ot) => ot.estado !== "cerrada"));
       setProgramacion(filterByEmbarcacion(prog, embarcacionId));
     } finally {
       setLoading(false);
@@ -54,9 +57,9 @@ export default function CampoHoy({ onIrTrabajo }) {
 
   const otPorFolio = useMemo(() => {
     const m = new Map();
-    ots.forEach((ot) => { if (ot.folio) m.set(ot.folio, ot); });
+    todasOts.forEach((ot) => { if (ot.folio) m.set(ot.folio, ot); });
     return m;
-  }, [ots]);
+  }, [todasOts]);
 
   function abrirOt(id) {
     if (id) onIrTrabajo?.(id);
@@ -105,12 +108,21 @@ export default function CampoHoy({ onIrTrabajo }) {
               {[...prog.atrasadas, ...prog.hoy, ...prog.proximas].map((item) => {
                 const esAtrasada = (item.fecha_programada || "").slice(0, 10) < hoy;
                 const esHoy = (item.fecha_programada || "").slice(0, 10) === hoy;
+                const ot = item.ot_folio ? otPorFolio.get(item.ot_folio) : null;
+                const chip = item.ot_folio
+                  ? ot?.estado === "cerrada"
+                    ? { label: "✓ Cerrada", tone: "green" }
+                    : ot
+                      ? { label: lk(ESTADOS_OT, ot.estado), tone: ot.estado === "en_ejecucion" ? "amber" : "steel" }
+                      : { label: "Sin OT", tone: "steel" }
+                  : null;
                 return (
                   <TaskCard
                     key={item.id}
                     tone={esAtrasada ? "red" : esHoy ? "steel" : "green"}
                     badge={item.ot_folio || "—"}
                     badgeLabel={item.tipo || "Tarea"}
+                    chip={chip}
                     title={item.sistema || "Sin sistema"}
                     subtitle={`${labelProgFecha(item.fecha_programada, hoy)} · ${num(item.hh, 1)} h`}
                     meta={esAtrasada ? "Atrasada" : esHoy ? "Programada hoy" : "Próxima"}

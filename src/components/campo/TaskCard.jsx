@@ -16,6 +16,7 @@ export default function TaskCard({
   tone = "steel",
   badge,
   badgeLabel,
+  chip,
   title,
   subtitle,
   meta,
@@ -47,7 +48,7 @@ export default function TaskCard({
         ...style,
       }}
     >
-      {(badge || badgeLabel) && (
+      {(badge || badgeLabel || chip) && (
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6, flexWrap: "wrap" }}>
           {badgeLabel && <Pill tone={tone}>{badgeLabel}</Pill>}
           {badge && (
@@ -55,6 +56,7 @@ export default function TaskCard({
               {badge}
             </span>
           )}
+          {chip && <Pill tone={chip.tone}>{chip.label}</Pill>}
         </div>
       )}
       <div style={{
