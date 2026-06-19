@@ -12,6 +12,7 @@ import { FotoGaleria } from "../Fotos";
 import {
   CAMPO_WIZARD_STEPS, stepIndex, nextCampoStep, prevCampoStep,
 } from "../../lib/otCampoFlow";
+import { describeOtCampo } from "../../lib/campoHoy";
 
 // ── Paso "Repuestos": lista interactiva de items vinculados al equipo ────────
 function OTCampoRepuestos({ ot, onSkip }) {
@@ -211,6 +212,8 @@ function OTCampoRepuestos({ ot, onSkip }) {
 // ── Wizard principal ─────────────────────────────────────────────────────────
 export default function OTCampoWizard({
   ot,
+  equipo = null,
+  equipoPorId = null,
   onBack,
   onHome,
   puedeOperar,
@@ -223,6 +226,10 @@ export default function OTCampoWizard({
   const [step, setStep] = useState(initialStep);
   const idx = stepIndex(step);
   const progress = ((idx + 1) / CAMPO_WIZARD_STEPS.length) * 100;
+  const d = useMemo(
+    () => describeOtCampo(ot, equipo, equipoPorId || new Map()),
+    [ot, equipo, equipoPorId],
+  );
 
   useEffect(() => {
     setStep(initialStep);
@@ -259,9 +266,9 @@ export default function OTCampoWizard({
 
   return (
     <DetailShell
-      title={ot.folio}
-      subtitle={ot.sistema || undefined}
-      subtitleClamp={1}
+      title={d.titulo}
+      subtitle={[ot.folio, d.lineaEquipo].filter(Boolean).join(" · ") || undefined}
+      subtitleClamp={2}
       onBack={onBack}
       onHome={onHome}
       backLabel="Lista"
@@ -269,23 +276,20 @@ export default function OTCampoWizard({
       footer={footer}
       campo
     >
-      {ot.descripcion && (
+      {d.trabajo && (
         <div style={{
-          fontSize: 13,
-          color: C.slate,
+          fontSize: 14,
+          fontWeight: 600,
+          color: C.ink,
           lineHeight: 1.45,
           marginBottom: 14,
-          padding: "10px 12px",
+          padding: "12px 14px",
           borderRadius: 10,
           border: `1px solid ${C.line}`,
           background: C.surface,
-          overflow: "hidden",
-          display: "-webkit-box",
-          WebkitLineClamp: 3,
-          WebkitBoxOrient: "vertical",
           overflowWrap: "anywhere",
         }}>
-          {ot.descripcion}
+          {d.trabajo}
         </div>
       )}
 

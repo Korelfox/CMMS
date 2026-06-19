@@ -12,7 +12,7 @@ import {
 } from "../ui";
 import { FotoInput } from "./Fotos";
 import { blankOT, folioOT, kpisOT, filtrarOTs, buscarOTs, ordenarOTs, sinValorizar, validarNuevaOT } from "../lib/ot";
-import { rutaEquipo } from "../lib/campoHoy";
+import { describeOtCampo } from "../lib/campoHoy";
 import { MODOS_FALLA_ISO, requiereCodigoFalla } from "../lib/fallasISO";
 import CierreFallaModal from "./ot/CierreFallaModal";
 import EquipoPicker from "./EquipoPicker";
@@ -617,6 +617,8 @@ export default function OrdenesTrabajo({ navParams, onNavigate }) {
         {showFullscreen && selectedOT ? (
           <OTCampoWizard
             ot={selectedOT}
+            equipo={selectedOT?.equipo_id ? equipoPorId.get(selectedOT.equipo_id) : null}
+            equipoPorId={equipoPorId}
             onBack={cerrarMobileDetail}
             onHome={irInicioCampo}
             puedeOperar={puedeOperar}
@@ -641,15 +643,16 @@ export default function OrdenesTrabajo({ navParams, onNavigate }) {
             ) : (
               listaCampo.map((ot) => {
                 const eq = ot.equipo_id ? equipoPorId.get(ot.equipo_id) : null;
-                const ruta = rutaEquipo(eq, equipoPorId);
+                const d = describeOtCampo(ot, eq, equipoPorId);
                 return (
                   <TaskCard
                     key={ot.id}
                     tone={ot.prioridad === "critica" ? "red" : ot.prioridad === "alta" ? "amber" : "steel"}
                     badge={ot.folio}
                     badgeLabel={lk(PRIORIDADES, ot.prioridad)}
-                    title={eq?.nombre || ot.sistema || ot.folio}
-                    subtitle={[ruta, ot.descripcion].filter(Boolean).join(" · ") || undefined}
+                    lineaEquipo={d.lineaEquipo || undefined}
+                    title={d.titulo}
+                    subtitle={d.trabajo || undefined}
                     meta={`${lk(ESTADOS_OT, ot.estado)}${ot._pending ? " · sync pendiente" : ""}`}
                     onClick={() => seleccionarOT(ot.id, "ejecucion")}
                   />

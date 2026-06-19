@@ -17,6 +17,7 @@ export default function TaskCard({
   badge,
   badgeLabel,
   chip,
+  lineaEquipo,
   title,
   subtitle,
   meta,
@@ -57,6 +58,19 @@ export default function TaskCard({
             </span>
           )}
           {chip && <Pill tone={chip.tone}>{chip.label}</Pill>}
+        </div>
+      )}
+      {lineaEquipo && (
+        <div style={{
+          fontSize: 12.5,
+          fontWeight: 700,
+          fontFamily: "'IBM Plex Mono', monospace",
+          color: C.steel,
+          lineHeight: 1.35,
+          marginBottom: 5,
+          overflowWrap: "anywhere",
+        }}>
+          {lineaEquipo}
         </div>
       )}
       <div style={{

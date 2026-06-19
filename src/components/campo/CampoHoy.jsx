@@ -6,7 +6,7 @@ import { useShell } from "../../context/ShellContext";
 import { filterByEmbarcacion } from "../../lib/embarcacionActiva";
 import { C, lk, PRIORIDADES, ESTADOS_OT, num } from "../../theme";
 import { EmptyState, InlineSpinner, ghostBtn } from "../../ui";
-import { ordenarOtsCampo, agruparProgramacion, labelProgFecha, rutaEquipo } from "../../lib/campoHoy";
+import { ordenarOtsCampo, agruparProgramacion, labelProgFecha, describeOtCampo } from "../../lib/campoHoy";
 import TaskCard from "./TaskCard";
 import CampoSection from "./CampoSection";
 import CampoTiempoWidget from "./CampoTiempoWidget";
@@ -118,6 +118,8 @@ export default function CampoHoy({ onIrTrabajo }) {
                 const esAtrasada = (item.fecha_programada || "").slice(0, 10) < hoy;
                 const esHoy = (item.fecha_programada || "").slice(0, 10) === hoy;
                 const ot = item.ot_folio ? otPorFolio.get(item.ot_folio) : null;
+                const eq = ot?.equipo_id ? equipoPorId.get(ot.equipo_id) : null;
+                const d = ot ? describeOtCampo(ot, eq, equipoPorId) : null;
                 const chip = item.ot_folio
                   ? ot?.estado === "cerrada"
                     ? { label: "✓ Cerrada", tone: "green" }
@@ -132,8 +134,9 @@ export default function CampoHoy({ onIrTrabajo }) {
                     badge={item.ot_folio || "—"}
                     badgeLabel={item.tipo || "Tarea"}
                     chip={chip}
-                    title={item.sistema || "Sin sistema"}
-                    subtitle={`${labelProgFecha(item.fecha_programada, hoy)} · ${num(item.hh, 1)} h`}
+                    lineaEquipo={d?.lineaEquipo || undefined}
+                    title={d?.titulo || item.sistema || "Sin sistema"}
+                    subtitle={d?.trabajo || `${labelProgFecha(item.fecha_programada, hoy)} · ${num(item.hh, 1)} h`}
                     meta={esAtrasada ? "Atrasada" : esHoy ? "Programada hoy" : "Próxima"}
                     onClick={() => abrirProg(item)}
                   />
@@ -151,15 +154,16 @@ export default function CampoHoy({ onIrTrabajo }) {
               />
               {otsOrdenadas.slice(0, 8).map((ot) => {
                 const eq = ot.equipo_id ? equipoPorId.get(ot.equipo_id) : null;
-                const ruta = rutaEquipo(eq, equipoPorId);
+                const d = describeOtCampo(ot, eq, equipoPorId);
                 return (
                   <TaskCard
                     key={ot.id}
                     tone={otTone(ot)}
                     badge={ot.folio}
                     badgeLabel={ot.estado === "en_ejecucion" ? "En curso" : lk(PRIORIDADES, ot.prioridad)}
-                    title={eq?.nombre || ot.sistema || ot.folio}
-                    subtitle={[ruta, ot.descripcion].filter(Boolean).join(" · ") || undefined}
+                    lineaEquipo={d.lineaEquipo || undefined}
+                    title={d.titulo}
+                    subtitle={d.trabajo || undefined}
                     meta={lk(ESTADOS_OT, ot.estado)}
                     onClick={() => abrirOt(ot.id)}
                   />
