@@ -640,16 +640,14 @@ export default function OrdenesTrabajo({ navParams, onNavigate }) {
             ) : (
               listaCampo.map((ot) => {
                 const eq = ot.equipo_id ? equipoPorId.get(ot.equipo_id) : null;
-                const eqNombre = eq?.nombre || eq?.id_visible || null;
-                const eqCodigo = eq?.id_visible || null;
                 return (
                   <TaskCard
                     key={ot.id}
                     tone={ot.prioridad === "critica" ? "red" : ot.prioridad === "alta" ? "amber" : "steel"}
                     badge={ot.folio}
                     badgeLabel={lk(PRIORIDADES, ot.prioridad)}
-                    title={eqNombre || ot.sistema || ot.folio}
-                    subtitle={[eqCodigo && eqNombre ? eqCodigo : null, ot.descripcion].filter(Boolean).join(" · ") || undefined}
+                    title={eq?.nombre || ot.sistema || ot.folio}
+                    subtitle={ot.descripcion || undefined}
                     meta={`${lk(ESTADOS_OT, ot.estado)}${ot._pending ? " · sync pendiente" : ""}`}
                     onClick={() => seleccionarOT(ot.id, "ejecucion")}
                   />

@@ -151,16 +151,14 @@ export default function CampoHoy({ onIrTrabajo }) {
               />
               {otsOrdenadas.slice(0, 8).map((ot) => {
                 const eq = ot.equipo_id ? equipoPorId.get(ot.equipo_id) : null;
-                const eqNombre = eq?.nombre || eq?.id_visible || null;
-                const eqCodigo = eq?.id_visible || null;
                 return (
                   <TaskCard
                     key={ot.id}
                     tone={otTone(ot)}
                     badge={ot.folio}
                     badgeLabel={ot.estado === "en_ejecucion" ? "En curso" : lk(PRIORIDADES, ot.prioridad)}
-                    title={eqNombre || ot.sistema || ot.folio}
-                    subtitle={[eqCodigo && eqNombre ? eqCodigo : null, ot.descripcion].filter(Boolean).join(" · ") || undefined}
+                    title={eq?.nombre || ot.sistema || ot.folio}
+                    subtitle={ot.descripcion || undefined}
                     meta={lk(ESTADOS_OT, ot.estado)}
                     onClick={() => abrirOt(ot.id)}
                   />
