@@ -61,26 +61,51 @@ export const NAV_META = {
   empresas:     { label: "Empresas & Flotas", icon: Building2, superAdminOnly: true },
 };
 
-/** Bloques visibles del sidebar Modo Oficina. */
+/** Bloques visibles del sidebar Modo Oficina.
+ *  Orden: ciclo de gestión de trabajo SMRP/ISO 55001
+ *  Identificar → Priorizar → Planificar → Programar → Ejecutar → Analizar
+ */
 export const OFICINA_GROUPS = [
   {
-    id: "operacion",
-    label: "Operación",
-    items: ["ots", "solicitudes", "planpm", "programa", "backlog", "otauto", "varada", "ocr"],
+    // Vista diaria: ¿cómo está la flota? ¿qué urge?
+    id: "inicio",
+    label: "Inicio",
+    items: ["flota", "alertas"],
   },
   {
+    // Ciclo correctivo: solicitud → cola → ejecución → cierre
+    id: "trabajo",
+    label: "Trabajo",
+    items: ["solicitudes", "ots", "backlog", "programa"],
+  },
+  {
+    // Ciclo preventivo: definir → generar → programar → cumplir → paradas
+    id: "preventivo",
+    label: "Preventivo",
+    items: ["planpm", "otauto", "cumplimiento", "varada", "prezarpe"],
+  },
+  {
+    // Registro maestro de activos físicos y sus horas de operación
     id: "activos",
     label: "Activos",
-    items: ["flota", "embarcaciones", "equipos", "horometros", "inventario", "almacen", "prezarpe", "cumplimiento"],
+    items: ["embarcaciones", "equipos", "horometros"],
   },
   {
+    // Gestión de materiales y abastecimiento
+    id: "materiales",
+    label: "Materiales & Compras",
+    items: ["inventario", "almacen", "ocr"],
+  },
+  {
+    // Confiabilidad y análisis de fallas (feed al hub Análisis)
     id: "confiabilidad",
     label: "Confiabilidad",
-    items: ["fallas", "pdm", "rca", "riesgo"],
+    items: ["fallas", "rca", "pdm", "riesgo"],
   },
   {
-    id: "comercial",
-    label: "Comercial",
+    // Gestión económica del mantenimiento
+    id: "costos",
+    label: "Costos",
     items: ["costos", "presupuesto", "rentabilidad"],
   },
   {
