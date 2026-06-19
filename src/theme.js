@@ -1,39 +1,35 @@
 // ============================================================
-//  Tema visual compartido · CMMS Flota
-//  Paleta industrial-marítima + tokens de estilo reutilizables.
+//  Tema visual compartido · CMMS Korelfox
+//  Paleta orbital: nave de comando, nebulosas y sistemas vivos.
 // ============================================================
 
 // ── Valores reales (modo claro) — fuente única de verdad ──────
 // Se inyectan como CSS variables en :root. El modo oscuro las
 // redefine en [data-theme="dark"] (ver THEME_VARS abajo).
 export const HEX_LIGHT = {
-  abyss: "#06182E", deep: "#0B2A4A", ocean: "#103E6B", steel: "#1C5C9B",
-  sky: "#3E8FD6", foam: "#E8F1F8", mist: "#F4F8FB", line: "#D6E2EC",
-  ink: "#0A1A2A", slate: "#5A7184", gold: "#E0A526", amber: "#F4B740",
-  green: "#1E9E6A", greenBg: "#DCF5EA", red: "#D8443C", redBg: "#FBE3E1",
-  yellow: "#E5A300", yellowBg: "#FCF3D6", purple: "#6C4FA3", purpleBg: "#EAE2F6",
-  cyan: "#127C8A", cyanBg: "#D7EFF1", indigo: "#3A3F9E", indigoBg: "#E2E3F5",
-  brown: "#8A5A2B", brownBg: "#F0E6DA",
-  // Superficies (nuevas) — reemplazan los "#fff" hardcodeados
-  surface: "#FFFFFF", surface2: "#F8FAFD", surfaceLine: "#D6E2EC",
-  // Navegación: fondo del sidebar — oscuro en AMBOS temas (no invierte)
-  navBg1: "#06182E", navBg2: "#0B2A4A", navFg: "#E8F1F8",
+  abyss: "#0B0F2E", deep: "#151B4B", ocean: "#1E2878", steel: "#4F46E5",
+  sky: "#06B6D4", foam: "#E8F4FF", mist: "#EEF2FF", line: "#CBD5F5",
+  ink: "#0F172A", slate: "#64748B", gold: "#FBBF24", amber: "#F59E0B",
+  green: "#10B981", greenBg: "#D1FAE5", red: "#EF4444", redBg: "#FEE2E2",
+  yellow: "#EAB308", yellowBg: "#FEF9C3", purple: "#8B5CF6", purpleBg: "#EDE9FE",
+  cyan: "#06B6D4", cyanBg: "#CFFAFE", indigo: "#6366F1", indigoBg: "#E0E7FF",
+  brown: "#92400E", brownBg: "#FEF3C7",
+  surface: "#FFFFFF", surface2: "#F8FAFF", surfaceLine: "#CBD5F5",
+  // Navegación: cockpit espacial — oscuro en AMBOS temas (no invierte)
+  navBg1: "#070B1F", navBg2: "#141038", navFg: "#E8EFFF",
 };
 
 // Overrides del modo oscuro: solo neutros/superficies cambian; los
 // acentos semánticos se mantienen para conservar el significado.
 export const HEX_DARK = {
-  abyss: "#E8F1F8", deep: "#CFE0EE", ocean: "#9FC2DD", steel: "#5AA0DC",
-  sky: "#6FB0E6", foam: "#16232F", mist: "#0C151D", line: "#243441",
-  ink: "#E6EEF5", slate: "#93A8B8",
-  surface: "#121E29", surface2: "#0F1922", surfaceLine: "#243441",
-  // backgrounds tenues de acento, más oscuros en dark
-  greenBg: "#10271E", redBg: "#2E1715", yellowBg: "#2A2310",
-  purpleBg: "#1E1A2C", cyanBg: "#0E2226", indigoBg: "#181A2C", brownBg: "#241A10",
-  // navegación: un punto más oscura en modo noche
-  navBg1: "#040E1C", navBg2: "#06182E", navFg: "#DCEAF6",
-  // acentos un toque más luminosos para contraste sobre fondo oscuro
-  gold: "#E8B23E", amber: "#F6C24E", green: "#2BB47C", red: "#E85C54",
+  abyss: "#E8EFFF", deep: "#C7D2FE", ocean: "#A5B4FC", steel: "#818CF8",
+  sky: "#22D3EE", foam: "#141929", mist: "#0A0E1A", line: "#252B45",
+  ink: "#E8EFFF", slate: "#94A3B8",
+  surface: "#12182B", surface2: "#0D1220", surfaceLine: "#252B45",
+  greenBg: "#0A2318", redBg: "#2A1210", yellowBg: "#2A2310",
+  purpleBg: "#1A1530", cyanBg: "#0A2228", indigoBg: "#151830", brownBg: "#241A10",
+  navBg1: "#040810", navBg2: "#0A1028", navFg: "#DDE4FF",
+  gold: "#FCD34D", amber: "#FBBF24", green: "#34D399", red: "#F87171",
 };
 
 // El objeto C que consumen los componentes: cada token es una CSS var.
@@ -71,6 +67,114 @@ export const THEME_VARS = `
     .print-only { display: block !important; }
   }
   .print-only { display: none; }
+
+  /* ── Modo Oficina: cockpit orbital ─────────────────────────── */
+  .cmms-root:not(.cmms-campo-mode) {
+    --cmms-oficina-bg:
+      radial-gradient(ellipse 80% 50% at 10% -10%, rgba(99,102,241,.14) 0%, transparent 55%),
+      radial-gradient(ellipse 60% 40% at 92% 0%, rgba(6,182,212,.11) 0%, transparent 50%),
+      radial-gradient(ellipse 50% 30% at 50% 100%, rgba(139,92,246,.09) 0%, transparent 45%),
+      linear-gradient(180deg, var(--c-mist) 0%, color-mix(in srgb, var(--c-foam) 55%, var(--c-mist)) 100%);
+  }
+  [data-theme="dark"] .cmms-root:not(.cmms-campo-mode) {
+    --cmms-oficina-bg:
+      radial-gradient(ellipse 70% 45% at 15% -5%, rgba(99,102,241,.22) 0%, transparent 55%),
+      radial-gradient(ellipse 55% 35% at 88% 5%, rgba(6,182,212,.14) 0%, transparent 50%),
+      radial-gradient(ellipse 45% 25% at 50% 100%, rgba(139,92,246,.12) 0%, transparent 40%),
+      linear-gradient(180deg, #0A0E1A 0%, #0D1220 100%);
+  }
+  .cmms-root:not(.cmms-campo-mode) > main {
+    background: var(--cmms-oficina-bg) !important;
+  }
+  .cmms-root.cmms-campo-mode > main {
+    background: var(--c-mist);
+  }
+
+  .cmms-root:not(.cmms-campo-mode) .cmms-sidebar {
+    background: linear-gradient(175deg, var(--c-navBg1) 0%, var(--c-navBg2) 48%, #1a1040 100%) !important;
+    box-shadow: 4px 0 28px rgba(7,11,31,.38);
+    position: relative;
+  }
+  .cmms-root:not(.cmms-campo-mode) .cmms-sidebar::before {
+    content: "";
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 1px;
+    background: linear-gradient(180deg, rgba(6,182,212,.45) 0%, rgba(139,92,246,.2) 55%, transparent 100%);
+    pointer-events: none;
+    z-index: 1;
+  }
+  .cmms-root:not(.cmms-campo-mode) .cmms-sidebar::after {
+    content: "";
+    position: absolute;
+    top: -20%;
+    right: -30%;
+    width: 180px;
+    height: 180px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(6,182,212,.12) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .cmms-brand-icon {
+    background: linear-gradient(135deg, var(--c-sky) 0%, var(--c-indigo) 55%, var(--c-purple) 100%) !important;
+    box-shadow: 0 0 22px rgba(6,182,212,.42);
+  }
+  .cmms-brand-tagline { opacity: .72 !important; color: color-mix(in srgb, var(--c-sky) 35%, var(--c-navFg)); }
+
+  .cmms-nav-item {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    padding: 8px 12px;
+    margin-bottom: 2px;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    text-align: left;
+    background: transparent;
+    color: var(--c-navFg);
+    font-weight: 500;
+    font-size: 12.5px;
+    font-family: inherit;
+    transition: background .15s ease, color .15s ease, box-shadow .15s ease, transform .12s ease;
+  }
+  .cmms-nav-item:hover:not(.cmms-nav-item--active) {
+    background: rgba(255,255,255,.07);
+    color: #fff;
+  }
+  .cmms-nav-item--active {
+    background: linear-gradient(135deg, var(--c-sky) 0%, var(--c-indigo) 100%) !important;
+    color: #fff !important;
+    font-weight: 600 !important;
+    box-shadow: 0 2px 14px rgba(6,182,212,.38);
+  }
+  .cmms-nav-item--hub.cmms-nav-item--active {
+    background: linear-gradient(135deg, rgba(139,92,246,.35) 0%, rgba(99,102,241,.25) 100%) !important;
+    color: var(--c-gold) !important;
+    box-shadow: inset 0 0 0 1px rgba(139,92,246,.35);
+  }
+  .cmms-nav-item--hub:not(.cmms-nav-item--active) { color: rgba(255,255,255,.85); }
+
+  .cmms-root:not(.cmms-campo-mode) .cmms-context-header {
+    background: color-mix(in srgb, var(--c-surface) 86%, transparent) !important;
+    backdrop-filter: blur(14px) saturate(1.25);
+    border-bottom-color: color-mix(in srgb, var(--c-sky) 22%, var(--c-line)) !important;
+  }
+  .cmms-root:not(.cmms-campo-mode) .cmms-tabs-bar {
+    background: color-mix(in srgb, var(--c-surface2) 92%, transparent);
+    border-bottom-color: color-mix(in srgb, var(--c-indigo) 18%, var(--c-line));
+  }
+  .cmms-root:not(.cmms-campo-mode) .cmms-tab-active {
+    color: var(--c-indigo);
+    border-bottom-color: var(--c-sky);
+    background: color-mix(in srgb, var(--c-sky) 10%, transparent);
+  }
+  .cmms-root:not(.cmms-campo-mode) .cmms-tab:hover {
+    color: var(--c-steel);
+    background: color-mix(in srgb, var(--c-indigo) 8%, transparent);
+  }
 `;
 
 export const mono = { fontFamily: "'IBM Plex Mono', monospace" };
@@ -79,10 +183,10 @@ export const archivo = { fontFamily: "'Archivo', sans-serif" };
 // Escala de elevación (sombras en capas) — da profundidad y jerarquía.
 // sm: cards en reposo · md: cards interactivas/hover · lg: dropdowns · xl: modales
 export const shadow = {
-  sm: "0 1px 2px rgba(10,26,42,.06), 0 1px 3px rgba(10,26,42,.05)",
-  md: "0 2px 4px rgba(10,26,42,.06), 0 4px 12px rgba(10,26,42,.08)",
-  lg: "0 8px 24px rgba(10,26,42,.12)",
-  xl: "0 16px 48px rgba(10,26,42,.18)",
+  sm: "0 1px 2px rgba(11,15,46,.06), 0 1px 3px rgba(99,102,241,.05)",
+  md: "0 2px 4px rgba(11,15,46,.06), 0 4px 16px rgba(6,182,212,.08)",
+  lg: "0 8px 24px rgba(11,15,46,.12), 0 0 0 1px rgba(99,102,241,.06)",
+  xl: "0 16px 48px rgba(11,15,46,.18), 0 0 40px rgba(6,182,212,.06)",
 };
 
 // Radios consistentes

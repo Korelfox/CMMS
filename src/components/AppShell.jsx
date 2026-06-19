@@ -333,7 +333,7 @@ function AppShellLayout({
   const navById = Object.fromEntries(visibleNav.map((n) => [n.id, n]));
 
   return (
-    <div className={`cmms-root${isCampo ? " cmms-campo-mode" : ""}`} style={{ display: "flex", height: "100vh", color: C.ink, overflow: "hidden" }}>
+    <div className={`cmms-root${isCampo ? " cmms-campo-mode" : " cmms-oficina-mode"}`} style={{ display: "flex", height: "100vh", color: C.ink, overflow: "hidden" }}>
       {/* OVERLAY (solo móvil Oficina, al abrir el drawer) */}
       {!isCampo && (
       <div className={`cmms-overlay${sidebarOpen ? " cmms-overlay-open" : ""}`}
@@ -344,16 +344,16 @@ function AppShellLayout({
       {/* SIDEBAR — solo Modo Oficina */}
       {!isCampo && (
       <aside className={`cmms-sidebar${sidebarOpen ? " cmms-sidebar-open" : ""}`}
-        style={{ width: 250, background: `linear-gradient(180deg, ${C.navBg1}, ${C.navBg2})`, color: C.navFg, display: "flex", flexDirection: "column", flexShrink: 0 }}>
-        <div style={{ padding: "20px 18px 16px", borderBottom: "1px solid rgba(255,255,255,.08)" }}>
+        style={{ width: 250, color: C.navFg, display: "flex", flexDirection: "column", flexShrink: 0 }}>
+        <div style={{ padding: "20px 18px 16px", borderBottom: "1px solid rgba(255,255,255,.08)", position: "relative", zIndex: 2 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{ width: 36, height: 36, borderRadius: 9, background: C.gold, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-              <Anchor size={21} color={C.navBg1} strokeWidth={2.4} />
+            <div className="cmms-brand-icon" style={{ width: 36, height: 36, borderRadius: 9, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+              <Anchor size={21} color="#fff" strokeWidth={2.4} />
             </div>
             <div style={{ minWidth: 0, flex: 1 }}>
               <div style={{ fontWeight: 700, fontSize: 14.5, lineHeight: 1.1 }}>CMMS Korelfox</div>
-              <div style={{ fontSize: 10, opacity: 0.6, marginTop: 3, lineHeight: 1.3 }}>
-                Energía que impulsa tu rumbo
+              <div className="cmms-brand-tagline" style={{ fontSize: 10, opacity: 0.6, marginTop: 3, lineHeight: 1.3 }}>
+                Centro de comando · Sistemas en órbita
               </div>
             </div>
             {/* Cerrar drawer — solo móvil */}
@@ -364,7 +364,7 @@ function AppShellLayout({
           </div>
         </div>
 
-        <nav style={{ flex: 1, overflowY: "auto", padding: "12px 10px" }}>
+        <nav style={{ flex: 1, overflowY: "auto", padding: "12px 10px", position: "relative", zIndex: 2 }}>
           {OFICINA_GROUPS.map((g) => {
             const items = g.items.filter((id) => navById[id]);
             if (!items.length) return null;
@@ -376,8 +376,7 @@ function AppShellLayout({
                   const active = view === id;
                   const Icon = meta.icon;
                   return (
-                    <button key={id} onClick={() => navegar(id)}
-                      style={{ width: "100%", display: "flex", alignItems: "center", gap: 11, padding: "8px 12px", marginBottom: 2, borderRadius: 8, border: "none", cursor: "pointer", textAlign: "left", background: active ? C.gold : "transparent", color: active ? C.navBg1 : C.navFg, fontWeight: active ? 600 : 500, fontSize: 12.5, fontFamily: "inherit" }}>
+                    <button key={id} onClick={() => navegar(id)} className={`cmms-nav-item${active ? " cmms-nav-item--active" : ""}`}>
                       <Icon size={16} strokeWidth={active ? 2.4 : 2} /><span>{meta.label}</span>
                     </button>
                   );
@@ -392,7 +391,7 @@ function AppShellLayout({
                 const inHub = view === ANALISIS_HUB_ID || ANALISIS_IDS.includes(view);
                 return (
                   <button onClick={() => navegar(ANALISIS_HUB_ID)}
-                    style={{ width: "100%", display: "flex", alignItems: "center", gap: 11, padding: "8px 12px", marginBottom: 2, borderRadius: 8, border: "none", cursor: "pointer", textAlign: "left", background: inHub ? "rgba(255,255,255,.12)" : "transparent", color: inHub ? C.gold : "rgba(255,255,255,.85)", fontWeight: inHub ? 600 : 500, fontSize: 12.5, fontFamily: "inherit" }}>
+                    className={`cmms-nav-item cmms-nav-item--hub${inHub ? " cmms-nav-item--active" : ""}`}>
                     <BarChart3 size={16} strokeWidth={inHub ? 2.4 : 2} /><span>Hub Análisis</span>
                   </button>
                 );
@@ -402,7 +401,7 @@ function AppShellLayout({
         </nav>
 
         {/* Usuario + cerrar sesión */}
-        <div style={{ padding: "12px 14px", borderTop: "1px solid rgba(255,255,255,.08)" }}>
+        <div style={{ padding: "12px 14px", borderTop: "1px solid rgba(255,255,255,.08)", position: "relative", zIndex: 2 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 10 }}>
             <div style={{ width: 32, height: 32, borderRadius: 8, background: roleColor, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
               <UserCircle size={20} color="#fff" />
@@ -433,7 +432,7 @@ function AppShellLayout({
       )}
 
       {/* CONTENIDO */}
-      <main style={{ flex: 1, overflowY: "auto", background: C.mist }}>
+      <main style={{ flex: 1, overflowY: "auto" }}>
         <ContextHeader
           online={online}
           pendientes={pendientes}

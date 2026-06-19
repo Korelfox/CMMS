@@ -68,7 +68,7 @@ export function Card({ children, style, ...rest }) {
 export function Pill({ tone = "slate", children }) {
   const map = {
     green: [C.green, C.greenBg], red: [C.red, C.redBg], yellow: [C.yellow, C.yellowBg],
-    slate: [C.slate, C.foam], steel: [C.steel, "#E4EFF8"], purple: [C.purple, C.purpleBg],
+    slate: [C.slate, C.foam], steel: [C.steel, C.indigoBg], purple: [C.purple, C.purpleBg],
     cyan: [C.cyan, C.cyanBg], indigo: [C.indigo, C.indigoBg], brown: [C.brown, C.brownBg],
   };
   const [fg, bg] = map[tone] || map.slate;
@@ -99,8 +99,10 @@ export const inputStyle = (w) => ({
 
 export const primaryBtn = {
   display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6,
-  padding: "10px 18px", borderRadius: 9, border: "none", background: C.steel, color: "#fff",
-  fontSize: 14, fontWeight: 600, cursor: "pointer",
+  padding: "10px 18px", borderRadius: 9, border: "none",
+  background: `linear-gradient(135deg, ${C.sky} 0%, ${C.indigo} 100%)`,
+  color: "#fff", fontSize: 14, fontWeight: 600, cursor: "pointer",
+  boxShadow: "0 2px 10px color-mix(in srgb, var(--c-sky) 35%, transparent)",
 };
 
 export const ghostBtn = {
@@ -310,9 +312,9 @@ export function StatTile({ onClick, highlight, ...kpiProps }) {
  */
 export function HeroStat({ variant = "ok", icon: Icon, label, value, sub, onClick }) {
   const palettes = {
-    ok:       { grad: `linear-gradient(135deg, ${C.green} 0%, ${C.cyan} 100%)`, glow: "rgba(30,158,106,.25)" },
-    warn:     { grad: `linear-gradient(135deg, ${C.amber} 0%, #B8860B 100%)`, glow: "rgba(244,183,64,.28)" },
-    critical: { grad: `linear-gradient(135deg, ${C.red} 0%, #8A2A26 100%)`, glow: "rgba(216,68,60,.28)" },
+    ok:       { grad: `linear-gradient(135deg, ${C.indigo} 0%, ${C.sky} 55%, ${C.cyan} 100%)`, glow: "rgba(6,182,212,.32)" },
+    warn:     { grad: `linear-gradient(135deg, ${C.amber} 0%, #D97706 100%)`, glow: "rgba(245,158,11,.28)" },
+    critical: { grad: `linear-gradient(135deg, ${C.red} 0%, #7F1D1D 100%)`, glow: "rgba(239,68,68,.28)" },
   };
   const p = palettes[variant] || palettes.ok;
   return (
@@ -460,7 +462,7 @@ export function DesignSystemStyles() {
       /* Focus ring accesible y consistente en campos */
       input:focus-visible, select:focus-visible, textarea:focus-visible {
         border-color: ${C.sky} !important;
-        box-shadow: 0 0 0 3px rgba(62,143,214,.20);
+        box-shadow: 0 0 0 3px color-mix(in srgb, ${C.sky} 28%, transparent);
       }
 
       /* Tarjetas clickeables: se elevan al pasar el mouse */
@@ -480,13 +482,14 @@ export function DesignSystemStyles() {
       ::-webkit-scrollbar { width: 11px; height: 11px; }
       ::-webkit-scrollbar-track { background: transparent; }
       ::-webkit-scrollbar-thumb {
-        background: #C2D3E0; border-radius: 8px;
+        background: color-mix(in srgb, ${C.indigo} 35%, ${C.line});
+        border-radius: 8px;
         border: 3px solid transparent; background-clip: padding-box;
       }
-      ::-webkit-scrollbar-thumb:hover { background: #A4BBCD; }
+      ::-webkit-scrollbar-thumb:hover { background: color-mix(in srgb, ${C.sky} 45%, ${C.line}); }
 
-      /* Selección de texto con el azul de marca */
-      ::selection { background: rgba(62,143,214,.22); }
+      /* Selección de texto con acento orbital */
+      ::selection { background: color-mix(in srgb, ${C.sky} 28%, transparent); }
 
       /* Aparición suave de las vistas de módulo */
       @keyframes cmms-fade-in {
@@ -501,10 +504,10 @@ export function DesignSystemStyles() {
         padding: 28px 28px 24px;
         border-radius: 16px;
         background: linear-gradient(135deg,
-          color-mix(in srgb, var(--c-steel) 6%, var(--c-surface)) 0%,
-          var(--c-surface) 45%,
-          color-mix(in srgb, var(--c-gold) 4%, var(--c-surface)) 100%);
-        border: 1px solid var(--c-line);
+          color-mix(in srgb, var(--c-indigo) 7%, var(--c-surface)) 0%,
+          var(--c-surface) 42%,
+          color-mix(in srgb, var(--c-sky) 6%, var(--c-surface)) 100%);
+        border: 1px solid color-mix(in srgb, var(--c-indigo) 18%, var(--c-line));
         box-shadow: ${shadow.sm};
         overflow: hidden;
       }
@@ -516,7 +519,18 @@ export function DesignSystemStyles() {
         width: 280px;
         height: 280px;
         border-radius: 50%;
-        background: radial-gradient(circle, color-mix(in srgb, var(--c-sky) 12%, transparent) 0%, transparent 70%);
+        background: radial-gradient(circle, color-mix(in srgb, var(--c-sky) 16%, transparent) 0%, transparent 70%);
+        pointer-events: none;
+      }
+      .cmms-module-header::after {
+        content: "";
+        position: absolute;
+        bottom: -50%;
+        left: -5%;
+        width: 200px;
+        height: 200px;
+        border-radius: 50%;
+        background: radial-gradient(circle, color-mix(in srgb, var(--c-purple) 10%, transparent) 0%, transparent 70%);
         pointer-events: none;
       }
       .cmms-module-header-inner {
@@ -637,15 +651,17 @@ export function DesignSystemStyles() {
         font-family: inherit;
         transition: background .12s ease, border-color .12s ease;
       }
+      .cmms-root:not(.cmms-campo-mode) .cmms-module-kicker { color: var(--c-indigo); }
+
       .cmms-action-item:hover {
-        background: color-mix(in srgb, var(--c-sky) 8%, var(--c-mist));
-        border-color: color-mix(in srgb, var(--c-sky) 30%, var(--c-line));
+        background: color-mix(in srgb, var(--c-indigo) 8%, var(--c-mist));
+        border-color: color-mix(in srgb, var(--c-sky) 32%, var(--c-line));
       }
 
       /* ── DataTable ───────────────────────────────────────────────── */
       .cmms-datatable-wrap { overflow-x: auto; margin: -4px -4px 0; }
       .cmms-datatable thead { position: sticky; top: 0; z-index: 1; background: var(--c-surface); }
-      .cmms-datatable-row-click:hover td { background: color-mix(in srgb, var(--c-sky) 6%, var(--c-mist)) !important; }
+      .cmms-datatable-row-click:hover td { background: color-mix(in srgb, var(--c-indigo) 6%, var(--c-mist)) !important; }
 
       /* ── Layout grids (Tablero / command centers) ─────────────────── */
       .cmms-grid-2 { display: grid; grid-template-columns: 1.35fr 1fr; gap: 16px; margin-bottom: 24px; }
