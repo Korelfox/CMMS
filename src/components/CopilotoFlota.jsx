@@ -46,6 +46,8 @@ export default function CopilotoFlota() {
 
   useEffect(() => () => { if (abortRef.current) abortRef.current.abort(); }, []);
 
+  const hoy = useMemo(() => hoyLocal(), []);
+
   const data = useMemo(() => {
     if (!raw) return null;
     const planesEval    = evaluarPlanes(raw.planes_pm, raw.equipos);
@@ -63,8 +65,6 @@ export default function CopilotoFlota() {
     };
   }, [raw, hoy]);
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, streamText]);
-
-  const hoy = useMemo(() => hoyLocal(), []);
 
   const contexto = useMemo(() => {
     if (!data) return null;
