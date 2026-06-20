@@ -1,4 +1,4 @@
-// ============================================================
+﻿// ============================================================
 //  Tema visual compartido · CMMS Korelfox
 //  Paleta orbital: nave de comando, nebulosas y sistemas vivos.
 // ============================================================
@@ -8,16 +8,23 @@
 // redefine en [data-theme="dark"] (ver THEME_VARS abajo).
 export const HEX_LIGHT = {
   abyss: "#0B0F2E", deep: "#151B4B", ocean: "#1E2878", steel: "#4F46E5",
-  sky: "#06B6D4", foam: "#E8F4FF", mist: "#EEF2FF", line: "#CBD5F5",
-  ink: "#0F172A", slate: "#64748B", gold: "#FBBF24", amber: "#F59E0B",
+  sky: "#38BDF8", foam: "#E8F4FF", mist: "#F1F5F9", line: "#CBD5F5",
+  ink: "#0F172A", slate: "#64748B", gold: "#FBBF24", amber: "#F97316",
   green: "#10B981", greenBg: "#D1FAE5", red: "#EF4444", redBg: "#FEE2E2",
   yellow: "#EAB308", yellowBg: "#FEF9C3", purple: "#8B5CF6", purpleBg: "#EDE9FE",
   cyan: "#06B6D4", cyanBg: "#CFFAFE", indigo: "#6366F1", indigoBg: "#E0E7FF",
   brown: "#92400E", brownBg: "#FEF3C7",
-  surface: "#FFFFFF", surface2: "#F8FAFF", surfaceLine: "#CBD5F5",
+  surface: "#FFFFFF", surface2: "#F8FAFC", surfaceLine: "#CBD5F5", warm: "#FFFBEB", amberBg: "#FFEDD5",
   // Navegación: cockpit espacial — oscuro en AMBOS temas (no invierte)
   navBg1: "#070B1F", navBg2: "#141038", navFg: "#E8EFFF",
 };
+
+// Paleta de graficos (Recharts) — 8 colores distinguibles
+export const CHART_COLORS = [
+  "#4F46E5", "#06B6D4", "#10B981", "#F97316",
+  "#8B5CF6", "#EC4899", "#6366F1", "#14B8A6",
+];
+
 
 // Overrides del modo oscuro: solo neutros/superficies cambian; los
 // acentos semánticos se mantienen para conservar el significado.
@@ -25,11 +32,11 @@ export const HEX_DARK = {
   abyss: "#E8EFFF", deep: "#C7D2FE", ocean: "#A5B4FC", steel: "#818CF8",
   sky: "#22D3EE", foam: "#141929", mist: "#0A0E1A", line: "#252B45",
   ink: "#E8EFFF", slate: "#94A3B8",
-  surface: "#12182B", surface2: "#0D1220", surfaceLine: "#252B45",
+  surface: "#12182B", surface2: "#0D1220", surfaceLine: "#252B45", warm: "#1A1508", amberBg: "#2A1810",
   greenBg: "#0A2318", redBg: "#2A1210", yellowBg: "#2A2310",
   purpleBg: "#1A1530", cyanBg: "#0A2228", indigoBg: "#151830", brownBg: "#241A10",
   navBg1: "#040810", navBg2: "#0A1028", navFg: "#DDE4FF",
-  gold: "#FCD34D", amber: "#FBBF24", green: "#34D399", red: "#F87171",
+  gold: "#FCD34D", amber: "#FB923C", green: "#34D399", red: "#F87171",
 };
 
 // El objeto C que consumen los componentes: cada token es una CSS var.
