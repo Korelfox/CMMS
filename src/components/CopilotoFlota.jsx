@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useMemo, useRef } from "react";
+﻿import React, { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import {
   Bot, Send, RotateCcw, Copy, Check, AlertCircle, Sparkles, Trash2,
 } from "lucide-react";

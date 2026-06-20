@@ -22,7 +22,10 @@ export function invalidateCache(...tablas) {
   if (tablas.length === 0) { _cache.clear(); return; }
   for (const t of tablas) {
     for (const key of _cache.keys()) {
-      if (key === t || key.startsWith(t + ":")) console.debug("[CMMS] cache miss, refetching:", key); _cache.delete(key);
+      if (key === t || key.startsWith(t + ":")) {
+        console.debug("[CMMS] invalidando cache:", key);
+        _cache.delete(key);
+      }
     }
   }
 }
