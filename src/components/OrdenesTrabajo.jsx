@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useMemo, useRef } from "react";
+﻿import React, { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { ClipboardList, Plus, Download, CloudOff, DollarSign, Check, RefreshCw, ShieldCheck, CheckCircle2, AlertTriangle, List, Columns3 } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { fetchAll, insertRow, updateRow, deleteRow, logActivity, rpcCall } from "../lib/db";
@@ -449,9 +449,27 @@ export default function OrdenesTrabajo({ navParams, onNavigate }) {
   // Firma de cierre: quién y cuándo cerró la OT (trazabilidad).
   const firmaCierre = () => ({ cerrada_por: profile?.nombre || profile?.email || "", cerrada_fecha: new Date().toISOString() });
 
-  // Avanza/cambia el estado de una OT (Solicitada → … → Cerrada).
+  
+// Matriz de transiciones de estado válidas (SMRP/ISO 55001).
+// Solo se permiten avances secuenciales y un paso de retroceso.
+const TRANSICIONES_PERMITIDAS = {
+  solicitada:   ["planificada", "programada"],
+  planificada:  ["programada", "solicitada"],
+  programada:   ["en_ejecucion", "planificada"],
+  en_ejecucion: ["cerrada", "programada"],
+  cerrada:      [],   // no se reabre sin acción explícita
+};
+function transicionValida(desde, hasta) {
+  const permitidas = TRANSICIONES_PERMITIDAS[desde];
+  return permitidas && permitidas.includes(hasta);
+}
+// Avanza/cambia el estado de una OT (Solicitada → … → Cerrada).
   async function cambiarEstado(ot, nuevoEstado) {
     if (!nuevoEstado || nuevoEstado === ot.estado) return;
+     if (!transicionValida(ot.estado, nuevoEstado)) {
+       setError(`Transición no permitida: ${lk(ESTADOS_OT, ot.estado)} → ${lk(ESTADOS_OT, nuevoEstado)}. Secuencia válida: ${lk(ESTADOS_OT, ot.estado)} → ${TRANSICIONES_PERMITIDAS[ot.estado]?.map((e) => lk(ESTADOS_OT, e)).join(" | ") || "—"}`);
+       return;
+     }
     if (nuevoEstado === "cerrada") {
       // Aviso si quedan tareas del checklist sin completar.
       if (checklistIncompleto(ot)) {
