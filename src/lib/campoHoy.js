@@ -117,7 +117,7 @@ export function agruparProgramacion(items, hoy, estaCompletada = (p) => !!p.done
   atrasadas.sort((a, b) => (a.fecha_programada || "").localeCompare(b.fecha_programada || ""));
   proximas.sort((a, b) => (a.fecha_programada || "").localeCompare(b.fecha_programada || ""));
 
-  return { hoy: hoyList, atrasadas, proximas: proximas.slice(0, 7) };
+  return { hoy: hoyList, atrasadas, proximas };
 }
 
 export function labelProgFecha(fechaStr, hoy) {

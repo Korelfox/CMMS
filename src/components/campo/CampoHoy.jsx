@@ -1,10 +1,10 @@
 import React, { useEffect, useState, useMemo, useCallback } from "react";
-import { ClipboardList, CalendarDays, ChevronRight } from "lucide-react";
+import { ClipboardList, CalendarDays, ChevronRight, ChevronDown } from "lucide-react";
 import { useAuth } from "../../lib/auth";
 import { fetchAll } from "../../lib/db";
 import { useShell } from "../../context/ShellContext";
 import { filterByEmbarcacion } from "../../lib/embarcacionActiva";
-import { C, lk, PRIORIDADES, ESTADOS_OT, num } from "../../theme";
+import { C, tint, lk, PRIORIDADES, ESTADOS_OT, num } from "../../theme";
 import { EmptyState, InlineSpinner, ghostBtn } from "../../ui";
 import { ordenarOtsCampo, agruparProgramacion, labelProgFecha, describeOtCampo } from "../../lib/campoHoy";
 import TaskCard from "./TaskCard";
@@ -25,6 +25,40 @@ function otTone(ot) {
   return prioTone(ot.prioridad);
 }
 
+/** Fila-indicador colapsable para grupos secundarios (atrasadas / próximas). */
+function IndicadorRow({ tone, label, abierto, onClick }) {
+  const color = tone === "red" ? C.red : C.steel;
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-expanded={abierto}
+      className="cmms-campo-touch"
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 10,
+        width: "100%",
+        padding: "12px 14px",
+        marginBottom: 8,
+        borderRadius: 12,
+        border: `1px solid ${tint(color, 35)}`,
+        background: abierto ? tint(color, 10) : C.surface,
+        cursor: "pointer",
+        fontFamily: "inherit",
+        textAlign: "left",
+      }}
+    >
+      <span style={{ width: 9, height: 9, borderRadius: "50%", background: color, flexShrink: 0 }} />
+      <span style={{ fontSize: 15, fontWeight: 700, color: C.ink }}>{label}</span>
+      <span style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 4, fontSize: 13, fontWeight: 700, color }}>
+        {abierto ? "Ocultar" : "Ver"}
+        <ChevronDown size={16} style={{ transform: abierto ? "rotate(180deg)" : "none", transition: "transform .15s" }} />
+      </span>
+    </button>
+  );
+}
+
 export default function CampoHoy({ onIrTrabajo }) {
   const { profile } = useAuth();
   const { embarcacionId, embarcacionActiva } = useShell();
@@ -33,6 +67,7 @@ export default function CampoHoy({ onIrTrabajo }) {
   const [todasOts, setTodasOts] = useState([]);
   const [equipos, setEquipos] = useState([]);
   const [programacion, setProgramacion] = useState([]);
+  const [expandido, setExpandido] = useState(null); // null | "atrasadas" | "proximas"
 
   const cargar = useCallback(async () => {
     if (!embarcacionId) return;
@@ -93,6 +128,35 @@ export default function CampoHoy({ onIrTrabajo }) {
     else onIrTrabajo?.(null);
   }
 
+  function renderProgCard(item) {
+    const f = (item.fecha_programada || "").slice(0, 10);
+    const esAtrasada = f < hoy;
+    const esHoy = f === hoy;
+    const ot = item.ot_folio ? otPorFolio.get(item.ot_folio) : null;
+    const eq = ot?.equipo_id ? equipoPorId.get(ot.equipo_id) : null;
+    const d = ot ? describeOtCampo(ot, eq, equipoPorId) : null;
+    const chip = item.ot_folio
+      ? ot
+        ? { label: lk(ESTADOS_OT, ot.estado), tone: ot.estado === "en_ejecucion" ? "amber" : "steel" }
+        : { label: "Sin OT", tone: "steel" }
+      : null;
+    return (
+      <TaskCard
+        key={item.id}
+        tone={esAtrasada ? "red" : esHoy ? "steel" : "green"}
+        badge={item.ot_folio || "—"}
+        badgeLabel={item.tipo || "Tarea"}
+        chip={chip}
+        lineaEquipo={d?.lineaEquipo || undefined}
+        title={d?.titulo || item.sistema || "Sin sistema"}
+        subtitle={d?.trabajo || `${labelProgFecha(item.fecha_programada, hoy)} · ${num(item.hh, 1)} h`}
+        meta={esAtrasada ? "Atrasada" : esHoy ? "Programada hoy" : "Próxima"}
+        cta={ot ? "Abrir OT" : "Ir a Trabajo"}
+        onClick={() => abrirProg(item)}
+      />
+    );
+  }
+
   const totalProg = prog.hoy.length + prog.atrasadas.length + prog.proximas.length;
   const vacio = otsOrdenadas.length === 0 && totalProg === 0;
 
@@ -124,35 +188,36 @@ export default function CampoHoy({ onIrTrabajo }) {
             <>
               <CampoSection
                 title="Programación"
-                sub={prog.atrasadas.length > 0 ? `${prog.atrasadas.length} atrasada${prog.atrasadas.length !== 1 ? "s" : ""}` : "Plan del turno"}
+                sub={prog.hoy.length > 0 ? `${prog.hoy.length} para hoy` : "Sin tareas para hoy"}
                 style={{ marginTop: 12 }}
               />
-              {[...prog.atrasadas, ...prog.hoy, ...prog.proximas].map((item) => {
-                const esAtrasada = (item.fecha_programada || "").slice(0, 10) < hoy;
-                const esHoy = (item.fecha_programada || "").slice(0, 10) === hoy;
-                const ot = item.ot_folio ? otPorFolio.get(item.ot_folio) : null;
-                const eq = ot?.equipo_id ? equipoPorId.get(ot.equipo_id) : null;
-                const d = ot ? describeOtCampo(ot, eq, equipoPorId) : null;
-                const chip = item.ot_folio
-                  ? ot
-                    ? { label: lk(ESTADOS_OT, ot.estado), tone: ot.estado === "en_ejecucion" ? "amber" : "steel" }
-                    : { label: "Sin OT", tone: "steel" }
-                  : null;
-                return (
-                  <TaskCard
-                    key={item.id}
-                    tone={esAtrasada ? "red" : esHoy ? "steel" : "green"}
-                    badge={item.ot_folio || "—"}
-                    badgeLabel={item.tipo || "Tarea"}
-                    chip={chip}
-                    lineaEquipo={d?.lineaEquipo || undefined}
-                    title={d?.titulo || item.sistema || "Sin sistema"}
-                    subtitle={d?.trabajo || `${labelProgFecha(item.fecha_programada, hoy)} · ${num(item.hh, 1)} h`}
-                    meta={esAtrasada ? "Atrasada" : esHoy ? "Programada hoy" : "Próxima"}
-                    onClick={() => abrirProg(item)}
-                  />
-                );
-              })}
+
+              {prog.hoy.map(renderProgCard)}
+              {prog.hoy.length === 0 && (
+                <div style={{ fontSize: 13.5, color: C.slate, margin: "2px 0 12px" }}>
+                  Nada programado para hoy.
+                </div>
+              )}
+
+              {prog.atrasadas.length > 0 && (
+                <IndicadorRow
+                  tone="red"
+                  label={`${prog.atrasadas.length} atrasada${prog.atrasadas.length !== 1 ? "s" : ""}`}
+                  abierto={expandido === "atrasadas"}
+                  onClick={() => setExpandido((e) => (e === "atrasadas" ? null : "atrasadas"))}
+                />
+              )}
+              {expandido === "atrasadas" && prog.atrasadas.map(renderProgCard)}
+
+              {prog.proximas.length > 0 && (
+                <IndicadorRow
+                  tone="steel"
+                  label={`${prog.proximas.length} próxima${prog.proximas.length !== 1 ? "s" : ""}`}
+                  abierto={expandido === "proximas"}
+                  onClick={() => setExpandido((e) => (e === "proximas" ? null : "proximas"))}
+                />
+              )}
+              {expandido === "proximas" && prog.proximas.map(renderProgCard)}
             </>
           )}
 
