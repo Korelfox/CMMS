@@ -1062,7 +1062,10 @@ export const PLANTILLA_PESQUERA = [
       {
         cod: "PROP-EJE", nom: "Eje y Bocina", crit: "A", tipo: "subsistema", fuente: "MTR",
         hijos: [
-          comp("PROP-EJE-EJE", "Eje de Cola", { basico: false, rep: [["EJE-OEM", "Eje de Cola (OEM)", "oem"]] }),
+          comp("PROP-EJE-EJE", "Eje de Cola", { basico: false,
+            rep: [["EJE-OEM", "Eje de Cola (OEM)", "oem"]],
+            // ISO 14224: desalineación eje-reductora → vibración y desgaste de sello/cojinetes
+            pm: [["Inspección de alineación del eje", 4000]] }),
           comp("PROP-EJE-BOC", "Bocina (Stern Tube)", { basico: false, rep: [["BOC-OEM", "Bocina (OEM)", "oem"]] }),
           comp("PROP-EJE-SEL", "Sello de Bocina", {
             rep: [["SEL-BOC-OEM", "Sello de Bocina (OEM)", "oem"], ["KIT-SEL-BOC", "Kit Sellos Bocina", "generico"]],
@@ -1083,6 +1086,34 @@ export const PLANTILLA_PESQUERA = [
             pm: [["Inspección de ánodos de sacrificio", 1000]] }),
         ],
       },
+      // ── Gobierno / Servotimón (SFI 642) — recibe potencia → va bajo Propulsión ──
+      // Acoplado al circuito hidráulico (no a las horas del motor): registro mixto ← HPU-MTR.
+      {
+        cod: "STEER", nom: "Gobierno / Servotimón", crit: "A", tipo: "subsistema",
+        hijos: [
+          comp("STEER-PWR", "Servomotor / Power Pack del Timón", { basico: false,
+            rep: [["BMP-TIM-OEM", "Bomba Hidráulica del Timón (OEM)", "oem"], ["MOT-TIM-OEM", "Motor Eléctrico Servotimón", "oem"]],
+            // SFI 642: semanal prueba + mensual cambio bomba activa + 2000H engrase
+            pm: [
+              ["Prueba operacional del sistema de gobierno", null, "semanal"],
+              ["Cambio de bomba activa del timón", null, "mensual"],
+              ["Engrase / lubricación general", 2000],
+              ["Prueba de emergencia del gobierno", null, "semestral"],
+            ] }),
+          comp("STEER-CIL", "Cilindros / Actuador del Timón", {
+            rep: [["KIT-SEL-TIM", "Kit Sellos Cilindro Timón", "generico"]],
+            pm: [["Inspección visual / por condición", 2000]] }),
+          comp("STEER-TIM", "Mecha y Pala del Timón", { basico: false,
+            rep: [["CASQ-TIM-OEM", "Casquillo/Bocina de Mecha (OEM)", "oem"]] }),
+          comp("STEER-EMG", "Gobierno de Emergencia", {
+            rep: [["BMB-MAN-TIM", "Bomba Manual de Emergencia", "oem"]],
+            pm: [["Prueba de emergencia del gobierno", null, "semestral"]] }),
+          inst("STEER-FBK", "Telemotor / Retroalimentación", {
+            rep: [["FBK-TIM-OEM", "Transmisor de Posición (feedback)", "oem"]],
+            // SFI 642 anual calibración
+            pm: [["Calibración de sensores / instrumentos", null, "anual"]] }),
+        ],
+      },
     ],
   },
 
@@ -1094,34 +1125,6 @@ export const PLANTILLA_PESQUERA = [
 
   // ── Grupo Hidráulico / Power Pack (SFI 652) ────────────────────
   CENTRAL_HIDRAULICA,
-
-  // ── Gobierno / Servotimón (SFI 642) ────────────────────────────
-  {
-    cod: "STEER", nom: "Gobierno / Servotimón", crit: "A", tipo: "sistema",
-    hijos: [
-      comp("STEER-PWR", "Servomotor / Power Pack del Timón", { basico: false,
-        rep: [["BMP-TIM-OEM", "Bomba Hidráulica del Timón (OEM)", "oem"], ["MOT-TIM-OEM", "Motor Eléctrico Servotimón", "oem"]],
-        // SFI 642: semanal prueba + mensual cambio bomba activa + 2000H engrase
-        pm: [
-          ["Prueba operacional del sistema de gobierno", null, "semanal"],
-          ["Cambio de bomba activa del timón", null, "mensual"],
-          ["Engrase / lubricación general", 2000],
-          ["Prueba de emergencia del gobierno", null, "semestral"],
-        ] }),
-      comp("STEER-CIL", "Cilindros / Actuador del Timón", {
-        rep: [["KIT-SEL-TIM", "Kit Sellos Cilindro Timón", "generico"]],
-        pm: [["Inspección visual / por condición", 2000]] }),
-      comp("STEER-TIM", "Mecha y Pala del Timón", { basico: false,
-        rep: [["CASQ-TIM-OEM", "Casquillo/Bocina de Mecha (OEM)", "oem"]] }),
-      comp("STEER-EMG", "Gobierno de Emergencia", {
-        rep: [["BMB-MAN-TIM", "Bomba Manual de Emergencia", "oem"]],
-        pm: [["Prueba de emergencia del gobierno", null, "semestral"]] }),
-      inst("STEER-FBK", "Telemotor / Retroalimentación", {
-        rep: [["FBK-TIM-OEM", "Transmisor de Posición (feedback)", "oem"]],
-        // SFI 642 anual calibración
-        pm: [["Calibración de sensores / instrumentos", null, "anual"]] }),
-    ],
-  },
 
   // ── Estabilización (Aletas / Paravanes) ────────────────────────
   // Equipo opcional (modo Completo): muchas naves de trampa usan

@@ -87,12 +87,21 @@ describe("Plantilla pesquera ISO 14224", () => {
 
   it("incluye los sistemas de seguridad/ambientales/operativos de un pesquero", () => {
     const cods = PLANTILLA_PESQUERA.map((s) => s.cod);
-    // Tier 1 (reglamentario): gobierno, contraincendios, achique, MARPOL
-    for (const c of ["STEER", "FIRE", "BILGE", "ENV"]) expect(cods).toContain(c);
+    // Tier 1 (reglamentario): contraincendios, achique, MARPOL
+    for (const c of ["FIRE", "BILGE", "ENV"]) expect(cods).toContain(c);
     // Tier 2 (operativo): fondeo, comunicaciones GMDSS, HVAC, viveros
     for (const c of ["ANCH", "COMM", "HVAC", "CATCH"]) expect(cods).toContain(c);
     // Tier 3 (habitabilidad)
     expect(cods).toContain("HOTEL");
+  });
+
+  it("Gobierno (Servotimón) cuelga de Propulsión, no de la raíz (ISO 14224)", () => {
+    // El timón recibe potencia → es subsistema de Propulsión, no equipo raíz.
+    expect(PLANTILLA_PESQUERA.map((s) => s.cod)).not.toContain("STEER");
+    const steer = find(find(PLANTILLA_PESQUERA, "PROP").hijos, "STEER");
+    expect(steer).toBeTruthy();
+    expect(steer.tipo).toBe("subsistema");
+    expect(find(steer.hijos, "STEER-PWR")).toBeTruthy();
   });
 
   it("Equipo de Pesca está adaptado a trampas/centolla (virador, trampas, viveros)", () => {
