@@ -1,4 +1,4 @@
-// Deep links accionables desde alertas (Fase 3 IA — navegación contextual).
+﻿// Deep links accionables desde alertas (Fase 3 IA — navegación contextual).
 
 import { ALERTA_NAV } from "./alertas";
 
@@ -134,6 +134,23 @@ export function resolveAlertaNav(alerta, { appMode = "oficina", embarcacionId } 
     case "ia":
       params.modo = "optimizar";
       if (emb) params.embFiltro = emb;
+      // Deep-link: si la alerta trae refs (OTs o equipos afectados), navegar al primero
+      if (alerta.refs?.length > 0) {
+        const primerRef = alerta.refs[0];
+        // IA-B: refs son OTs sin codificar -> ir a OTs filtradas
+        if (/ISO|modo_falla|codificar/i.test(alerta.titulo || "")) {
+          params.filtro = "cerrada";
+          params.otId = primerRef;
+          params.detailTab = "trazabilidad";
+          return { destino: "ots", params, campoEvent: null };
+        }
+        // IA-C: refs son equipos sin prediccion -> ir al primer equipo
+        if (/prediccion|Weibull/i.test(alerta.titulo || "")) {
+          params.equipoId = primerRef;
+          params.vista = "cola";
+          return { destino: "equipos", params, campoEvent: null };
+        }
+      }
       if (appMode === "campo") {
         params.campo = true;
         params.tab = "plan";

@@ -110,8 +110,11 @@ export async function listarFotos(entidad, entidadId) {
 
 // Borra una foto (storage + registro).
 export async function borrarFoto(adj) {
-  await supabase.storage.from(BUCKET).remove([adj.storage_path]);
-  await supabase.from("adjuntos").delete().eq("id", adj.id);
+  // Atomico: borrar storage primero. Si falla, el registro BD queda (referencia sana).
+  const { error: storageErr } = await supabase.storage.from(BUCKET).remove([adj.storage_path]);
+  if (storageErr) throw storageErr;
+  const { error: dbErr } = await supabase.from("adjuntos").delete().eq("id", adj.id);
+  if (dbErr) throw dbErr;
 }
 
 // ---------- Documentos (PDF o imagen) para cumplimiento normativo ----------
