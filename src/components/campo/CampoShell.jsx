@@ -165,7 +165,7 @@ export default function CampoShell({
           )}
           {tab === "trabajo" && (
             <OrdenesTrabajo
-              key={`ots-campo-${refreshTick}-${openOtWizard ? "w" : "n"}`}
+              key={`ots-campo-${refreshTick}`}
               navParams={navParamsCampo}
               onNavigate={campoNavigate}
             />
