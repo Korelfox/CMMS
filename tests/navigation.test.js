@@ -5,8 +5,11 @@ import {
 
 describe("navigation", () => {
   it("agrupa módulos Oficina sin duplicar OCR en Análisis", () => {
-    const operacion = OFICINA_GROUPS.find((g) => g.id === "operacion");
-    expect(operacion?.items).toContain("ocr");
+    // OCR Facturas vive en Materiales & Compras (el sidebar se reorganizó por
+    // ciclo SMRP/ISO 55001; ya no existe el grupo "operacion") y no se duplica
+    // en el hub Análisis.
+    const conOcr = OFICINA_GROUPS.filter((g) => g.items.includes("ocr"));
+    expect(conOcr.map((g) => g.id)).toEqual(["materiales"]);
     expect(ANALISIS_IDS).not.toContain("ocr");
   });
 
