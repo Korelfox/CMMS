@@ -13,6 +13,7 @@ export const TAREAS_PM = [
   "Revisión de bomba de inyección",
   "Limpieza de radiador / intercambiador de calor",
   "Revisión de bomba de agua de mar (impeller)",
+  "Limpieza de filtro de agua de mar (strainer)",
   "Revisión de bomba de agua dulce",
   "Revisión de correas y tensores",
   "Prueba de alarmas y paradas de seguridad",
@@ -85,11 +86,13 @@ export const TAREAS_PM = [
   "Prueba de disparo de protecciones",
   // ── Transmisión / propulsión ─────────────────────────────────────────────────
   "Cambio de aceite de reductora",
+  "Cambio de filtro de aceite de reductora",
   "Inspección de eje, bocina y sello",
   "Inspección de hélice",
   // ── Hidráulico / pesca ───────────────────────────────────────────────────────
   "Cambio de aceite hidráulico",
   "Cambio de filtro hidráulico",
+  "Limpieza de filtro de succión (strainer)",
   "Revisión de mangueras y presión hidráulica",
   "Revisión de winche / power block",
   "Cambio de aceite en reductores de winche",

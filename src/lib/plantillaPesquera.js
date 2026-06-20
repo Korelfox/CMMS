@@ -189,13 +189,13 @@ const MOTOR_PRINCIPAL = {
           ["CAR-3406-CAT", "Cárter CAT (OEM)", "oem"],
           ["JD-CAR-001", "Junta de Cárter (kit)", "generico"],
         ] }),
-        comp("PROP-MTR-LUB-FLT", "Filtro de Aceite", {
+        comp("PROP-MTR-LUB-FLT", "Aceite y Filtro de Motor", {
           rep: [
             ["FLT-ACE-CAT", "Filtro Aceite CAT (OEM)", "oem"],
             ["FLT-ACE-DON", "Filtro Aceite Donaldson", "alternativo"],
             ["FLT-ACE-GEN", "Filtro Aceite Genérico Certificado", "generico"],
           ],
-          // SFI 611 PM-250H
+          // SFI 611 PM-250H — el aceite se cambia; el filtro se reemplaza (servicio conjunto)
           pm: [
             ["Cambio de aceite de motor", 250],
             ["Cambio de filtro de aceite", 250],
@@ -294,7 +294,7 @@ const MOTOR_PRINCIPAL = {
           ],
           // SFI 631 Semanal limpieza strainer
           pm: [
-            ["Inspección visual / por condición", null, "semanal"],
+            ["Limpieza de filtro de agua de mar (strainer)", null, "semanal"],
             ["Inspección visual / por condición", 250],
           ] }),
         comp("PROP-MTR-SW-BMP", "Bomba de Agua de Mar (Impeller)", {
@@ -364,7 +364,6 @@ const MOTOR_PRINCIPAL = {
           ],
           pm: [
             ["Cambio de filtros de combustible", 500],
-            ["Limpieza de tanque diario de combustible", 2000],
           ] }),
         comp("PROP-MTR-FUEL-MNG", "Cañerías y Mangueras de Combustible", { basico: false, rep: [
           ["MNG-COMB-CAT", "Manguera Combustible CAT (OEM)", "oem"],
@@ -566,13 +565,13 @@ const MOTOR_GENERADOR = {
         comp("GEN-MTR-LUB-BMP", "Bomba de Aceite", { basico: false, rep: [
           ["BMP-GEN-CAT", "Bomba Aceite Generador (OEM)", "oem"],
         ] }),
-        comp("GEN-MTR-LUB-FLT", "Filtro de Aceite", {
+        comp("GEN-MTR-LUB-FLT", "Aceite y Filtro de Motor", {
           rep: [
             ["FLT-GEN-CAT", "Filtro Aceite Generador (OEM)", "oem"],
             ["FLT-GEN-DON", "Filtro Aceite Donaldson", "alternativo"],
             ["FLT-GEN-GEN", "Filtro Aceite Genérico", "generico"],
           ],
-          // SFI 621 PM-250H
+          // SFI 621 PM-250H — el aceite se cambia; el filtro se reemplaza (servicio conjunto)
           pm: [
             ["Cambio de aceite de motor", 250],
             ["Cambio de filtro de aceite", 250],
@@ -608,7 +607,7 @@ const MOTOR_GENERADOR = {
       hijos: [
         comp("GEN-MTR-SW-FIL", "Filtro / Strainer de Agua de Mar", {
           rep: [["STR-AM-GEN", "Canasto Filtro Agua Mar Generador", "generico"]],
-          pm: [["Inspección visual / por condición", 250]] }),
+          pm: [["Limpieza de filtro de agua de mar (strainer)", 250]] }),
         comp("GEN-MTR-SW-BMP", "Bomba de Agua de Mar (Impeller)", {
           rep: [
             ["IMP-AM-GEN-OEM", "Impeller Bomba Agua Mar Generador (OEM)", "oem"],
@@ -744,7 +743,7 @@ const CENTRAL_HIDRAULICA = {
             ["FLT-ACE-HPU-DON", "Filtro de Aceite Donaldson", "alternativo"],
             ["ACE-15W40-CK4", "Aceite Motor 15W-40 CK-4 (balde)", "generico"],
           ],
-          pm: [["Cambio de aceite de motor", 250], ["Análisis de aceite (muestra a laboratorio)", 1000]] }),
+          pm: [["Cambio de aceite de motor", 250], ["Cambio de filtro de aceite", 250], ["Análisis de aceite (muestra a laboratorio)", 1000]] }),
         comp("HPU-MTR-FCO", "Filtros de Combustible", {
           rep: [
             ["FLT-COMB-HPU-OEM", "Filtro Combustible HPU (OEM)", "oem"],
@@ -885,7 +884,7 @@ const CENTRAL_HIDRAULICA = {
             ["FLT-SUC-HPU-OEM", "Strainer de Succión (OEM)", "oem"],
             ["FLT-SUC-HPU-GEN", "Strainer Genérico", "generico"],
           ],
-          pm: [["Limpieza de radiador / intercambiador de calor", 1000]] }),
+          pm: [["Limpieza de filtro de succión (strainer)", 1000]] }),
       ],
     },
     comp("HPU-ENF", "Enfriador de Aceite Hidráulico", { crit: "B", basico: false,
@@ -918,7 +917,8 @@ export const PLANTILLA_PESQUERA = [
         hijos: [
           comp("PROP-RED-ACE", "Aceite y Filtro de Reductora", {
             rep: [["FLT-RED-OEM", "Filtro Reductora (OEM)", "oem"], ["ACE-RED-GEN", "Aceite Reductora (balde)", "generico"]],
-            pm: [["Cambio de aceite de reductora", 1000]] }),
+            // El aceite de la reductora se cambia; su filtro se reemplaza en el mismo servicio (no reutilizar)
+            pm: [["Cambio de aceite de reductora", 1000], ["Cambio de filtro de aceite de reductora", 1000]] }),
           comp("PROP-RED-CAJ", "Caja Reductora (engranajes)", { basico: false,
             rep: [["RED-OEM", "Reductora completa (OEM)", "oem"], ["KIT-JD-RED", "Kit Juntas Reductora", "generico"]] }),
           comp("PROP-RED-EMB", "Embrague (Clutch)", { basico: false,
