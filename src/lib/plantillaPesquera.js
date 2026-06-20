@@ -521,10 +521,10 @@ const MOTOR_PRINCIPAL = {
 };
 
 // ============================================================
-//  SFI 621 — MOTOR GENERADOR
+//  SFI 621 — MOTOR GENERADOR (equipo independiente ISO 14224)
 // ============================================================
 const MOTOR_GENERADOR = {
-  cod: "GEN-MTR", nom: "Motor Generador", crit: "A", tipo: "subsistema", mtbf: 18000,
+  cod: "GEN-MTR", nom: "Motor Generador", crit: "A", tipo: "sistema", mtbf: 18000,
   hijos: [
     {
       cod: "GEN-MTR-BLK", nom: "Bloque y Tren Alternativo", crit: "A", tipo: "subsistema",
@@ -723,6 +723,131 @@ const MOTOR_GENERADOR = {
           ["CAB-GEN-CAT", "Cableado Generador (OEM)", "oem"],
           ["CAB-GEN-ALT", "Cableado Generador Alternativo", "alternativo"],
         ] }),
+      ],
+    },
+  ],
+};
+
+// ============================================================
+//  SFI 622 — MOTOR DE EMERGENCIA (grupo electrógeno de emergencia)
+//  ISO 14224: equipo independiente que provee energía de emergencia
+//  (NO es parte del cuadro de emergencia: lo alimenta).
+//  Régimen de pocas horas → PM mayormente calendario. SOLAS: prueba
+//  semanal en vacío + prueba mensual con carga + arranque automático.
+// ============================================================
+const MOTOR_EMERGENCIA = {
+  cod: "GEN-EMG", nom: "Motor de Emergencia", crit: "A", tipo: "sistema",
+  hijos: [
+    {
+      cod: "GEN-EMG-LUB", nom: "Sistema de Lubricación", crit: "A", tipo: "subsistema",
+      hijos: [
+        comp("GEN-EMG-LUB-FLT", "Aceite y Filtro de Motor", {
+          rep: [
+            ["FLT-EMG-OEM", "Filtro Aceite Emergencia (OEM)", "oem"],
+            ["FLT-EMG-GEN", "Filtro Aceite Genérico", "generico"],
+            ["ACE-15W40-CK4", "Aceite Motor 15W-40 CK-4 (balde)", "generico"],
+          ],
+          // Régimen bajo: el aceite se cambia; el filtro se reemplaza (servicio anual)
+          pm: [
+            ["Cambio de aceite de motor", null, "anual"],
+            ["Cambio de filtro de aceite", null, "anual"],
+          ] }),
+        comp("GEN-EMG-LUB-BMP", "Bomba de Aceite", { basico: false, rep: [
+          ["BMP-EMG-OEM", "Bomba Aceite Emergencia (OEM)", "oem"],
+        ] }),
+      ],
+    },
+    {
+      cod: "GEN-EMG-FUEL", nom: "Sistema de Combustible", crit: "A", tipo: "subsistema",
+      hijos: [
+        comp("GEN-EMG-FUEL-TKD", "Tanque de Servicio Diario (gravedad)", {
+          rep: [["JD-TKD-EMG", "Junta/Sello Tanque Servicio", "generico"]],
+          // Agua/impurezas condensan en reposo prolongado
+          pm: [
+            ["Verificar nivel de combustible del tanque de servicio", null, "semanal"],
+            ["Drenar agua e impurezas del tanque de servicio", null, "mensual"],
+          ] }),
+        comp("GEN-EMG-FUEL-FLT", "Filtro / Separador de Combustible", {
+          rep: [
+            ["FLT-COMB-EMG-OEM", "Filtro Combustible Emergencia (OEM)", "oem"],
+            ["FLT-COMB-EMG-GEN", "Filtro Combustible Genérico", "generico"],
+          ],
+          pm: [["Cambio de filtros de combustible", null, "anual"]] }),
+        comp("GEN-EMG-FUEL-INY", "Inyectores", { basico: false,
+          rep: [["INY-EMG-OEM", "Inyectores Emergencia (kit)", "oem"]],
+          pm: [["Revisión / calibración de inyectores", null, "anual"]] }),
+      ],
+    },
+    {
+      cod: "GEN-EMG-REF", nom: "Refrigeración", crit: "A", tipo: "subsistema",
+      hijos: [
+        comp("GEN-EMG-REF-RAD", "Radiador / Intercambiador", {
+          rep: [
+            ["RAD-EMG-OEM", "Radiador Emergencia (OEM)", "oem"],
+            ["ANT-COOL-GEN", "Refrigerante / Anticorrosivo (galón)", "generico"],
+          ],
+          pm: [
+            ["Verificar nivel y concentración de refrigerante", null, "mensual"],
+            ["Limpieza de radiador / intercambiador de calor", null, "anual"],
+          ] }),
+        comp("GEN-EMG-REF-BMP", "Bomba de Agua / Refrigerante", { basico: false,
+          rep: [["BMP-REF-EMG-OEM", "Bomba Refrigerante Emergencia (OEM)", "oem"]],
+          pm: [["Inspección visual / por condición", null, "anual"]] }),
+      ],
+    },
+    {
+      cod: "GEN-EMG-AEX", nom: "Admisión y Escape", crit: "B", tipo: "subsistema",
+      hijos: [
+        comp("GEN-EMG-AEX-FIL", "Filtro de Aire", {
+          rep: [["FIL-AIRE-EMG-GEN", "Filtro Aire Emergencia", "generico"]],
+          pm: [["Cambio de filtro de aire", null, "anual"]] }),
+        comp("GEN-EMG-AEX-ESC", "Colector / Silenciador de Escape", { basico: false,
+          rep: [["JD-ESC-EMG", "Junta de Escape Emergencia", "generico"]],
+          pm: [["Inspección de sistema de escape", null, "anual"]] }),
+      ],
+    },
+    {
+      cod: "GEN-EMG-ELE", nom: "Generación, Arranque y Arranque Automático", crit: "A", tipo: "subsistema",
+      hijos: [
+        comp("GEN-EMG-ELE-ALT", "Alternador Trifásico", { basico: false,
+          rep: [["ALT-EMG-OEM", "Alternador Emergencia (OEM)", "oem"]],
+          pm: [["Inspección de aislamiento de devanados", null, "anual"]] }),
+        comp("GEN-EMG-ELE-BAT", "Baterías de Arranque Dedicadas", {
+          rep: [
+            ["BAT-12V-100AH-CAT", "Batería 12V 100Ah (OEM)", "oem"],
+            ["BAT-12V-100AH-GEN", "Batería 12V 100Ah Genérica", "generico"],
+          ],
+          // Crítico: deben arrancar el grupo en apagón total
+          pm: [
+            ["Revisión de banco de baterías", null, "mensual"],
+            ["Prueba de capacidad de baterías de emergencia", null, "semestral"],
+          ] }),
+        comp("GEN-EMG-ELE-MTR", "Motor de Arranque", { basico: false,
+          rep: [["MTR-START-EMG-OEM", "Motor Arranque Emergencia (OEM)", "oem"]] }),
+        comp("GEN-EMG-ELE-CHR", "Cargador de Baterías", {
+          rep: [["CHR-EMG-OEM", "Cargador Baterías Emergencia (OEM)", "oem"]],
+          pm: [["Inspección visual / por condición", null, "trimestral"]] }),
+        inst("GEN-EMG-ELE-ATS", "Arranque Automático (relé de fallo de tensión / ATS)", {
+          rep: [["ATS-EMG-OEM", "Tablero de Transferencia Automática (OEM)", "oem"]],
+          // Función vital: el grupo debe arrancar solo al perder tensión de red
+          pm: [
+            ["Prueba de arranque automático por fallo de tensión", null, "mensual"],
+            ["Prueba de transferencia de carga (ATS)", null, "semestral"],
+          ] }),
+      ],
+    },
+    {
+      cod: "GEN-EMG-CTRL", nom: "Control y Pruebas Reglamentarias", crit: "A", tipo: "subsistema",
+      hijos: [
+        comp("GEN-EMG-CTRL-PNL", "Cuadro / Panel de Emergencia", { basico: false,
+          rep: [["PNL-EMG-OEM", "Panel Emergencia (OEM)", "oem"]],
+          pm: [["Prueba de alarmas y paradas de seguridad", null, "anual"]] }),
+        comp("GEN-EMG-CTRL-SAF", "Pruebas Periódicas (SOLAS)", {
+          // SOLAS: arranque semanal en vacío + prueba mensual con carga
+          pm: [
+            ["Prueba de arranque y funcionamiento en vacío", null, "semanal"],
+            ["Prueba de funcionamiento con carga", null, "mensual"],
+          ] }),
       ],
     },
   ],
@@ -961,14 +1086,11 @@ export const PLANTILLA_PESQUERA = [
     ],
   },
 
-  // ── Generadores Electricidad (SFI 621-622) ──────────────────────
-  {
-    cod: "GEN", nom: "Generadores Electricidad", crit: "A", tipo: "sistema",
-    hijos: [
-      MOTOR_GENERADOR,
-      { cod: "GEN-EMG", nom: "Generador de Emergencia", crit: "A", tipo: "subsistema" },
-    ],
-  },
+  // ── Grupo Electrógeno Principal (SFI 621) — ISO 14224: equipo independiente ──
+  MOTOR_GENERADOR,
+
+  // ── Grupo Electrógeno de Emergencia (SFI 622) — ISO 14224: equipo independiente ──
+  MOTOR_EMERGENCIA,
 
   // ── Grupo Hidráulico / Power Pack (SFI 652) ────────────────────
   CENTRAL_HIDRAULICA,
@@ -998,6 +1120,30 @@ export const PLANTILLA_PESQUERA = [
         rep: [["FBK-TIM-OEM", "Transmisor de Posición (feedback)", "oem"]],
         // SFI 642 anual calibración
         pm: [["Calibración de sensores / instrumentos", null, "anual"]] }),
+    ],
+  },
+
+  // ── Estabilización (Aletas / Paravanes) ────────────────────────
+  // Equipo opcional (modo Completo): muchas naves de trampa usan
+  // paravanes/"pez" o aletas activas para reducir balanceo.
+  {
+    cod: "STAB", nom: "Estabilización (Aletas / Paravanes)", crit: "B", tipo: "sistema", basico: false,
+    hijos: [
+      comp("STAB-FIN", "Aletas Estabilizadoras / Paravanes", { basico: false,
+        rep: [["KIT-SEL-STAB", "Kit Sellos Eje de Aleta", "generico"], ["ANO-STAB-GEN", "Ánodo de Aleta", "generico"]],
+        pm: [
+          ["Inspección de aletas y ejes estabilizadores", null, "semestral"],
+          ["Inspección de ánodos de sacrificio", null, "semestral"],
+        ] }),
+      comp("STAB-ACT", "Actuador Hidráulico de Estabilización", { basico: false,
+        rep: [["KIT-SEL-STAB-ACT", "Kit Sellos Actuador", "generico"]],
+        pm: [["Inspección de fugas y mangueras del actuador", null, "semestral"]] }),
+      inst("STAB-CTR", "Control de Estabilización (giroscopio / panel)", { basico: false,
+        rep: [["CTR-STAB-OEM", "Controlador Estabilización (OEM)", "oem"]],
+        pm: [
+          ["Prueba operacional del sistema de estabilización", null, "semestral"],
+          ["Calibración de sensores / instrumentos", null, "anual"],
+        ] }),
     ],
   },
 
@@ -1306,9 +1452,22 @@ export const PLANTILLA_PESQUERA = [
         pm: [["Calibración de sensores / instrumentos", 2000]] }),
       comp("ENV-LOD", "Tanque de Lodos (Sludge)", { basico: false,
         pm: [["Inspección visual / por condición", 4000]] }),
-      comp("ENV-AGS", "Tratamiento / Tanque de Aguas Servidas", { basico: false,
-        rep: [["KIT-AGS-OEM", "Kit Mantención Planta Aguas Servidas", "oem"]],
-        pm: [["Inspección visual / por condición", 2000]] }),
+      {
+        cod: "ENV-AGS", nom: "Tratamiento de Aguas Servidas (MARPOL IV)", crit: "B", tipo: "subsistema", basico: false,
+        hijos: [
+          comp("ENV-AGS-STP", "Planta de Tratamiento (aguas negras)", { basico: false,
+            rep: [["KIT-AGS-OEM", "Kit Mantención Planta Aguas Servidas", "oem"], ["CLORO-AGS-GEN", "Pastillas de Cloración", "generico"]],
+            pm: [
+              ["Verificar dosificación y desinfección (cloración)", null, "mensual"],
+              ["Servicio de planta de tratamiento de aguas negras", null, "anual"],
+            ] }),
+          comp("ENV-AGS-GRY", "Tanque de Aguas Grises", { basico: false,
+            pm: [["Inspección visual / por condición", null, "anual"]] }),
+          comp("ENV-AGS-BMP", "Bomba de Descarga / Maceradora", { basico: false,
+            rep: [["KIT-SEL-AGS-BMP", "Kit Sellos Bomba Maceradora", "generico"]],
+            pm: [["Inspección de sellos y funcionamiento de bomba", null, "semestral"]] }),
+        ],
+      },
     ],
   },
 
@@ -1558,6 +1717,7 @@ export const REGISTRO_POR_PREFIJO = [
 
   { prefijo: "MTR-", registro: "hereda_horas" },
   { prefijo: "GEN-MTR-",  registro: "hereda_horas" },
+  { prefijo: "GEN-EMG-",  registro: "hereda_horas" },
   { prefijo: "HPU-MTR-",  registro: "hereda_horas" },
   { prefijo: "HPU-",      registro: "hereda_horas" },
   { prefijo: "PROP-RED",  registro: "hereda_horas" },
@@ -1569,6 +1729,7 @@ export const REGISTRO_POR_PREFIJO = [
   { prefijo: "FISH-VIR", registro: "mixto", fuente: "HPU-MTR" },
   { prefijo: "FISH-GRU", registro: "mixto" },
 
+  { prefijo: "STAB",     registro: "fecha" },
   { prefijo: "STR-",     registro: "fecha" },
   { prefijo: "NAV-",     registro: "fecha" },
   { prefijo: "COMM-",    registro: "fecha" },

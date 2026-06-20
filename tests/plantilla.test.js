@@ -27,12 +27,29 @@ describe("Plantilla pesquera ISO 14224", () => {
     expect(find(mtr.hijos, "MTR-AIR")).toBeTruthy(); // admisión + aftercooler
   });
 
-  it("Motor Generador: taxonomía marina (versión liviana) + alternador", () => {
-    const gmtr = find(find(PLANTILLA_PESQUERA, "GEN").hijos, "GEN-MTR");
+  it("Motor Generador: equipo independiente con taxonomía marina + alternador", () => {
+    // ISO 14224: el grupo electrógeno es equipo independiente (alimenta al
+    // cuadro eléctrico, no es parte de él).
+    const gmtr = find(PLANTILLA_PESQUERA, "GEN-MTR");
+    expect(gmtr.tipo).toBe("sistema");
     expect(gmtr.hijos).toHaveLength(10);
     expect(find(gmtr.hijos, "GEN-MTR-SW")).toBeTruthy();  // agua de mar
     expect(find(gmtr.hijos, "GEN-MTR-ALT")).toBeTruthy(); // alternador eléctrico
     expect(countComp(gmtr)).toBeGreaterThan(0);
+  });
+
+  it("Motor de Emergencia: equipo independiente con 6 sistemas y arranque automático", () => {
+    // ISO 14224: provee energía de emergencia; no es parte del cuadro de emergencia.
+    const mem = find(PLANTILLA_PESQUERA, "GEN-EMG");
+    expect(mem.tipo).toBe("sistema");
+    expect(mem.hijos).toHaveLength(6);
+    // Función vital: arranque automático por fallo de tensión.
+    const ele = find(mem.hijos, "GEN-EMG-ELE");
+    const ats = find(ele.hijos, "GEN-EMG-ELE-ATS");
+    expect(ats).toBeTruthy();
+    expect(ats.pm.some(([d]) => /arranque autom/i.test(d))).toBe(true);
+    // Régimen de pocas horas → PM calendario (SOLAS prueba semanal/mensual).
+    expect(countComp(mem)).toBeGreaterThanOrEqual(14);
   });
 
   it("modo Básico carga menos nodos que Completo y poda subsistemas de overhaul", () => {

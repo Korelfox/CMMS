@@ -10,10 +10,10 @@
 
 // Orden canónico de sistemas (por su código en id_visible: NAVE-PROP → PROP).
 export const ORDEN_SISTEMA = [
-  "PROP", "GEN", "FUEL", "HYD", "FISH",   // los 5 que pidió el usuario, en ese orden
+  "MTR", "PROP", "GEN", "FUEL", "HPU", "FISH", // motor → propulsión → generación → combustible → hidráulico → pesca
   "RSW", "NAV", "SAF",                       // calidad de pesca · seguridad/normativa
   "LUB", "COOL", "ELEC",                     // auxiliares de motor / eléctrico
-  "WAT", "AIR", "STR",                       // agua/lastre · aire · estructura
+  "WAT", "AIR", "STR", "STAB",               // agua/lastre · aire · estructura · estabilización
 ];
 const CRIT_RANK = { A: 0, B: 1, C: 2 };
 
