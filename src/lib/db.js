@@ -19,8 +19,10 @@ export async function fetchAll(tabla, { select = "*", order, limit, includeDelet
   let { data, error } = await q;
   // Si falla por columna deleted_at inexistente, reintentar sin filtro soft-delete
   if (error && error.message?.includes("deleted_at") && !includeDeleted) {
-    const { data: d2, error: e2 } = await supabase.from(tabla).select(select)
-      .order?.(order?.col, { ascending: order?.asc ?? true });
+    let q2 = supabase.from(tabla).select(select);
+    if (order) q2 = q2.order(order.col, { ascending: order.asc ?? true });
+    if (limit) q2 = q2.limit(limit);
+    const { data: d2, error: e2 } = await q2;
     if (e2) { console.error(`[CMMS] fetchAll(${tabla}):`, e2.message); throw e2; }
     return d2 || [];
   }
