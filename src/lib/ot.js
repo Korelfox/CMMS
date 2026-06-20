@@ -1,4 +1,4 @@
-// ============================================================
+﻿// ============================================================
 //  Lógica pura de Órdenes de Trabajo (sin UI ni dependencias de
 //  red). Centralizada para poder probarla de forma unitaria.
 // ============================================================

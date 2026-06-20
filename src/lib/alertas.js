@@ -1,4 +1,4 @@
-// ============================================================
+﻿// ============================================================
 //  Lógica pura de generación de alertas operacionales.
 //  Extraído de Alertas.jsx para hacer cada generador testeable
 //  de forma independiente. Sin dependencias React.
@@ -137,6 +137,48 @@ export function alertasOTs(ots, embsById) {
   return result;
 }
 
+
+// 3b) OTs estancadas: detecta OTs que llevan demasiado tiempo sin avanzar.
+//     solicitada > 3 dias, planificada > 7 dias, programada con fecha vencida.
+export function alertasOTsEstancadas(ots, embsById, hoy = hoyLocal()) {
+  const result = [];
+  const ahora = new Date(hoy + "T00:00:00");
+  const msDia = 86_400_000;
+  for (const o of ots || []) {
+    if (o.estado === "cerrada" || o.estado === "en_ejecucion") continue;
+    const nave = embsById.get(o.embarcacion_id)?.nombre || "—";
+    const creada = new Date(o.fecha || o.created_at);
+    const diasAbierta = Math.floor((ahora - creada) / msDia);
+
+    if (o.estado === "solicitada" && diasAbierta >= 3) {
+      result.push({
+        cat: "ot_estancada", sev: diasAbierta >= 7 ? "red" : "amber",
+        titulo: `OT estancada ${diasAbierta}d sin aprobar — ${o.folio || ""}`,
+        detalle: `${nave} — ${o.sistema || "sin sistema"} — ${o.descripcion?.slice(0, 80) || ""}`,
+        ts: o.fecha || o.created_at, ref: o.id, embId: o.embarcacion_id,
+      });
+    } else if (o.estado === "planificada" && diasAbierta >= 7) {
+      result.push({
+        cat: "ot_estancada", sev: "amber",
+        titulo: `OT estancada ${diasAbierta}d sin programar — ${o.folio || ""}`,
+        detalle: `${nave} — ${o.sistema || "sin sistema"} — ${o.descripcion?.slice(0, 80) || ""}`,
+        ts: o.fecha || o.created_at, ref: o.id, embId: o.embarcacion_id,
+      });
+    } else if (o.estado === "programada" && o.fecha_programada) {
+      const prog = new Date(o.fecha_programada);
+      if (prog < ahora) {
+        const diasVencida = Math.floor((ahora - prog) / msDia);
+        result.push({
+          cat: "ot_estancada", sev: diasVencida >= 3 ? "red" : "amber",
+          titulo: `OT programada vencida ${diasVencida}d — ${o.folio || ""}`,
+          detalle: `${nave} — programada ${o.fecha_programada?.slice(0, 10)} — ${o.descripcion?.slice(0, 80) || ""}`,
+          ts: o.fecha_programada, ref: o.id, embId: o.embarcacion_id,
+        });
+      }
+    }
+  }
+  return result;
+}
 // 4) Solicitudes con SLA vencido o próximo a vencer.
 export function alertasSLA(solicitudes, embsById) {
   const result = [];
@@ -518,6 +560,7 @@ export function generarAlertas({
     ...alertasPdM(mediciones, equipos, embsById),
     ...alertasStock(items, stock, destinos, equipos),
     ...alertasOTs(ots, embsById),
+      ...alertasOTsEstancadas(ots, embsById, hoy),
     ...alertasSLA(solicitudes, embsById),
     ...alertasEquipos(equipos, embsById),
     ...alertasCompras(compras),
@@ -541,7 +584,7 @@ export function generarAlertas({
 export const ALERTA_NAV = {
   pm: "planpm", pdm: "pdm", stock: "inventario", ot: "ots", sla: "solicitudes",
   equipo: "equipos", consumo: "prezarpe", documento: "cumplimiento", compra: "almacen",
-  fmeca: "fallas", datos: "ots", varada: "varada", horometro: "horometros",
+  fmeca: "fallas", datos: "ots", ot_estancada: "ots", varada: "varada", horometro: "horometros",
   clima: "dashboard", ia: "equipos",
 };
 
