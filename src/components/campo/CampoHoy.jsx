@@ -1,29 +1,18 @@
 import React, { useEffect, useState, useMemo, useCallback } from "react";
-import { ClipboardList, CalendarDays, ChevronRight, ChevronDown } from "lucide-react";
+import { ClipboardList, CalendarDays, ChevronDown } from "lucide-react";
 import { useAuth } from "../../lib/auth";
 import { fetchAll } from "../../lib/db";
 import { useShell } from "../../context/ShellContext";
 import { filterByEmbarcacion } from "../../lib/embarcacionActiva";
-import { C, tint, lk, PRIORIDADES, ESTADOS_OT, num } from "../../theme";
+import { C, tint, lk, ESTADOS_OT, num } from "../../theme";
 import { EmptyState, InlineSpinner, ghostBtn } from "../../ui";
-import { ordenarOtsCampo, agruparProgramacion, labelProgFecha, describeOtCampo } from "../../lib/campoHoy";
+import { agruparProgramacion, labelProgFecha, describeOtCampo } from "../../lib/campoHoy";
 import TaskCard from "./TaskCard";
 import CampoSection from "./CampoSection";
 import CampoTiempoWidget from "./CampoTiempoWidget";
 import { hoyLocal } from "../../lib/fechas";
 
 const HOY = () => hoyLocal();
-
-function prioTone(p) {
-  if (p === "critica") return "red";
-  if (p === "alta") return "amber";
-  return "steel";
-}
-
-function otTone(ot) {
-  if (ot.estado === "en_ejecucion") return "amber";
-  return prioTone(ot.prioridad);
-}
 
 /** Fila-indicador colapsable para grupos secundarios (atrasadas / próximas). */
 function IndicadorRow({ tone, label, abierto, onClick }) {
@@ -63,7 +52,6 @@ export default function CampoHoy({ onIrTrabajo }) {
   const { profile } = useAuth();
   const { embarcacionId, embarcacionActiva } = useShell();
   const [loading, setLoading] = useState(true);
-  const [ots, setOts] = useState([]);
   const [todasOts, setTodasOts] = useState([]);
   const [equipos, setEquipos] = useState([]);
   const [programacion, setProgramacion] = useState([]);
@@ -80,7 +68,6 @@ export default function CampoHoy({ onIrTrabajo }) {
       ]);
       const scoped = filterByEmbarcacion(o, embarcacionId);
       setTodasOts(scoped);
-      setOts(scoped.filter((ot) => ot.estado !== "cerrada"));
       setProgramacion(filterByEmbarcacion(prog, embarcacionId));
       setEquipos(filterByEmbarcacion(eqs, embarcacionId));
     } finally {
@@ -91,7 +78,6 @@ export default function CampoHoy({ onIrTrabajo }) {
   useEffect(() => { cargar(); }, [cargar]);
 
   const hoy = HOY();
-  const otsOrdenadas = useMemo(() => ordenarOtsCampo(ots), [ots]);
 
   // Una tarea programada cuenta como cerrada si su OT vinculada ya está cerrada,
   // aunque su flag `done` no se haya sincronizado. Así no aparece como atrasada.
@@ -158,7 +144,7 @@ export default function CampoHoy({ onIrTrabajo }) {
   }
 
   const totalProg = prog.hoy.length + prog.atrasadas.length + prog.proximas.length;
-  const vacio = otsOrdenadas.length === 0 && totalProg === 0;
+  const vacio = totalProg === 0;
 
   return (
     <div className="cmms-campo-polish" style={{ padding: "4px 0" }}>
@@ -179,8 +165,8 @@ export default function CampoHoy({ onIrTrabajo }) {
       ) : vacio ? (
         <EmptyState
           icon={ClipboardList}
-          title="Turno al día"
-          description="No hay OTs abiertas ni tareas programadas para hoy."
+          title="Sin programación para hoy"
+          description="No tienes tareas programadas. Entra a Trabajo para ver las órdenes."
         />
       ) : (
         <>
@@ -220,47 +206,10 @@ export default function CampoHoy({ onIrTrabajo }) {
               {expandido === "proximas" && prog.proximas.map(renderProgCard)}
             </>
           )}
-
-          {otsOrdenadas.length > 0 && (
-            <>
-              <CampoSection
-                title="Órdenes de trabajo"
-                sub={`${otsOrdenadas.length} abierta${otsOrdenadas.length !== 1 ? "s" : ""}`}
-                style={{ marginTop: totalProg > 0 ? 16 : 12 }}
-              />
-              {otsOrdenadas.slice(0, 8).map((ot) => {
-                const eq = ot.equipo_id ? equipoPorId.get(ot.equipo_id) : null;
-                const d = describeOtCampo(ot, eq, equipoPorId);
-                return (
-                  <TaskCard
-                    key={ot.id}
-                    tone={otTone(ot)}
-                    badge={ot.folio}
-                    badgeLabel={ot.estado === "en_ejecucion" ? "En curso" : lk(PRIORIDADES, ot.prioridad)}
-                    lineaEquipo={d.lineaEquipo || undefined}
-                    title={d.titulo}
-                    subtitle={d.trabajo || undefined}
-                    meta={lk(ESTADOS_OT, ot.estado)}
-                    onClick={() => abrirOt(ot.id)}
-                  />
-                );
-              })}
-              {otsOrdenadas.length > 8 && (
-                <button
-                  type="button"
-                  className="cmms-campo-touch"
-                  onClick={() => onIrTrabajo?.(null)}
-                  style={{ ...ghostBtn, width: "100%", justifyContent: "center", marginBottom: 4 }}
-                >
-                  Ver las {otsOrdenadas.length} OTs en Trabajo <ChevronRight size={16} />
-                </button>
-              )}
-            </>
-          )}
         </>
       )}
 
-      {!loading && !vacio && (
+      {!loading && (
         <button
           type="button"
           className="cmms-campo-touch"
