@@ -56,7 +56,19 @@ export default function CampoHoy({ onIrTrabajo }) {
 
   const hoy = HOY();
   const otsOrdenadas = useMemo(() => ordenarOtsCampo(ots), [ots]);
-  const prog = useMemo(() => agruparProgramacion(programacion, hoy), [programacion, hoy]);
+
+  // Una tarea programada cuenta como cerrada si su OT vinculada ya está cerrada,
+  // aunque su flag `done` no se haya sincronizado. Así no aparece como atrasada.
+  const folioCerrado = useMemo(() => {
+    const s = new Set();
+    todasOts.forEach((ot) => { if (ot.estado === "cerrada" && ot.folio) s.add(ot.folio); });
+    return s;
+  }, [todasOts]);
+  const progCompletada = useCallback(
+    (item) => !!item.done || (!!item.ot_folio && folioCerrado.has(item.ot_folio)),
+    [folioCerrado],
+  );
+  const prog = useMemo(() => agruparProgramacion(programacion, hoy, progCompletada), [programacion, hoy, progCompletada]);
 
   const otPorFolio = useMemo(() => {
     const m = new Map();
@@ -121,11 +133,9 @@ export default function CampoHoy({ onIrTrabajo }) {
                 const eq = ot?.equipo_id ? equipoPorId.get(ot.equipo_id) : null;
                 const d = ot ? describeOtCampo(ot, eq, equipoPorId) : null;
                 const chip = item.ot_folio
-                  ? ot?.estado === "cerrada"
-                    ? { label: "✓ Cerrada", tone: "green" }
-                    : ot
-                      ? { label: lk(ESTADOS_OT, ot.estado), tone: ot.estado === "en_ejecucion" ? "amber" : "steel" }
-                      : { label: "Sin OT", tone: "steel" }
+                  ? ot
+                    ? { label: lk(ESTADOS_OT, ot.estado), tone: ot.estado === "en_ejecucion" ? "amber" : "steel" }
+                    : { label: "Sin OT", tone: "steel" }
                   : null;
                 return (
                   <TaskCard

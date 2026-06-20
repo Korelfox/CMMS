@@ -93,8 +93,15 @@ export function ordenarOtsCampo(ots) {
   });
 }
 
-export function agruparProgramacion(items, hoy) {
-  const pendientes = items.filter((p) => !p.done);
+/**
+ * Agrupa tareas de programación en hoy / atrasadas / próximas.
+ * `estaCompletada` define qué cuenta como terminado: por defecto el flag `done`,
+ * pero Campo también la considera completada si su OT vinculada ya está cerrada
+ * (aunque `done` no se haya sincronizado). Las completadas no se listan ni se
+ * marcan como atrasadas.
+ */
+export function agruparProgramacion(items, hoy, estaCompletada = (p) => !!p.done) {
+  const pendientes = items.filter((p) => !estaCompletada(p));
   const hoyList = [];
   const atrasadas = [];
   const proximas = [];

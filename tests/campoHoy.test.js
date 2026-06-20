@@ -32,6 +32,19 @@ describe("campoHoy", () => {
     expect(g.proximas.map((x) => x.id)).toEqual(["d"]);
   });
 
+  it("no marca como atrasada una tarea cuya OT vinculada ya está cerrada", () => {
+    const cerradas = new Set(["OT-9"]);
+    const completada = (p) => !!p.done || (!!p.ot_folio && cerradas.has(p.ot_folio));
+    const g = agruparProgramacion([
+      { id: "cerrada", done: false, fecha_programada: "2026-06-15", ot_folio: "OT-9" }, // OT cerrada → fuera
+      { id: "atrasada", done: false, fecha_programada: "2026-06-15" },                  // atrasada real
+      { id: "hoy", done: false, fecha_programada: "2026-06-17", ot_folio: "OT-1" },     // abierta hoy
+    ], "2026-06-17", completada);
+    expect(g.atrasadas.map((x) => x.id)).toEqual(["atrasada"]);
+    expect(g.hoy.map((x) => x.id)).toEqual(["hoy"]);
+    expect([...g.atrasadas, ...g.hoy, ...g.proximas].some((x) => x.id === "cerrada")).toBe(false);
+  });
+
   it("etiqueta fechas de programación", () => {
     expect(labelProgFecha("2026-06-17", "2026-06-17")).toBe("Hoy");
     expect(labelProgFecha("2026-06-16", "2026-06-17")).toBe("Atrasada");
