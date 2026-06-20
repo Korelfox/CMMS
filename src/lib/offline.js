@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+﻿import { useState, useEffect } from "react";
 import localforage from "localforage";
 import { supabase } from "./supabase";
 
@@ -56,9 +56,10 @@ export async function queueInsert(tabla, row, descripcion = "") {
 }
 
 // Encola un UPDATE parcial. Solo toca los campos en `cambios` (igual que updateRow).
-export async function queueUpdate(tabla, id, cambios, descripcion = "") {
+export async function queueUpdate(tabla, id, cambios, descripcion = "", updatedAt = null) {
   const localId = `upd_${id}_${Date.now()}`;
   const op = { localId, tabla, tipo: "update", id, cambios, ts: Date.now(), descripcion };
+  if (updatedAt) op.updatedAt = updatedAt;
   await outboxStore.setItem(localId, op);
   avisarCambio();
   return op;
@@ -81,8 +82,15 @@ export async function flushOutbox() {
   for (const op of items) {
     try {
       if (op.tipo === "update") {
-        const { error } = await supabase.from(op.tabla).update(op.cambios).eq("id", op.id);
+        let q = supabase.from(op.tabla).update(op.cambios).eq("id", op.id);
+        if (op.updatedAt) q = q.eq("updated_at", op.updatedAt);
+        const { data, error } = await q.select();
         if (error) throw error;
+        // Si optimistic locking y 0 filas afectadas → conflicto de versión
+        if (op.updatedAt && (!data || data.length === 0)) {
+          window.dispatchEvent(new CustomEvent("cmms-conflict", { detail: { op, msg: `Conflicto: ${op.descripcion} fue modificado por otro usuario mientras trabajabas sin conexión.` } }));
+          fail++; continue; // mantener en cola para revisión manual
+        }
       } else {
         // insert (tipo === "insert" o campo ausente — compatibilidad con ops antiguas)
         const { error } = await supabase.from(op.tabla).insert(op.row);

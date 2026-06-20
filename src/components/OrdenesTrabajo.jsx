@@ -489,7 +489,7 @@ function transicionValida(desde, hasta) {
     setOts((p) => p.map((o) => (o.id === ot.id ? { ...o, ...cambios } : o)));
     setError(null);
     if (!online) {
-      await queueUpdate("ordenes_trabajo", ot.id, cambios, `Estado ${ot.folio}: ${nuevoEstado}`);
+      await queueUpdate("ordenes_trabajo", ot.id, cambios, `Estado ${ot.folio}: ${nuevoEstado}`, ot.updated_at);
       logActivity(profile, "Cambiar estado OT", `${ot.folio}: ${lk(ESTADOS_OT, anterior)} → ${lk(ESTADOS_OT, nuevoEstado)}`);
       return;
     }
@@ -525,7 +525,7 @@ function transicionValida(desde, hasta) {
     const previo = ot.checklist;
     setOts((p) => p.map((o) => (o.id === ot.id ? { ...o, checklist: items } : o)));
     if (!online) {
-      await queueUpdate("ordenes_trabajo", ot.id, { checklist: items }, `Checklist ${ot.folio}`);
+      await queueUpdate("ordenes_trabajo", ot.id, { checklist: items }, `Checklist ${ot.folio}`, ot.updated_at);
       return;
     }
     try { await updateRow("ordenes_trabajo", ot.id, { checklist: items }); }
