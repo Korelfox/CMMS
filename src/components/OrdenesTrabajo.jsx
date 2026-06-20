@@ -56,6 +56,9 @@ export default function OrdenesTrabajo({ navParams, onNavigate }) {
   const [filtro, setFiltro] = useState("all");
   const [embFiltro, setEmbFiltro] = useState("all");  // filtro por embarcación (combinable con el de estado)
   const [otDestacadaId, setOtDestacadaId] = useState(navParams?.otId || null);
+  // OT a resaltar en la cola al llegar desde Campo › Hoy (solo realce visual,
+  // no filtra la lista). Persiste hasta que el usuario selecciona o filtra.
+  const [highlightId, setHighlightId] = useState(navParams?.highlightOtId || null);
   const [vista, setVista] = useState("cola");
   const [costoOk, setCostoOk] = useState(null);
   const [showForm, setShowForm] = useState(false);
@@ -141,6 +144,12 @@ export default function OrdenesTrabajo({ navParams, onNavigate }) {
     }
   }, [navParams, isMobile]);
 
+  // La OT tocada en Hoy se resalta en la cola; la señal persiste tras el
+  // remonte del módulo (CampoShell limpia otId pero no highlightOtId).
+  useEffect(() => {
+    if (navParams?.highlightOtId) setHighlightId(navParams.highlightOtId);
+  }, [navParams?.highlightOtId]);
+
   useEffect(() => {
     if (navParams?.embFiltro) {
       setEmbFiltro(navParams.embFiltro);
@@ -152,8 +161,8 @@ export default function OrdenesTrabajo({ navParams, onNavigate }) {
   }, [navParams?.campo, navParams?.embFiltro, shell?.embarcacionId]);
 
   // Cambiar de filtro manualmente quita el modo "OT señalada".
-  function aplicarFiltro(f) { setFiltro(f); setOtDestacadaId(null); }
-  function aplicarEmb(id) { setEmbFiltro(id); setOtDestacadaId(null); }
+  function aplicarFiltro(f) { setFiltro(f); setOtDestacadaId(null); setHighlightId(null); }
+  function aplicarEmb(id) { setEmbFiltro(id); setOtDestacadaId(null); setHighlightId(null); }
 
   // Cuando el outbox se vacía (volvió la señal y subió todo), recargamos del servidor.
   useEffect(() => {
@@ -210,6 +219,7 @@ export default function OrdenesTrabajo({ navParams, onNavigate }) {
   function seleccionarOT(id, tab) {
     setSelectedId(id);
     setOtDestacadaId(null);
+    setHighlightId(null);
     if (tab) setDetailTab(tab);
     setDetailOpen(true);
     if (isCampo) {
@@ -248,6 +258,7 @@ export default function OrdenesTrabajo({ navParams, onNavigate }) {
     if (q != null) setBusqueda(q);
     if (v && VISTAS.some((x) => x.id === v)) setVista(v);
     setOtDestacadaId(null);
+    setHighlightId(null);
     setActiveViewId(view.id);
   }
 
@@ -992,6 +1003,7 @@ export default function OrdenesTrabajo({ navParams, onNavigate }) {
             <OTQueuePanel
               lista={listaVista}
               selectedId={selectedOTPanel?.id}
+              highlightId={highlightId}
               onSelect={(id) => seleccionarOT(id, isValorizar ? "costos" : (isCampo ? "ejecucion" : undefined))}
               busqueda={busqueda}
               setBusqueda={setBusqueda}

@@ -49,6 +49,9 @@ export default function CampoShell({
   const [stackModule, setStackModule] = useState(null);
   const [openOtWizard, setOpenOtWizard] = useState(false);
   const [launchOtId, setLaunchOtId] = useState(null);
+  // OT resaltada al llegar desde Hoy. A diferencia de launchOtId (que se limpia
+  // en un tick para no reabrir el wizard), persiste para ubicarla en la lista.
+  const [highlightOtId, setHighlightOtId] = useState(null);
   const [campoParams, setCampoParams] = useState({});
 
   const setTabDirect = useCallback((next) => setTab(next), []);
@@ -68,6 +71,7 @@ export default function CampoShell({
   const irTrabajo = useCallback((otId = null) => {
     setStackModule(null);
     setLaunchOtId(otId);
+    setHighlightOtId(otId);
     setOpenOtWizard(true);
     setTab("trabajo");
   }, []);
@@ -76,6 +80,7 @@ export default function CampoShell({
     setStackModule(null);
     setOpenOtWizard(false);
     setLaunchOtId(null);
+    setHighlightOtId(null);
     setCampoParams({});
     setTab("hoy");
     onTabChange?.("hoy");
@@ -134,7 +139,7 @@ export default function CampoShell({
     onNavigate?.(dest, p);
   }, [onNavigate, onTabChange, embarcacionId, irTrabajo]);
 
-  const navParamsCampo = { campo: true, openWizard: openOtWizard, otId: launchOtId, ...campoParams };
+  const navParamsCampo = { campo: true, openWizard: openOtWizard, otId: launchOtId, highlightOtId, ...campoParams };
   const inStack = !!stackModule;
   const atHome = tab === "hoy" && !inStack;
 

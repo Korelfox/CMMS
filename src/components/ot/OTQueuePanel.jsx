@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useRef, useEffect } from "react";
 import { Search, X, Clock, AlertTriangle } from "lucide-react";
 import { C, clp, lk, tn, tint, TIPOS_OT, PRIORIDADES, ESTADOS_OT } from "../../theme";
 import { Card, Pill, ghostBtn, inputStyle } from "../../ui";
@@ -14,8 +14,18 @@ export default function OTQueuePanel({
   showEmb,
   embarcaciones,
   panelHeight = "calc(100vh - 320px)",
+  highlightId,
 }) {
   const embColor = (id) => embarcaciones?.find((e) => e.id === id)?.color || C.steel;
+  const highlightRef = useRef(null);
+
+  // Al resaltar una OT (llegada desde Hoy), la traemos a la vista.
+  useEffect(() => {
+    if (!highlightId || !highlightRef.current) return;
+    const r = requestAnimationFrame(() =>
+      highlightRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" }));
+    return () => cancelAnimationFrame(r);
+  }, [highlightId]);
 
   const abiertas = lista.filter((o) => o.estado !== "cerrada");
   const cerradas = lista.filter((o) => o.estado === "cerrada");
@@ -23,15 +33,17 @@ export default function OTQueuePanel({
 
   function renderRow(o) {
     const isSelected = selectedId === o.id;
+    const isHighlight = !!highlightId && o.id === highlightId;
     const prioridadAlta = o.prioridad === "critica" || o.prioridad === "alta";
     const abierta = o.estado !== "cerrada";
     return (
       <button
         key={o.id}
+        ref={isHighlight ? highlightRef : undefined}
         type="button"
         data-testid={`ot-row-${o.folio}`}
         onClick={() => onSelect(o.id)}
-        className={`ot-queue-item${isSelected ? " ot-queue-item-selected" : ""}`}
+        className={`ot-queue-item${isSelected ? " ot-queue-item-selected" : ""}${isHighlight ? " ot-queue-item-highlight" : ""}`}
         style={{
           display: "block",
           width: "100%",
@@ -39,8 +51,8 @@ export default function OTQueuePanel({
           padding: "10px 12px",
           marginBottom: 6,
           borderRadius: 10,
-          border: `1px solid ${isSelected ? tint(C.sky, 35) : C.line}`,
-          background: isSelected ? tint(C.sky, 8) : o._pending ? tint(C.amber, 8) : C.surface,
+          border: `1px solid ${isHighlight ? C.sky : isSelected ? tint(C.sky, 35) : C.line}`,
+          background: isHighlight ? tint(C.sky, 12) : isSelected ? tint(C.sky, 8) : o._pending ? tint(C.amber, 8) : C.surface,
           cursor: "pointer",
           fontFamily: "inherit",
           position: "relative",
@@ -117,6 +129,20 @@ export default function OTQueuePanel({
 
   return (
     <Card style={{ padding: 16, height: panelHeight, minHeight: 440, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+      <style>{`
+        @keyframes ot-q-highlight {
+          0%   { box-shadow: 0 0 0 0 color-mix(in srgb, ${C.sky} 55%, transparent); }
+          70%  { box-shadow: 0 0 0 8px color-mix(in srgb, ${C.sky} 0%, transparent); }
+          100% { box-shadow: 0 0 0 2px color-mix(in srgb, ${C.sky} 40%, transparent); }
+        }
+        .ot-queue-item-highlight {
+          box-shadow: 0 0 0 2px color-mix(in srgb, ${C.sky} 40%, transparent);
+          animation: ot-q-highlight 1.5s ease-out 2;
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .ot-queue-item-highlight { animation: none; }
+        }
+      `}</style>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
         <div style={{ position: "relative", flex: 1 }}>
           <Search size={15} color={C.slate} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} />
