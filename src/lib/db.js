@@ -1,4 +1,5 @@
-import { supabase } from "./supabase";
+﻿import { supabase } from "./supabase";
+function emitMutated(tabla) { try { window.dispatchEvent(new CustomEvent("cmms-data-mutated", { detail: { tabla } })); } catch {} }
 
 // ============================================================
 //  Capa de acceso a datos
@@ -27,6 +28,7 @@ export async function insertRow(tabla, empresaId, row) {
     .select()
     .single();
   if (error) { console.error(`[CMMS] insertRow(${tabla}):`, error.message); throw error; }
+  emitMutated(tabla);
   return data;
 }
 
@@ -35,6 +37,7 @@ export async function updateRow(tabla, id, cambios) {
   const { data, error } = await supabase
     .from(tabla).update(cambios).eq("id", id).select().single();
   if (error) { console.error(`[CMMS] updateRow(${tabla}):`, error.message); throw error; }
+  emitMutated(tabla);
   return data;
 }
 
@@ -42,6 +45,7 @@ export async function updateRow(tabla, id, cambios) {
 export async function deleteRow(tabla, id) {
   const { error } = await supabase.from(tabla).delete().eq("id", id);
   if (error) { console.error(`[CMMS] deleteRow(${tabla}):`, error.message); throw error; }
+  emitMutated(tabla);
   return true;
 }
 

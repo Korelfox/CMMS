@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+﻿import { useState, useEffect, useCallback } from "react";
 import { cachedFetch, invalidateCache } from "../lib/fleetCache";
 
 // spec items: string | { tabla, opts?, soft? }
@@ -45,6 +45,23 @@ export function useFleetData(spec) {
   }, [specKey]);
 
   useEffect(() => { cargar(); }, [cargar]);
+
+  // Auto-reload on data mutation: si una tabla de nuestro spec muta, recargar.
+  useEffect(() => {
+    let timer = null;
+    const handler = (e) => {
+      const tablaMutada = e?.detail?.tabla;
+      if (!tablaMutada) return;
+      const afecta = spec.some((s) => (typeof s === "string" ? s : s.tabla) === tablaMutada);
+      if (!afecta) return;
+      // Debounce 300ms para agrupar mutaciones multiples (ej. batch inserts)
+      clearTimeout(timer);
+      timer = setTimeout(() => cargar(true), 300);
+    };
+    window.addEventListener("cmms-data-mutated", handler);
+    return () => { window.removeEventListener("cmms-data-mutated", handler); clearTimeout(timer); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [specKey]);
 
   const reload = useCallback(() => cargar(true), [cargar]);
   return [data, loading, error, reload];
