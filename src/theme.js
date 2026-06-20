@@ -94,7 +94,74 @@ export const THEME_VARS = `
     background: var(--cmms-oficina-bg) !important;
   }
   .cmms-root.cmms-campo-mode > main {
-    background: var(--c-mist);
+    background: linear-gradient(180deg, var(--c-mist) 0%, color-mix(in srgb, var(--c-foam) 22%, var(--c-mist)) 100%);
+  }
+
+  /* Modo Campo: cards elevadas con sombra visible al sol */
+  .cmms-campo-elevated {
+    box-shadow: 0 2px 8px rgba(15,23,42,.08), 0 0 0 1px rgba(15,23,42,.04);
+  }
+
+  /* Modo Campo: barra de tabs inferior estilo app nativa */
+  .cmms-campo-tabs {
+    background: var(--c-surface);
+    border-top: 1px solid var(--c-line);
+    padding: 6px 0 max(6px, env(safe-area-inset-bottom, 0px));
+    display: flex;
+    justify-content: space-around;
+  }
+  .cmms-campo-tab {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    padding: 6px 12px;
+    border-radius: 8px;
+    border: none;
+    background: transparent;
+    color: var(--c-slate);
+    font-size: 10.5px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    position: relative;
+    min-width: 56px;
+    transition: color .15s;
+  }
+  .cmms-campo-tab-active {
+    color: var(--c-steel);
+  }
+  .cmms-campo-tab-active::before {
+    content: "";
+    position: absolute;
+    top: -7px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 24px;
+    height: 3px;
+    border-radius: 0 0 3px 3px;
+    background: var(--c-sky);
+  }
+
+  /* Modo Campo: indicador de seccion con barra lateral de color */
+  .cmms-campo-section-accent {
+    border-left: 3px solid var(--_section-tone, var(--c-steel));
+    padding-left: 11px;
+  }
+
+  /* Modo Campo: dark mode optimizado para uso nocturno */
+  [data-theme="dark"] .cmms-root.cmms-campo-mode > main {
+    background: linear-gradient(180deg, #101827 0%, #0D1220 100%);
+  }
+  [data-theme="dark"] .cmms-campo-elevated {
+    box-shadow: 0 2px 8px rgba(0,0,0,.25);
+  }
+  [data-theme="dark"] .cmms-campo-tabs {
+    background: var(--c-surface2);
+    border-top-color: var(--c-surfaceLine);
+  }
+  [data-theme="dark"] .cmms-campo-tab-active {
+    color: var(--c-sky);
   }
 
   .cmms-root:not(.cmms-campo-mode) .cmms-sidebar {

@@ -1,4 +1,4 @@
-import React from "react";
+﻿import React from "react";
 import { ChevronRight } from "lucide-react";
 import { C, tint } from "../../theme";
 import { Pill } from "../../ui";
@@ -43,7 +43,7 @@ export default function TaskCard({
         marginBottom: 10,
         borderRadius: 12,
         border: `1px solid ${tint(border, 35)}`,
-        background: tone === "red" ? C.redBg : tone === "amber" || tone === "yellow" ? C.yellowBg : C.surface,
+        background: tone === "red" ? C.redBg : tone === "amber" || tone === "yellow" ? C.amberBg : C.surface,
         cursor: interactive ? "pointer" : "default",
         fontFamily: "inherit",
         ...style,

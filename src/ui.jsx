@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+﻿import React, { useState, useEffect } from "react";
 import { ChevronRight } from "lucide-react";
 import { C, archivo, shadow, tint, space, LAYOUT } from "./theme";
 
@@ -67,7 +67,7 @@ export function Card({ children, style, ...rest }) {
 
 export function Pill({ tone = "slate", children }) {
   const map = {
-    green: [C.green, C.greenBg], red: [C.red, C.redBg], yellow: [C.yellow, C.yellowBg],
+    green: [C.green, C.greenBg], red: [C.red, C.redBg], yellow: [C.yellow, C.yellowBg], amber: [C.amber, C.amberBg],
     slate: [C.slate, C.foam], steel: [C.steel, C.indigoBg], purple: [C.purple, C.purpleBg],
     cyan: [C.cyan, C.cyanBg], indigo: [C.indigo, C.indigoBg], brown: [C.brown, C.brownBg],
   };
