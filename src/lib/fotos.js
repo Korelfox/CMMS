@@ -1,4 +1,4 @@
-import { supabase } from "./supabase";
+﻿import { supabase } from "./supabase";
 import { insertRow } from "./db";
 import { nuevoId } from "./offline";
 
@@ -10,6 +10,20 @@ import { nuevoId } from "./offline";
 //  - Registra metadata en la tabla "adjuntos".
 // ============================================================
 
+
+// Cache de URLs firmadas (evita N+1 en listarFotos).
+// TTL 50 min (las URLs expiran en 60 min). Clave: storage_path.
+const _urlCache = new Map();
+const URL_CACHE_TTL_MS = 50 * 60 * 1000;
+function cachedUrl(path) {
+  const entry = _urlCache.get(path);
+  if (entry && Date.now() - entry.ts < URL_CACHE_TTL_MS) return entry.url;
+  _urlCache.delete(path);
+  return null;
+}
+function setCachedUrl(path, url) {
+  _urlCache.set(path, { url, ts: Date.now() });
+}
 const BUCKET = "evidencias";
 
 // Comprime una imagen a un objetivo de tamaño. Redimensiona el lado mayor a
@@ -75,10 +89,22 @@ export async function listarFotos(entidad, entidadId) {
     .order("created_at", { ascending: true });
   if (error) throw error;
   const items = data || [];
-  const conUrl = await Promise.all(items.map(async (a) => {
-    const { data: s } = await supabase.storage.from(BUCKET).createSignedUrl(a.storage_path, 3600);
-    return { ...a, url: s?.signedUrl || null };
-  }));
+  // Resolver URLs: cache first, luego batch para las no cacheadas (evita N+1)
+  const uncached = []; const cached = [];
+  for (const a of items) {
+    const hit = cachedUrl(a.storage_path);
+    if (hit) { cached.push({ ...a, url: hit }); }
+    else { uncached.push(a); }
+  }
+  const fresh = uncached.length > 0
+    ? await Promise.all(uncached.map(async (a) => {
+        const { data: s } = await supabase.storage.from(BUCKET).createSignedUrl(a.storage_path, 3600);
+        const url = s?.signedUrl || null;
+        if (url) setCachedUrl(a.storage_path, url);
+        return { ...a, url };
+      }))
+    : [];
+  const conUrl = [...cached, ...fresh];
   return conUrl;
 }
 
