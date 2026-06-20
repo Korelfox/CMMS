@@ -24,7 +24,7 @@ const findDeep = (arr, cod) => {
 
 describe("Registro de vida — plantilla pesquera", () => {
   it("motores principales: horómetro propio y consume aceite", () => {
-    const mtr = findDeep(PLANTILLA_PESQUERA, "PROP-MTR");
+    const mtr = findDeep(PLANTILLA_PESQUERA, "MTR");
     const reg = registroDesdeNodo(mtr);
     expect(reg.registro).toBe("horas");
     expect(reg.horometro).toBe("propio");
@@ -33,7 +33,7 @@ describe("Registro de vida — plantilla pesquera", () => {
   });
 
   it("componentes bajo motor: heredan horas", () => {
-    const flt = findDeep(PLANTILLA_PESQUERA, "PROP-MTR-LUB-FLT");
+    const flt = findDeep(PLANTILLA_PESQUERA, "MTR-LUB-FLT");
     const reg = registroDesdeNodo(flt);
     expect(reg.registro).toBe("hereda_horas");
     expect(reg.horometro).toBe("hereda");
@@ -69,7 +69,7 @@ describe("Registro de vida — plantilla pesquera", () => {
 
   it("collectFuentesPlantilla incluye transmisión y gobierno", () => {
     const fuentes = collectFuentesPlantilla();
-    expect(fuentes).toContainEqual({ cod: "PROP-RED", fuente: "PROP-MTR" });
+    expect(fuentes).toContainEqual({ cod: "PROP-RED", fuente: "MTR" });
     expect(fuentes).toContainEqual({ cod: "STEER-PWR", fuente: "HPU-MTR" });
     expect(fuentes).toContainEqual({ cod: "FISH-VIR", fuente: "HPU-MTR" });
   });
@@ -100,10 +100,10 @@ describe("Registro de vida — plantilla pesquera", () => {
 
   it("registroVidaEquipo resuelve desde ficha, horómetro o plantilla", () => {
     expect(registroVidaEquipo({ ficha: { _registro: "fecha" }, horometro: "no" })).toBe("fecha");
-    expect(registroVidaEquipo({ horometro: "propio", id_visible: "BC01-PROP-MTR" })).toBe("horas");
+    expect(registroVidaEquipo({ horometro: "propio", id_visible: "BC01-MTR" })).toBe("horas");
     expect(registroVidaEquipo({ horometro: "no", id_visible: "BC01-NAV-GPS" })).toBe("fecha");
     expect(registroVidaEquipo({ horometro: "hereda", id_visible: "BC01-STEER-PWR", ficha: { _registro: "mixto" } })).toBe("mixto");
-    expect(registroVidaEquipo({ horometro: "hereda", id_visible: "BC01-PROP-MTR-LUB-FLT" })).toBe("hereda_horas");
+    expect(registroVidaEquipo({ horometro: "hereda", id_visible: "BC01-MTR-LUB-FLT" })).toBe("hereda_horas");
   });
 
   it("registroVidaUi devuelve badge o null en sistemas", () => {

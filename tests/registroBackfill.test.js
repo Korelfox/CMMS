@@ -5,7 +5,7 @@ import { registroDesdeIdVisible } from "../src/lib/plantillaPesquera.js";
 const codPlantilla = (idVisible) => idVisible.replace(/^[^-]+-/, "");
 
 /** Espejo de las reglas de backfill horometro = propio (solo si hereda). */
-const backfillPropio = (cod) => /^(PROP-MTR|GEN-MTR|GEN-EMG|HPU-MTR|AIR-ARR-CMP|AIR-SRV-CMP|RSW-CMP-CMP)$/.test(cod);
+const backfillPropio = (cod) => /^(MTR|GEN-MTR|GEN-EMG|HPU-MTR|AIR-ARR-CMP|AIR-SRV-CMP|RSW-CMP-CMP)$/.test(cod);
 
 /** Espejo de backfill horometro = no (solo si hereda). */
 const backfillNo = (cod) => /^(STR-|NAV-|COMM-|SAF-|FISH-TRA|FISH-LIN|ANCH-ANC|ANCH-BIT|FUEL-TNK|WAT-LST|WAT-TND|ELEC-ALU-NAV|FIRE-EXT)/.test(cod);
@@ -18,13 +18,13 @@ const backfillRegistroFicha = (cod) => {
 
 describe("Backfill registro vida — coherencia SQL vs plantilla JS", () => {
   const casos = [
-    ["BC01-PROP-MTR", "horas", "propio"],
+    ["BC01-MTR", "horas", "propio"],
     ["BC01-NAV-GPS", "fecha", "no"],
     ["BC01-STEER-PWR", "mixto", "hereda"],
     ["BC01-FISH-VIR", "mixto", "hereda"],
     ["BC01-STR-CAS", "fecha", "no"],
     ["BC01-AIR-ARR-CMP", "horas", "propio"],
-    ["BC01-PROP-MTR-LUB-FLT", "hereda_horas", "hereda"],
+    ["BC01-MTR-LUB-FLT", "hereda_horas", "hereda"],
     ["BC01-PROP-RED", "hereda_horas", "hereda"],
   ];
 
@@ -44,7 +44,7 @@ describe("Backfill registro vida — coherencia SQL vs plantilla JS", () => {
   it("transmisión y gobierno reciben fuente en precarga (collectFuentes)", async () => {
     const { collectFuentesPlantilla } = await import("../src/lib/plantillaPesquera.js");
     const fuentes = collectFuentesPlantilla();
-    expect(fuentes).toContainEqual({ cod: "PROP-RED", fuente: "PROP-MTR" });
+    expect(fuentes).toContainEqual({ cod: "PROP-RED", fuente: "MTR" });
     expect(fuentes).toContainEqual({ cod: "STEER-PWR", fuente: "HPU-MTR" });
   });
 });

@@ -15,14 +15,16 @@ describe("Plantilla pesquera ISO 14224", () => {
   });
 
   it("Motor Principal: taxonomía marina de 10 subsistemas ISO 14224", () => {
-    const mtr = find(find(PLANTILLA_PESQUERA, "PROP").hijos, "PROP-MTR");
+    // ISO 14224: el motor es equipo independiente (top-level), no subsistema de PROP
+    const mtr = find(PLANTILLA_PESQUERA, "MTR");
+    expect(mtr.tipo).toBe("sistema");
     expect(mtr.hijos).toHaveLength(10);
     expect(countComp(mtr)).toBeGreaterThanOrEqual(55);
-    // Subsistemas marinos clave que antes faltaban:
-    expect(find(mtr.hijos, "PROP-MTR-BLK")).toBeTruthy(); // tren alternativo (cigüeñal, cojinetes)
-    expect(find(mtr.hijos, "PROP-MTR-SW")).toBeTruthy();  // refrigeración agua de mar
-    expect(find(mtr.hijos, "PROP-MTR-EXH")).toBeTruthy(); // escape (codo húmedo)
-    expect(find(mtr.hijos, "PROP-MTR-AIR")).toBeTruthy(); // admisión + aftercooler
+    // Subsistemas marinos clave:
+    expect(find(mtr.hijos, "MTR-BLK")).toBeTruthy(); // tren alternativo (cigüeñal, cojinetes)
+    expect(find(mtr.hijos, "MTR-SW")).toBeTruthy();  // refrigeración agua de mar
+    expect(find(mtr.hijos, "MTR-EXH")).toBeTruthy(); // escape (codo húmedo)
+    expect(find(mtr.hijos, "MTR-AIR")).toBeTruthy(); // admisión + aftercooler
   });
 
   it("Motor Generador: taxonomía marina (versión liviana) + alternador", () => {
@@ -39,12 +41,12 @@ describe("Plantilla pesquera ISO 14224", () => {
     expect(basico).toBeGreaterThan(0);
     expect(basico).toBeLessThan(completo);
     // El Bloque y Tren Alternativo es 100% avanzado → se poda entero en Básico.
-    const mtr = find(find(PLANTILLA_PESQUERA, "PROP").hijos, "PROP-MTR");
-    const blk = find(mtr.hijos, "PROP-MTR-BLK");
+    const mtr = find(PLANTILLA_PESQUERA, "MTR");
+    const blk = find(mtr.hijos, "MTR-BLK");
     expect(nodoIncluido(blk, "basico")).toBe(false);
     expect(nodoIncluido(blk, "completo")).toBe(true);
     // El Agua de Mar tiene ítems esenciales (impeller, ánodos) → se incluye en Básico.
-    expect(nodoIncluido(find(mtr.hijos, "PROP-MTR-SW"), "basico")).toBe(true);
+    expect(nodoIncluido(find(mtr.hijos, "MTR-SW"), "basico")).toBe(true);
   });
 
   it("los códigos no llevan sufijo -001 (IDs limpios)", () => {

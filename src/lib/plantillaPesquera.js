@@ -23,7 +23,7 @@
 //    pm     → planes PM: [ [desc, horas] | [desc, null, unidad_cal] ]
 //    basico → true = esencial (modo Básico); false = solo modo Completo
 //    hijos  → array de subnodos (opcional)
-//    fuente → código de otro nodo cuyas horas hereda (hermano, ej. PROP-MTR)
+//    fuente → código de otro nodo cuyas horas hereda (hermano, ej. MTR)
 //    registro → override explícito: horas | hereda_horas | fecha | mixto
 //
 //  Registro de vida (ver REGISTRO_VIDA / registroDesdeNodo):
@@ -91,65 +91,65 @@ const PM_VIB = [
 ];
 
 // ============================================================
-//  SFI 611 — MOTOR PRINCIPAL
+//  SFI 611 — MOTOR PRINCIPAL DIÉSEL (equipo independiente ISO 14224)
 // ============================================================
 const MOTOR_PRINCIPAL = {
-  cod: "PROP-MTR", nom: "Motor Principal", crit: "A", tipo: "subsistema", mtbf: 12000,
+  cod: "MTR", nom: "Motor Principal Diésel", crit: "A", tipo: "sistema", mtbf: 12000,
   hijos: [
     // ── 1. Bloque y Tren Alternativo ──
     {
-      cod: "PROP-MTR-BLK", nom: "Bloque y Tren Alternativo", crit: "A", tipo: "subsistema",
+      cod: "MTR-BLK", nom: "Bloque y Tren Alternativo", crit: "A", tipo: "subsistema",
       hijos: [
-        comp("PROP-MTR-BLK-BLK", "Bloque Motor (Monoblock)", { basico: false, rep: [
+        comp("MTR-BLK-BLK", "Bloque Motor (Monoblock)", { basico: false, rep: [
           ["BLK-3406-CAT", "Bloque CAT 3406 (OEM)", "oem"],
           ["JD-BLK-001", "Kit de Juntas de Bloque", "generico"],
         ] }),
-        comp("PROP-MTR-BLK-CAM", "Camisas de Cilindro", { basico: false, rep: [
+        comp("MTR-BLK-CAM", "Camisas de Cilindro", { basico: false, rep: [
           ["CAM-3406-CAT", "Camisa CAT 3406 (OEM)", "oem"],
           ["CAM-3406-ALT", "Camisa Alternativa", "alternativo"],
           ["ORI-CAM-001", "O-Rings de Camisa (kit)", "generico"],
         ] }),
-        comp("PROP-MTR-BLK-PIS", "Pistones", { basico: false, rep: [
+        comp("MTR-BLK-PIS", "Pistones", { basico: false, rep: [
           ["PIS-3406-CAT", "Pistón CAT 3406 (OEM)", "oem"],
           ["PIS-3406-ALT", "Pistón Alternativo (MarinePower)", "alternativo"],
         ],
         // SFI 611 PM-8000H
         pm: [["Overhaul mayor de pistones y anillos", 8000]] }),
-        comp("PROP-MTR-BLK-SEG", "Segmentos (Anillos)", { basico: false, rep: [
+        comp("MTR-BLK-SEG", "Segmentos (Anillos)", { basico: false, rep: [
           ["SEG-3406-CAT", "Segmentos CAT 3406 (kit)", "oem"],
           ["SEG-3406-NSK", "Segmentos NSK (alternativo)", "alternativo"],
         ] }),
-        comp("PROP-MTR-BLK-BIE", "Bielas y Cojinetes de Biela", { basico: false, rep: [
+        comp("MTR-BLK-BIE", "Bielas y Cojinetes de Biela", { basico: false, rep: [
           ["BIE-3406-CAT", "Biela CAT 3406 (OEM)", "oem"],
           ["COJ-BIE-CAT", "Cojinetes de Biela (kit)", "oem"],
           ["COJ-BIE-ALT", "Cojinetes de Biela (alternativo)", "alternativo"],
         ] }),
-        comp("PROP-MTR-BLK-CIG", "Cigüeñal", { basico: false, rep: [
+        comp("MTR-BLK-CIG", "Cigüeñal", { basico: false, rep: [
           ["CIG-3406-CAT", "Cigüeñal CAT 3406 (OEM)", "oem"],
         ] }),
-        comp("PROP-MTR-BLK-BAN", "Cojinetes de Bancada", { basico: false, rep: [
+        comp("MTR-BLK-BAN", "Cojinetes de Bancada", { basico: false, rep: [
           ["COJ-BAN-CAT", "Cojinetes de Bancada CAT (kit OEM)", "oem"],
           ["COJ-BAN-ALT", "Cojinetes de Bancada (alternativo)", "alternativo"],
         ] }),
-        comp("PROP-MTR-BLK-VOL", "Volante (Flywheel)", { basico: false, rep: [
+        comp("MTR-BLK-VOL", "Volante (Flywheel)", { basico: false, rep: [
           ["VOL-3406-CAT", "Volante CAT (OEM)", "oem"],
           ["COR-DENT-CAT", "Corona Dentada (ring gear)", "generico"],
         ] }),
-        comp("PROP-MTR-BLK-DMP", "Amortiguador Torsional (Damper)", { basico: false,
+        comp("MTR-BLK-DMP", "Amortiguador Torsional (Damper)", { basico: false,
           rep: [["DMP-3406-CAT", "Damper CAT 3406 (OEM)", "oem"]],
           pm: [["Inspección visual / por condición", 6000]] }),
       ],
     },
     // ── 2. Culata y Distribución ──
     {
-      cod: "PROP-MTR-CUL", nom: "Culata y Distribución", crit: "A", tipo: "subsistema",
+      cod: "MTR-CUL", nom: "Culata y Distribución", crit: "A", tipo: "subsistema",
       hijos: [
-        comp("PROP-MTR-CUL-CUL", "Culata (conjunto)", { basico: false, rep: [
+        comp("MTR-CUL-CUL", "Culata (conjunto)", { basico: false, rep: [
           ["CUL-3406-CAT", "Culata CAT 3406 (OEM)", "oem"],
           ["JD-CUL-3406", "Junta de Culata (OEM)", "oem"],
           ["JD-CUL-ALT", "Junta de Culata (alternativo)", "alternativo"],
         ] }),
-        comp("PROP-MTR-CUL-VLV", "Tren de Válvulas (adm./escape, guías, muelles)", {
+        comp("MTR-CUL-VLV", "Tren de Válvulas (adm./escape, guías, muelles)", {
           rep: [
             ["VIN-3406-CAT", "Válvula Admisión CAT (OEM)", "oem"],
             ["VES-3406-CAT", "Válvula Escape CAT (OEM)", "oem"],
@@ -161,15 +161,15 @@ const MOTOR_PRINCIPAL = {
             ["Medición de compresión de cilindros", 2000],
             ["Boroscopía de cilindros", 2000],
           ] }),
-        comp("PROP-MTR-CUL-BAL", "Balancines y Empujadores", { basico: false, rep: [
+        comp("MTR-CUL-BAL", "Balancines y Empujadores", { basico: false, rep: [
           ["BAL-3406-CAT", "Balancines CAT (kit OEM)", "oem"],
         ] }),
-        comp("PROP-MTR-CUL-LEV", "Árbol de Levas", { basico: false, rep: [
+        comp("MTR-CUL-LEV", "Árbol de Levas", { basico: false, rep: [
           ["LEV-3406-CAT", "Árbol de Levas CAT (OEM)", "oem"],
         ],
         // SFI 611 PM-2000H
         pm: [["Inspección de árbol de levas", 2000]] }),
-        comp("PROP-MTR-CUL-DIS", "Distribución (engranajes / correa, tensor)", {
+        comp("MTR-CUL-DIS", "Distribución (engranajes / correa, tensor)", {
           rep: [
             ["COR-DIST-CAT", "Correa/Engranaje Distribución (OEM)", "oem"],
             ["TEN-DIST-CAT", "Tensor de Distribución", "alternativo"],
@@ -179,17 +179,17 @@ const MOTOR_PRINCIPAL = {
     },
     // ── 3. Lubricación ──
     {
-      cod: "PROP-MTR-LUB", nom: "Sistema de Lubricación", crit: "A", tipo: "subsistema",
+      cod: "MTR-LUB", nom: "Sistema de Lubricación", crit: "A", tipo: "subsistema",
       hijos: [
-        comp("PROP-MTR-LUB-BMP", "Bomba de Aceite", { basico: false, rep: [
+        comp("MTR-LUB-BMP", "Bomba de Aceite", { basico: false, rep: [
           ["BMP-ACE-CAT", "Bomba Aceite CAT (OEM)", "oem"],
           ["BMP-ACE-SKF", "Bomba Aceite SKF (alternativo)", "alternativo"],
         ] }),
-        comp("PROP-MTR-LUB-CAR", "Cárter (Sump)", { basico: false, rep: [
+        comp("MTR-LUB-CAR", "Cárter (Sump)", { basico: false, rep: [
           ["CAR-3406-CAT", "Cárter CAT (OEM)", "oem"],
           ["JD-CAR-001", "Junta de Cárter (kit)", "generico"],
         ] }),
-        comp("PROP-MTR-LUB-FLT", "Aceite y Filtro de Motor", {
+        comp("MTR-LUB-FLT", "Aceite y Filtro de Motor", {
           rep: [
             ["FLT-ACE-CAT", "Filtro Aceite CAT (OEM)", "oem"],
             ["FLT-ACE-DON", "Filtro Aceite Donaldson", "alternativo"],
@@ -201,16 +201,16 @@ const MOTOR_PRINCIPAL = {
             ["Cambio de filtro de aceite", 250],
             ["Análisis de aceite (muestra a laboratorio)", 1000],
           ] }),
-        comp("PROP-MTR-LUB-ENF", "Enfriador de Aceite", { basico: false,
+        comp("MTR-LUB-ENF", "Enfriador de Aceite", { basico: false,
           rep: [
             ["ENF-ACE-CAT", "Enfriador Aceite CAT (OEM)", "oem"],
             ["ENF-ACE-ALT", "Enfriador Aceite Alternativo", "alternativo"],
           ],
           pm: [["Limpieza de radiador / intercambiador de calor", 4000]] }),
-        comp("PROP-MTR-LUB-VAL", "Válvula Reguladora / Seguridad", { basico: false, rep: [
+        comp("MTR-LUB-VAL", "Válvula Reguladora / Seguridad", { basico: false, rep: [
           ["VAL-ACE-CAT", "Válvula Aceite CAT (OEM)", "oem"],
         ] }),
-        comp("PROP-MTR-LUB-BRE", "Respiradero del Cárter (Breather)", {
+        comp("MTR-LUB-BRE", "Respiradero del Cárter (Breather)", {
           rep: [
             ["BRE-CAT", "Respiradero CAT (OEM)", "oem"],
             ["BRE-GEN", "Respiradero Genérico", "generico"],
@@ -220,7 +220,7 @@ const MOTOR_PRINCIPAL = {
             ["Limpieza de compresor del turboalimentador", 250],
             ["Inspección visual / por condición", 1000],
           ] }),
-        inst("PROP-MTR-LUB-SEN", "Sensor de Presión / Temperatura Aceite", {
+        inst("MTR-LUB-SEN", "Sensor de Presión / Temperatura Aceite", {
           param: PM_ACEITE,
           rep: [
             ["SEN-PRE-CAT", "Sensor Presión Aceite CAT (OEM)", "oem"],
@@ -231,9 +231,9 @@ const MOTOR_PRINCIPAL = {
     },
     // ── 4. Refrigeración – Agua Dulce (SFI 632) ──
     {
-      cod: "PROP-MTR-FW", nom: "Refrigeración – Agua Dulce", crit: "A", tipo: "subsistema",
+      cod: "MTR-FW", nom: "Refrigeración – Agua Dulce", crit: "A", tipo: "subsistema",
       hijos: [
-        comp("PROP-MTR-FW-BMP", "Bomba de Agua Dulce", {
+        comp("MTR-FW-BMP", "Bomba de Agua Dulce", {
           rep: [
             ["BMP-AD-CAT", "Bomba Agua Dulce CAT (OEM)", "oem"],
             ["BMP-AD-SKF", "Bomba Agua Dulce SKF (alternativo)", "alternativo"],
@@ -244,13 +244,13 @@ const MOTOR_PRINCIPAL = {
             ["Limpieza de circuito de agua dulce", 1000],
             ["Engrase / lubricación general", 2000],
           ] }),
-        comp("PROP-MTR-FW-TER", "Termostato", {
+        comp("MTR-FW-TER", "Termostato", {
           rep: [
             ["TER-CAT", "Termostato CAT (OEM)", "oem"],
             ["TER-GEN", "Termostato Genérico", "generico"],
           ],
           pm: [["Inspección visual / por condición", 2000]] }),
-        comp("PROP-MTR-FW-INT", "Intercambiador de Calor A.D.", { basico: false,
+        comp("MTR-FW-INT", "Intercambiador de Calor A.D.", { basico: false,
           rep: [
             ["INT-CAL-CAT", "Intercambiador CAT (OEM)", "oem"],
             ["INT-CAL-ALT", "Intercambiador Alternativo", "alternativo"],
@@ -263,17 +263,17 @@ const MOTOR_PRINCIPAL = {
             ["Limpieza de radiador / intercambiador de calor", 1000],
             ["Cambio de refrigerante de agua dulce", 4000],
           ] }),
-        comp("PROP-MTR-FW-EXP", "Tanque de Expansión", { basico: false, rep: [
+        comp("MTR-FW-EXP", "Tanque de Expansión", { basico: false, rep: [
           ["TAP-EXP-CAT", "Tapa Tanque Expansión (OEM)", "oem"],
           ["JD-EXP-001", "Junta Tanque Expansión", "generico"],
         ] }),
-        comp("PROP-MTR-FW-MNG", "Mangueras y Abrazaderas A.D.", {
+        comp("MTR-FW-MNG", "Mangueras y Abrazaderas A.D.", {
           rep: [
             ["MNG-AD-CAT", "Manguera Agua Dulce CAT (OEM)", "oem"],
             ["MNG-AD-GEN", "Manguera Agua Dulce Genérica", "generico"],
           ],
           pm: [["Inspección visual / por condición", 2000]] }),
-        inst("PROP-MTR-FW-SEN", "Sensor de Temperatura A.D.", { param: PM_REFRIG, rep: [
+        inst("MTR-FW-SEN", "Sensor de Temperatura A.D.", { param: PM_REFRIG, rep: [
           ["SEN-TEM-CAT", "Sensor Temperatura CAT (OEM)", "oem"],
           ["SEN-TEM-ALT", "Sensor Temperatura Alternativo", "alternativo"],
         ] }),
@@ -281,13 +281,13 @@ const MOTOR_PRINCIPAL = {
     },
     // ── 5. Refrigeración – Agua de Mar (SFI 631) ──
     {
-      cod: "PROP-MTR-SW", nom: "Refrigeración – Agua de Mar", crit: "A", tipo: "subsistema",
+      cod: "MTR-SW", nom: "Refrigeración – Agua de Mar", crit: "A", tipo: "subsistema",
       hijos: [
-        comp("PROP-MTR-SW-TOM", "Toma de Mar (Sea Chest) y Válvula", { basico: false, rep: [
+        comp("MTR-SW-TOM", "Toma de Mar (Sea Chest) y Válvula", { basico: false, rep: [
           ["VAL-TOM-OEM", "Válvula Toma de Mar (OEM)", "oem"],
           ["JD-TOM-001", "Junta Toma de Mar (kit)", "generico"],
         ] }),
-        comp("PROP-MTR-SW-FIL", "Filtro / Strainer de Agua de Mar", {
+        comp("MTR-SW-FIL", "Filtro / Strainer de Agua de Mar", {
           rep: [
             ["STR-AM-OEM", "Canasto Filtro Agua Mar (OEM)", "oem"],
             ["JD-STR-001", "Junta Filtro Agua Mar", "generico"],
@@ -297,7 +297,7 @@ const MOTOR_PRINCIPAL = {
             ["Limpieza de filtro de agua de mar (strainer)", null, "semanal"],
             ["Inspección visual / por condición", 250],
           ] }),
-        comp("PROP-MTR-SW-BMP", "Bomba de Agua de Mar (Impeller)", {
+        comp("MTR-SW-BMP", "Bomba de Agua de Mar (Impeller)", {
           rep: [
             ["IMP-AM-OEM", "Impeller Bomba Agua Mar (OEM)", "oem"],
             ["IMP-AM-ALT", "Impeller Alternativo", "alternativo"],
@@ -310,13 +310,13 @@ const MOTOR_PRINCIPAL = {
             ["Desincrustación química de intercambiadores", 2000],
             ["Overhaul de bomba de agua de mar", 4000],
           ] }),
-        comp("PROP-MTR-SW-ANO", "Ánodos de Zinc del Motor", {
+        comp("MTR-SW-ANO", "Ánodos de Zinc del Motor", {
           rep: [
             ["ANO-ZN-OEM", "Ánodo de Zinc Motor (OEM)", "oem"],
             ["ANO-ZN-GEN", "Ánodo de Zinc Genérico", "generico"],
           ],
           pm: [["Inspección de ánodos de sacrificio", 1000]] }),
-        comp("PROP-MTR-SW-MNG", "Mangueras y Líneas de Agua de Mar", {
+        comp("MTR-SW-MNG", "Mangueras y Líneas de Agua de Mar", {
           rep: [
             ["MNG-AM-OEM", "Manguera Agua Mar (OEM)", "oem"],
             ["MNG-AM-GEN", "Manguera Agua Mar Genérica", "generico"],
@@ -326,16 +326,16 @@ const MOTOR_PRINCIPAL = {
     },
     // ── 6. Combustible (SFI 613) ──
     {
-      cod: "PROP-MTR-FUEL", nom: "Sistema de Combustible", crit: "A", tipo: "subsistema",
+      cod: "MTR-FUEL", nom: "Sistema de Combustible", crit: "A", tipo: "subsistema",
       hijos: [
-        comp("PROP-MTR-FUEL-BMP", "Bomba de Alimentación", { basico: false, rep: [
+        comp("MTR-FUEL-BMP", "Bomba de Alimentación", { basico: false, rep: [
           ["BMP-COMB-CAT", "Bomba Alimentación CAT (OEM)", "oem"],
           ["BMP-COMB-ALT", "Bomba Alimentación Alternativa", "alternativo"],
         ] }),
-        comp("PROP-MTR-FUEL-INJ", "Bomba de Inyección / Common Rail", { basico: false,
+        comp("MTR-FUEL-INJ", "Bomba de Inyección / Common Rail", { basico: false,
           rep: [["BINJ-3406-CAT", "Bomba Inyección CAT (OEM)", "oem"]],
           pm: [["Revisión de bomba de inyección", 4000]] }),
-        comp("PROP-MTR-FUEL-INY", "Inyectores", {
+        comp("MTR-FUEL-INY", "Inyectores", {
           rep: [
             ["INY-3406-CAT", "Inyectores CAT 3406 (kit)", "oem"],
             ["INY-3406-ALT", "Inyectores Alternativos (kit)", "alternativo"],
@@ -345,7 +345,7 @@ const MOTOR_PRINCIPAL = {
             ["Prueba de retorno de inyectores", 1000],
             ["Banco de pruebas de inyectores", 4000],
           ] }),
-        comp("PROP-MTR-FUEL-FT1", "Filtro Primario (separador Racor)", {
+        comp("MTR-FUEL-FT1", "Filtro Primario (separador Racor)", {
           rep: [
             ["FT1-RAC-OEM", "Elemento Racor Primario (OEM)", "oem"],
             ["FT1-RAC-DON", "Elemento Racor Donaldson", "alternativo"],
@@ -356,7 +356,7 @@ const MOTOR_PRINCIPAL = {
             ["Verificar fugas (combustible, aceite, refrigerante)", null, "diario"],
             ["Cambio de filtros de combustible", 500],
           ] }),
-        comp("PROP-MTR-FUEL-FT2", "Filtro Secundario (fino)", {
+        comp("MTR-FUEL-FT2", "Filtro Secundario (fino)", {
           rep: [
             ["FT2-CAT", "Filtro Fino CAT (OEM)", "oem"],
             ["FT2-DON", "Filtro Fino Donaldson", "alternativo"],
@@ -365,12 +365,12 @@ const MOTOR_PRINCIPAL = {
           pm: [
             ["Cambio de filtros de combustible", 500],
           ] }),
-        comp("PROP-MTR-FUEL-MNG", "Cañerías y Mangueras de Combustible", { basico: false, rep: [
+        comp("MTR-FUEL-MNG", "Cañerías y Mangueras de Combustible", { basico: false, rep: [
           ["MNG-COMB-CAT", "Manguera Combustible CAT (OEM)", "oem"],
           ["MNG-COMB-ALT", "Manguera Combustible Alternativa", "alternativo"],
         ],
         pm: [["Inspección de líneas y mangueras de combustible", null, "semanal"]] }),
-        inst("PROP-MTR-FUEL-SEN", "Sensor de Presión de Combustible", { param: PM_FUEL_P, rep: [
+        inst("MTR-FUEL-SEN", "Sensor de Presión de Combustible", { param: PM_FUEL_P, rep: [
           ["SEN-PRE-COMB-CAT", "Sensor Presión Combustible CAT (OEM)", "oem"],
           ["SEN-PRE-COMB-ALT", "Sensor Presión Combustible Alternativo", "alternativo"],
         ] }),
@@ -378,15 +378,15 @@ const MOTOR_PRINCIPAL = {
     },
     // ── 7. Admisión y Sobrealimentación (SFI 612 Turbo) ──
     {
-      cod: "PROP-MTR-AIR", nom: "Admisión y Sobrealimentación", crit: "A", tipo: "subsistema",
+      cod: "MTR-AIR", nom: "Admisión y Sobrealimentación", crit: "A", tipo: "subsistema",
       hijos: [
-        comp("PROP-MTR-AIR-FIL", "Filtro de Aire", {
+        comp("MTR-AIR-FIL", "Filtro de Aire", {
           rep: [
             ["FIL-AIRE-CAT", "Filtro Aire CAT (OEM)", "oem"],
             ["FIL-AIRE-GEN", "Filtro Aire Genérico", "generico"],
           ],
           pm: [["Cambio de filtro de aire", 500]] }),
-        comp("PROP-MTR-AIR-TUR", "Turbocompresor", { basico: false,
+        comp("MTR-AIR-TUR", "Turbocompresor", { basico: false,
           rep: [
             ["TUR-3406-CAT", "Turbocompresor CAT 3406 (OEM)", "oem"],
             ["TUR-3406-ALT", "Cartucho Turbo Alternativo", "alternativo"],
@@ -400,17 +400,17 @@ const MOTOR_PRINCIPAL = {
             ["Balanceo dinámico del turboalimentador", 4000],
             ["Overhaul completo de turboalimentador", 8000],
           ] }),
-        comp("PROP-MTR-AIR-ACC", "Enfriador de Aire de Carga (Aftercooler)", { basico: false,
+        comp("MTR-AIR-ACC", "Enfriador de Aire de Carga (Aftercooler)", { basico: false,
           rep: [
             ["ACC-3406-CAT", "Aftercooler CAT (OEM)", "oem"],
             ["KIT-ORI-ACC", "Kit O-Rings Aftercooler", "generico"],
           ],
           // SFI 611 PM-500H limpieza intercooler (Korelfox: 500H vs anterior 3000H)
           pm: [["Limpieza de radiador / intercambiador de calor", 500]] }),
-        comp("PROP-MTR-AIR-MAN", "Múltiple de Admisión", { basico: false, rep: [
+        comp("MTR-AIR-MAN", "Múltiple de Admisión", { basico: false, rep: [
           ["JD-MAN-ADM", "Junta Múltiple Admisión (kit)", "generico"],
         ] }),
-        inst("PROP-MTR-AIR-SEN", "Sensor de Presión de Sobrealimentación (Boost)", { param: PM_BOOST, rep: [
+        inst("MTR-AIR-SEN", "Sensor de Presión de Sobrealimentación (Boost)", { param: PM_BOOST, rep: [
           ["SEN-BOOST-CAT", "Sensor Boost CAT (OEM)", "oem"],
           ["SEN-BOOST-ALT", "Sensor Boost Alternativo", "alternativo"],
         ] }),
@@ -418,13 +418,13 @@ const MOTOR_PRINCIPAL = {
     },
     // ── 8. Escape ──
     {
-      cod: "PROP-MTR-EXH", nom: "Sistema de Escape", crit: "A", tipo: "subsistema",
+      cod: "MTR-EXH", nom: "Sistema de Escape", crit: "A", tipo: "subsistema",
       hijos: [
-        comp("PROP-MTR-EXH-MAN", "Múltiple de Escape", { basico: false, rep: [
+        comp("MTR-EXH-MAN", "Múltiple de Escape", { basico: false, rep: [
           ["MAN-ESC-CAT", "Múltiple Escape CAT (OEM)", "oem"],
           ["JD-MAN-ESC", "Junta Múltiple Escape (kit)", "generico"],
         ] }),
-        comp("PROP-MTR-EXH-COD", "Codo de Escape Húmedo (Wet Elbow)", {
+        comp("MTR-EXH-COD", "Codo de Escape Húmedo (Wet Elbow)", {
           rep: [
             ["COD-ESC-OEM", "Codo Escape Húmedo (OEM)", "oem"],
             ["COD-ESC-ALT", "Codo Escape Húmedo Alternativo", "alternativo"],
@@ -435,13 +435,13 @@ const MOTOR_PRINCIPAL = {
             ["Inspección de sistema de escape", null, "semanal"],
             ["Inspección visual / por condición", 1000],
           ] }),
-        comp("PROP-MTR-EXH-FUE", "Fuelle / Junta de Expansión", { basico: false, rep: [
+        comp("MTR-EXH-FUE", "Fuelle / Junta de Expansión", { basico: false, rep: [
           ["FUE-ESC-OEM", "Fuelle de Escape (OEM)", "oem"],
         ] }),
-        comp("PROP-MTR-EXH-SIL", "Silenciador", { basico: false, rep: [
+        comp("MTR-EXH-SIL", "Silenciador", { basico: false, rep: [
           ["SIL-ESC-OEM", "Silenciador (OEM)", "oem"],
         ] }),
-        inst("PROP-MTR-EXH-EGT", "Sensor de Temperatura de Gases (EGT)", {
+        inst("MTR-EXH-EGT", "Sensor de Temperatura de Gases (EGT)", {
           param: PM_EGT,
           rep: [
             ["EGT-CAT", "Sensor EGT CAT (OEM)", "oem"],
@@ -452,30 +452,30 @@ const MOTOR_PRINCIPAL = {
     },
     // ── 9. Arranque ──
     {
-      cod: "PROP-MTR-START", nom: "Sistema de Arranque", crit: "A", tipo: "subsistema",
+      cod: "MTR-START", nom: "Sistema de Arranque", crit: "A", tipo: "subsistema",
       hijos: [
-        comp("PROP-MTR-START-MTR", "Motor de Arranque", { basico: false, rep: [
+        comp("MTR-START-MTR", "Motor de Arranque", { basico: false, rep: [
           ["MTR-START-CAT", "Motor Arranque CAT (OEM)", "oem"],
           ["MTR-START-ALT", "Motor Arranque Alternativo", "alternativo"],
           ["ESC-START-GEN", "Escobillas/Carbones (kit)", "generico"],
         ] }),
-        comp("PROP-MTR-START-SOL", "Solenoide / Relé de Arranque", {
+        comp("MTR-START-SOL", "Solenoide / Relé de Arranque", {
           rep: [
             ["SOL-START-CAT", "Solenoide CAT (OEM)", "oem"],
             ["SOL-START-ALT", "Solenoide Alternativo", "alternativo"],
           ] }),
-        comp("PROP-MTR-START-BAT", "Baterías de Arranque", {
+        comp("MTR-START-BAT", "Baterías de Arranque", {
           rep: [
             ["BAT-12V-100AH-CAT", "Batería 12V 100Ah (OEM)", "oem"],
             ["BAT-12V-100AH-MAT", "Batería 12V 100Ah Matin", "alternativo"],
             ["BAT-12V-100AH-GEN", "Batería 12V 100Ah Genérica", "generico"],
           ],
           pm: [["Revisión de banco de baterías", 500]] }),
-        comp("PROP-MTR-START-CHR", "Cargador / Alternador de Carga", { basico: false, rep: [
+        comp("MTR-START-CHR", "Cargador / Alternador de Carga", { basico: false, rep: [
           ["CHR-CAT", "Cargador/Alternador CAT (OEM)", "oem"],
           ["CHR-ALT", "Cargador/Alternador Alternativo", "alternativo"],
         ] }),
-        comp("PROP-MTR-START-CAB", "Cables y Bornes de Arranque", {
+        comp("MTR-START-CAB", "Cables y Bornes de Arranque", {
           rep: [
             ["CAB-50-CAT", "Cable 50mm CAT (OEM)", "oem"],
             ["CAB-50-GEN", "Cable 50mm Genérico", "generico"],
@@ -485,21 +485,21 @@ const MOTOR_PRINCIPAL = {
     },
     // ── 10. Control, Monitoreo y Seguridad (ronda diaria/semanal) ──
     {
-      cod: "PROP-MTR-CTRL", nom: "Control, Monitoreo y Seguridad", crit: "A", tipo: "subsistema",
+      cod: "MTR-CTRL", nom: "Control, Monitoreo y Seguridad", crit: "A", tipo: "subsistema",
       hijos: [
-        comp("PROP-MTR-CTRL-ECU", "Controlador (ECU / Governor)", { basico: false, rep: [
+        comp("MTR-CTRL-ECU", "Controlador (ECU / Governor)", { basico: false, rep: [
           ["ECU-3406-CAT", "ECU CAT 3406 (OEM)", "oem"],
           ["ECU-3406-ALT", "ECU Alternativa", "alternativo"],
         ] }),
-        comp("PROP-MTR-CTRL-PNL", "Panel / Tacómetro", { basico: false, rep: [
+        comp("MTR-CTRL-PNL", "Panel / Tacómetro", { basico: false, rep: [
           ["PNL-CAT", "Panel CAT (OEM)", "oem"],
           ["PNL-ALT", "Panel Alternativo", "alternativo"],
         ] }),
-        inst("PROP-MTR-CTRL-RPM", "Sensor de RPM", { param: PM_RPM_VIB, rep: [
+        inst("MTR-CTRL-RPM", "Sensor de RPM", { param: PM_RPM_VIB, rep: [
           ["RPM-CAT", "Sensor RPM CAT (OEM)", "oem"],
           ["RPM-ALT", "Sensor RPM Alternativo", "alternativo"],
         ] }),
-        comp("PROP-MTR-CTRL-SAF", "Paradas de Seguridad (sobrevel. / baja presión)", {
+        comp("MTR-CTRL-SAF", "Paradas de Seguridad (sobrevel. / baja presión)", {
           rep: [["KIT-SAF-CAT", "Kit Paradas de Seguridad (OEM)", "oem"]],
           // SFI 611 PM-D-001 (diario) + PM-S-001 (semanal) + PM-1000H
           pm: [
@@ -510,7 +510,7 @@ const MOTOR_PRINCIPAL = {
             ["Inspección de aislación térmica", null, "semanal"],
             ["Prueba de alarmas y paradas de seguridad", 1000],
           ] }),
-        comp("PROP-MTR-CTRL-CAB", "Cableado / Arnés Electrónico", { basico: false, rep: [
+        comp("MTR-CTRL-CAB", "Cableado / Arnés Electrónico", { basico: false, rep: [
           ["CAB-ELEC-CAT", "Arnés CAT (OEM)", "oem"],
           ["CAB-ELEC-ALT", "Arnés Alternativo", "alternativo"],
           ["CAB-ELEC-GEN", "Cableado Genérico", "generico"],
@@ -907,13 +907,15 @@ const CENTRAL_HIDRAULICA = {
 //  PLANTILLA_PESQUERA — árbol completo de la nave
 // ============================================================
 export const PLANTILLA_PESQUERA = [
-  // ── Propulsión Principal (SFI 611-613) ─────────────────────────
+  // ── Motor Principal Diésel (SFI 611) — ISO 14224: equipo prime mover ────────
+  MOTOR_PRINCIPAL,
+
+  // ── Sistema de Propulsión (SFI 611) — ISO 14224: recibe potencia del motor ──
   {
-    cod: "PROP", nom: "Propulsión Principal", crit: "A", tipo: "sistema",
+    cod: "PROP", nom: "Sistema de Propulsión", crit: "A", tipo: "sistema",
     hijos: [
-      MOTOR_PRINCIPAL,
       {
-        cod: "PROP-RED", nom: "Reductora", crit: "A", tipo: "subsistema", fuente: "PROP-MTR",
+        cod: "PROP-RED", nom: "Transmisión Mecánica (Reductora)", crit: "A", tipo: "subsistema", fuente: "MTR",
         hijos: [
           comp("PROP-RED-ACE", "Aceite y Filtro de Reductora", {
             rep: [["FLT-RED-OEM", "Filtro Reductora (OEM)", "oem"], ["ACE-RED-GEN", "Aceite Reductora (balde)", "generico"]],
@@ -933,7 +935,7 @@ export const PLANTILLA_PESQUERA = [
         ],
       },
       {
-        cod: "PROP-EJE", nom: "Eje y Bocina", crit: "A", tipo: "subsistema", fuente: "PROP-MTR",
+        cod: "PROP-EJE", nom: "Eje y Bocina", crit: "A", tipo: "subsistema", fuente: "MTR",
         hijos: [
           comp("PROP-EJE-EJE", "Eje de Cola", { basico: false, rep: [["EJE-OEM", "Eje de Cola (OEM)", "oem"]] }),
           comp("PROP-EJE-BOC", "Bocina (Stern Tube)", { basico: false, rep: [["BOC-OEM", "Bocina (OEM)", "oem"]] }),
@@ -948,7 +950,7 @@ export const PLANTILLA_PESQUERA = [
         ],
       },
       {
-        cod: "PROP-HEL", nom: "Hélice", crit: "A", tipo: "subsistema", fuente: "PROP-MTR",
+        cod: "PROP-HEL", nom: "Hélice", crit: "A", tipo: "subsistema", fuente: "MTR",
         hijos: [
           comp("PROP-HEL-HEL", "Hélice", { basico: false, rep: [["HEL-OEM", "Hélice (OEM)", "oem"]] }),
           comp("PROP-HEL-ANO", "Ánodos de Eje / Hélice", {
@@ -1546,7 +1548,7 @@ export const REGISTRO_VIDA = {
  * exacto: true → solo coincide el código exacto, no descendientes.
  */
 export const REGISTRO_POR_PREFIJO = [
-  { prefijo: "PROP-MTR",    registro: "horas", consume_aceite: true, exacto: true },
+  { prefijo: "MTR",         registro: "horas", consume_aceite: true, exacto: true },
   { prefijo: "GEN-MTR",     registro: "horas", consume_aceite: true, exacto: true },
   { prefijo: "GEN-EMG",     registro: "horas", consume_aceite: true, exacto: true },
   { prefijo: "HPU-MTR",     registro: "horas", consume_aceite: true, exacto: true },
@@ -1554,7 +1556,7 @@ export const REGISTRO_POR_PREFIJO = [
   { prefijo: "AIR-SRV-CMP", registro: "horas", exacto: true },
   { prefijo: "RSW-CMP-CMP", registro: "horas", exacto: true },
 
-  { prefijo: "PROP-MTR-", registro: "hereda_horas" },
+  { prefijo: "MTR-", registro: "hereda_horas" },
   { prefijo: "GEN-MTR-",  registro: "hereda_horas" },
   { prefijo: "HPU-MTR-",  registro: "hereda_horas" },
   { prefijo: "HPU-",      registro: "hereda_horas" },
