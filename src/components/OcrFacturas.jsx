@@ -9,6 +9,7 @@ import { fetchAll, insertRow, updateRow, upsertRow, logActivity } from "../lib/d
 import { matchItem, calcularTotales, validarFactura, formatRUT } from "../lib/facturas";
 import { C, clp, archivo } from "../theme";
 import { Card, PageHead, ErrorBanner, InlineSpinner, inputStyle, primaryBtn, ghostBtn } from "../ui";
+import { hoyLocal } from "../lib/fechas";
 
 // ── Utilidades de imagen ───────────────────────────────────────────────────────
 
@@ -62,7 +63,7 @@ function initForm(ocr, inventario) {
   });
   return {
     folio:         String(ocr.folio || ""),
-    fecha:         String(ocr.fecha || new Date().toISOString().slice(0, 10)),
+    fecha:         String(ocr.fecha || hoyLocal()),
     proveedor:     String(ocr.proveedor || ""),
     rut_proveedor: formatRUT(ocr.rut_proveedor || ""),
     notas:         String(ocr.observaciones || ""),

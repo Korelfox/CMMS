@@ -1,3 +1,4 @@
+import { hoyLocal } from "./fechas";
 // ============================================================
 //  Lógica pura del nivel operacional de flota.
 //  - evaluarZarpe: semáforo GO / CONDICIONAL / NO-GO por nave
@@ -29,7 +30,7 @@ export function estadoOperacionalNave(embId, { mareas = [], varadas = [] } = {})
 // → { nivel: "go"|"condicional"|"nogo", bloqueos: [...], advertencias: [...] }
 //   cada razón: { texto, nav, ref? } (nav = módulo donde se resuelve)
 export function evaluarZarpe(embId, { equipos = [], ots = [], documentos = [], planesEval = [], varadas = [], varadaTrabajos = [], hoy } = {}) {
-  const hoyD = new Date((hoy || new Date().toISOString().slice(0, 10)) + "T00:00:00");
+  const hoyD = new Date((hoy || hoyLocal()) + "T00:00:00");
   const bloqueos = [], advertencias = [];
 
   // 1) Equipos fuera de servicio o en reparación
@@ -119,7 +120,7 @@ const PESO_TIPO       = { correctivo: 10, predictivo: 6, preventivo: 4, modifica
 // Días que lleva abierta una OT desde su fecha (≥ 0).
 export function diasAbierta(ot, hoy) {
   if (!ot?.fecha) return 0;
-  const hoyD = new Date((hoy || new Date().toISOString().slice(0, 10)) + "T00:00:00");
+  const hoyD = new Date((hoy || hoyLocal()) + "T00:00:00");
   const d = Math.floor((hoyD - new Date(ot.fecha.slice(0, 10) + "T00:00:00")) / DIA_MS);
   return Math.max(0, d);
 }

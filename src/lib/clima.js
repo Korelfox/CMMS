@@ -1,3 +1,4 @@
+import { hoyLocal } from "./fechas";
 // ============================================================
 //  Clima marítimo — lookup de puertos chilenos, evaluación
 //  operacional y formateo. Funciones puras para tests.
@@ -250,7 +251,7 @@ export function storageKeyPronosticoColapsado(empresaId) {
 
 /** Horas restantes del día local desde serie horaria. */
 export function horarioRestanteHoy(horario = []) {
-  const hoy = new Date().toISOString().slice(0, 10);
+  const hoy = hoyLocal();
   return (horario || []).filter((h) => (h.time || "").startsWith(hoy));
 }
 

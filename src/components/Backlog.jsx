@@ -5,8 +5,9 @@ import { scoreBacklog, nivelScore, diasAbierta, semanasCuadrilla } from "../lib/
 import { C, archivo, num, TIPOS_OT, PRIORIDADES, ESTADOS_OT, lk } from "../theme";
 import { CRITICIDAD_TONE } from "../lib/plantillaPesquera";
 import { Card, PageHead, Pill, FilterBtn, Empty, ErrorBanner, InlineSpinner, bluInput } from "../ui";
+import { hoyLocal } from "../lib/fechas";
 
-const HOY = () => new Date().toISOString().slice(0, 10);
+const HOY = () => hoyLocal();
 
 // Capacidad semanal de la cuadrilla (HH) — preferencia local del planificador
 function leerCapacidad() {

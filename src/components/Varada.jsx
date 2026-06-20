@@ -19,8 +19,9 @@ import { CRITICIDAD_TONE } from "../lib/plantillaPesquera";
 import { C, archivo, num, lk, tint, TIPOS_OT, PRIORIDADES } from "../theme";
 import { Card, PageHead, Pill, FilterBtn, Empty, ErrorBanner, InlineSpinner, inputStyle, primaryBtn, ghostBtn } from "../ui";
 import EquipoPicker from "./EquipoPicker";
+import { hoyLocal } from "../lib/fechas";
 
-const HOY = () => new Date().toISOString().slice(0, 10);
+const HOY = () => hoyLocal();
 
 const FORM_VACIO = { nombre: "", tipo: "varada", embarcacion_id: "", fecha_inicio: "", fecha_fin_estimada: "", presupuesto: "", descripcion: "" };
 const TRAB_VACIO = { sistema: "", descripcion: "", horas_estimadas: "", responsable: "", equipo_id: "" };
@@ -695,7 +696,7 @@ function ModalPlantilla({ plantillas, plantillaItemsMap, embarcaciones, onCrear,
 
   function elegir(p) {
     setPlantillaId(p.id);
-    const mes = new Date().toISOString().slice(0, 7);
+    const mes = hoyLocal().slice(0, 7);
     setForm({ nombre: `${p.nombre} · ${mes}`, embarcacion_id: "", fecha_inicio: "", fecha_fin_estimada: "", presupuesto: "" });
     setPaso("configurar");
   }

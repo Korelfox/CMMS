@@ -18,6 +18,7 @@ import { imprimirInforme } from "../lib/imprimir";
 import { C, archivo, tint, clp } from "../theme";
 import { Card, PageHead, Pill, ErrorBanner, InlineSpinner } from "../ui";
 import { renderMarkdown } from "./Markdown";
+import { hoyLocal } from "../lib/fechas";
 
 const PERIODOS = [
   { meses: 3,  label: "últimos 3 meses" },
@@ -74,7 +75,7 @@ export default function InformeEjecutivo() {
     };
   }, [raw]);
 
-  const hoy = useMemo(() => new Date().toISOString().slice(0, 10), []);
+  const hoy = useMemo(() => hoyLocal(), []);
   const anio = useMemo(() => new Date().getFullYear(), []);
 
   // Construye el contexto estructurado reutilizando las libs analíticas.

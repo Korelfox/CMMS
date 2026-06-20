@@ -1,3 +1,4 @@
+import { hoyLocal } from "./fechas";
 // ============================================================
 //  Lógica pura del módulo Varada / Parada Mayor.
 //  Todas las funciones son deterministas e inyectables para tests.
@@ -85,7 +86,7 @@ export function resumenPorSistema(trabajos = [], ots = [], varadaId) {
 // → { estimados: number|null, reales: number|null, desviacion: number|null }
 export function duracionVarada(v, hoy) {
   if (!v) return { estimados: null, reales: null, desviacion: null };
-  const hoyStr = hoy || new Date().toISOString().slice(0, 10);
+  const hoyStr = hoy || hoyLocal();
   const DIA = 86_400_000;
 
   let estimados = null;
@@ -113,7 +114,7 @@ export function duracionVarada(v, hoy) {
 // → [tone, label]
 export function estadoVaradaTone(v, hoy) {
   if (!v) return ["slate", "—"];
-  const hoyStr = hoy || new Date().toISOString().slice(0, 10);
+  const hoyStr = hoy || hoyLocal();
   if (v.estado === "cancelada") return ["slate",  "Cancelada"];
   if (v.estado === "cerrada")   return ["green",  "Cerrada"];
   if (v.estado === "ejecucion") {

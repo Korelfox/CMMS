@@ -1,3 +1,4 @@
+import { hoyLocal } from "./fechas";
 // ============================================================
 //  Riesgo de falla por equipo / flota.
 //  Combina estado PM, historial de fallas (MTBF) y frecuencia
@@ -26,7 +27,7 @@ export function mtbfDias(ots = [], equipoId) {
 // hoy: "YYYY-MM-DD"
 // → días (number) | null
 export function diasDesdeUltimaFalla(ots = [], equipoId, hoy) {
-  const hoyMs = new Date((hoy || new Date().toISOString().slice(0, 10)) + "T00:00:00").getTime();
+  const hoyMs = new Date((hoy || hoyLocal()) + "T00:00:00").getTime();
   const fallas = (ots || [])
     .filter((o) => o.equipo_id === equipoId && o.tipo === "correctivo" && o.estado === "cerrada" && o.fecha)
     .map((o) => new Date(o.fecha.slice(0, 10) + "T00:00:00").getTime());
@@ -37,7 +38,7 @@ export function diasDesdeUltimaFalla(ots = [], equipoId, hoy) {
 
 // Correctivas cerradas en los últimos periodoDias para un equipo.
 export function correctivasRecientes(ots = [], equipoId, periodoDias, hoy) {
-  const hoyMs = new Date((hoy || new Date().toISOString().slice(0, 10)) + "T00:00:00").getTime();
+  const hoyMs = new Date((hoy || hoyLocal()) + "T00:00:00").getTime();
   const corte = hoyMs - periodoDias * DIA_MS;
   return (ots || []).filter(
     (o) => o.equipo_id === equipoId &&
@@ -107,7 +108,7 @@ export function scoreRiesgoEquipo({ equipo, planesEvalEquipo = [], otsFalla = []
 // planesEval: salida de evaluarPlanes(planes, equipos).
 // → [{ equipo, score, zona, motivos, mtbf, diasUltimaFalla, planes[] }] sorted score desc.
 export function riesgoFlota({ planesEval = [], ots = [], equipos = [], embId = null, hoy }) {
-  const hoyStr = hoy || new Date().toISOString().slice(0, 10);
+  const hoyStr = hoy || hoyLocal();
   const lista  = (equipos || []).filter((e) => !embId || e.embarcacion_id === embId);
 
   return lista.map((equipo) => {

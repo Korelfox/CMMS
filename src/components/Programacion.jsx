@@ -16,6 +16,7 @@ import {
   ModuleShell, StatGrid, HeroStat, Toolbar, Section, GuiaColapsable,
 } from "../ui";
 import EquipoPicker from "./EquipoPicker";
+import { hoyLocal } from "../lib/fechas";
 
 const TIPOS = ["Proactiva", "Reactiva", "Inspección", "Predictiva"];
 const TIPO_OT_A_PROG  = { preventivo: "Proactiva", correctivo: "Reactiva", modificativo: "Proactiva", predictivo: "Predictiva" };
@@ -262,7 +263,7 @@ function ProgDiaColumn({
 
 export default function Programacion() {
   const { profile } = useAuth();
-  const hoy = new Date().toISOString().slice(0, 10);
+  const hoy = hoyLocal();
   const lunesHoy = getMondayISO(hoy);
 
   const [embarcaciones, setEmbarcaciones] = useState([]);

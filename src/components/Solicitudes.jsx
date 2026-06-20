@@ -22,10 +22,11 @@ import {
   loadSavedViews, addSavedView, removeSavedView, mergeViews, SOL_BUILTIN_VIEWS,
 } from "../lib/savedViews";
 import TaskCard from "./campo/TaskCard";
+import { hoyLocal } from "../lib/fechas";
 
 const SOL_SAVED_VIEWS_KEY = "cmms-sol-saved-views";
 
-const HOY = () => new Date().toISOString().slice(0, 10);
+const HOY = () => hoyLocal();
 
 // SLA: calcula horas transcurridas desde la creación y compara contra el objetivo
 function slaInfo(sol) {

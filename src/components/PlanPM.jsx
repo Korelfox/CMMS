@@ -33,8 +33,9 @@ import { huellaPM } from "../lib/autoOT";
 import DetailShell from "./detail/DetailShell";
 import TaskCard from "./campo/TaskCard";
 import { useShellOptional } from "../context/ShellContext";
+import { hoyLocal } from "../lib/fechas";
 
-const HOY = () => new Date().toISOString().slice(0, 10);
+const HOY = () => hoyLocal();
 const INTERVALOS_COMUNES = [50, 100, 250, 500, 1000, 2000, 4000, 8000];
 const UNIDADES_CAL = ["diario", "semanal", "mensual", "trimestral", "semestral", "anual"];
 const VISTA_KEY = "cmms-planpm-vista";

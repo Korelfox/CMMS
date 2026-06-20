@@ -7,8 +7,9 @@ import {
   Card, PageHead, Pill, primaryBtn, ghostBtn, exportBtn, inputStyle, bluInput,
   thStyle, tdStyle, FilterBtn, Field, Empty, ErrorBanner, InlineSpinner,
 } from "../ui";
+import { hoyLocal } from "../lib/fechas";
 
-const HOY = () => new Date().toISOString().slice(0, 10);
+const HOY = () => hoyLocal();
 // RPN = S × O × D, en escala 1-10 cada dimensión (rango 1-1000)
 const rpn = (f) => (f.severidad || 0) * (f.ocurrencia || 0) * (f.deteccion || 0);
 const nivelRPN = (r) =>

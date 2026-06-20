@@ -6,6 +6,7 @@
 // ============================================================
 
 import { ajustarWeibull, gammaFunc } from "./calculos";
+import { hoyLocal } from "./fechas";
 
 const DIA_MS = 86_400_000;
 
@@ -151,7 +152,7 @@ export function interpretarBeta(beta) {
 // → unidad: 'h' | 'd'  — indica en qué unidad están β, η, tActual, rul*, mtbf.
 export function analizarEquipo({ equipo, ots = [], lecturas = [], hoy } = {}) {
   const id     = equipo?.id;
-  const hoyStr = hoy || new Date().toISOString().slice(0, 10);
+  const hoyStr = hoy || hoyLocal();
 
   // ISO 14224 §9.3: intentar horas reales primero
   const ttfsH    = ttfsHorasOper(id, ots, lecturas);

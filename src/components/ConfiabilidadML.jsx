@@ -10,6 +10,7 @@ import {
 } from "../lib/confiabilidad";
 import { C } from "../theme";
 import { Card, PageHead, Pill, ErrorBanner, InlineSpinner } from "../ui";
+import { hoyLocal } from "../lib/fechas";
 
 const DIA_MS = 86_400_000;
 
@@ -63,7 +64,7 @@ export default function ConfiabilidadML() {
   const [filtroZona, setFiltroZona]   = useState("todas");
   const [equipoSelId, setEquipoSelId] = useState(null);
 
-  const hoy = useMemo(() => new Date().toISOString().slice(0, 10), []);
+  const hoy = useMemo(() => hoyLocal(), []);
 
   const data = useMemo(() => {
     if (!raw) return null;

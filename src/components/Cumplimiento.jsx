@@ -6,6 +6,7 @@ import { subirArchivoDocumento, urlFirmada, borrarArchivoStorage } from "../lib/
 import { estadoDoc, docDe } from "../lib/cumplimiento";
 import { C, archivo, isAdmin, tint } from "../theme";
 import { Card, PageHead, Pill, primaryBtn, ghostBtn, inputStyle, Field, Empty, ErrorBanner, InlineSpinner, FilterBtn } from "../ui";
+import { hoyLocal } from "../lib/fechas";
 
 // Tipos por defecto (semilla para empresas nuevas; el catálogo real es editable
 // y vive en la tabla documento_tipos por empresa).
@@ -19,7 +20,7 @@ const TIPOS_DOC_DEFAULT = [
   "Balsa salvavidas",
   "Extintores",
 ];
-const HOY = () => new Date().toISOString().slice(0, 10);
+const HOY = () => hoyLocal();
 // estadoDoc, docDe y diasHabilesEntre viven ahora en lib/cumplimiento (testeables).
 
 export default function Cumplimiento({ navParams }) {

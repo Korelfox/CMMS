@@ -11,6 +11,7 @@ import { margenDiarioNave } from "../lib/lucro";
 import { calcPL } from "./rentabilidad/calc";
 import { C } from "../theme";
 import { Card, PageHead, Pill, ErrorBanner, InlineSpinner } from "../ui";
+import { hoyLocal } from "../lib/fechas";
 
 const HH_DIARIOS = 8;
 
@@ -61,7 +62,7 @@ export default function OptimizadorVentana() {
 
   useEffect(() => { cargar(); }, [cargar]);
 
-  const hoy = useMemo(() => new Date().toISOString().slice(0, 10), []);
+  const hoy = useMemo(() => hoyLocal(), []);
 
   const margenDiarioPorEmb = useMemo(() => {
     if (!data) return new Map();

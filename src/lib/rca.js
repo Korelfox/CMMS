@@ -1,3 +1,4 @@
+import { hoyLocal } from "./fechas";
 // ============================================================
 //  Lógica pura de Análisis de Causa Raíz (RCA · 5 porqués).
 //  Detección de fallas crónicas: el disparador de un RCA es un
@@ -27,7 +28,7 @@ export const accionesPendientes = (rca) =>
 // re-detectar si la falla volvió.
 // → [{ key, n, equipoId, embarcacionId, sistema, modoTop, ultimaOT, ots }]
 export function candidatosRCA(ots = [], rcas = [], { dias = 180, minEventos = 3, hoy } = {}) {
-  const hoyD = new Date((hoy || new Date().toISOString().slice(0, 10)) + "T00:00:00");
+  const hoyD = new Date((hoy || hoyLocal()) + "T00:00:00");
   const desde = new Date(hoyD.getTime() - dias * DIA_MS);
   const enVentana = (fecha) => fecha && new Date(fecha.slice(0, 10) + "T00:00:00") >= desde;
 

@@ -10,15 +10,9 @@ import { ordenarOtsCampo, agruparProgramacion, labelProgFecha, describeOtCampo }
 import TaskCard from "./TaskCard";
 import CampoSection from "./CampoSection";
 import CampoTiempoWidget from "./CampoTiempoWidget";
+import { hoyLocal } from "../../lib/fechas";
 
-// Fecha local YYYY-MM-DD. NO usar toISOString() (UTC): al oeste de Greenwich
-// (Chile UTC-4) por la tarde adelanta el día y marca como atrasadas tareas de hoy.
-const HOY = () => {
-  const d = new Date();
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  return `${d.getFullYear()}-${mm}-${dd}`;
-};
+const HOY = () => hoyLocal();
 
 function prioTone(p) {
   if (p === "critica") return "red";

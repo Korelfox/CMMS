@@ -29,6 +29,7 @@ import SplitDetailLayout from "./detail/SplitDetailLayout";
 import { ordenarItemsInv } from "../lib/inventarioKanban";
 import { useMediaQuery } from "../lib/useMediaQuery";
 import TaskCard from "./campo/TaskCard";
+import { hoyLocal } from "../lib/fechas";
 
 // Prefijos de tipo de repuesto para el código (SKU). Formato: TIPO-SUBTIPO-ESPEC
 const PREFIJOS_SKU = [
@@ -423,7 +424,7 @@ export default function Inventario({ navParams }) {
         bodega_to: panolActivo.id,
         cantidad: cant,
         responsable: profile.nombre,
-        fecha: new Date().toISOString().slice(0, 10),
+        fecha: hoyLocal(),
         motivo: notaEntrada.trim() || "Recepción Campo",
         created_by: profile.id,
       });
@@ -448,7 +449,7 @@ export default function Inventario({ navParams }) {
   async function solicitarReposicion(item, bordoQty, st) {
     setSolicitando((p) => new Set([...p, item.id]));
     try {
-      const HOY = new Date().toISOString().slice(0, 10);
+      const HOY = hoyLocal();
       const prioridad = st.key === "bajo" ? "alta" : "media";
       const folio = `REP-${item.codigo}-${Date.now().toString(36).slice(-4).toUpperCase()}`;
       await insertRow("solicitudes", profile.empresa_id, {

@@ -1,3 +1,4 @@
+import { hoyLocal } from "./fechas";
 // ============================================================
 //  Sugerencia de stock mínimo/máximo basada en historial de
 //  fallas correctivas y criticidad de los equipos vinculados.
@@ -23,7 +24,7 @@ function critMax(equipos = []) {
 // hoy: "YYYY-MM-DD"
 export function correctivasPorEquipos(ots = [], equipoIds = [], periodoDias = PERIODO, hoy) {
   if (!equipoIds.length) return 0;
-  const hoyMs = new Date((hoy || new Date().toISOString().slice(0, 10)) + "T00:00:00").getTime();
+  const hoyMs = new Date((hoy || hoyLocal()) + "T00:00:00").getTime();
   const corte = hoyMs - periodoDias * DIA_MS;
   const idSet = new Set(equipoIds);
   return (ots || []).filter(

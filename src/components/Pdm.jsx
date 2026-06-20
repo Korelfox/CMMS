@@ -10,8 +10,9 @@ import {
 } from "../ui";
 import EquipoPicker from "./EquipoPicker";
 import ComboInput from "./ComboInput";
+import { hoyLocal } from "../lib/fechas";
 
-const HOY = () => new Date().toISOString().slice(0, 10);
+const HOY = () => hoyLocal();
 const blank = () => ({ equipo_id: "", tipo: "aceite", parametro: "", valor: "", unidad: "", limite_alerta: "", limite_critico: "", fecha: HOY(), nota: "" });
 
 export default function Pdm({ navParams }) {

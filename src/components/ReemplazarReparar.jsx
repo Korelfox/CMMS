@@ -10,6 +10,7 @@ import { margenDiarioNave } from "../lib/lucro";
 import { calcPL } from "./rentabilidad/calc";
 import { C, clp, num, archivo, tint } from "../theme";
 import { Card, PageHead, Pill, ErrorBanner, InlineSpinner, Empty, inputStyle } from "../ui";
+import { hoyLocal } from "../lib/fechas";
 
 const REC = {
   reemplazar: { label: "REEMPLAZAR", bg: C.red,   fg: "#fff", Icon: AlertTriangle },
@@ -63,7 +64,7 @@ export default function ReemplazarReparar() {
   }, []);
   useEffect(() => { cargar(); }, [cargar]);
 
-  const hoy = useMemo(() => new Date().toISOString().slice(0, 10), []);
+  const hoy = useMemo(() => hoyLocal(), []);
 
   const embById = useMemo(() => {
     const m = new Map();

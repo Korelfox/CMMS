@@ -10,8 +10,9 @@ import {
   Field, Empty, ErrorBanner, InlineSpinner,
 } from "../ui";
 import EquipoPicker from "./EquipoPicker";
+import { hoyLocal } from "../lib/fechas";
 
-const HOY = () => new Date().toISOString().slice(0, 10);
+const HOY = () => hoyLocal();
 const estadoMeta = (v) => ESTADOS_RCA.find((e) => e.value === v) || ESTADOS_RCA[0];
 
 export default function RCA() {

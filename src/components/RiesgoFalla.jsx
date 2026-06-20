@@ -7,6 +7,7 @@ import { evaluarPlanes } from "../lib/pm";
 import { riesgoFlota } from "../lib/riesgo";
 import { C, archivo, num, tint } from "../theme";
 import { Card, PageHead, Pill, Empty, ErrorBanner, InlineSpinner } from "../ui";
+import { hoyLocal } from "../lib/fechas";
 
 const SPEC = [
   { tabla: "embarcaciones", opts: { order: { col: "codigo", asc: true } } },
@@ -34,7 +35,7 @@ export default function RiesgoFalla({ onNavigate }) {
     ots:           raw?.ordenes_trabajo || [],
   }), [raw]);
 
-  const hoy = useMemo(() => new Date().toISOString().slice(0, 10), []);
+  const hoy = useMemo(() => hoyLocal(), []);
 
   const planesEval = useMemo(() => evaluarPlanes(planes, equipos), [planes, equipos]);
 

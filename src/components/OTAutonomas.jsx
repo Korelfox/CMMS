@@ -12,6 +12,7 @@ import { folioOT } from "../lib/ot";
 import { generarOTsPreventivas, generarOTsPredictivas } from "../lib/autoOT";
 import { C, tint, canOperate } from "../theme";
 import { Card, PageHead, InlineSpinner, Empty } from "../ui";
+import { hoyLocal } from "../lib/fechas";
 
 // ── Paleta del blueprint (oscuro en ambos temas, como el plano de arquitectura) ──
 const D = {
@@ -205,7 +206,7 @@ export default function OTAutonomas({ onNavigate }) {
       tipo: "preventivo",
       descripcion: sug.descripcion,
       prioridad: sug.prioridad || "alta",
-      fecha: new Date().toISOString().slice(0, 10),
+      fecha: hoyLocal(),
       estado: "planificada",
       origen: "auto",
       huella: sug.huella,

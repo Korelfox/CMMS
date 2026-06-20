@@ -15,6 +15,7 @@ import { coberturaCriticos } from "./operacional";
 import { puntoHorometro, diasDesde } from "./horometro";
 import { precipProximasHoras, evaluarSemáforosOperacionales, resumirAlertasTemporales } from "./clima";
 import { num, SLA_HORAS, PRIORIDADES, lk } from "../theme";
+import { hoyLocal } from "./fechas";
 
 const DIA_MS = 86_400_000;
 const SEV_ORDER = { red: 0, amber: 1, yellow: 2 };
@@ -298,7 +299,7 @@ export function alertasDatosISO(ots, embsById) {
 
 // 10) Varadas: atrasadas (fecha_fin_estimada vencida) o sin iniciar.
 export function alertasVaradas(varadas, embsById, hoy) {
-  const hoyISO = hoy || new Date().toISOString().slice(0, 10);
+  const hoyISO = hoy || hoyLocal();
   const result = [];
   for (const v of varadas || []) {
     const nave = embsById.get(v.embarcacion_id)?.nombre || "—";
@@ -508,7 +509,7 @@ export function generarAlertas({
   lecturas         = [],
   pronosticoClima  = null,
   empresa          = null,
-  hoy              = new Date().toISOString().slice(0, 10),
+  hoy              = hoyLocal(),
 } = {}) {
   const embsById = new Map((embarcaciones || []).map((e) => [e.id, e]));
 

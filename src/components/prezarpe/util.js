@@ -1,2 +1,3 @@
-export const HOY = () => new Date().toISOString().slice(0, 10);
+import { hoyLocal } from "../../lib/fechas";
+export const HOY = () => hoyLocal();
 export const SEGURIDAD_FIJA = ["Sistema de gobierno", "Bombas de achique", "Luces de navegación", "Equipo de seguridad"];

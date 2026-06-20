@@ -10,6 +10,7 @@ import { calcPL } from "./rentabilidad/calc";
 import { lucroCesanteNave } from "../lib/lucro";
 import { C, archivo, clp, num, tint } from "../theme";
 import { Card, PageHead, Pill, Empty, ErrorBanner, InlineSpinner } from "../ui";
+import { hoyLocal } from "../lib/fechas";
 
 const PERIODOS = [
   { label: "3 meses",  meses: 3  },
@@ -48,7 +49,7 @@ export default function LucroCesante({ onNavigate }) {
   }, []);
   useEffect(() => { cargar(); }, [cargar]);
 
-  const hoy = useMemo(() => new Date().toISOString().slice(0, 10), []);
+  const hoy = useMemo(() => hoyLocal(), []);
 
   const corteISO = useMemo(() => {
     const d = new Date(hoy + "T00:00:00");

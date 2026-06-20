@@ -15,6 +15,7 @@ import {
 } from "../lib/planificacion";
 import { C, archivo, num, tint } from "../theme";
 import { Card, PageHead, Pill, Empty, ErrorBanner, InlineSpinner } from "../ui";
+import { hoyLocal } from "../lib/fechas";
 
 const SEMANAS_OPTS = [4, 8, 12, 16];
 const HH_DIA_DEFAULT = 8;
@@ -44,7 +45,7 @@ export default function PlanificacionPuerto({ onNavigate }) {
     ots:           raw?.ordenes_trabajo    || [],
   }), [raw]);
 
-  const hoy = useMemo(() => new Date().toISOString().slice(0, 10), []);
+  const hoy = useMemo(() => hoyLocal(), []);
 
   // Tasa h/día por equipo_id (solo equipos con ≥2 lecturas)
   const tasasPorEquipo = useMemo(() => {

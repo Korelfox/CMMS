@@ -8,6 +8,7 @@ import { analizarMinMax } from "../lib/minmax";
 import { C, archivo, num, tint } from "../theme";
 import { Card, PageHead, Pill, Empty, ErrorBanner, InlineSpinner } from "../ui";
 import { useAuth } from "../lib/auth";
+import { hoyLocal } from "../lib/fechas";
 
 const ACCION_META = {
   aumentar: { tone: "red",    label: "Aumentar",     icon: TrendingUp   },
@@ -49,7 +50,7 @@ export default function MinMaxSugerido() {
   }, []);
   useEffect(() => { cargar(); }, [cargar]);
 
-  const hoy = useMemo(() => new Date().toISOString().slice(0, 10), []);
+  const hoy = useMemo(() => hoyLocal(), []);
 
   const analisis = useMemo(() => analizarMinMax({
     items, equipos, ots, destinos, periodoDias: 365, hoy,

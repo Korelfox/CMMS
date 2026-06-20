@@ -15,6 +15,7 @@ import {
 } from "../lib/presupuesto";
 import { C, archivo, num, tint, clp } from "../theme";
 import { Card, PageHead, Pill, Empty, ErrorBanner, InlineSpinner } from "../ui";
+import { hoyLocal } from "../lib/fechas";
 
 const ANIO_ACTUAL = new Date().getFullYear();
 const ZONA_META = {
@@ -51,7 +52,7 @@ export default function Presupuesto({ onNavigate }) {
   }, []);
   useEffect(() => { cargar(); }, [cargar]);
 
-  const hoy = useMemo(() => new Date().toISOString().slice(0, 10), []);
+  const hoy = useMemo(() => hoyLocal(), []);
 
   // Map embarcacion_id → monto para el año seleccionado
   const presupuestosMap = useMemo(() => {

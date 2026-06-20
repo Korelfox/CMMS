@@ -33,8 +33,9 @@ import { otStore } from "./ot/otStore";
 import { useMediaQuery } from "../lib/useMediaQuery";
 import { useShellOptional } from "../context/ShellContext";
 import { findOtEnEjecucion } from "../lib/otCampoFlow";
+import { hoyLocal } from "../lib/fechas";
 
-const HOY = () => new Date().toISOString().slice(0, 10);
+const HOY = () => hoyLocal();
 const VISTA_KEY = "cmms-ot-vista";
 const SAVED_VIEWS_KEY = "cmms-ot-saved-views";
 const VISTAS = [

@@ -9,6 +9,7 @@
 import { coberturaCriticos, scoreBacklog, diasAbierta } from "./operacional";
 import { analizarDesgasteFlota } from "./desgaste";
 import { estadoPresupuesto } from "./presupuesto";
+import { hoyLocal } from "./fechas";
 
 const DIA_MS = 86_400_000;
 
@@ -108,7 +109,7 @@ export function construirContextoCopiloto({
   stock          = [],
   destinos       = [],
   lecturas       = [],
-  hoy            = new Date().toISOString().slice(0, 10),
+  hoy            = hoyLocal(),
 } = {}) {
   const embsById = new Map((embarcaciones || []).map((e) => [e.id, e]));
 

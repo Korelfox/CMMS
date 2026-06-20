@@ -13,6 +13,7 @@ import {
   CAMPO_WIZARD_STEPS, stepIndex, nextCampoStep, prevCampoStep,
 } from "../../lib/otCampoFlow";
 import { describeOtCampo } from "../../lib/campoHoy";
+import { hoyLocal } from "../../lib/fechas";
 
 // ── Paso "Repuestos": lista interactiva de items vinculados al equipo ────────
 function OTCampoRepuestos({ ot, onSkip }) {
@@ -85,7 +86,7 @@ function OTCampoRepuestos({ ot, onSkip }) {
     setGuardando(true);
     setError(null);
     try {
-      const HOY = new Date().toISOString().slice(0, 10);
+      const HOY = hoyLocal();
       let costoParcial = 0;
       for (const [itemId, rawQty] of lineas) {
         const qty = Number(rawQty);
