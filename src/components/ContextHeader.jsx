@@ -182,7 +182,7 @@ export default function ContextHeader({
           )}
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0, flexWrap: "wrap", justifyContent: "flex-end" }}>
+        <div className="cmms-header-actions" style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0, flexWrap: "wrap", justifyContent: "flex-end" }}>
           {recienSync && (
             <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 600, color: C.green }}>
               <CheckCircle2 size={14} /> Sincronizado
@@ -212,7 +212,7 @@ export default function ContextHeader({
               }}
             >
               <RefreshCw size={13} className={sincronizando ? "spin" : ""} style={sincronizando ? { animation: "spin 1s linear infinite" } : undefined} />
-              {sincronizando ? "Sync…" : online ? `${pendientes} por subir` : `${pendientes} en cola`}
+              <span className="cmms-sync-label">{sincronizando ? "Sync…" : online ? `${pendientes} por subir` : `${pendientes} en cola`}</span>
             </button>
           )}
 
@@ -231,7 +231,7 @@ export default function ContextHeader({
                 title="Actualizar datos del módulo"
                 style={{ ...ghostBtn, padding: "5px 11px", fontSize: 12, display: "inline-flex", alignItems: "center", gap: 5 }}
               >
-                <RefreshCw size={13} /> Actualizar
+                <RefreshCw size={13} /> <span className="cmms-sync-label">Actualizar</span>
               </button>
               <div className="cmms-refresh-cfg" style={{ position: "relative" }} ref={refreshCfgRef}>
                 <button
@@ -407,6 +407,7 @@ export default function ContextHeader({
           {puedeOficina && (
             <button
               type="button"
+              className="cmms-mode-toggle"
               onClick={toggleAppMode}
               title={isOficina ? "Cambiar a Modo Campo" : "Cambiar a Modo Oficina"}
               style={{
@@ -418,7 +419,7 @@ export default function ContextHeader({
                 background: isOficina ? C.surface : tint(C.steel, 10),
               }}
             >
-              {isOficina ? "Oficina" : "Campo"}
+              <span className="cmms-mode-toggle-text">{isOficina ? "Oficina" : "Campo"}</span>
             </button>
           )}
 

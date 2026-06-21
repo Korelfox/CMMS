@@ -11,6 +11,7 @@ import InventarioQueuePanel from "../inventario/InventarioQueuePanel";
 import AlmacenStockDetailPanel from "./AlmacenStockDetailPanel";
 import { ordenarItemsInv } from "../../lib/inventarioKanban";
 import { useMediaQuery } from "../../lib/useMediaQuery";
+import { OFFICINA_NARROW_QUERY } from "../../lib/breakpoints";
 import { skey } from "./util";
 
 const VISTA_KEY = "cmms-almacen-stock-vista";
@@ -34,7 +35,7 @@ export default function TabStock({ profile, items, setItems, bodegas, stockMap, 
   const [selectedId, setSelectedId] = useState(null);
   const [detailTab, setDetailTab] = useState("bodegas");
   const [gruposCol, setGruposCol] = useState(() => new Set());
-  const isMobile = useMediaQuery("(max-width: 1024px)");
+  const isMobile = useMediaQuery(OFFICINA_NARROW_QUERY);
   const isTabla = vista === "tabla";
 
   // ── Stock ────────────────────────────────────────────────────

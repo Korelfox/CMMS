@@ -93,6 +93,22 @@ export const THEME_VARS = `
   .cmms-root:not(.cmms-campo-mode) > main {
     background: var(--cmms-oficina-bg) !important;
   }
+  /* Oficina en viewport angosto: evita scroll horizontal y compacta márgenes */
+  @media (max-width: 1024px) {
+    .cmms-root.cmms-oficina-mode {
+      --layout-pad-x: 12px;
+      --layout-pad-y: 16px;
+      --layout-pad-bottom: 32px;
+    }
+    .cmms-root.cmms-oficina-mode > main {
+      overflow-x: hidden;
+      min-width: 0;
+    }
+    .cmms-root.cmms-oficina-mode .cmms-work-area {
+      overflow-x: hidden;
+      max-width: 100%;
+    }
+  }
   .cmms-root.cmms-campo-mode > main {
     background: linear-gradient(180deg, var(--c-mist) 0%, color-mix(in srgb, var(--c-foam) 22%, var(--c-mist)) 100%);
   }
@@ -168,9 +184,8 @@ export const THEME_VARS = `
     background: linear-gradient(175deg, var(--c-navBg1) 0%, var(--c-navBg2) 48%, #1a1040 100%) !important;
     box-shadow: 4px 0 28px rgba(7,11,31,.38);
   }
-  /* position:relative solo en escritorio: en móvil el sidebar es drawer fixed
-     (AppShell); si queda relative gana en especificidad y reserva ~250px en flex. */
-  @media (min-width: 761px) {
+  /* position:relative solo en escritorio (>=1025): en angosto el sidebar es drawer fixed */
+  @media (min-width: 1025px) {
     .cmms-root:not(.cmms-campo-mode) .cmms-sidebar {
       position: relative;
     }

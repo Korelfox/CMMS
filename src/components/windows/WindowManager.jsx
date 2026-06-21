@@ -146,7 +146,7 @@ export function WindowHost() {
         .cmms-win-body::-webkit-scrollbar-thumb:hover { background: var(--c-slate); }
 
         /* Ocultar el handle en móvil */
-        @media (max-width: 760px) { .cmms-resize-handle { display: none !important; } }
+        @media (max-width: 1024px) { .cmms-resize-handle { display: none !important; } }
       `}</style>
 
       {/* Overlay — clic cierra el panel de arriba */}

@@ -201,6 +201,8 @@ export default function AppShell() {
   }, [profile?.rol]);
   const [sincronizando, setSincronizando] = useState(false);
   const [recienSync, setRecienSync] = useState(false);
+  const [syncFail, setSyncFail]     = useState(0);   // ops que fallaron en el último flush
+  const [conflictos, setConflictos] = useState([]);   // mensajes de conflicto de versión
   // Oculta las entradas solo-admin a quien no lo es
   const navPerms = { isAdmin, isSuperAdmin };
   const visibleNav = allNavItems(profile, navPerms);
@@ -214,6 +216,7 @@ export default function AppShell() {
       const r = await flushOutbox();
       await refrescarPendientes();
       if (r.ok > 0) { setRecienSync(true); setTimeout(() => setRecienSync(false), 3000); }
+      setSyncFail(r.fail ?? 0);
     } finally { setSincronizando(false); }
   }, [sincronizando, refrescarPendientes]);
 
@@ -224,6 +227,16 @@ export default function AppShell() {
     window.addEventListener("cmms-outbox", onChange);
     return () => window.removeEventListener("cmms-outbox", onChange);
   }, [refrescarPendientes]);
+
+  // Escucha conflictos de sincronización offline y los acumula
+  useEffect(() => {
+    const onConflict = (e) => {
+      const msg = e.detail?.msg || "Conflicto de sincronización detectado.";
+      setConflictos((prev) => (prev.includes(msg) ? prev : [...prev, msg]));
+    };
+    window.addEventListener("cmms-conflict", onConflict);
+    return () => window.removeEventListener("cmms-conflict", onConflict);
+  }, []);
 
   // ── Auto-refresh countdown ──────────────────────────────────────────────
   useEffect(() => {
@@ -302,6 +315,10 @@ export default function AppShell() {
         sincronizando={sincronizando}
         recienSync={recienSync}
         sincronizar={sincronizar}
+        syncFail={syncFail}
+        conflictos={conflictos}
+        onDismissConflicto={(msg) => setConflictos((p) => p.filter((m) => m !== msg))}
+        onDismissSyncFail={() => setSyncFail(0)}
         refreshInterval={refreshInterval}
         timeLeft={timeLeft}
         showRefreshCfg={showRefreshCfg}
@@ -322,6 +339,7 @@ export default function AppShell() {
 function AppShellLayout({
   profile, empresa, signOut, armador, online, view, navParams, navegar, visibleNav,
   sidebarOpen, setSidebarOpen, pendientes, sincronizando, recienSync, sincronizar,
+  syncFail, conflictos, onDismissConflicto, onDismissSyncFail,
   refreshInterval, timeLeft, showRefreshCfg, setShowRefreshCfg, refreshCfgRef,
   onSelectRefreshInterval, forzarRefresh, dark, toggleTema, recientes, setRecientes, refreshTick,
 }) {
@@ -453,6 +471,30 @@ function AppShellLayout({
           dark={dark}
           onToggleTema={toggleTema}
         />
+
+        {/* Bandeja de conflictos y errores de sincronización */}
+        {conflictos.map((msg, i) => (
+          <div key={i} className="cmms-offline-banner" style={{
+            display: "flex", alignItems: "flex-start", gap: 10,
+            background: "#fff3cd", borderBottom: "1px solid #ffc107",
+            padding: "10px 24px", fontSize: 12.5, color: "#664d03",
+          }}>
+            <span style={{ flex: 1 }}>⚠️ <strong>Conflicto de sincronización:</strong> {msg} Edita el registro manualmente para resolver.</span>
+            <button onClick={() => onDismissConflicto(msg)}
+              style={{ background: "none", border: "none", cursor: "pointer", color: "#664d03", fontSize: 16, lineHeight: 1, padding: "0 2px", flexShrink: 0 }}>×</button>
+          </div>
+        ))}
+        {syncFail > 0 && (
+          <div className="cmms-offline-banner" style={{
+            display: "flex", alignItems: "center", gap: 10,
+            background: "#f8d7da", borderBottom: "1px solid #f5c2c7",
+            padding: "10px 24px", fontSize: 12.5, color: "#842029",
+          }}>
+            <span style={{ flex: 1 }}>✗ <strong>{syncFail} operación{syncFail !== 1 ? "es" : ""} no se pudo{syncFail !== 1 ? "n" : ""} sincronizar.</strong> Revisa tu conexión e intenta de nuevo.</span>
+            <button onClick={onDismissSyncFail}
+              style={{ background: "none", border: "none", cursor: "pointer", color: "#842029", fontSize: 16, lineHeight: 1, padding: "0 2px", flexShrink: 0 }}>×</button>
+          </div>
+        )}
 
         {/* Tab bar de acceso rápido — solo Oficina */}
         {!isCampo && recientes.length > 1 && (
@@ -626,9 +668,38 @@ function AppShellLayout({
         .cmms-tab:hover .cmms-tab-close  { opacity: 0.65; }
         .cmms-tab-close:hover             { opacity: 1 !important; color: var(--c-red); background: var(--c-redBg); }
 
+        @media (max-width: 1024px) {
+          /* Oficina angosta: drawer + contenido a ancho completo (PC >=1025 sin cambios) */
+          .cmms-root.cmms-oficina-mode > main {
+            width: 100%;
+            min-width: 0;
+            flex: 1 1 100%;
+            overflow-x: hidden;
+          }
+          .cmms-root.cmms-oficina-mode .cmms-sidebar {
+            position: fixed; top: 0; left: 0; height: 100vh; z-index: 50;
+            transform: translateX(-100%);
+            transition: transform .25s ease;
+            box-shadow: 2px 0 24px rgba(0,0,0,.35);
+          }
+          .cmms-root.cmms-oficina-mode .cmms-sidebar.cmms-sidebar-open { transform: translateX(0); }
+          .cmms-root.cmms-oficina-mode .cmms-sidebar-close { display: inline-flex !important; }
+          .cmms-root.cmms-oficina-mode .cmms-hamburger { display: inline-flex !important; }
+          .cmms-root.cmms-oficina-mode .cmms-overlay.cmms-overlay-open { display: block !important; }
+          .cmms-root.cmms-oficina-mode .cmms-context-breadcrumb { display: none; }
+          .cmms-root.cmms-oficina-mode .cmms-refresh-cfg { display: none !important; }
+          .cmms-root.cmms-oficina-mode .cmms-mode-toggle-text { display: none; }
+          .cmms-root.cmms-oficina-mode .cmms-mode-toggle { padding: 5px 10px; }
+          .cmms-root.cmms-oficina-mode .cmms-sync-label { display: none; }
+          .cmms-root.cmms-oficina-mode .cmms-topbar,
+          .cmms-root.cmms-oficina-mode .cmms-context-header { padding: 8px 14px; }
+          .cmms-root.cmms-oficina-mode .cmms-tabs-bar { padding: 0 8px; }
+          .cmms-root.cmms-oficina-mode .cmms-tab { padding: 0 8px; font-size: 11.5px; }
+          .cmms-root.cmms-oficina-mode .cmms-tab-label { max-width: 88px; }
+        }
+
         @media (max-width: 760px) {
           .cmms-topbar, .cmms-context-header { padding: 8px 14px; }
-          .cmms-context-breadcrumb { display: none; }
           .cmms-refresh-cfg, .cmms-theme-toggle { display: none !important; }
           .cmms-campo-mode .cmms-theme-toggle { display: inline-flex !important; }
           .cmms-offline-banner { padding: 8px 14px !important; }
@@ -639,23 +710,7 @@ function AppShellLayout({
           .cmms-tab       { padding: 0 8px; font-size: 11.5px; }
           .cmms-tab-label { max-width: 80px; }
           .cmms-campo-mode .cmms-hamburger { display: none !important; }
-
-          /* Sidebar drawer — misma especificidad que theme.js para ganar a position:relative */
-          .cmms-root:not(.cmms-campo-mode) .cmms-sidebar {
-            position: fixed; top: 0; left: 0; height: 100vh; z-index: 50;
-            transform: translateX(-100%);
-            transition: transform .25s ease;
-            box-shadow: 2px 0 24px rgba(0,0,0,.35);
-          }
-          .cmms-root:not(.cmms-campo-mode) .cmms-sidebar.cmms-sidebar-open { transform: translateX(0); }
-          .cmms-root:not(.cmms-campo-mode) > main {
-            width: 100%;
-            min-width: 0;
-            flex: 1 1 100%;
-          }
-          .cmms-sidebar-close { display: inline-flex !important; }
-          .cmms-hamburger     { display: inline-flex !important; }
-          .cmms-overlay.cmms-overlay-open { display: block !important; }
+          .cmms-root.cmms-oficina-mode .cmms-header-actions { gap: 6px; }
         }
         @media (max-width: 440px) {
           .cmms-topbar, .cmms-context-header { padding: 7px 9px; }

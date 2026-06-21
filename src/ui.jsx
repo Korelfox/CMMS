@@ -745,6 +745,36 @@ export function DesignSystemStyles() {
         .eq-split-container,
         .ot-split-container,
         .cmms-split-detail { grid-template-columns: 1fr; }
+
+        /* Oficina angosta: módulos apilados y headers compactos (PC sin cambios) */
+        .cmms-oficina-mode .cmms-module-header {
+          padding: 20px 18px 18px;
+          margin-bottom: 20px;
+        }
+        .cmms-oficina-mode .cmms-module-header-inner {
+          flex-direction: column;
+          align-items: stretch;
+          gap: 14px;
+        }
+        .cmms-oficina-mode .cmms-module-actions {
+          width: 100%;
+          justify-content: flex-start;
+        }
+        .cmms-oficina-mode .cmms-module-title {
+          font-size: clamp(22px, 5vw, 28px);
+        }
+        .cmms-oficina-mode .cmms-toolbar {
+          padding: 10px 12px;
+        }
+        .cmms-oficina-mode .cmms-grid-fleet {
+          grid-template-columns: 1fr;
+        }
+        .cmms-oficina-mode .cmms-split-layout,
+        .cmms-oficina-mode .inv-split-container,
+        .cmms-oficina-mode .eq-split-container,
+        .cmms-oficina-mode .ot-split-container {
+          padding: 10px 8px;
+        }
       }
 
       @media (max-width: 1100px) {
@@ -757,6 +787,8 @@ export function DesignSystemStyles() {
         .cmms-stat-grid { grid-template-columns: 1fr; }
         .cmms-hero-stat { grid-column: span 1; }
         .cmms-grid-fleet { grid-template-columns: 1fr; }
+        .cmms-oficina-mode .cmms-stat-grid { grid-template-columns: 1fr; }
+        .cmms-oficina-mode .cmms-hero-stat { grid-column: span 1; }
       }
     `}</style>
   );

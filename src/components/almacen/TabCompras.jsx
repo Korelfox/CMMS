@@ -10,6 +10,7 @@ import ComprasKanban from "./ComprasKanban";
 import ComprasQueuePanel from "./ComprasQueuePanel";
 import { ordenarOCs } from "../../lib/comprasKanban";
 import { useMediaQuery } from "../../lib/useMediaQuery";
+import { OFFICINA_NARROW_QUERY } from "../../lib/breakpoints";
 import { HOY, skey } from "./util";
 
 const VISTA_KEY = "cmms-almacen-compras-vista";
@@ -69,7 +70,7 @@ export default function TabCompras({
   const [vista,      setVista]      = useState("kanban");
   const [selectedId, setSelectedId] = useState(null);
 
-  const isMobile = useMediaQuery("(max-width: 1024px)");
+  const isMobile = useMediaQuery(OFFICINA_NARROW_QUERY);
   const isTabla = vista === "tabla";
 
   const puedeOperar  = isAdmin(profile?.rol);

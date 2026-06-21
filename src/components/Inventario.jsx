@@ -28,6 +28,7 @@ import DetailShell from "./detail/DetailShell";
 import SplitDetailLayout from "./detail/SplitDetailLayout";
 import { ordenarItemsInv } from "../lib/inventarioKanban";
 import { useMediaQuery } from "../lib/useMediaQuery";
+import { OFFICINA_NARROW_QUERY } from "../lib/breakpoints";
 import TaskCard from "./campo/TaskCard";
 import { hoyLocal } from "../lib/fechas";
 
@@ -111,7 +112,7 @@ export default function Inventario({ navParams }) {
   const [ingresoOk, setIngresoOk] = useState(null); // { codigo, descripcion, cant, unidad }
   const puedeOperar = canOperate(profile?.rol);
   const puedeBorrar = isAdmin(profile?.rol);
-  const isMobile = useMediaQuery("(max-width: 1024px)");
+  const isMobile = useMediaQuery(OFFICINA_NARROW_QUERY);
   const isCampo = !!navParams?.campo;
   const shellCtx = useShellOptional();
   const embarcacionId = shellCtx?.embarcacionId ?? null;
