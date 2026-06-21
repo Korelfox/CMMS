@@ -167,7 +167,13 @@ export const THEME_VARS = `
   .cmms-root:not(.cmms-campo-mode) .cmms-sidebar {
     background: linear-gradient(175deg, var(--c-navBg1) 0%, var(--c-navBg2) 48%, #1a1040 100%) !important;
     box-shadow: 4px 0 28px rgba(7,11,31,.38);
-    position: relative;
+  }
+  /* position:relative solo en escritorio: en móvil el sidebar es drawer fixed
+     (AppShell); si queda relative gana en especificidad y reserva ~250px en flex. */
+  @media (min-width: 761px) {
+    .cmms-root:not(.cmms-campo-mode) .cmms-sidebar {
+      position: relative;
+    }
   }
   .cmms-root:not(.cmms-campo-mode) .cmms-sidebar::before {
     content: "";

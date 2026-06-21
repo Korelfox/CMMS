@@ -640,14 +640,19 @@ function AppShellLayout({
           .cmms-tab-label { max-width: 80px; }
           .cmms-campo-mode .cmms-hamburger { display: none !important; }
 
-          /* Sidebar se convierte en drawer */
-          .cmms-sidebar {
+          /* Sidebar drawer — misma especificidad que theme.js para ganar a position:relative */
+          .cmms-root:not(.cmms-campo-mode) .cmms-sidebar {
             position: fixed; top: 0; left: 0; height: 100vh; z-index: 50;
             transform: translateX(-100%);
             transition: transform .25s ease;
             box-shadow: 2px 0 24px rgba(0,0,0,.35);
           }
-          .cmms-sidebar.cmms-sidebar-open { transform: translateX(0); }
+          .cmms-root:not(.cmms-campo-mode) .cmms-sidebar.cmms-sidebar-open { transform: translateX(0); }
+          .cmms-root:not(.cmms-campo-mode) > main {
+            width: 100%;
+            min-width: 0;
+            flex: 1 1 100%;
+          }
           .cmms-sidebar-close { display: inline-flex !important; }
           .cmms-hamburger     { display: inline-flex !important; }
           .cmms-overlay.cmms-overlay-open { display: block !important; }
