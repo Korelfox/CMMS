@@ -777,6 +777,77 @@ export function DesignSystemStyles() {
         }
       }
 
+      /* Oficina horizontal móvil: módulos y kanbans acotados a la altura real (dvh) */
+      @media (orientation: landscape) and (max-height: 520px) {
+        .cmms-oficina-mode .cmms-module-header {
+          padding: 10px 12px;
+          margin-bottom: 10px;
+          border-radius: 12px;
+        }
+        .cmms-oficina-mode .cmms-module-header::before,
+        .cmms-oficina-mode .cmms-module-header::after {
+          display: none;
+        }
+        .cmms-oficina-mode .cmms-module-header-inner {
+          flex-direction: row;
+          align-items: center;
+          gap: 10px;
+        }
+        .cmms-oficina-mode .cmms-module-kicker {
+          margin-bottom: 4px;
+          font-size: 10px;
+        }
+        .cmms-oficina-mode .cmms-module-title {
+          font-size: 18px;
+        }
+        .cmms-oficina-mode .cmms-module-sub {
+          display: none;
+        }
+        .cmms-oficina-mode .cmms-module-actions {
+          width: auto;
+          margin-left: auto;
+        }
+        .cmms-oficina-mode .cmms-toolbar {
+          padding: 6px 10px;
+          margin-bottom: 10px;
+        }
+        .cmms-oficina-mode .cmms-stat-grid {
+          grid-template-columns: repeat(4, 1fr);
+          gap: 8px;
+          margin-bottom: 10px;
+        }
+        .cmms-oficina-mode .cmms-hero-stat {
+          grid-column: span 1;
+          padding: 12px 14px;
+        }
+        .cmms-oficina-mode .ot-kanban-board,
+        .cmms-oficina-mode .inv-kanban-board,
+        .cmms-oficina-mode [data-testid="eq-kanban"],
+        .cmms-oficina-mode [data-testid="pm-kanban"],
+        .cmms-oficina-mode [data-testid="oc-kanban"] {
+          min-height: 0 !important;
+          padding: 6px 8px 10px !important;
+        }
+        .cmms-oficina-mode .ot-kanban-board > div,
+        .cmms-oficina-mode .inv-kanban-board > div,
+        .cmms-oficina-mode [data-testid="eq-kanban"] > div,
+        .cmms-oficina-mode [data-testid="pm-kanban"] > div,
+        .cmms-oficina-mode [data-testid="oc-kanban"] > div {
+          max-height: calc(100dvh - var(--cmms-vh-chrome, 118px)) !important;
+          min-height: 0 !important;
+        }
+        .cmms-oficina-mode .cmms-split-layout,
+        .cmms-oficina-mode .inv-split-container,
+        .cmms-oficina-mode .eq-split-container,
+        .cmms-oficina-mode .ot-split-container,
+        .cmms-oficina-mode .cmms-split-detail {
+          padding: 6px 6px;
+        }
+        .cmms-oficina-mode .cmms-toolbar-wrap {
+          margin-bottom: 10px;
+        }
+      }
+
       @media (max-width: 1100px) {
         .cmms-stat-grid { grid-template-columns: repeat(2, 1fr); }
         .cmms-hero-stat { grid-column: span 2; }

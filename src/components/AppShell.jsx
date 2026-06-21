@@ -351,7 +351,7 @@ function AppShellLayout({
   const navById = Object.fromEntries(visibleNav.map((n) => [n.id, n]));
 
   return (
-    <div className={`cmms-root${isCampo ? " cmms-campo-mode" : " cmms-oficina-mode"}`} style={{ display: "flex", height: "100vh", color: C.ink, overflow: "hidden" }}>
+    <div className={`cmms-root${isCampo ? " cmms-campo-mode" : " cmms-oficina-mode"}`} style={{ display: "flex", height: "100dvh", minHeight: "100vh", color: C.ink, overflow: "hidden" }}>
       {/* OVERLAY (solo móvil Oficina, al abrir el drawer) */}
       {!isCampo && (
       <div className={`cmms-overlay${sidebarOpen ? " cmms-overlay-open" : ""}`}
@@ -677,7 +677,7 @@ function AppShellLayout({
             overflow-x: hidden;
           }
           .cmms-root.cmms-oficina-mode .cmms-sidebar {
-            position: fixed; top: 0; left: 0; height: 100vh; z-index: 50;
+            position: fixed; top: 0; left: 0; height: 100dvh; z-index: 50;
             transform: translateX(-100%);
             transition: transform .25s ease;
             box-shadow: 2px 0 24px rgba(0,0,0,.35);
@@ -696,6 +696,55 @@ function AppShellLayout({
           .cmms-root.cmms-oficina-mode .cmms-tabs-bar { padding: 0 8px; }
           .cmms-root.cmms-oficina-mode .cmms-tab { padding: 0 8px; font-size: 11.5px; }
           .cmms-root.cmms-oficina-mode .cmms-tab-label { max-width: 88px; }
+        }
+
+        /* Oficina en horizontal móvil: header en una fila, sin tabs recientes, chrome mínimo */
+        @media (orientation: landscape) and (max-height: 520px) {
+          .cmms-root.cmms-oficina-mode > main {
+            width: 100%;
+            min-width: 0;
+            flex: 1 1 100%;
+            overflow-x: hidden;
+          }
+          .cmms-root.cmms-oficina-mode .cmms-sidebar {
+            position: fixed; top: 0; left: 0; height: 100dvh; z-index: 50;
+            transform: translateX(-100%);
+            transition: transform .25s ease;
+            box-shadow: 2px 0 24px rgba(0,0,0,.35);
+          }
+          .cmms-root.cmms-oficina-mode .cmms-sidebar.cmms-sidebar-open { transform: translateX(0); }
+          .cmms-root.cmms-oficina-mode .cmms-sidebar-close { display: inline-flex !important; }
+          .cmms-root.cmms-oficina-mode .cmms-hamburger { display: inline-flex !important; }
+          .cmms-root.cmms-oficina-mode .cmms-overlay.cmms-overlay-open { display: block !important; }
+          .cmms-root.cmms-oficina-mode .cmms-context-header {
+            flex-wrap: nowrap !important;
+            padding: 4px 10px;
+            gap: 6px;
+          }
+          .cmms-root.cmms-oficina-mode .cmms-header-left {
+            flex-wrap: nowrap;
+            min-width: 0;
+          }
+          .cmms-root.cmms-oficina-mode .cmms-header-actions {
+            flex-wrap: nowrap !important;
+            gap: 4px;
+          }
+          .cmms-root.cmms-oficina-mode .cmms-context-breadcrumb { display: none; }
+          .cmms-root.cmms-oficina-mode .cmms-refresh-cfg,
+          .cmms-root.cmms-oficina-mode .cmms-forzar-refresh,
+          .cmms-root.cmms-oficina-mode .cmms-sync-label,
+          .cmms-root.cmms-oficina-mode .cmms-online-label,
+          .cmms-root.cmms-oficina-mode .cmms-mode-toggle-text,
+          .cmms-root.cmms-oficina-mode .cmms-tabs-bar { display: none !important; }
+          .cmms-root.cmms-oficina-mode .cmms-mode-toggle { padding: 5px 8px; }
+          .cmms-root.cmms-oficina-mode .cmms-work-area {
+            padding: 6px 10px 10px;
+            overflow-x: hidden;
+          }
+          .cmms-root.cmms-oficina-mode .cmms-offline-banner {
+            padding: 6px 10px !important;
+            font-size: 11.5px !important;
+          }
         }
 
         @media (max-width: 760px) {

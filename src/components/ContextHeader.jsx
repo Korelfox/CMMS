@@ -102,7 +102,7 @@ export default function ContextHeader({
           flexWrap: "wrap",
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0, flex: 1 }}>
+        <div className="cmms-header-left" style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0, flex: 1 }}>
           <button
             type="button"
             className="cmms-hamburger"
@@ -217,7 +217,7 @@ export default function ContextHeader({
           )}
 
           {pendientes === 0 && (
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 600, color: online ? C.green : C.amber }}>
+            <span className="cmms-online-label" style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 600, color: online ? C.green : C.amber }}>
               {online ? <Wifi size={14} /> : <WifiOff size={14} />}
               {online ? "En línea" : "Offline"}
             </span>
@@ -227,6 +227,7 @@ export default function ContextHeader({
             <>
               <button
                 type="button"
+                className="cmms-forzar-refresh"
                 onClick={onForzarRefresh}
                 title="Actualizar datos del módulo"
                 style={{ ...ghostBtn, padding: "5px 11px", fontSize: 12, display: "inline-flex", alignItems: "center", gap: 5 }}

@@ -109,6 +109,23 @@ export const THEME_VARS = `
       max-width: 100%;
     }
   }
+  /* Horizontal móvil: altura crítica — chrome mínimo y paneles acotados a dvh */
+  @media (orientation: landscape) and (max-height: 520px) {
+    .cmms-root.cmms-oficina-mode {
+      --cmms-vh-chrome: 118px;
+      --layout-pad-x: 10px;
+      --layout-pad-y: 6px;
+      --layout-pad-bottom: 10px;
+    }
+    .cmms-root.cmms-oficina-mode > main {
+      overflow-x: hidden;
+      min-width: 0;
+    }
+    .cmms-root.cmms-oficina-mode .cmms-work-area {
+      overflow-x: hidden;
+      max-width: 100%;
+    }
+  }
   .cmms-root.cmms-campo-mode > main {
     background: linear-gradient(180deg, var(--c-mist) 0%, color-mix(in srgb, var(--c-foam) 22%, var(--c-mist)) 100%);
   }
@@ -188,6 +205,20 @@ export const THEME_VARS = `
   @media (min-width: 1025px) {
     .cmms-root:not(.cmms-campo-mode) .cmms-sidebar {
       position: relative;
+    }
+  }
+  /* Horizontal móvil con ancho >1024 (poco común): drawer igual que en angosto */
+  @media (orientation: landscape) and (max-height: 520px) and (min-width: 1025px) {
+    .cmms-root.cmms-oficina-mode .cmms-sidebar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      height: 100dvh;
+      z-index: 50;
+      transform: translateX(-100%);
+    }
+    .cmms-root.cmms-oficina-mode .cmms-sidebar.cmms-sidebar-open {
+      transform: translateX(0);
     }
   }
   .cmms-root:not(.cmms-campo-mode) .cmms-sidebar::before {
