@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
-  Radar, RefreshCw, Check, AlertTriangle, AlertCircle, Clock, Mail, ChevronRight, Cloud,
+  Radar, RefreshCw, Check, AlertTriangle, AlertCircle, Clock, ChevronRight, Cloud,
 } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { useOnline } from "../lib/offline";
@@ -173,21 +173,6 @@ export default function Vigilante({ onNavigate }) {
           ))}
         </div>
       )}
-
-      {/* Nota de bloqueo honesto: notificación por correo */}
-      <Card style={{ marginTop: 16, background: tint(C.amber, 5), border: `1px solid ${tint(C.amber, 30)}` }}>
-        <div style={{ display: "flex", alignItems: "flex-start", gap: 11 }}>
-          <Mail size={18} color={C.amber} style={{ flexShrink: 0, marginTop: 1 }} />
-          <div>
-            <div style={{ fontSize: 13, fontWeight: 700, color: C.ink, marginBottom: 3 }}>Notificación por correo — pendiente</div>
-            <div style={{ fontSize: 12, color: C.slate, lineHeight: 1.55 }}>
-              El envío de un correo cuando hay severidad roja necesita una clave de proveedor de email
-              (Resend / SendGrid) en Supabase Secrets. La vigilancia y el registro ya funcionan solos;
-              solo falta esa credencial para el aviso automático.
-            </div>
-          </div>
-        </div>
-      </Card>
     </div>
   );
 }
