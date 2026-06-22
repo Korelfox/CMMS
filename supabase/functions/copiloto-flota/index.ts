@@ -15,8 +15,10 @@ const CORS = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-const MODELO_DEFECTO = "claude-sonnet-4-6";
-const MODELOS_PERMITIDOS = new Set(["claude-sonnet-4-6", "claude-haiku-4-5-20251001"]);
+// Default: el modelo más capaz (Opus 4.8). Sonnet/Haiku quedan permitidos como
+// opciones más rápidas/baratas si el cliente las pide explícitamente.
+const MODELO_DEFECTO = "claude-opus-4-8";
+const MODELOS_PERMITIDOS = new Set(["claude-opus-4-8", "claude-sonnet-4-6", "claude-haiku-4-5-20251001"]);
 
 const SYSTEM_BASE = `Eres el Copiloto IA de flota de CMMS Korelfox. Asistes al armador, jefe de flota y encargado de mantenimiento de empresas pesqueras industriales chilenas.
 
@@ -78,15 +80,19 @@ Deno.serve(async (req: Request) => {
 
     const modeloFinal = typeof model === "string" && MODELOS_PERMITIDOS.has(model) ? model : MODELO_DEFECTO;
 
-    // System prompt dinámico con contexto de flota inyectado
-    let system = SYSTEM_BASE;
+    // System prompt dinámico con contexto de flota inyectado. Se envía como
+    // bloque con cache_control: en una conversación multi-turno el system+contexto
+    // es idéntico cada turno, así prompt caching lo sirve a ~0.1x del costo en los
+    // turnos 2+ (Opus cachea prefijos ≥4096 tokens; con contexto presente se supera).
+    let systemText = SYSTEM_BASE;
     if (contexto) {
       const ctxStr = JSON.stringify(contexto);
       if (ctxStr.length > 50_000) {
         return json({ error: "Contexto de flota demasiado grande. Reduce el período de datos." }, 413);
       }
-      system = `${SYSTEM_BASE}\n\nCONTEXTO DE FLOTA (datos reales, actualizado ${contexto.fecha || "hoy"}):\n\`\`\`json\n${ctxStr}\n\`\`\``;
+      systemText = `${SYSTEM_BASE}\n\nCONTEXTO DE FLOTA (datos reales, actualizado ${contexto.fecha || "hoy"}):\n\`\`\`json\n${ctxStr}\n\`\`\``;
     }
+    const system = [{ type: "text", text: systemText, cache_control: { type: "ephemeral" } }];
 
     const upstream = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
@@ -97,10 +103,10 @@ Deno.serve(async (req: Request) => {
       },
       body: JSON.stringify({
         model: modeloFinal,
-        max_tokens: 2000,
+        max_tokens: 8000,
         stream: true,
-        thinking: { type: "disabled" },
-        output_config: { effort: "low" },
+        thinking: { type: "adaptive" },     // se autorregula: rápido en preguntas simples, profundo en las complejas
+        output_config: { effort: "high" },  // mínimo recomendado para trabajo sensible a inteligencia (confiabilidad/ISO)
         system,
         messages,
       }),
