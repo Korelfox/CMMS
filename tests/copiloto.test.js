@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { construirResumenFlota } from "../src/lib/copiloto.js";
+import { construirCalidadDatos } from "../src/lib/contextoIA.js";
 import { riesgoFlota } from "../src/lib/riesgo.js";
 
 const HOY  = "2026-06-13";
@@ -112,5 +113,80 @@ describe("construirResumenFlota", () => {
     const conStock = [{ item_id: "i1", cantidad: 5 }];
     const r = construirResumenFlota({ empresa, embarcaciones, equipos, planesEval, ots, items, stock: conStock, destinos, hoy: HOY });
     expect(r.inventario.repuestosCriticosSinStock).toHaveLength(0);
+  });
+
+  it("el contexto del Copiloto incluye el bloque calidadDatos", () => {
+    const r = construirResumenFlota({ empresa, embarcaciones, equipos, planesEval, ots, items, stock, destinos, hoy: HOY });
+    expect(r.calidadDatos).toBeDefined();
+    expect(r.calidadDatos).toHaveProperty("saludRegistro");
+    expect(r.calidadDatos).toHaveProperty("brechasTop");
+  });
+});
+
+// ── construirCalidadDatos ──────────────────────────────────────────────────────
+describe("construirCalidadDatos", () => {
+  // Equipos hoja evaluables (tipo_nodo componente). ficha._registro:"horas" evita
+  // que se gatillen brechas de fecha de instalación / ficha técnica.
+  const eqOk = {
+    id: "k1", embarcacion_id: EMB1, id_visible: "DP-MP", sistema: "Motor",
+    tipo_nodo: "componente", criticidad: "A", horometro: "propio", ficha: { _registro: "horas" },
+  };
+  const eqSinCrit = {
+    id: "k2", embarcacion_id: EMB1, id_visible: "DP-BB", sistema: "Bomba",
+    tipo_nodo: "componente", criticidad: null, horometro: "propio", ficha: { _registro: "horas" },
+  };
+  const eqs      = [eqOk, eqSinCrit];
+  const destinos = [{ item_id: "i1", equipo_id: "k1" }]; // eqOk (crit A) con repuesto → sin brecha
+
+  const otsCD = [
+    { id: "c1", equipo_id: "k1", tipo: "correctivo", estado: "cerrada", modo_falla: "vibracion" },
+    { id: "c2", equipo_id: "k1", tipo: "correctivo", estado: "cerrada", modo_falla: null },
+    { id: "c3", equipo_id: "k1", tipo: "correctivo", estado: "cerrada" }, // sin modo_falla
+    { id: "p1", equipo_id: "k1", tipo: "preventivo", estado: "cerrada" }, // no es correctiva → no cuenta
+  ];
+
+  const planesCD = [
+    { equipo: eqOk, plan: {}, tone: "slate", label: "Sin historial", esCalendario: false, limite: 500 },
+    { equipo: eqOk, plan: {}, tone: "red",   esCalendario: false, limite: 0 }, // sin intervalo
+  ];
+
+  it("salud del registro y conteo de brechas desde analizarBrechas", () => {
+    const r = construirCalidadDatos({ equipos: eqs, destinos, ots: otsCD, planesEval: planesCD });
+    expect(r.equiposEvaluados).toBe(2);
+    expect(r.equiposConBrecha).toBe(1);   // solo eqSinCrit
+    expect(r.saludRegistro).toBe(50);     // 1 de 2 completos
+  });
+
+  it("ISO 14224: cuenta correctivas cerradas sin modo de falla", () => {
+    const r = construirCalidadDatos({ equipos: eqs, destinos, ots: otsCD, planesEval: planesCD });
+    expect(r.isoFallas.correctivasCerradas).toBe(3); // c1, c2, c3 (no la preventiva)
+    expect(r.isoFallas.sinCodificar).toBe(2);        // c2 (null) + c3 (ausente)
+    expect(r.isoFallas.pctSinCodificar).toBe(67);
+  });
+
+  it("confiabilidad: críticos A con <4 correctivas no permiten ajustar Weibull", () => {
+    const r = construirCalidadDatos({ equipos: eqs, destinos, ots: otsCD, planesEval: planesCD });
+    expect(r.confiabilidad.criticosASinHistorial).toBe(1); // eqOk (3 correctivas)
+  });
+
+  it("plan preventivo: distingue sin línea base de sin intervalo", () => {
+    const r = construirCalidadDatos({ equipos: eqs, destinos, ots: otsCD, planesEval: planesCD });
+    expect(r.planPreventivo.sinLineaBase).toBe(1); // tone slate
+    expect(r.planPreventivo.sinIntervalo).toBe(1); // horas con limite 0
+  });
+
+  it("brechasTop incluye la falta de criticidad con su acción de corrección", () => {
+    const r = construirCalidadDatos({ equipos: eqs, destinos, ots: otsCD, planesEval: planesCD });
+    const crit = r.brechasTop.find((b) => b.area === "Criticidad de equipos");
+    expect(crit).toBeDefined();
+    expect(crit.comoCorregir).toMatch(/Optimizar/);
+  });
+
+  it("datos vacíos no rompen y la salud es 100", () => {
+    const r = construirCalidadDatos({});
+    expect(r.saludRegistro).toBe(100);
+    expect(r.isoFallas.correctivasCerradas).toBe(0);
+    expect(r.isoFallas.pctSinCodificar).toBeNull();
+    expect(r.brechasTop).toHaveLength(0);
   });
 });

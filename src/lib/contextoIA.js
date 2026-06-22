@@ -9,6 +9,8 @@
 import { coberturaCriticos, scoreBacklog, diasAbierta } from "./operacional";
 import { analizarDesgasteFlota } from "./desgaste";
 import { estadoPresupuesto } from "./presupuesto";
+import { analizarBrechas } from "./equipoBrechas";
+import { requiereCodigoFalla } from "./fallasISO";
 import { hoyLocal } from "./fechas";
 
 const DIA_MS = 86_400_000;
@@ -93,6 +95,117 @@ export function topRiesgo(ranking = [], embarcaciones = [], n = 5) {
     }));
 }
 
+// ── Calidad de datos (auditoría interna del CMMS) ───────────────────────────
+// El Copiloto no solo lee el estado de la flota: audita la calidad de los datos
+// que alimentan a TODOS los módulos IA y le dice al usuario cómo cerrarlos.
+//
+// Reusa motores puros ya existentes para no divergir:
+//   · analizarBrechas()  → salud del registro de equipos (modo Optimizar).
+//   · requiereCodigoFalla() → qué OTs deben llevar modo de falla ISO 14224.
+// Las severidades replican las del motor server-side _gen_insights (IA-A/B/C)
+// para que el Copiloto y el Vigilante hablen el mismo idioma.
+
+const RANK_SEVERIDAD = { alta: 0, media: 1, baja: 2 };
+
+export function construirCalidadDatos({
+  equipos    = [],
+  destinos   = [],
+  ots        = [],
+  planesEval = [],
+} = {}) {
+  // 1) Brechas del registro de equipos (criticidad, horómetro, repuestos, ficha…)
+  const brechas = analizarBrechas(equipos || [], destinos || []);
+  const porTipo = brechas.porTipo || {};
+
+  // 2) ISO 14224 — correctivas cerradas sin modo de falla codificado (≈ IA-B)
+  const correctivasCerradas = (ots || []).filter(
+    (o) => o.estado === "cerrada" && requiereCodigoFalla(o),
+  );
+  const sinModo    = correctivasCerradas.filter((o) => !o.modo_falla).length;
+  const pctSinModo = correctivasCerradas.length
+    ? Math.round((sinModo / correctivasCerradas.length) * 100)
+    : null;
+
+  // 3) Confiabilidad — críticos A con <4 correctivas cerradas (≈ IA-C, Weibull)
+  const corrPorEquipo = new Map();
+  for (const o of ots || []) {
+    if (o.estado === "cerrada" && o.tipo === "correctivo" && o.equipo_id) {
+      corrPorEquipo.set(o.equipo_id, (corrPorEquipo.get(o.equipo_id) || 0) + 1);
+    }
+  }
+  const criticosASinHistorial = (equipos || []).filter(
+    (e) => e.criticidad === "A" && (corrPorEquipo.get(e.id) || 0) < 4,
+  ).length;
+
+  // 4) Plan preventivo — sin línea base (nunca configurado) o sin intervalo de horas
+  const planesSinLineaBase = (planesEval || []).filter((p) => p.tone === "slate").length;
+  const planesSinIntervalo = (planesEval || []).filter(
+    (p) => !p.esCalendario && !(p.limite > 0),
+  ).length;
+
+  // brechasTop: las de mayor impacto, cada una con CÓMO corregirla en la app.
+  const top = [];
+  const nSinCrit = porTipo.sin_criticidad || 0;
+  if (nSinCrit > 0) top.push({
+    area:        "Criticidad de equipos",
+    severidad:   nSinCrit > 20 ? "alta" : nSinCrit > 5 ? "media" : "baja",
+    detalle:     `${nSinCrit} equipos sin criticidad A/B/C asignada`,
+    impacto:     "El scoring de riesgo y la priorización del Copiloto pierden precisión",
+    comoCorregir: "Equipos → modo Optimizar → pestaña Identidad: asignar criticidad",
+  });
+  if (correctivasCerradas.length >= 5 && pctSinModo > 30) top.push({
+    area:        "Codificación ISO 14224 de fallas",
+    severidad:   pctSinModo > 60 ? "alta" : "media",
+    detalle:     `${sinModo} de ${correctivasCerradas.length} correctivas cerradas sin modo de falla (${pctSinModo}%)`,
+    impacto:     "Pareto, Weibull y Diagnóstico de Fallas trabajan con datos incompletos",
+    comoCorregir: "Al cerrar una correctiva, registrar modo/causa/mecanismo (taxonomía ISO 14224)",
+  });
+  if (criticosASinHistorial > 0) top.push({
+    area:        "Historial de confiabilidad (críticos A)",
+    severidad:   "media",
+    detalle:     `${criticosASinHistorial} equipos críticos A con <4 correctivas registradas`,
+    impacto:     "ConfiabilidadML no puede ajustar Weibull ni estimar MTBF",
+    comoCorregir: "Registrar en OTs el historial de fallas de estos equipos",
+  });
+  if (planesSinLineaBase > 0) top.push({
+    area:        "Línea base de planes PM",
+    severidad:   planesSinLineaBase > 10 ? "media" : "baja",
+    detalle:     `${planesSinLineaBase} planes PM sin último mantenimiento registrado`,
+    impacto:     "El semáforo de vencimiento y la proyección de desgaste no se calculan",
+    comoCorregir: "PlanPM: registrar fecha/horas del último PM de cada plan",
+  });
+  const nSinHoro = porTipo.sin_horometro || 0;
+  if (nSinHoro > 0) top.push({
+    area:        "Horómetro de equipos",
+    severidad:   nSinHoro > 10 ? "media" : "baja",
+    detalle:     `${nSinHoro} equipos sin configuración de horómetro`,
+    impacto:     "Sin horas de uso no hay proyección de desgaste ni vida remanente",
+    comoCorregir: "Equipos → modo Optimizar → pestaña Operacional: configurar horómetro",
+  });
+  if (planesSinIntervalo > 0) top.push({
+    area:        "Intervalo de planes PM",
+    severidad:   "baja",
+    detalle:     `${planesSinIntervalo} planes por horas sin intervalo definido`,
+    impacto:     "Esos planes nunca generan alerta de vencimiento",
+    comoCorregir: "PlanPM: definir el intervalo de horas del plan",
+  });
+  top.sort((a, b) => RANK_SEVERIDAD[a.severidad] - RANK_SEVERIDAD[b.severidad]);
+
+  return {
+    saludRegistro:    brechas.salud,          // % de equipos hoja sin brechas
+    equiposEvaluados: brechas.evaluables,
+    equiposConBrecha: brechas.equiposConBrecha,
+    isoFallas: {
+      correctivasCerradas: correctivasCerradas.length,
+      sinCodificar:        sinModo,
+      pctSinCodificar:     pctSinModo,
+    },
+    confiabilidad: { criticosASinHistorial },
+    planPreventivo: { sinLineaBase: planesSinLineaBase, sinIntervalo: planesSinIntervalo },
+    brechasTop: top.slice(0, 6),
+  };
+}
+
 // ── Contexto para Copiloto de Flota ─────────────────────────────────────────
 // Schema compacto optimizado para conversación: resume PMs, OTs, riesgo e
 // inventario. Recibe riesgoRanking pre-calculado por el componente (igual que
@@ -155,6 +268,7 @@ export function construirContextoCopiloto({
     }));
 
   const desgaste = analizarDesgasteFlota({ planesEval, lecturas, equipos, embarcaciones });
+  const calidadDatos = construirCalidadDatos({ equipos, destinos, ots, planesEval });
 
   return {
     empresa: empresa?.nombre || "Desconocida",
@@ -185,6 +299,7 @@ export function construirContextoCopiloto({
       repuestosCriticosSinStock: sinCobertura,
     },
     horasOperacion: desgaste,
+    calidadDatos,
     fecha: hoy,
   };
 }

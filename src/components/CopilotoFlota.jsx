@@ -20,6 +20,8 @@ const CHIPS = [
   "Prioridades de mantenimiento para esta semana",
   "¿Hay repuestos críticos sin stock?",
   "¿Cuál es el estado del backlog de OTs?",
+  "¿Qué datos del CMMS debería mejorar?",
+  "¿Qué fallas no están codificadas según ISO 14224?",
 ];
 
 const SPEC = [
@@ -173,6 +175,7 @@ export default function CopilotoFlota() {
   const otsAbiertas = contexto?.mantenimiento?.otsAbiertas ?? 0;
   const nNaves      = contexto?.flota?.length              ?? 0;
   const sinStock    = contexto?.inventario?.repuestosCriticosSinStock?.length ?? 0;
+  const saludDatos  = contexto?.calidadDatos?.saludRegistro;
   const noMessages  = messages.length === 0 && !streamText;
 
   return (
@@ -193,6 +196,11 @@ export default function CopilotoFlota() {
           <Pill tone={enRojo > 0 ? "red" : "green"}>{enRojo} en zona roja</Pill>
           <Pill tone={otsAbiertas > 5 ? "yellow" : "steel"}>{otsAbiertas} OT{otsAbiertas !== 1 ? "s" : ""} abiertas</Pill>
           {sinStock > 0 && <Pill tone="red">{sinStock} rep. crítico{sinStock !== 1 ? "s" : ""} sin stock</Pill>}
+          {saludDatos != null && (
+            <Pill tone={saludDatos >= 85 ? "green" : saludDatos >= 60 ? "yellow" : "red"}>
+              {saludDatos}% datos completos
+            </Pill>
+          )}
         </div>
       )}
 

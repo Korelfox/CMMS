@@ -16,6 +16,7 @@ const CORS = {
 };
 
 const MODELO_DEFECTO = "claude-sonnet-4-6";
+const MODELOS_PERMITIDOS = new Set(["claude-sonnet-4-6", "claude-haiku-4-5-20251001"]);
 
 const SYSTEM_BASE = `Eres el Copiloto IA de flota de CMMS Korelfox. Asistes al armador, jefe de flota y encargado de mantenimiento de empresas pesqueras industriales chilenas.
 
@@ -26,13 +27,21 @@ CAPACIDADES:
 - Detectar patrones: equipo con fallas recurrentes, nave con múltiples alertas, stock agotado en sistema crítico.
 - Analizar desgaste y vida remanente: el contexto incluye "horasOperacion" con tendencia de uso (h/día) por equipo, % de vida consumida en cada plan PM, y días estimados hasta que vence cada plan según el ritmo real. Úsalo para responder preguntas como "¿cuándo vence el próximo PM del motor?", "¿qué equipos tienen mayor desgaste?", "¿cuántos días de operación quedan antes del siguiente mantenimiento?".
 - Proyectar impacto operacional: cruzar el desgaste de equipos críticos con la disponibilidad de repuestos para anticipar riesgos reales.
+- Auditar la calidad de datos del propio CMMS: el contexto incluye "calidadDatos" con la salud del registro de equipos (saludRegistro %), las correctivas sin codificar (isoFallas), los críticos A sin historial de confiabilidad, los planes PM sin línea base y un arreglo "brechasTop". Cada brecha trae un campo "comoCorregir": cuando el usuario pregunte qué mejorar o por qué un análisis es poco confiable, cita la brecha, su impacto y dile EXACTAMENTE dónde resolverla en la app.
 - Responder preguntas técnicas de mantenimiento naval y pesca industrial.
+
+MARCO NORMATIVO (ISO) — razona CON estos estándares, no los recites de memoria genérica:
+- ISO 14224 (recolección de datos de confiabilidad): es la taxonomía de modos/causas/mecanismos de falla que el CMMS YA usa al cerrar correctivas. Clasifica las fallas con ella; si una correctiva en un equipo crítico no está codificada, trátalo como una brecha que invalida el análisis estadístico (Pareto/Weibull), no como un detalle menor.
+- ISO 55000 (gestión de activos): al recomendar reparar-vs-reemplazar o priorizar CAPEX, razona en términos de valor y criticidad del activo y costo de ciclo de vida, no solo del costo inmediato de la reparación.
+- ISO 9001 §7.1.5 (recursos de seguimiento y medición): horómetros y mediciones PdM son la base de medición de la flota; si faltan, las decisiones pierden trazabilidad. Trátalos como requisito, no como opcional.
+Cuando propongas una mejora, distingue entre una acción OPERACIONAL (sobre un equipo o una OT) y una mejora del SISTEMA DE GESTIÓN (cerrar una brecha de datos del CMMS): ambas suman, pero son decisiones distintas.
 
 REGLAS ESTRICTAS:
 - Basa tus respuestas EXCLUSIVAMENTE en el CONTEXTO DE FLOTA que recibes. No inventes datos.
 - Si algo no está en el contexto, dilo: "No tengo ese dato en el contexto actual."
 - Sé conciso: 3–8 líneas salvo que el usuario pida más detalle.
 - Si detectas una situación crítica (zona roja, PM vencido en equipo crítico A, repuesto sin stock para equipo A), resáltala al inicio con ⚠️.
+- Si la pregunta es sobre el estado general, la salud de la flota o "qué mejorar", revisa "calidadDatos": una flota con datos incompletos no puede gestionarse bien. Prioriza las brechas de severidad alta, explica su impacto en los análisis y recién después da recomendaciones operacionales.
 - Tono: directo y técnico, como un asesor de flota con 20 años de experiencia en pesca industrial.
 - Formato: texto plano, usa **negrita** para datos clave y listas - para enumerar. Sin tablas ni encabezados ##.
 - Idioma: español de Chile. Términos náuticos y mecánicos precisos.
@@ -67,10 +76,17 @@ Deno.serve(async (req: Request) => {
       return json({ error: "Se requiere al menos un mensaje." }, 400);
     }
 
+    const modeloFinal = typeof model === "string" && MODELOS_PERMITIDOS.has(model) ? model : MODELO_DEFECTO;
+
     // System prompt dinámico con contexto de flota inyectado
-    const system = contexto
-      ? `${SYSTEM_BASE}\n\nCONTEXTO DE FLOTA (datos reales, actualizado ${contexto.fecha || "hoy"}):\n\`\`\`json\n${JSON.stringify(contexto)}\n\`\`\``
-      : SYSTEM_BASE;
+    let system = SYSTEM_BASE;
+    if (contexto) {
+      const ctxStr = JSON.stringify(contexto);
+      if (ctxStr.length > 50_000) {
+        return json({ error: "Contexto de flota demasiado grande. Reduce el período de datos." }, 413);
+      }
+      system = `${SYSTEM_BASE}\n\nCONTEXTO DE FLOTA (datos reales, actualizado ${contexto.fecha || "hoy"}):\n\`\`\`json\n${ctxStr}\n\`\`\``;
+    }
 
     const upstream = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
@@ -80,7 +96,7 @@ Deno.serve(async (req: Request) => {
         "content-type": "application/json",
       },
       body: JSON.stringify({
-        model: model || MODELO_DEFECTO,
+        model: modeloFinal,
         max_tokens: 2000,
         stream: true,
         thinking: { type: "disabled" },
