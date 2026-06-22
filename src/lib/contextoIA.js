@@ -9,7 +9,7 @@
 import { coberturaCriticos, scoreBacklog, diasAbierta } from "./operacional";
 import { analizarDesgasteFlota } from "./desgaste";
 import { estadoPresupuesto } from "./presupuesto";
-import { analizarBrechas } from "./equipoBrechas";
+import { analizarBrechas, esComponenteNodo } from "./equipoBrechas";
 import { requiereCodigoFalla } from "./fallasISO";
 import { hoyLocal } from "./fechas";
 
@@ -126,7 +126,11 @@ export function construirCalidadDatos({
     ? Math.round((sinModo / correctivasCerradas.length) * 100)
     : null;
 
-  // 3) Confiabilidad — críticos A con <4 correctivas cerradas (≈ IA-C, Weibull)
+  // 3) Confiabilidad — críticos A con <4 correctivas cerradas (Weibull no ajusta).
+  // Solo nodos HOJA operativos (componente/instrumento/equipo): un sistema o
+  // subsistema es agrupación, no acumula correctivas propias ni se modela con
+  // Weibull. Así esta cuenta vive en la misma población que saludRegistro y no
+  // contradice a equiposEvaluados (contar todos los A inflaría con nodos padre).
   const corrPorEquipo = new Map();
   for (const o of ots || []) {
     if (o.estado === "cerrada" && o.tipo === "correctivo" && o.equipo_id) {
@@ -134,7 +138,7 @@ export function construirCalidadDatos({
     }
   }
   const criticosASinHistorial = (equipos || []).filter(
-    (e) => e.criticidad === "A" && (corrPorEquipo.get(e.id) || 0) < 4,
+    (e) => e.criticidad === "A" && esComponenteNodo(e) && (corrPorEquipo.get(e.id) || 0) < 4,
   ).length;
 
   // 4) Plan preventivo — sin línea base (nunca configurado) o sin intervalo de horas

@@ -169,6 +169,18 @@ describe("construirCalidadDatos", () => {
     expect(r.confiabilidad.criticosASinHistorial).toBe(1); // eqOk (3 correctivas)
   });
 
+  it("confiabilidad: solo cuenta nodos hoja, no sistemas/subsistemas A", () => {
+    // Un sistema y un subsistema marcados criticidad A son agrupación: no
+    // acumulan correctivas propias ni se modelan con Weibull → no deben contar.
+    const conPadres = [
+      eqOk, // componente A hoja, 3 correctivas → cuenta
+      { id: "s1", embarcacion_id: EMB1, id_visible: "DP-MOT", sistema: "Motor",       tipo_nodo: "sistema",    criticidad: "A" },
+      { id: "ss1", embarcacion_id: EMB1, id_visible: "DP-PROP", sistema: "Propulsión", tipo_nodo: "subsistema", criticidad: "A" },
+    ];
+    const r = construirCalidadDatos({ equipos: conPadres, destinos, ots: otsCD, planesEval: [] });
+    expect(r.confiabilidad.criticosASinHistorial).toBe(1); // solo eqOk, no s1/ss1
+  });
+
   it("plan preventivo: distingue sin línea base de sin intervalo", () => {
     const r = construirCalidadDatos({ equipos: eqs, destinos, ots: otsCD, planesEval: planesCD });
     expect(r.planPreventivo.sinLineaBase).toBe(1); // tone slate
