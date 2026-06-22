@@ -29,3 +29,6 @@ verify_jwt = false
 
 [functions.informe-ejecutivo-cron]
 verify_jwt = false
+
+[functions.notificar-insights]
+verify_jwt = false
