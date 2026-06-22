@@ -26,6 +26,10 @@ const ROLES_AVISO = ["super_admin", "admin_empresa", "jefe_mantencion"];
 
 const FROM = Deno.env.get("ALERTA_EMAIL_FROM") || "CMMS Korelfox <alertas@korelfox.cl>";
 
+// Base de la app para el enlace directo al módulo Vigilante (deep-link ?view=).
+const APP_URL = (Deno.env.get("APP_URL") || "https://cmms-phi-nine.vercel.app").replace(/\/+$/, "");
+const VIGILANTE_URL = `${APP_URL}/?view=vigilante`;
+
 function json(obj: unknown, status = 200): Response {
   return new Response(JSON.stringify(obj), { status, headers: { ...CORS, "Content-Type": "application/json" } });
 }
@@ -114,7 +118,11 @@ Deno.serve(async (req: Request) => {
         `<h2 style="font-size:17px;margin:0 0 4px">⚠️ ${items.length} alerta(s) crítica(s) de datos</h2>` +
         `<p style="color:#475569;font-size:13px;margin:0 0 16px">Flota de <strong>${esc(nombreEmpresa)}</strong> · ${hoy}</p>` +
         `<ul style="padding-left:18px;margin:0 0 16px">${filas}</ul>` +
-        `<p style="font-size:13px;color:#475569;margin:0">Revisa estas alertas en el CMMS (módulo Vigilante / Alertas) para mantener los análisis de confiabilidad confiables.</p>` +
+        `<p style="margin:0 0 18px">` +
+        `<a href="${VIGILANTE_URL}" style="display:inline-block;background:#0A1A2A;color:#fff;text-decoration:none;` +
+        `font-size:13px;font-weight:600;padding:10px 18px;border-radius:8px">Abrir el Vigilante en el CMMS →</a>` +
+        `</p>` +
+        `<p style="font-size:13px;color:#475569;margin:0">Revisa estas alertas para mantener confiables los análisis de la flota.</p>` +
         `</div>`;
 
       const subject = `⚠️ ${nombreEmpresa}: ${items.length} alerta(s) crítica(s) de datos en el CMMS`;

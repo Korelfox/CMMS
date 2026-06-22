@@ -207,6 +207,26 @@ export default function AppShell() {
   const navPerms = { isAdmin, isSuperAdmin };
   const visibleNav = allNavItems(profile, navPerms);
 
+  // Deep-link `?view=<id>`: permite enlazar a un módulo desde fuera (ej. correos
+  // del Vigilante → `?view=vigilante`). Solo se honra si la vista está en el
+  // visibleNav del usuario (mismo gating que el sidebar); si no, se ignora. Se
+  // aplica una sola vez, tras cargar el perfil, y limpia el param de la URL.
+  const deepLinkAplicado = useRef(false);
+  useEffect(() => {
+    if (deepLinkAplicado.current || visibleNav.length === 0) return;
+    let destino = null;
+    try { destino = new URLSearchParams(window.location.search).get("view"); } catch { /* sin URL API */ }
+    deepLinkAplicado.current = true;
+    if (destino && visibleNav.some((i) => i.id === destino)) navegar(destino);
+    try {
+      const url = new URL(window.location.href);
+      if (url.searchParams.has("view")) {
+        url.searchParams.delete("view");
+        window.history.replaceState({}, "", url.pathname + url.search + url.hash);
+      }
+    } catch { /* sin history API */ }
+  }, [visibleNav, navegar]);
+
   const refrescarPendientes = useCallback(async () => { setPendientes(await outboxCount()); }, []);
 
   const sincronizar = useCallback(async () => {
