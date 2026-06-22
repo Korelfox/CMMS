@@ -6,20 +6,23 @@ project_id = "nbsufgseirkzkmilsxcq"
 [api]
 enabled = true
 
+# verify_jwt refleja el estado REAL desplegado (verificado con list_edge_functions).
+# Las funciones en false validan la sesión por su cuenta o son webhooks/cron.
+# No cambiar sin re-desplegar la función correspondiente.
 [functions.pronostico-operacional]
-verify_jwt = false
+verify_jwt = true
 
 [functions.informe-ejecutivo]
 verify_jwt = false
 
 [functions.diagnostico-fallas]
-verify_jwt = false
+verify_jwt = true
 
 [functions.copiloto-flota]
-verify_jwt = false
+verify_jwt = true
 
 [functions.ocr-factura]
-verify_jwt = false
+verify_jwt = true
 
 [functions.ingest-horometro]
 verify_jwt = false
