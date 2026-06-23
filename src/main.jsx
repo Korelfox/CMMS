@@ -20,11 +20,17 @@ try {
 //  2. registerType "autoUpdate" hace skipWaiting → el SW nuevo activa solo.
 //  3. Al cambiar el controlador, recargamos UNA vez para servir la versión nueva.
 if ("serviceWorker" in navigator) {
-  let recargado = false;
-  navigator.serviceWorker.addEventListener("controllerchange", () => {
-    if (recargado) return;
-    recargado = true;
-    window.location.reload();
+  // No recargamos a mitad de tarea: cuando llega un SW nuevo (deploy), esperamos
+  // a que la pestaña pase a segundo plano (el operario bloquea el teléfono o
+  // cambia de app) para aplicar la versión nueva sin interrumpir el trabajo en
+  // terreno. Con la vista persistida, además, la recarga ya no salta a inicio.
+  let pendiente = false;
+  navigator.serviceWorker.addEventListener("controllerchange", () => { pendiente = true; });
+  document.addEventListener("visibilitychange", () => {
+    if (pendiente && document.visibilityState === "hidden") {
+      pendiente = false;
+      window.location.reload();
+    }
   });
 }
 registerSW({

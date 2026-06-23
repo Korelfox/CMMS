@@ -3,6 +3,7 @@ import {
   Anchor, LogOut, UserCircle, X, Sun, Moon, BarChart3,
 } from "lucide-react";
 import { useAuth } from "../lib/auth";
+import { supabase } from "../lib/supabase";
 import { fetchAll } from "../lib/db";
 import { useOnline, outboxCount, flushOutbox } from "../lib/offline";
 import { C, archivo, rolLabel, ROLES, isAdmin, isSuperAdmin, canAccessOficina } from "../theme";
@@ -147,7 +148,12 @@ function EmbarcacionPickerGate() {
 export default function AppShell() {
   const { profile, empresa, signOut } = useAuth();
   const online = useOnline();
-  const [view, setView] = useState("dashboard");
+  // Vista de oficina persistida: una recarga (deploy del SW, F5) deja al usuario
+  // donde estaba, no en el dashboard. (El modo Campo ya persiste su tab aparte.)
+  const [view, setView] = useState(() => {
+    try { return sessionStorage.getItem("cmms-office-view") || "dashboard"; } catch { return "dashboard"; }
+  });
+  const [nuevaOt, setNuevaOt] = useState(null); // aviso de OT nueva recibida por realtime
   const [navParams, setNavParams] = useState(null);  // contexto al navegar (ej. OT a resaltar)
   const [armador, setArmador] = useState(null);      // usuario Armador (admin_empresa) de la organización
   const [pendientes, setPendientes] = useState(0);
@@ -293,6 +299,7 @@ export default function AppShell() {
 
   // Registra el módulo activo en el historial de navegación rápida (máx. 7)
   useEffect(() => {
+    try { sessionStorage.setItem("cmms-office-view", view); } catch { /* sin storage */ }
     setRecientes((prev) => {
       const sinActual = prev.filter((id) => id !== view);
       const next = [view, ...sinActual].slice(0, 7);
@@ -316,8 +323,64 @@ export default function AppShell() {
     return () => { vivo = false; };
   }, [empresa?.id]);
 
+  // ── Realtime: OT nueva → aviso instantáneo, sin recargar ni saltar de página.
+  // Solo notifica (el operario abre la OT cuando quiera, "sin interferencias").
+  // La RLS por empresa + el filtro del canal acotan lo que cada cliente recibe.
+  useEffect(() => {
+    if (!empresa?.id) return;
+    const canal = supabase
+      .channel("ot-nuevas-" + empresa.id)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "ordenes_trabajo", filter: `empresa_id=eq.${empresa.id}` },
+        (payload) => setNuevaOt({ folio: payload.new?.folio ?? "", ts: Date.now() }),
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(canal); };
+  }, [empresa?.id]);
+
+  // El aviso se autodescarta tras unos segundos si no se toca.
+  useEffect(() => {
+    if (!nuevaOt) return;
+    const t = setTimeout(() => setNuevaOt(null), 12000);
+    return () => clearTimeout(t);
+  }, [nuevaOt]);
+
+  const verNuevaOt = useCallback(() => {
+    setNuevaOt(null);
+    if (readAppMode() === "campo") {
+      window.dispatchEvent(new CustomEvent("cmms-campo-nav", { detail: { tab: "trabajo" } }));
+    } else {
+      navegar("ots");
+    }
+  }, [navegar]);
+
   return (
     <ShellProvider onNavigate={navegar}>
+      {nuevaOt && (
+        <div
+          role="status"
+          onClick={verNuevaOt}
+          style={{
+            position: "fixed", top: "calc(8px + env(safe-area-inset-top, 0px))", left: "50%",
+            transform: "translateX(-50%)", zIndex: 1000, background: C.sky, color: "#fff",
+            borderRadius: 10, padding: "10px 14px", boxShadow: "0 6px 20px rgba(10,26,42,.25)",
+            cursor: "pointer", display: "flex", alignItems: "center", gap: 10, fontSize: 14,
+            fontWeight: 600, maxWidth: "92vw",
+          }}
+        >
+          <span>🔔 Nueva OT recibida{nuevaOt.folio ? ` · ${nuevaOt.folio}` : ""}</span>
+          <span style={{ textDecoration: "underline", whiteSpace: "nowrap" }}>Ver</span>
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); setNuevaOt(null); }}
+            aria-label="Descartar"
+            style={{ background: "none", border: "none", color: "#fff", cursor: "pointer", fontSize: 18, lineHeight: 1, padding: 0 }}
+          >
+            ×
+          </button>
+        </div>
+      )}
       <EmbarcacionPickerGate />
       <AppShellLayout
         profile={profile}
