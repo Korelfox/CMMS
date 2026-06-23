@@ -103,7 +103,7 @@ Deno.serve(async (req: Request) => {
       },
       body: JSON.stringify({
         model: modeloFinal,
-        max_tokens: 4000,
+        max_tokens: 8000,
         stream: true,
         // Chat INTERACTIVO: thinking extendido + effort alto en Opus generaba
         // respuestas de minutos (el frontend mostraba "analizando flota" sin texto,
@@ -131,6 +131,20 @@ Deno.serve(async (req: Request) => {
         try {
           const { done, value } = await reader.read();
           if (done) {
+            // Flush de un posible último bloque de texto que quedó en el buffer
+            // sin el separador "\n\n" final, para no perder la cola de la respuesta.
+            const tail = buf.split("\n").find((l) => l.startsWith("data:"));
+            if (tail) {
+              const p = tail.slice(5).trim();
+              if (p && p !== "[DONE]") {
+                try {
+                  const o = JSON.parse(p);
+                  if (o.type === "content_block_delta" && o.delta?.type === "text_delta") {
+                    controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text: o.delta.text })}\n\n`));
+                  }
+                } catch (_) { /* fragmento incompleto, se descarta */ }
+              }
+            }
             controller.enqueue(encoder.encode(`data: ${JSON.stringify({ done: true })}\n\n`));
             controller.close();
             return;
@@ -147,6 +161,9 @@ Deno.serve(async (req: Request) => {
               const obj = JSON.parse(payload);
               if (obj.type === "content_block_delta" && obj.delta?.type === "text_delta") {
                 controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text: obj.delta.text })}\n\n`));
+              } else if (obj.type === "message_delta" && obj.delta?.stop_reason) {
+                // Diagnóstico: por qué terminó la respuesta (end_turn | max_tokens | refusal | ...).
+                console.log("copiloto stop_reason:", obj.delta.stop_reason, "out_tokens:", obj.usage?.output_tokens);
               } else if (obj.type === "error") {
                 controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: obj.error?.message || "Error de la API" })}\n\n`));
               }
