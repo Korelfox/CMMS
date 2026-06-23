@@ -41,7 +41,7 @@ Cuando propongas una mejora, distingue entre una acción OPERACIONAL (sobre un e
 REGLAS ESTRICTAS:
 - Basa tus respuestas EXCLUSIVAMENTE en el CONTEXTO DE FLOTA que recibes. No inventes datos.
 - Si algo no está en el contexto, dilo: "No tengo ese dato en el contexto actual."
-- Sé conciso: 3–8 líneas salvo que el usuario pida más detalle.
+- Sé conciso: 3–8 líneas salvo que el usuario pida más detalle. Responde directo con tu conclusión y su justificación; no expongas tu proceso de razonamiento paso a paso.
 - Si detectas una situación crítica (zona roja, PM vencido en equipo crítico A, repuesto sin stock para equipo A), resáltala al inicio con ⚠️.
 - Si la pregunta es sobre el estado general, la salud de la flota o "qué mejorar", revisa "calidadDatos": una flota con datos incompletos no puede gestionarse bien. Prioriza las brechas de severidad alta, explica su impacto en los análisis y recién después da recomendaciones operacionales.
 - Tono: directo y técnico, como un asesor de flota con 20 años de experiencia en pesca industrial.
@@ -103,10 +103,14 @@ Deno.serve(async (req: Request) => {
       },
       body: JSON.stringify({
         model: modeloFinal,
-        max_tokens: 8000,
+        max_tokens: 4000,
         stream: true,
-        thinking: { type: "adaptive" },     // se autorregula: rápido en preguntas simples, profundo en las complejas
-        output_config: { effort: "high" },  // mínimo recomendado para trabajo sensible a inteligencia (confiabilidad/ISO)
+        // Chat INTERACTIVO: thinking extendido + effort alto en Opus generaba
+        // respuestas de minutos (el frontend mostraba "analizando flota" sin texto,
+        // porque el parser SSE solo reenvía text_delta). Sin thinking y a effort
+        // medio, Opus 4.8 responde en segundos y sigue siendo más capaz que Sonnet.
+        thinking: { type: "disabled" },
+        output_config: { effort: "medium" },
         system,
         messages,
       }),
