@@ -1,5 +1,5 @@
 ﻿import { useState, useEffect, useCallback } from "react";
-import { cachedFetch, invalidateCache } from "../lib/fleetCache";
+import { cachedFetch, invalidateCache, readStale } from "../lib/fleetCache";
 
 // spec items: string | { tabla, opts?, soft? }
 // soft: true → fetch error resolves as [] instead of rejecting
@@ -19,21 +19,38 @@ export function useFleetData(spec) {
     .join("|");
 
   const cargar = useCallback(async (forzar = false) => {
-    if (forzar) invalidateCache(...spec.map((s) => (typeof s === "string" ? s : s.tabla)));
-    setLoading(true);
+    const tablas = spec.map((s) =>
+      typeof s === "string" ? { tabla: s, opts: undefined, soft: false } : { tabla: s.tabla, opts: s.opts, soft: s.soft ?? false },
+    );
+    if (forzar) invalidateCache(...tablas.map((s) => s.tabla));
+
+    // Stale-while-revalidate: en la carga inicial (no forzada) pinta al instante
+    // con el último dato persistido si TODAS las tablas lo tienen, y revalida en
+    // red abajo. Así el primer render tras recargar/abrir la PWA no espera la red.
+    if (!forzar) {
+      try {
+        const stales = await Promise.all(tablas.map((s) => readStale(s.tabla, s.opts)));
+        if (stales.every((v) => v != null)) {
+          const obj = {};
+          tablas.forEach((s, i) => { obj[s.tabla] = stales[i]; });
+          setData(obj);
+          setLoading(false);
+        }
+      } catch { /* sin stale: seguimos con loading hasta la respuesta de red */ }
+    } else {
+      setLoading(true);
+    }
+
     setError(null);
     try {
       const resultados = await Promise.all(
-        spec.map((s) => {
-          const tabla = typeof s === "string" ? s : s.tabla;
-          const opts  = typeof s === "string" ? undefined : s.opts;
-          const soft  = typeof s === "string" ? false : (s.soft ?? false);
-          const p = cachedFetch(tabla, opts);
-          return soft ? p.catch(() => []) : p;
+        tablas.map((s) => {
+          const p = cachedFetch(s.tabla, s.opts);
+          return s.soft ? p.catch(() => []) : p;
         }),
       );
       const obj = {};
-      spec.forEach((s, i) => { obj[typeof s === "string" ? s : s.tabla] = resultados[i]; });
+      tablas.forEach((s, i) => { obj[s.tabla] = resultados[i]; });
       setData(obj);
     } catch (e) {
       setError(e.message || "Error cargando datos");

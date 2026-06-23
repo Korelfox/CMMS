@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from "react";
 import { supabase } from "./supabase";
+import { clearFleetCache } from "./fleetCache";
 
 // ============================================================
 //  Contexto de Autenticación
@@ -158,6 +159,7 @@ export function AuthProvider({ children }) {
   const signOut = useCallback(async () => {
     await supabase.auth.signOut();
     setProfile(null); setEmpresa(null);
+    clearFleetCache(); // no dejar stale del usuario anterior en dispositivo compartido
   }, []);
 
   // Envía el correo con el enlace para restablecer la contraseña.

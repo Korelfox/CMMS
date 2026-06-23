@@ -12,12 +12,14 @@ import ErrorBoundary from "./ErrorBoundary";
 import { ShellProvider, useShell } from "../context/ShellContext";
 import ContextHeader from "./ContextHeader";
 import EmbarcacionPicker from "./EmbarcacionPicker";
-import CampoShell from "./campo/CampoShell";
 import {
   OFICINA_GROUPS, ANALISIS_IDS, ANALISIS_HUB_ID, NAV_META, allNavItems, labelForView, CAMPO_TABS,
 } from "../lib/navigation";
 import { readAppMode, writeAppMode, readStoredEmbarcacionId } from "../lib/embarcacionActiva";
 
+// CampoShell también lazy: saca el árbol de Campo + sus libs del bundle inicial
+// (no se carga en Login ni en modo Oficina; en Campo entra detrás de Suspense).
+const CampoShell    = lazy(() => import("./campo/CampoShell"));
 const Tablero       = lazy(() => import("./Tablero"));
 const Alertas       = lazy(() => import("./Alertas"));
 const MGM           = lazy(() => import("./MGM"));
@@ -663,6 +665,8 @@ function AppShellLayout({
 
         <div className="cmms-work-area" style={{ maxWidth: "100%", margin: "0 auto" }}>
           {isCampo ? (
+            <ErrorBoundary key="campo">
+            <Suspense fallback={<InlineSpinner label="Cargando…" />}>
             <CampoShell
               refreshTick={refreshTick}
               onTabChange={(id) => setCampoViewLabel(labelForView(id))}
@@ -674,6 +678,8 @@ function AppShellLayout({
               dark={dark}
               onToggleTema={toggleTema}
             />
+            </Suspense>
+            </ErrorBoundary>
           ) : (
           <ErrorBoundary key={view}>
           <Suspense fallback={<InlineSpinner label="Cargando módulo…" />}>
