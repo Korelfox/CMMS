@@ -103,14 +103,15 @@ Deno.serve(async (req: Request) => {
       },
       body: JSON.stringify({
         model: modeloFinal,
-        max_tokens: 8000,
+        max_tokens: 4000,
         stream: true,
-        // Chat INTERACTIVO: thinking extendido + effort alto en Opus generaba
-        // respuestas de minutos (el frontend mostraba "analizando flota" sin texto,
-        // porque el parser SSE solo reenvía text_delta). Sin thinking y a effort
-        // medio, Opus 4.8 responde en segundos y sigue siendo más capaz que Sonnet.
+        // Chat INTERACTIVO: en Opus 4.8 el `effort` controla el razonamiento interno
+        // AUNQUE thinking esté disabled. Con effort medium/high el modelo "pensaba"
+        // hasta ~150s antes de emitir texto (el frontend mostraba "analizando flota"
+        // sin nada, porque el parser SSE solo reenvía text_delta). effort=low mantiene
+        // la respuesta en segundos; Opus a effort bajo sigue siendo más capaz que Sonnet.
         thinking: { type: "disabled" },
-        output_config: { effort: "medium" },
+        output_config: { effort: "low" },
         system,
         messages,
       }),
