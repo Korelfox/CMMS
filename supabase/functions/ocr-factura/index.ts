@@ -16,7 +16,7 @@ const CORS = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-const MODELO = "claude-sonnet-4-6";
+const MODELO = "claude-opus-4-8";
 
 const SYSTEM = `Eres un OCR especializado en documentos tributarios electrónicos (DTE) chilenos: facturas, boletas, notas de débito y guías de despacho de proveedores de repuestos, insumos navales e industriales.
 
@@ -79,11 +79,22 @@ Deno.serve(async (req: Request) => {
     const apiKey = Deno.env.get("ANTHROPIC_API_KEY");
     if (!apiKey) return json({ error: "FALTA_API_KEY" }, 503);
 
+    // Rechazar body excesivo antes de bufferizar (E3b: límite de tamaño)
+    const contentLen = parseInt(req.headers.get("content-length") ?? "0", 10);
+    if (contentLen > 8 * 1024 * 1024) {
+      return json({ error: "Cuerpo demasiado grande (máx. 8 MB)." }, 413);
+    }
+
     const body = await req.json();
     const { image_base64, media_type = "image/jpeg" } = body;
 
     if (!image_base64 || typeof image_base64 !== "string") {
       return json({ error: "image_base64 requerida." }, 400);
+    }
+
+    // Base64 añade ~33% overhead; 6 MB base64 ≈ 4.5 MB imagen (límite Claude ~5 MB)
+    if (image_base64.length > 6 * 1024 * 1024) {
+      return json({ error: "Imagen demasiado grande (máx. 4.5 MB)." }, 413);
     }
 
     const tiposPermitidos = ["image/jpeg", "image/png", "image/webp", "image/gif"];
@@ -102,6 +113,7 @@ Deno.serve(async (req: Request) => {
         model: MODELO,
         max_tokens: 3000,
         thinking: { type: "disabled" },
+        output_config: { effort: "low" },  // crítico: sin esto Opus usa effort=high por defecto y razona de más; OCR no lo necesita
         system: SYSTEM,
         messages: [
           {
