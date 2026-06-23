@@ -13,7 +13,7 @@ const CORS = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-const MODELO = "claude-sonnet-4-6";
+const MODELO = "claude-opus-4-8";
 const MESES = 3;
 
 const SYSTEM = [
@@ -72,11 +72,18 @@ Deno.serve(async (req: Request) => {
       const r = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
         headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "content-type": "application/json" },
-        body: JSON.stringify({ model: MODELO, max_tokens: 4000, system: SYSTEM, messages: [{ role: "user", content: userMsg }] }),
+        // Async/batch: effort low. En Opus el effort razona aunque thinking esté off;
+        // con effort medio/alto un informe largo no-streaming roza el límite de 150s
+        // del edge runtime. low mantiene la generación acotada.
+        body: JSON.stringify({ model: MODELO, max_tokens: 6000, thinking: { type: "disabled" }, output_config: { effort: "low" }, system: SYSTEM, messages: [{ role: "user", content: userMsg }] }),
       });
       if (!r.ok) { resultados.push({ empresa: emp.nombre, error: "Claude " + r.status }); continue; }
 
       const data = await r.json();
+      if (data.stop_reason === "max_tokens") {
+        resultados.push({ empresa: emp.nombre, error: "informe truncado (max_tokens alcanzado)" });
+        continue;
+      }
       const texto = (data.content ?? []).filter((b: { type: string }) => b.type === "text").map((b: { text: string }) => b.text).join("");
       if (!texto) { resultados.push({ empresa: emp.nombre, error: "respuesta vacia" }); continue; }
 

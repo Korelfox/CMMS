@@ -20,7 +20,8 @@ const CORS = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-const MODELO_DEFECTO = "claude-sonnet-4-6";
+const MODELO_DEFECTO = "claude-opus-4-8";
+const MODELOS_PERMITIDOS = new Set(["claude-opus-4-8", "claude-sonnet-4-6", "claude-haiku-4-5-20251001"]);
 
 const SYSTEM = `Eres un analista senior de confiabilidad y gestión de mantenimiento (CMMS) para flotas pesqueras industriales. Redactas el informe ejecutivo periódico dirigido a la gerencia de operaciones y al directorio de una empresa naviera/pesquera.
 
@@ -86,6 +87,8 @@ Deno.serve(async (req: Request) => {
     const { contexto, periodoLabel = "", empresa = "", model } = await req.json();
     if (!contexto) return json({ error: "Falta el contexto del informe." }, 400);
 
+    const modeloFinal = typeof model === "string" && MODELOS_PERMITIDOS.has(model) ? model : MODELO_DEFECTO;
+
     const userMsg =
       `Empresa: ${empresa || "—"}. Período: ${periodoLabel || "—"}.\n\n` +
       "Indicadores operacionales reales del período (JSON):\n```json\n" +
@@ -100,9 +103,11 @@ Deno.serve(async (req: Request) => {
         "content-type": "application/json",
       },
       body: JSON.stringify({
-        model: model || MODELO_DEFECTO,
+        model: modeloFinal,
         max_tokens: 4000,
         stream: true,
+        thinking: { type: "disabled" },
+        output_config: { effort: "low" },  // streaming: effort low → primer token rápido (en Opus el effort razona aunque thinking esté off)
         system: SYSTEM,
         messages: [{ role: "user", content: userMsg }],
       }),

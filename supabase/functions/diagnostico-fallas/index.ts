@@ -16,7 +16,8 @@ const CORS = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-const MODELO_DEFECTO = "claude-sonnet-4-6";
+const MODELO_DEFECTO = "claude-opus-4-8";
+const MODELOS_PERMITIDOS = new Set(["claude-opus-4-8", "claude-sonnet-4-6", "claude-haiku-4-5-20251001"]);
 
 const SYSTEM = `Eres un ingeniero de mantenimiento naval senior (jefe de máquinas), experto en diagnóstico de fallas de maquinaria de flotas pesqueras industriales: motores diésel marinos, sistemas hidráulicos, refrigeración, propulsión, generación y sistemas eléctricos. Asistes a técnicos a bordo y en taller.
 
@@ -75,6 +76,8 @@ Deno.serve(async (req: Request) => {
     if (!contexto || !contexto.equipo) return json({ error: "Falta el contexto del diagnóstico." }, 400);
     if (!contexto.sintoma) return json({ error: "Describe el síntoma observado." }, 400);
 
+    const modeloFinal = typeof model === "string" && MODELOS_PERMITIDOS.has(model) ? model : MODELO_DEFECTO;
+
     const userMsg =
       "Diagnostica la siguiente falla. Datos del equipo, síntoma e historial (JSON):\n```json\n" +
       JSON.stringify(contexto) +
@@ -88,11 +91,11 @@ Deno.serve(async (req: Request) => {
         "content-type": "application/json",
       },
       body: JSON.stringify({
-        model: model || MODELO_DEFECTO,
+        model: modeloFinal,
         max_tokens: 3000,
         stream: true,
         thinking: { type: "disabled" },
-        output_config: { effort: "medium" },
+        output_config: { effort: "low" },  // interactivo: en Opus el effort razona aunque thinking esté off → low mantiene la latencia baja
         system: SYSTEM,
         messages: [{ role: "user", content: userMsg }],
       }),

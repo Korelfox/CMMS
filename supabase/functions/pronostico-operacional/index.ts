@@ -14,7 +14,8 @@ const CORS = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-const MODELO_DEFECTO = "claude-sonnet-4-6";
+const MODELO_DEFECTO = "claude-opus-4-8";
+const MODELOS_PERMITIDOS = new Set(["claude-opus-4-8", "claude-sonnet-4-6", "claude-haiku-4-5-20251001"]);
 
 const PUERTOS: Record<string, { lat: number; lon: number; label: string }> = {
   "puerto montt":   { lat: -41.471, lon: -72.936, label: "Puerto Montt" },
@@ -76,9 +77,11 @@ function resolverCoords(puertoBase: string, lat?: number, lon?: number) {
   return { ...DEFECTO, origen: "defecto" };
 }
 
-function evaluar(vientoKn: number, oleajeM: number) {
-  if (vientoKn >= 28 || oleajeM >= 3.0) return { nivel: "rojo", label: "Condiciones adversas" };
-  if (vientoKn >= 20 || oleajeM >= 2.0) return { nivel: "ambar", label: "Precaución" };
+function evaluar(vientoKn: number | null, oleajeM: number | null) {
+  const v = vientoKn ?? 0;
+  if (v >= 28 || (oleajeM != null && oleajeM >= 3.0)) return { nivel: "rojo", label: "Condiciones adversas" };
+  if (v >= 20 || (oleajeM != null && oleajeM >= 2.0)) return { nivel: "ambar", label: "Precaución" };
+  if (oleajeM == null) return { nivel: "ambar", label: "Oleaje no disponible — verificar" };
   return { nivel: "verde", label: "Favorable" };
 }
 
@@ -203,7 +206,7 @@ async function fetchPronostico(lat: number, lon: number) {
     precipMm: precipActual,
     mareaM: mareaActual,
     climaCode: cur.weather_code ?? null,
-    evaluacion: evaluar(cur.wind_speed_10m ?? 0, oleajeActual ?? 0),
+    evaluacion: evaluar(cur.wind_speed_10m ?? null, oleajeActual),
   };
 
   return {
@@ -237,9 +240,11 @@ async function streamBrief(
       "content-type": "application/json",
     },
     body: JSON.stringify({
-      model: model || MODELO_DEFECTO,
+      model: typeof model === "string" && MODELOS_PERMITIDOS.has(model) ? model : MODELO_DEFECTO,
       max_tokens: 800,
       stream: true,
+      thinking: { type: "disabled" },
+      output_config: { effort: "low" },  // interactivo: effort low evita el razonamiento largo de Opus
       system: SYSTEM,
       messages: [{ role: "user", content: userMsg }],
     }),
