@@ -16,7 +16,7 @@ import CampoShell from "./campo/CampoShell";
 import {
   OFICINA_GROUPS, ANALISIS_IDS, ANALISIS_HUB_ID, NAV_META, allNavItems, labelForView, CAMPO_TABS,
 } from "../lib/navigation";
-import { readAppMode, writeAppMode } from "../lib/embarcacionActiva";
+import { readAppMode, writeAppMode, readStoredEmbarcacionId } from "../lib/embarcacionActiva";
 
 const Tablero       = lazy(() => import("./Tablero"));
 const Alertas       = lazy(() => import("./Alertas"));
@@ -145,6 +145,31 @@ function EmbarcacionPickerGate() {
   );
 }
 
+// Aviso sonoro + vibración para una OT nueva en terreno. Best-effort: si el
+// navegador bloquea el audio (autoplay) o no hay vibración, falla en silencio.
+function avisarOtNueva() {
+  try { if (navigator.vibrate) navigator.vibrate([120, 60, 120]); } catch { /* sin vibración */ }
+  try {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return;
+    const ctx = new Ctx();
+    ctx.resume?.();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = "sine";
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    gain.gain.setValueAtTime(0.0001, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.08, ctx.currentTime + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.4);
+    osc.frequency.setValueAtTime(880, ctx.currentTime);
+    osc.frequency.setValueAtTime(1175, ctx.currentTime + 0.14);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.42);
+    osc.onended = () => { try { ctx.close(); } catch { /* ya cerrado */ } };
+  } catch { /* sin audio disponible */ }
+}
+
 export default function AppShell() {
   const { profile, empresa, signOut } = useAuth();
   const online = useOnline();
@@ -154,6 +179,7 @@ export default function AppShell() {
     try { return sessionStorage.getItem("cmms-office-view") || "dashboard"; } catch { return "dashboard"; }
   });
   const [nuevaOt, setNuevaOt] = useState(null); // aviso de OT nueva recibida por realtime
+  const [embActiva, setEmbActiva] = useState(null); // embarcación activa, para filtrar el realtime de operativos
   const [navParams, setNavParams] = useState(null);  // contexto al navegar (ej. OT a resaltar)
   const [armador, setArmador] = useState(null);      // usuario Armador (admin_empresa) de la organización
   const [pendientes, setPendientes] = useState(0);
@@ -323,21 +349,34 @@ export default function AppShell() {
     return () => { vivo = false; };
   }, [empresa?.id]);
 
-  // ── Realtime: OT nueva → aviso instantáneo, sin recargar ni saltar de página.
-  // Solo notifica (el operario abre la OT cuando quiera, "sin interferencias").
-  // La RLS por empresa + el filtro del canal acotan lo que cada cliente recibe.
+  // Embarcación activa de la sesión (la usan los operativos a bordo para filtrar).
+  useEffect(() => {
+    if (empresa?.id) setEmbActiva(readStoredEmbarcacionId(empresa.id));
+    const fn = (e) => setEmbActiva(e.detail?.id ?? null);
+    window.addEventListener("cmms-embarcacion-change", fn);
+    return () => window.removeEventListener("cmms-embarcacion-change", fn);
+  }, [empresa?.id]);
+
+  // ── Realtime: OT nueva → aviso instantáneo (sonido + vibración), sin recargar
+  // ni saltar de página. Filtro por rol: supervisores (isAdmin) reciben de TODAS
+  // las embarcaciones de la empresa; los operativos a bordo, solo de su nave
+  // activa. La RLS por empresa acota igual lo que cada cliente puede recibir.
   useEffect(() => {
     if (!empresa?.id) return;
+    const esSupervisor = isAdmin(profile?.rol);
+    const filtro = (!esSupervisor && embActiva)
+      ? `embarcacion_id=eq.${embActiva}`
+      : `empresa_id=eq.${empresa.id}`;
     const canal = supabase
-      .channel("ot-nuevas-" + empresa.id)
+      .channel(`ot-nuevas-${empresa.id}-${filtro}`)
       .on(
         "postgres_changes",
-        { event: "INSERT", schema: "public", table: "ordenes_trabajo", filter: `empresa_id=eq.${empresa.id}` },
-        (payload) => setNuevaOt({ folio: payload.new?.folio ?? "", ts: Date.now() }),
+        { event: "INSERT", schema: "public", table: "ordenes_trabajo", filter: filtro },
+        (payload) => { setNuevaOt({ folio: payload.new?.folio ?? "", ts: Date.now() }); avisarOtNueva(); },
       )
       .subscribe();
     return () => { supabase.removeChannel(canal); };
-  }, [empresa?.id]);
+  }, [empresa?.id, profile?.rol, embActiva]);
 
   // El aviso se autodescarta tras unos segundos si no se toca.
   useEffect(() => {
