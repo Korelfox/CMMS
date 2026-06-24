@@ -1,9 +1,10 @@
 import React, { useEffect, useState, useCallback, useMemo, useRef } from "react";
-import { CalendarClock, Check, AlertCircle, Plus, Trash2, Download, Printer, History, ClipboardList, X, ChevronDown, ChevronRight, Edit3, AlertTriangle, CheckCircle2, Gauge, Info, Bell, RefreshCw, List, Columns3, Table2, FolderTree, Search } from "lucide-react";
+import { CalendarClock, Check, AlertCircle, Plus, Trash2, Download, Printer, History, ClipboardList, X, ChevronDown, ChevronRight, Edit3, AlertTriangle, CheckCircle2, Gauge, Info, Bell, RefreshCw, List, Columns3, Table2, FolderTree, Search, PlusCircle, MinusCircle } from "lucide-react";
 import { planpmStore } from "./planpm/planpmStore";
 import { TipoChip, CritBadge } from "./equipos/arbolUI";
 import { useAuth } from "../lib/auth";
 import { fetchAll, insertRow, updateRow, deleteRow, logActivity } from "../lib/db";
+import { useOnline, queueInsert, queueUpdate, nuevoId } from "../lib/offline";
 import { buildEquipoTree } from "../lib/equipTree";
 import { useArbolColapsable, BotonesColapsar } from "../lib/arbolColapsable";
 import { C, archivo, num, canOperate, isAdmin, tint, shadow } from "../theme";
@@ -17,6 +18,7 @@ import { TAREAS_PM } from "../lib/tareasPM";
 import { statusPlan, statusPlanCalendario, diasDesde, DIAS_POR_UNIDAD, LABEL_UNIDAD, labelIntervaloCalendario, scheduleComplianceCombinado, evaluarPlanes } from "../lib/pm";
 import { ordenarPlanesPM } from "../lib/planpmKanban";
 import { useMediaQuery } from "../lib/useMediaQuery";
+import { OFFICINA_NARROW_QUERY } from "../lib/breakpoints";
 import PMKanban from "./planpm/PMKanban";
 import SavedViewsBar from "./SavedViewsBar";
 import SplitDetailLayout from "./detail/SplitDetailLayout";
@@ -137,7 +139,10 @@ export default function PlanPM({ onNavigate, navParams }) {
     () => new Set((filtro === "all" ? equipos : equipos.filter((e) => e.embarcacion_id === filtro)).map((e) => e.id)),
     [equipos, filtro]
   );
-  const lista   = buildEquipoTree(filtro === "all" ? equipos : equipos.filter((e) => e.embarcacion_id === filtro));
+  const lista   = useMemo(
+    () => buildEquipoTree(filtro === "all" ? equipos : equipos.filter((e) => e.embarcacion_id === filtro)),
+    [equipos, filtro],
+  );
   const historialNave = filtro === "all" ? historial : historial.filter((h) => idsNave.has(h.equipo_id));
 
   // KPIs (respetan el filtro por nave)
@@ -287,7 +292,7 @@ export default function PlanPM({ onNavigate, navParams }) {
 // ─────────────────────────────────────────────────────────────────
 // TAB PLAN
 // ─────────────────────────────────────────────────────────────────
-function TabPlan({ lista, equipos, setEquipos, planes, setPlanes, historial, setHistorial, embName, profile, puedeOperar, puedeBorrar, setError, onNavigate, handlersRef, navParams, viewFilters, isCampo = false }) {
+function TabPlan({ lista, equipos, _setEquipos, planes, setPlanes, historial, setHistorial, embName, profile, puedeOperar, puedeBorrar, setError, onNavigate, handlersRef, navParams, viewFilters, isCampo = false }) {
   const [selectedId, setSelectedId] = useState(null);
   const [selectedPlanId, setSelectedPlanId] = useState(null);
   const [detailOpen, setDetailOpen] = useState(true);
@@ -307,7 +312,8 @@ function TabPlan({ lista, equipos, setEquipos, planes, setPlanes, historial, set
   const [editandoPlan, setEditandoPlan] = useState(null); // plan_pm_id en edición
   const [editPlanForm, setEditPlanForm] = useState({ descripcion: "", tipo_disparador: "horas", intervalo_horas: 250, intervalo_calendario: 1, unidad_calendario: "mensual" });
 
-  const isMobile = useMediaQuery("(max-width: 1024px)");
+  const online = useOnline();
+  const isMobile = useMediaQuery(OFFICINA_NARROW_QUERY);
   const isTabla = vista === "tabla";
 
   const arbol = useArbolColapsable(lista);
@@ -454,11 +460,16 @@ function TabPlan({ lista, equipos, setEquipos, planes, setPlanes, historial, set
     const prev   = { horas_ult_pm: plan.horas_ult_pm, fecha_ult_pm: plan.fecha_ult_pm };
     const update = esCalendario ? { fecha_ult_pm: fecha } : { horas_ult_pm: horas, fecha_ult_pm: fecha };
     setPlanes((p) => p.map((x) => x.id === plan.id ? { ...x, ...update } : x));
+    const logLabel = esCalendario
+      ? `${plan.descripcion} · ${fecha || "sin fecha"}`
+      : `${plan.descripcion} · ${horas}h · ${fecha || "sin fecha"}`;
+    if (!online) {
+      await queueUpdate("planes_pm", plan.id, update, `Hito PM ${plan.descripcion}`, plan.updated_at ?? null);
+      logActivity(profile, "Ajustar hito PM", logLabel);
+      return;
+    }
     try {
       await updateRow("planes_pm", plan.id, update);
-      const logLabel = esCalendario
-        ? `${plan.descripcion} · ${fecha || "sin fecha"}`
-        : `${plan.descripcion} · ${horas}h · ${fecha || "sin fecha"}`;
       logActivity(profile, "Ajustar hito PM", logLabel);
     } catch (e) {
       setPlanes((p) => p.map((x) => x.id === plan.id ? { ...x, ...prev } : x));
@@ -533,19 +544,31 @@ function TabPlan({ lista, equipos, setEquipos, planes, setPlanes, historial, set
       return existente;
     }
     const folio = folioOT(otsActuales, true);
-    const ot = await insertRow("ordenes_trabajo", profile.empresa_id, {
-      folio,
-      embarcacion_id: eq.embarcacion_id,
-      equipo_id: eq.id,
-      sistema: eq.sistema,
-      tipo: "preventivo",
-      descripcion: meta.descripcion,
-      prioridad: meta.prioridad,
-      fecha: meta.fecha,
-      estado: "planificada",
-      huella: meta.huella,
-      created_by: profile.id,
-    });
+    let ot;
+    try {
+      ot = await insertRow("ordenes_trabajo", profile.empresa_id, {
+        folio,
+        embarcacion_id: eq.embarcacion_id,
+        equipo_id: eq.id,
+        sistema: eq.sistema,
+        tipo: "preventivo",
+        descripcion: meta.descripcion,
+        prioridad: meta.prioridad,
+        fecha: meta.fecha,
+        estado: "planificada",
+        huella: meta.huella,
+        created_by: profile.id,
+      });
+    } catch (e) {
+      // 23505: el cron creó la OT de esta huella entre el chequeo y el insert.
+      if (e?.code !== "23505") throw e;
+      const refetch = await fetchAll("ordenes_trabajo");
+      const existente = meta.huella ? refetch.find((o) => o.huella === meta.huella) : null;
+      if (!existente) throw e;
+      setError(`Ya existe una OT planificada para este ciclo (${existente.folio}).`);
+      onNavigate?.("ots", { otId: existente.id });
+      return existente;
+    }
     logActivity(profile, "Crear OT desde PM", `${ot.folio} · ${eq.sistema} · ${plan.descripcion}`);
     onNavigate?.("ots", { otId: ot.id });
     return ot;
@@ -562,8 +585,31 @@ function TabPlan({ lista, equipos, setEquipos, planes, setPlanes, historial, set
     const horas        = eq?.horas_actual || 0;
     const fecha        = HOY();
     const esCalendario = plan.tipo_disparador === "calendario";
-    let otId = null;
+    const pmUpdate = esCalendario ? { fecha_ult_pm: fecha } : { horas_ult_pm: horas, fecha_ult_pm: fecha };
+    const baseHistorial = {
+      plan_pm_id: plan.id, equipo_id: plan.equipo_id,
+      horas_realizacion: horas, fecha_realizacion: fecha,
+      realizado_por: (form.realizado_por || "").trim() || profile.nombre || "",
+      notas: (form.notas || "").trim() || null,
+      created_by: profile.id,
+    };
 
+    // Offline: encola el avance del hito + el historial; el insumo de la OT
+    // necesita consultar el servidor (dedup por huella), así que se omite con aviso.
+    if (!online) {
+      try {
+        await queueUpdate("planes_pm", plan.id, pmUpdate, `Registro PM ${plan.descripcion}`, plan.updated_at ?? null);
+        setPlanes((p) => p.map((x) => x.id === plan.id ? { ...x, ...pmUpdate } : x));
+        const registro = { id: nuevoId(), empresa_id: profile.empresa_id, ...baseHistorial, ot_id: null, _pending: true };
+        await queueInsert("historial_pm", registro, `Historial PM ${plan.descripcion}`);
+        setHistorial((p) => [registro, ...p]);
+        logActivity(profile, "Registrar PM", `${eq?.sistema} · ${plan.descripcion} · ${num(horas)}h (offline)`);
+        if (form.crearOT) setError("PM registrado offline. La OT se debe crear al recuperar conexión.");
+      } catch (e) { setError("No se pudo registrar el PM offline: " + e.message); throw e; }
+      return;
+    }
+
+    let otId = null;
     try {
       if (form.crearOT && eq) {
         const meta = metaOTPreventiva(plan, eq);
@@ -573,30 +619,26 @@ function TabPlan({ lista, equipos, setEquipos, planes, setPlanes, historial, set
           otId = existente.id;
         } else {
           const folio = folioOT(otsActuales, true);
-          const ot = await insertRow("ordenes_trabajo", profile.empresa_id, {
-            folio, embarcacion_id: eq.embarcacion_id, equipo_id: eq.id,
-            sistema: eq.sistema, tipo: "preventivo",
-            descripcion: meta.descripcion,
-            prioridad: meta.prioridad, fecha, estado: "planificada",
-            huella: meta.huella, created_by: profile.id,
-          });
-          otId = ot.id;
+          try {
+            const ot = await insertRow("ordenes_trabajo", profile.empresa_id, {
+              folio, embarcacion_id: eq.embarcacion_id, equipo_id: eq.id,
+              sistema: eq.sistema, tipo: "preventivo",
+              descripcion: meta.descripcion,
+              prioridad: meta.prioridad, fecha, estado: "planificada",
+              huella: meta.huella, created_by: profile.id,
+            });
+            otId = ot.id;
+          } catch (e) {
+            // 23505: el cron creó la OT de esta huella en paralelo → la reutilizamos.
+            if (e?.code !== "23505") throw e;
+            const refetch = await fetchAll("ordenes_trabajo");
+            otId = meta.huella ? (refetch.find((o) => o.huella === meta.huella)?.id || null) : null;
+          }
         }
       }
-      const pmUpdate = esCalendario ? { fecha_ult_pm: fecha } : { horas_ult_pm: horas, fecha_ult_pm: fecha };
       await updateRow("planes_pm", plan.id, pmUpdate);
       setPlanes((p) => p.map((x) => x.id === plan.id ? { ...x, ...pmUpdate } : x));
-      if (eq) {
-        await updateRow("equipos", eq.id, { horas_ult_pm: horas, fecha_ult_pm: fecha });
-        setEquipos((p) => p.map((e) => e.id === eq.id ? { ...e, horas_ult_pm: horas, fecha_ult_pm: fecha } : e));
-      }
-      const registro = await insertRow("historial_pm", profile.empresa_id, {
-        plan_pm_id: plan.id, equipo_id: plan.equipo_id,
-        horas_realizacion: horas, fecha_realizacion: fecha,
-        realizado_por: (form.realizado_por || "").trim() || profile.nombre || "",
-        notas: (form.notas || "").trim() || null,
-        ot_id: otId, created_by: profile.id,
-      });
+      const registro = await insertRow("historial_pm", profile.empresa_id, { ...baseHistorial, ot_id: otId });
       setHistorial((p) => [registro, ...p]);
       logActivity(profile, "Registrar PM", `${eq?.sistema} · ${plan.descripcion} · ${num(horas)}h`);
       if (otId && form.crearOT) onNavigate?.("ots", { otId });
@@ -1118,16 +1160,18 @@ tbody td{padding:5px 8px;vertical-align:middle}
                   />
                 )}
 
-                {/* Chevron para colapso */}
+                {/* Toggle colapso */}
                 {tieneHijos ? (
                   <button
                     onClick={(e) => { e.stopPropagation(); arbol.toggle(eq.id); }}
-                    style={{ background: "none", border: "none", cursor: "pointer", color: C.slate, padding: 0, display: "flex", alignItems: "center", zIndex: 5 }}
+                    title={colapsado ? "Expandir" : "Colapsar"}
+                    aria-label={colapsado ? "Expandir" : "Colapsar"}
+                    style={{ background: "none", border: "none", cursor: "pointer", color: C.steel, padding: 3, borderRadius: 6, display: "flex", alignItems: "center", zIndex: 5 }}
                   >
-                    {colapsado ? <ChevronRight size={15} /> : <ChevronDown size={15} />}
+                    {colapsado ? <PlusCircle size={22} /> : <MinusCircle size={22} />}
                   </button>
                 ) : (
-                  <span style={{ width: 15 }} />
+                  <span style={{ width: 28 }} />
                 )}
 
                 {/* Tipo de Nodo */}
