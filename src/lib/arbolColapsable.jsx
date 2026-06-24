@@ -8,7 +8,7 @@
 //  Reutilizado por Plan Preventivo, Criticidad, CGM y Optimización.
 // ============================================================
 import React, { useState, useEffect } from "react";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { PlusCircle, MinusCircle } from "lucide-react";
 import { C, tint } from "../theme";
 import { Pill } from "../ui";
 import { TIPO_NODO_META } from "./plantillaPesquera";
@@ -107,12 +107,13 @@ export function EquipoNodoLabel({ eq, tieneHijos, colapsado, onToggle, nSub = 0,
       <span style={{ width: 3, height: 18, borderRadius: 2, background: colorTipo(eq), flexShrink: 0 }} title={(TIPO_NODO_META[eq?.tipo_nodo] || TIPO_NODO_META.equipo).label} />
       {tieneHijos ? (
         <button onClick={(e) => { e.stopPropagation(); onToggle?.(); }} title={colapsado ? "Expandir" : "Colapsar"}
-          style={{ background: "none", border: "none", cursor: "pointer", color: C.steel, padding: 0, display: "flex", alignItems: "center", flexShrink: 0 }}>
-          {colapsado ? <ChevronRight size={17} /> : <ChevronDown size={17} />}
+          aria-label={colapsado ? "Expandir" : "Colapsar"}
+          style={{ background: "none", border: "none", cursor: "pointer", color: C.steel, padding: 3, borderRadius: 6, display: "flex", alignItems: "center", flexShrink: 0 }}>
+          {colapsado ? <PlusCircle size={22} /> : <MinusCircle size={22} />}
         </button>
       ) : eq.depth > 0 ? (
         <span style={{ color: C.slate, fontSize: 13, flexShrink: 0 }}>└─</span>
-      ) : <span style={{ width: 17, flexShrink: 0 }} />}
+      ) : <span style={{ width: 28, flexShrink: 0 }} />}
       <div style={{ minWidth: 0 }}>
         <span style={{ fontWeight: 700, color: C.abyss, fontSize: 13.5 }}>{eq.sistema}</span>
         {eq.criticidad && <span style={{ marginLeft: 7 }}><Pill tone={critTone}>{eq.criticidad}</Pill></span>}

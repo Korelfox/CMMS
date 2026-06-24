@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback, useMemo } from "react";
 import {
-  Timer, Save, ChevronDown, ChevronRight, History, AlertCircle, CheckCircle2,
+  Timer, Save, ChevronDown, ChevronRight, PlusCircle, MinusCircle, History, AlertCircle, CheckCircle2,
   CornerDownRight, ShieldCheck, Calendar, TrendingUp, Zap, Ship,
 } from "lucide-react";
 import { useAuth } from "../lib/auth";
@@ -568,10 +568,11 @@ export default function Horometros({ navParams }) {
                           <span style={{ width: 3, height: 16, borderRadius: 2, background: colorTipo(eq), flexShrink: 0 }} />
                           {tieneHijos ? (
                             <button type="button" onClick={() => arbol.toggle(eq.id)} title={colapsado ? "Expandir" : "Colapsar"}
-                              style={{ background: "none", border: "none", cursor: "pointer", color: C.steel, padding: 0, display: "flex" }}>
-                              {colapsado ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
+                              aria-label={colapsado ? "Expandir" : "Colapsar"}
+                              style={{ background: "none", border: "none", cursor: "pointer", color: C.steel, padding: 3, borderRadius: 6, display: "flex" }}>
+                              {colapsado ? <PlusCircle size={22} /> : <MinusCircle size={22} />}
                             </button>
-                          ) : eq.depth > 0 ? <CornerDownRight size={14} color={C.slate} /> : <span style={{ width: 16 }} />}
+                          ) : eq.depth > 0 ? <CornerDownRight size={14} color={C.slate} /> : <span style={{ width: 28 }} />}
                           <div style={{ minWidth: 0 }}>
                             <span style={{ fontWeight: eq.depth === 0 ? 700 : 600, color: C.abyss, fontSize: 13 }}>{eq.sistema}</span>
                             <span style={{ fontSize: 11, color: C.slate, marginLeft: 7, fontFamily: "'IBM Plex Mono', monospace" }}>{eq.id_visible}</span>
