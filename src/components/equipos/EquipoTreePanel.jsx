@@ -1,5 +1,5 @@
 import React from "react";
-import { Search, X, ChevronDown, ChevronRight, ChevronUp, MoreHorizontal, PanelRightOpen, Trash2, AlertTriangle } from "lucide-react";
+import { Search, X, ChevronDown, ChevronRight, ChevronUp, PlusCircle, MinusCircle, MoreHorizontal, PanelRightOpen, Trash2, AlertTriangle } from "lucide-react";
 import { C, estadoLabel, estadoTone, num } from "../../theme";
 import { BRECHA_META } from "../../lib/equipoBrechas";
 import { Card, Pill, ghostBtn, inputStyle } from "../../ui";
@@ -71,12 +71,13 @@ export default function EquipoTreePanel({
                     type="button"
                     onClick={(ev) => { ev.stopPropagation(); arbol.toggle(eq.id); }}
                     title={colapsado ? "Expandir" : "Colapsar"}
-                    style={{ background: "none", border: "none", cursor: "pointer", color: C.slate, padding: 0, display: "flex", flexShrink: 0 }}
+                    aria-label={colapsado ? "Expandir" : "Colapsar"}
+                    style={{ background: "none", border: "none", cursor: "pointer", color: C.steel, padding: 3, borderRadius: 6, display: "flex", flexShrink: 0 }}
                   >
-                    {colapsado ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
+                    {colapsado ? <PlusCircle size={22} /> : <MinusCircle size={22} />}
                   </button>
                 ) : (
-                  <span style={{ width: 16, flexShrink: 0 }} />
+                  <span style={{ width: 28, flexShrink: 0 }} />
                 )}
 
                 <TipoChip tipo={eq.tipo_nodo} size={26} />
