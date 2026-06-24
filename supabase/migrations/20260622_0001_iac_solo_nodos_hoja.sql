@@ -7,7 +7,7 @@
 -- esComponenteNodo). Aquí IA-C pasa a contar solo componentes/instrumentos/
 -- equipos, dejando un único número consistente en toda la app (114 en demo).
 --
--- Resto de la función idéntico a 20260621_0001_insights_iad_zero_measurements.
+-- Resto de la función idéntico a 20260621_0002_insights_iad_zero_measurements.
 
 create or replace function public._gen_insights(p_empresa uuid)
 returns integer
