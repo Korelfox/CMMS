@@ -81,7 +81,7 @@ export default function Bitacora() {
 
       <ErrorBanner onRetry={cargar}>{error}</ErrorBanner>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14, marginBottom: 16 }}>
+      <div className="cmms-collapse-mobile" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14, marginBottom: 16 }}>
         <KPI label="Eventos totales" value={entries.length} />
         <KPI label="Hoy" value={hoy} tone={C.steel} />
         <KPI label="Últimos 7 días" value={semana} tone={C.steel} />

@@ -80,7 +80,7 @@ export default function Backlog({ onNavigate }) {
 
       <ErrorBanner onRetry={cargar}>{error}</ErrorBanner>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14, marginBottom: 16 }}>
+      <div className="cmms-collapse-mobile" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14, marginBottom: 16 }}>
         <KPI label="OTs en backlog" value={lista.length} sub={`${envejecidas} con más de 30 días`} tone={envejecidas ? C.amber : C.steel} />
         <KPI label="HH pendientes" value={`${num(hhTotal, 1)}h`} tone={C.steel}
           sub={sinHH ? `${sinHH} OT${sinHH !== 1 ? "s" : ""} sin HH estimadas` : "todas con HH estimadas"} />

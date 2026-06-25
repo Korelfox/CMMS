@@ -116,7 +116,7 @@ export default function Fallas({ navParams }) {
 
       <ErrorBanner onRetry={cargar}>{error}</ErrorBanner>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14, marginBottom: 16 }}>
+      <div className="cmms-collapse-mobile" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14, marginBottom: 16 }}>
         <KPI label="Modos Analizados" value={fallas.length} />
         <KPI label="Críticos" value={criticas} tone={criticas ? C.red : C.green} sub="RPN ≥ 200" />
         <KPI label="Alto Riesgo" value={altas} tone={altas ? C.amber : C.green} sub="RPN 125–199" />

@@ -134,7 +134,7 @@ export default function Pareto() {
         ))}
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 14, marginBottom: 16 }}>
+      <div className="cmms-collapse-mobile" style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 14, marginBottom: 16 }}>
         <KPI label={metrica === "costo" ? "Costo total" : "Fallas totales"} value={fmt(total)} tone={C.gold} />
         <KPI label="Pocos vitales" value={vitales} tone={C.red} sub={`${({ equipo: "equipos", modo: "modos de falla", causa: "causas raíz", mecanismo: "mecanismos" })[dim] || "sistemas"} concentran el 80%`} />
         <KPI label="Concentración" value={`${pctVitales.toFixed(0)}%`} tone={C.steel} sub={`en ${vitales} de ${grupos.length}`} />

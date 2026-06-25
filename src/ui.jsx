@@ -740,11 +740,20 @@ export function DesignSystemStyles() {
         z-index: 4;
       }
       @media (max-width: 1024px) {
+        /* Apilar a una columna en angosto. Se listan también las variantes de
+           dos clases (queue-wide / table-wide / detail-open) porque su regla
+           base tiene mayor especificidad (0,2,0) y, si no se iguala aquí, el
+           minmax(416px…) sobrevive en el móvil y desborda el viewport. */
         .cmms-split-layout,
         .inv-split-container,
+        .inv-split-container.inv-split-queue-wide,
+        .inv-split-container.inv-split-table-wide,
         .eq-split-container,
         .ot-split-container,
-        .cmms-split-detail { grid-template-columns: 1fr; }
+        .cmms-split-detail,
+        .cmms-split-detail.detail-open:not(.cmms-split-detail--stack),
+        .cmms-split-detail--queue-wide.detail-open,
+        .cmms-split-detail--table-wide.detail-open { grid-template-columns: 1fr; }
 
         /* Oficina angosta: módulos apilados y headers compactos (PC sin cambios) */
         .cmms-oficina-mode .cmms-module-header {
@@ -860,6 +869,12 @@ export function DesignSystemStyles() {
         .cmms-grid-fleet { grid-template-columns: 1fr; }
         .cmms-oficina-mode .cmms-stat-grid { grid-template-columns: 1fr; }
         .cmms-oficina-mode .cmms-hero-stat { grid-column: span 1; }
+        /* Utilidad: colapsa a 1 columna en celular un grid cuyo nº de columnas
+           va en estilo inline (las tarjetas KPI con ícono no encogen bajo su
+           contenido y se recortan). El !important solo aplica aquí (≤600px),
+           así PC/tablet conservan el layout inline intacto. Mismo patrón que
+           el width:100vw !important de WindowManager. */
+        .cmms-collapse-mobile { grid-template-columns: 1fr !important; }
       }
     `}</style>
   );

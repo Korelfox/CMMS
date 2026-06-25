@@ -224,7 +224,7 @@ export default function ArquitecturaIA() {
       <div style={{ fontFamily: "'Inter', system-ui, sans-serif", background: BG, color: TEXT, padding: 26, borderRadius: 12, fontSize: 13, lineHeight: 1.5 }}>
 
         {/* ── Cabecera ── */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24, paddingBottom: 14, borderBottom: `1px solid ${BDR}`, gap: 16 }}>
+        <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", marginBottom: 24, paddingBottom: 14, borderBottom: `1px solid ${BDR}`, gap: 16 }}>
           <div style={{ fontSize: 17, fontWeight: 800, color: INK, letterSpacing: -0.3 }}>
             Arquitectura de Inteligencia Artificial — CMMS Pesquero
           </div>

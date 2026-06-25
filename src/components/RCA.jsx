@@ -143,7 +143,7 @@ export default function RCA() {
 
       <ErrorBanner onRetry={cargar}>{error}</ErrorBanner>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14, marginBottom: 16 }}>
+      <div className="cmms-collapse-mobile" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14, marginBottom: 16 }}>
         <KPI label="RCA abiertos" value={abiertos} tone={abiertos ? C.amber : C.green} />
         <KPI label="Acciones pendientes" value={pendTotal} tone={pendTotal ? C.amber : C.green} sub="compromisos sin cumplir" />
         <KPI label="Verificados eficaces" value={`${verificados}/${rcas.length}`} tone={C.green} sub="la falla no volvió" />

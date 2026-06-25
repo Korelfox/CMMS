@@ -75,7 +75,7 @@ export default function Reportes() {
       <div>
         <PageHead kicker="Informes Imprimibles" title="Reportes"
           sub="Genera vistas listas para imprimir o exportar a PDF (con la opción 'Guardar como PDF' del navegador)." />
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: 14 }}>
+        <div className="cmms-collapse-mobile" style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: 14 }}>
           {REPORTES.map((r) => {
             const Icon = r.icon;
             return (
@@ -165,7 +165,7 @@ function ReporteKPIs({ embs = [], ots = [] }) {
   return (
     <Card>
       <div style={{ ...archivo, fontWeight: 700, fontSize: 15, color: C.abyss, marginBottom: 12 }}>Indicadores Globales</div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14, marginBottom: 18 }}>
+      <div className="cmms-collapse-mobile" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14, marginBottom: 18 }}>
         <Big label="Disponibilidad" value={`${disp.toFixed(1)}%`} />
         <Big label="MTBF" value={`${num(mtbf, 0)}h`} />
         <Big label="MTTR" value={`${num(mttr, 1)}h`} />
@@ -173,7 +173,7 @@ function ReporteKPIs({ embs = [], ots = [] }) {
       </div>
 
       <div style={{ ...archivo, fontWeight: 700, fontSize: 15, color: C.abyss, marginBottom: 12 }}>Costos de Mantenimiento</div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 14, marginBottom: 18 }}>
+      <div className="cmms-collapse-mobile" style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 14, marginBottom: 18 }}>
         <Big label="Mano de Obra" value={clp(costoMO)} />
         <Big label="Materiales" value={clp(costoMat)} />
         <Big label="Costo Total" value={clp(costoMO + costoMat)} />

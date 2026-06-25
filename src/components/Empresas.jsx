@@ -186,7 +186,7 @@ export default function Empresas() {
       <ErrorBanner onRetry={cargar}>{error}</ErrorBanner>
 
       {/* KPIs */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14, marginBottom: 16 }}>
+      <div className="cmms-collapse-mobile" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14, marginBottom: 16 }}>
         {[
           ["Empresas", kpis.total, C.steel, Building2],
           ["Activas", kpis.activas, C.green, Power],

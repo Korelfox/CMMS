@@ -261,7 +261,7 @@ export default function InformeEjecutivo() {
 
       {/* Snapshot de datos que alimentan el informe */}
       {snap && (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12, marginBottom: 16 }}>
+        <div className="cmms-collapse-mobile" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12, marginBottom: 16 }}>
           <SnapCard icon={Ship} label="Naves" value={snap.flota.totalNaves} tone={C.cyan} />
           <SnapCard icon={ShieldAlert} label="Equipos riesgo alto" value={snap.confiabilidad.equiposRiesgoAlto}
             tone={snap.confiabilidad.equiposRiesgoAlto ? C.red : C.green} />

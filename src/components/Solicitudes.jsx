@@ -18,6 +18,7 @@ import SplitDetailLayout from "./detail/SplitDetailLayout";
 import DetailShell from "./detail/DetailShell";
 import SolicitudDetailPanel from "./solicitudes/SolicitudDetailPanel";
 import { useMediaQuery } from "../lib/useMediaQuery";
+import { OFFICINA_NARROW_QUERY } from "../lib/breakpoints";
 import {
   loadSavedViews, addSavedView, removeSavedView, mergeViews, SOL_BUILTIN_VIEWS,
 } from "../lib/savedViews";
@@ -42,7 +43,7 @@ function slaInfo(sol) {
 export default function Solicitudes({ navParams }) {
   const { profile } = useAuth();
   const shell = useShellOptional();
-  const isMobile = useMediaQuery("(max-width: 1024px)");
+  const isMobile = useMediaQuery(OFFICINA_NARROW_QUERY);
   const isCampo = !!navParams?.campo;
   const formCompact = isMobile || isCampo;
   const [embarcaciones, setEmbarcaciones] = useState([]);
@@ -137,7 +138,11 @@ export default function Solicitudes({ navParams }) {
 
   async function crear() {
     if (!form.solicitante.trim() || !form.descripcion.trim()) { setError("Indica solicitante y descripción."); return; }
-    const folio = `SOL-${String(solicitudes.length + 1).padStart(3, "0")}`;
+    const maxSol = solicitudes.reduce((m, x) => {
+      const n = parseInt((x.folio || "").replace(/[^\d]/g, ""), 10);
+      return isNaN(n) ? m : Math.max(m, n);
+    }, 0);
+    const folio = `SOL-${String(maxSol + 1).padStart(3, "0")}`;
     try {
       const nueva = await insertRow("solicitudes", profile.empresa_id, {
         folio, solicitante: form.solicitante.trim(), embarcacion_id: form.embarcacion_id || null,
@@ -155,17 +160,27 @@ export default function Solicitudes({ navParams }) {
 
   // Convertir solicitud → OT (folio correlativo robusto desde lib/ot)
   async function convertir(sol) {
+    // Idempotencia: ya convertida → no duplicar.
+    if (sol.ot_id || sol.estado === "convertida") {
+      setError(`La solicitud "${sol.folio || sol.descripcion}" ya fue convertida en OT.`);
+      return;
+    }
     if (!window.confirm(`¿Convertir "${sol.folio || sol.descripcion}" en una nueva Orden de Trabajo?`)) return;
     try {
       const otsActuales = await fetchAll("ordenes_trabajo");
-      const folio = folioOT(otsActuales, true);
-      const nuevaOT = await insertRow("ordenes_trabajo", profile.empresa_id, {
-        folio,
-        embarcacion_id: sol.embarcacion_id, sistema: sol.sistema,
-        tipo: "correctivo", prioridad: sol.prioridad, estado: "planificada",
-        descripcion: sol.descripcion, fecha: sol.fecha,
-        origen_solicitud_id: sol.id, created_by: profile.id,
-      });
+      // Recupera una OT huérfana de un intento previo (OT creada pero la solicitud
+      // no se llegó a marcar "convertida"), en vez de crear una segunda.
+      let nuevaOT = otsActuales.find((o) => o.origen_solicitud_id === sol.id) || null;
+      if (!nuevaOT) {
+        const folio = folioOT(otsActuales, true);
+        nuevaOT = await insertRow("ordenes_trabajo", profile.empresa_id, {
+          folio,
+          embarcacion_id: sol.embarcacion_id, sistema: sol.sistema,
+          tipo: "correctivo", prioridad: sol.prioridad, estado: "planificada",
+          descripcion: sol.descripcion, fecha: sol.fecha,
+          origen_solicitud_id: sol.id, created_by: profile.id,
+        });
+      }
       await updateRow("solicitudes", sol.id, { estado: "convertida", ot_id: nuevaOT.id });
       setSolicitudes((p) => p.map((s) => s.id === sol.id ? { ...s, estado: "convertida", ot_id: nuevaOT.id } : s));
       logActivity(profile, "Solicitud → OT", `${sol.folio || ""} → ${nuevaOT.folio}`);
@@ -335,7 +350,7 @@ export default function Solicitudes({ navParams }) {
 
       <ErrorBanner onRetry={cargar}>{error}</ErrorBanner>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14, marginBottom: 16 }}>
+      <div className="cmms-collapse-mobile" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14, marginBottom: 16 }}>
         <KPI label="Pendientes" value={pendientes.length} tone={pendientes.length ? C.amber : C.green} />
         <KPI label="SLA Vencidas" value={vencidasSLA} tone={vencidasSLA ? C.red : C.green} sub="acción inmediata" />
         <KPI label="Por Vencer" value={porVencer} tone={porVencer ? C.amber : C.green} sub="≥ 75% del SLA" />

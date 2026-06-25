@@ -8,6 +8,8 @@ import { riesgoFlota } from "../lib/riesgo";
 import { C, archivo, num, tint } from "../theme";
 import { Card, PageHead, Pill, Empty, ErrorBanner, InlineSpinner } from "../ui";
 import { hoyLocal } from "../lib/fechas";
+import { useMediaQuery } from "../lib/useMediaQuery";
+import { OFFICINA_COMPACT_QUERY } from "../lib/breakpoints";
 
 const SPEC = [
   { tabla: "embarcaciones", opts: { order: { col: "codigo", asc: true } } },
@@ -24,6 +26,7 @@ const ZONA_META = {
 
 export default function RiesgoFalla({ onNavigate }) {
   const [raw, loading, error, reload] = useFleetData(SPEC);
+  const isMobile = useMediaQuery(OFFICINA_COMPACT_QUERY);
   const [embFiltro,  setEmbFiltro]  = useState("todas");
   const [zonaFiltro, setZonaFiltro] = useState("todas");
   const [expanded,   setExpanded]   = useState(null);
@@ -80,7 +83,7 @@ export default function RiesgoFalla({ onNavigate }) {
       <ErrorBanner onRetry={reload}>{error}</ErrorBanner>
 
       {/* KPIs */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14, marginBottom: 16 }}>
+      <div className="cmms-collapse-mobile" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14, marginBottom: 16 }}>
         <KCard label="Equipos zona roja"    value={nRojos}    tone={nRojos ? C.red : C.green}   sub="score ≥ 40" />
         <KCard label="Equipos zona amarilla" value={nAmarillos} tone={nAmarillos ? C.amber : C.green} sub="score 20-39" />
         <KCard label="PMs vencidos"          value={nPMVencidos} tone={nPMVencidos ? C.red : C.green} sub="equipos afectados" />
@@ -138,8 +141,10 @@ export default function RiesgoFalla({ onNavigate }) {
                 <button
                   onClick={() => setExpanded(isExp ? null : r.equipo.id)}
                   style={{
-                    width: "100%", display: "grid",
-                    gridTemplateColumns: "32px 2.5fr 1.2fr 1fr 1fr 1fr 28px",
+                    width: "100%",
+                    display: isMobile ? "flex" : "grid",
+                    flexWrap: isMobile ? "wrap" : undefined,
+                    gridTemplateColumns: isMobile ? undefined : "32px 2.5fr 1.2fr 1fr 1fr 1fr 28px",
                     gap: 12, alignItems: "center", padding: "12px 16px",
                     background: r.zona === "roja" ? tint(C.red, 6) : "transparent",
                     border: "none", cursor: "pointer", textAlign: "left",
@@ -148,7 +153,7 @@ export default function RiesgoFalla({ onNavigate }) {
                   <div style={{ ...archivo, fontWeight: 800, fontSize: 15, color: zonaColor(r.zona), textAlign: "center" }}>
                     {idx + 1}
                   </div>
-                  <div>
+                  <div style={{ flex: isMobile ? "1 1 60%" : undefined, minWidth: 0 }}>
                     <div style={{ ...archivo, fontWeight: 700, fontSize: 14, color: C.abyss }}>
                       {r.equipo.sistema || r.equipo.id_visible || r.equipo.id}
                     </div>

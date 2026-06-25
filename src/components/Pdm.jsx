@@ -134,7 +134,7 @@ export default function Pdm({ navParams }) {
       <ErrorBanner onRetry={cargar}>{error}</ErrorBanner>
 
       {/* KPIs */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 14, marginBottom: 16 }}>
+      <div className="cmms-collapse-mobile" style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 14, marginBottom: 16 }}>
         {[
           ["Series monitoreadas", kpis.total, C.steel, Waves],
           ["En alerta", kpis.alerta, kpis.alerta ? C.amber : C.green, AlertCircle],

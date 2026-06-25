@@ -171,7 +171,7 @@ export default function Cumplimiento({ navParams }) {
 
       <ErrorBanner onRetry={cargar}>{error}</ErrorBanner>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14, marginBottom: 16 }}>
+      <div className="cmms-collapse-mobile" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14, marginBottom: 16 }}>
         <Card style={{ padding: 18, background: kpis.vencidos ? `linear-gradient(135deg, ${C.red}, #8A2A26)` : kpis.porVencer ? `linear-gradient(135deg, ${C.amber}, #9F7415)` : `linear-gradient(135deg, #1E9E6A, #127C8A)`, color: "#fff" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}><ShieldCheck size={20} color="#fff" /><span style={{ fontSize: 11, letterSpacing: 1.5, textTransform: "uppercase", color: "rgba(255,255,255,.85)", fontWeight: 700 }}>Cumplimiento</span></div>
           <div style={{ ...archivo, fontSize: 28, fontWeight: 800, lineHeight: 1 }}>{kpis.pct}%</div>

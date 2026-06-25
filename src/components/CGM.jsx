@@ -142,7 +142,7 @@ export default function CGM() {
 
       <ErrorBanner onRetry={cargar}>{error}</ErrorBanner>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14, marginBottom: 16 }}>
+      <div className="cmms-collapse-mobile" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14, marginBottom: 16 }}>
         <KPI label="CGM Total Flota / mes" value={clp(totalMes)} tone={C.gold} sub={`${clp(totalMes * 12)} al año`} />
         <KPI label="Costo Intervenciones" value={clp(totalCi)} sub={`${totalMes > 0 ? Math.round((totalCi / totalMes) * 100) : 0}% del total`} />
         <KPI label="Costo de Fallas" value={clp(totalCf)} tone={pctFallas > 30 ? C.red : C.steel} sub={`${pctFallas.toFixed(0)}% del total · ${pctFallas > 30 ? "alto" : "ok"}`} />

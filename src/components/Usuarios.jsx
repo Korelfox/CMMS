@@ -112,7 +112,7 @@ export default function Usuarios() {
         </div>
       </Card>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 14, marginBottom: 16 }}>
+      <div className="cmms-collapse-mobile" style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 14, marginBottom: 16 }}>
         <KPI label="Usuarios" value={usuarios.length} sub={`${activos} activos`} />
         <KPI label="Administradores" value={admins} tone={C.steel} sub="acceso de gestión" />
         <KPI label="Operativos" value={usuarios.length - admins} sub="capitanes y maquinistas" />
