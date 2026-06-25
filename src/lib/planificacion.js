@@ -26,6 +26,7 @@ export function tasaHorasDia(lecturas = []) {
 // → número de días o null si no se puede proyectar.
 export function diasHastaPM(planEval, tasa = null) {
   if (!planEval || planEval.limite <= 0) return null;
+  if (!Number.isFinite(planEval.elapsed)) return null; // sin historial → no proyectar
   const restante = planEval.limite - planEval.elapsed;
   if (planEval.esCalendario) return restante;          // ya está en días
   if (tasa == null || tasa <= 0) return null;          // no hay tasa → no se puede proyectar

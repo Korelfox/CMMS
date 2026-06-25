@@ -1,5 +1,5 @@
 ﻿import { supabase } from "./supabase";
-function emitMutated(tabla) { try { window.dispatchEvent(new CustomEvent("cmms-data-mutated", { detail: { tabla } })); } catch {} }
+function emitMutated(tabla) { try { window.dispatchEvent(new CustomEvent("cmms-data-mutated", { detail: { tabla } })); } catch { /* suppress non-critical dispatch errors */ } }
 
 // ============================================================
 //  Capa de acceso a datos
@@ -49,6 +49,20 @@ export async function updateRow(tabla, id, cambios) {
   if (error) { console.error(`[CMMS] updateRow(${tabla}):`, error.message); throw error; }
   emitMutated(tabla);
   return data;
+}
+
+// Actualiza por id con bloqueo optimista por updated_at (mismo criterio que el
+// outbox offline). Devuelve { data } en éxito o { conflict: true } si otra
+// escritura ganó la carrera (0 filas afectadas porque updated_at no coincide).
+// Sin expectedUpdatedAt se comporta como un updateRow normal.
+export async function updateRowLocked(tabla, id, cambios, expectedUpdatedAt = null) {
+  let q = supabase.from(tabla).update(cambios).eq("id", id);
+  if (expectedUpdatedAt) q = q.eq("updated_at", expectedUpdatedAt);
+  const { data, error } = await q.select();
+  if (error) { console.error(`[CMMS] updateRowLocked(${tabla}):`, error.message); throw error; }
+  if (expectedUpdatedAt && (!data || data.length === 0)) return { conflict: true };
+  emitMutated(tabla);
+  return { data: data?.[0] ?? null };
 }
 
 // Elimina por id (RLS solo lo permite a administradores).

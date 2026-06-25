@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { createPortal } from "react-dom";
 import { AlertTriangle, X } from "lucide-react";
 import { C, tint } from "../../theme";
 import { primaryBtn, ghostBtn, inputStyle, Field } from "../../ui";
@@ -12,11 +13,16 @@ export default function CierreFallaModal({ ot, onGuardar, onCerrarSinCodificar, 
   const [modo, setModo]           = useState(ot.modo_falla || "");
   const [causa, setCausa]         = useState(ot.causa_falla || "");
   const [mecanismo, setMecanismo] = useState(ot.mecanismo_falla || "");
+  const [mttr, setMttr]           = useState(ot.mttr_horas != null ? String(ot.mttr_horas) : "");
   const yaCerrada = ot.estado === "cerrada";
+  const mttrNum = mttr !== "" ? Number(mttr) : null;
 
-  return (
+  // Portal a document.body: el modal se monta fuera de cualquier contenedor con
+  // stacking context propio (DetailShell fullscreen del wizard Campo, wrappers con
+  // backdrop-filter/transform), garantizando que siempre quede por encima.
+  return createPortal((
     <div onClick={onClose}
-      style={{ position: "fixed", inset: 0, background: "rgba(6,24,46,.55)", backdropFilter: "blur(3px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100, padding: 20 }}>
+      style={{ position: "fixed", inset: 0, background: "rgba(6,24,46,.55)", backdropFilter: "blur(3px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 120, padding: 20 }}>
       <div onClick={(e) => e.stopPropagation()}
         style={{ background: C.surface, borderRadius: 16, width: "100%", maxWidth: 520, boxShadow: "0 20px 60px rgba(0,0,0,.3)", overflow: "hidden" }}>
 
@@ -90,18 +96,25 @@ export default function CierreFallaModal({ ot, onGuardar, onCerrarSinCodificar, 
               </div>
             )}
           </Field>
+          <Field label="Tiempo de reparación · MTTR (horas)">
+            <input type="number" min="0" step="0.5" value={mttr} onChange={(e) => setMttr(e.target.value)}
+              placeholder="Ej. 2.5" style={inputStyle()} />
+            <div style={{ fontSize: 11.5, color: C.slate, marginTop: 4 }}>
+              Alimenta MTTR/disponibilidad. Opcional, pero recomendado al cerrar.
+            </div>
+          </Field>
         </div>
 
         <div style={{ padding: "14px 22px", borderTop: `1px solid ${C.line}`, display: "flex", justifyContent: "space-between", gap: 8 }}>
           {!yaCerrada
             ? <button onClick={onCerrarSinCodificar} style={{ ...ghostBtn, fontSize: 12.5 }} title="Cierra la OT sin códigos; podrás codificarla después">Cerrar sin codificar</button>
             : <span />}
-          <button onClick={() => onGuardar({ modo_falla: modo, modo_falla_codigo: modo ? modoMeta(modo).codigo : null, causa_falla: causa || null, mecanismo_falla: mecanismo || null })}
+          <button onClick={() => onGuardar({ modo_falla: modo, modo_falla_codigo: modo ? modoMeta(modo).codigo : null, causa_falla: causa || null, mecanismo_falla: mecanismo || null, ...(mttrNum != null && Number.isFinite(mttrNum) && mttrNum >= 0 ? { mttr_horas: mttrNum } : {}) })}
             disabled={!modo} style={{ ...primaryBtn, opacity: modo ? 1 : 0.5 }}>
             {yaCerrada ? "Guardar códigos" : "Codificar y cerrar OT"}
           </button>
         </div>
       </div>
     </div>
-  );
+  ), document.body);
 }

@@ -13,7 +13,7 @@ const DIA_MS = 86_400_000;
 // ── TTFs en días calendario (fallback sin horómetro) ─────────────────────────
 export function ttfsDiasCalendario(equipoId, ots) {
   const fechas = (ots || [])
-    .filter((o) => o.equipo_id === equipoId && o.tipo === "correctivo" && o.fecha)
+    .filter((o) => o.equipo_id === equipoId && o.tipo === "correctivo" && o.estado === "cerrada" && o.fecha)
     .map((o) => new Date(o.fecha).getTime())
     .sort((a, b) => a - b);
   const ttfs = [];
@@ -54,7 +54,7 @@ export function horasEnFecha(equipoId, fechaMs, lecturas) {
 // extremo es anterior a la primera lectura (horas desconocidas).
 export function ttfsHorasOper(equipoId, ots, lecturas) {
   const correctivas = (ots || [])
-    .filter((o) => o.equipo_id === equipoId && o.tipo === "correctivo" && o.fecha)
+    .filter((o) => o.equipo_id === equipoId && o.tipo === "correctivo" && o.estado === "cerrada" && o.fecha)
     .map((o) => new Date(o.fecha + "T00:00:00").getTime())
     .sort((a, b) => a - b);
 
@@ -164,7 +164,7 @@ export function analizarEquipo({ equipo, ots = [], lecturas = [], hoy } = {}) {
   const { beta, eta } = ajuste || {};
 
   const correctivas = (ots || []).filter(
-    (o) => o.equipo_id === id && o.tipo === "correctivo" && o.fecha,
+    (o) => o.equipo_id === id && o.tipo === "correctivo" && o.estado === "cerrada" && o.fecha,
   );
   const nFallas = correctivas.length;
 

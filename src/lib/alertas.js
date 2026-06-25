@@ -233,7 +233,9 @@ export function alertasCompras(compras) {
   const result = [];
   for (const c of compras || []) {
     if (c.estado !== "enviada") continue;
-    const dias = (Date.now() - new Date(c.fecha).getTime()) / DIA_MS;
+    // c.fecha es DATE ("YYYY-MM-DD"): parsear como medianoche local para que el
+    // delta contra Date.now() (instante local) no tenga el desfase UTC de ~4 h.
+    const dias = (Date.now() - new Date(c.fecha + "T00:00:00").getTime()) / DIA_MS;
     if (dias >= (c.lead_dias || 0)) {
       result.push({
         cat: "compra", sev: dias >= (c.lead_dias || 0) + 7 ? "red" : "amber",

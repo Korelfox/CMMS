@@ -13,6 +13,7 @@ import {
 import { analizarBrechas } from "../lib/equipoBrechas";
 import { ordenarEquipos, kanbanEstadoKey } from "../lib/equiposKanban";
 import { useMediaQuery } from "../lib/useMediaQuery";
+import { OFFICINA_NARROW_QUERY } from "../lib/breakpoints";
 import { useShellOptional } from "../context/ShellContext";
 import EquipoKanban from "./equipos/EquipoKanban";
 import EquipoQueuePanel from "./equipos/EquipoQueuePanel";
@@ -96,7 +97,7 @@ export default function Equipos({ navParams }) {
   const { open } = useWindows();
   const handlersRef = useRef({});
   const arbolRef = useRef(null);
-  const isMobile = useMediaQuery("(max-width: 1024px)");
+  const isMobile = useMediaQuery(OFFICINA_NARROW_QUERY);
   const isCampo = !!navParams?.campo;
   const isTabla = vista === "tabla";
 
@@ -725,15 +726,26 @@ export default function Equipos({ navParams }) {
   }
 
   async function eliminar(id) {
-    const eq = equipos.find((e) => e.id === id);
+    const eq    = equipos.find((e) => e.id === id);
     const hijos = equipos.filter((e) => e.parent_id === id);
-    const aviso = hijos.length > 0 ? `\n⚠️ Tiene ${hijos.length} subsistema(s) que quedarán como raíz.` : "";
-    if (!window.confirm(`¿Eliminar el equipo "${eq?.sistema}"? Se borrarán también su criticidad, costos y planes asociados.${aviso}`)) return;
+    const avisoHijos = hijos.length > 0
+      ? `\n⚠️ Sus ${hijos.length} subsistema(s) se reasignarán al nivel superior.`
+      : "";
+    if (!window.confirm(`¿Eliminar el equipo "${eq?.sistema}"?${avisoHijos}`)) return;
     const respaldo = equipos;
-    setEquipos((p) => p.filter((e) => e.id !== id));
+    // Optimistic: quitar el equipo y reparentar hijos en la UI
+    setEquipos((p) =>
+      p.filter((e) => e.id !== id)
+       .map((e) => e.parent_id === id ? { ...e, parent_id: eq?.parent_id ?? null } : e)
+    );
     try {
+      // 1) Reparentar hijos al abuelo (o a raíz si ya es de primer nivel)
+      for (const hijo of hijos) {
+        await updateRow("equipos", hijo.id, { parent_id: eq?.parent_id ?? null });
+      }
+      // 2) Soft-delete del equipo (los triggers excluirán deleted_at IS NOT NULL)
       await deleteRow("equipos", id);
-      logActivity(profile, "Eliminar equipo", `${eq?.id_visible} · ${eq?.sistema}`);
+      logActivity(profile, "Eliminar equipo", `${eq?.id_visible} · ${eq?.sistema}${hijos.length ? ` (${hijos.length} hijos reparentados)` : ""}`);
     } catch (e) { setEquipos(respaldo); setError("No se pudo eliminar: " + e.message); }
   }
 
@@ -1182,6 +1194,7 @@ export default function Equipos({ navParams }) {
               esAgrupador={esAgrupador}
               onColapsarTodo={() => arbol.colapsarTodo(true)}
               onExpandirTodo={() => arbol.colapsarTodo(false)}
+              onPopOut={abrirEquipoWindow}
               onEliminar={eliminar}
               puedeBorrar={puedeBorrar}
               puedeOperar={puedeOperar}

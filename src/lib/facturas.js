@@ -5,12 +5,19 @@
 // ============================================================
 
 // Parsea montos en formato chileno: "1.234.567,89" → 1234567.89
+// También soporta artefactos OCR con comas como separadores de miles: "1,234,567" → 1234567
 export function parseMontoCLP(str) {
   if (str == null || str === "") return null;
   const s = String(str).trim().replace(/[$\s]/g, "");
-  const partes = s.split(",");
-  const entero = partes[0].replace(/\./g, "");
-  const dec    = partes[1] ?? "0";
+  const commas = (s.match(/,/g) || []).length;
+  if (commas > 1) {
+    // OCR artefacto: comas como separadores de miles (p.ej. "1,234,567")
+    const n = parseFloat(s.replace(/,/g, "").replace(/\./g, ""));
+    return isNaN(n) ? null : n;
+  }
+  // Formato chileno estándar: puntos=miles, coma=decimal
+  const entero = s.split(",")[0].replace(/\./g, "");
+  const dec    = s.split(",")[1] ?? "0";
   const n = parseFloat(`${entero}.${dec}`);
   return isNaN(n) ? null : n;
 }

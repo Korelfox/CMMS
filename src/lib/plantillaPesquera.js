@@ -1150,13 +1150,59 @@ export const PLANTILLA_PESQUERA = [
     ],
   },
 
-  // ── Combustible de Nave ─────────────────────────────────────────
+  // ── Combustible de Nave (E13 ISO 14224) ─────────────────────────
   {
     cod: "FUEL", nom: "Combustible de Nave", crit: "A", tipo: "sistema",
     hijos: [
-      { cod: "FUEL-TNK", nom: "Tanques de Combustible",     crit: "A", tipo: "subsistema" },
-      { cod: "FUEL-BMP", nom: "Bomba de Trasiego",          crit: "A", tipo: "subsistema" },
-      { cod: "FUEL-SEP", nom: "Separador Agua-Combustible", crit: "A", tipo: "subsistema" },
+      {
+        cod: "FUEL-TNK", nom: "Tanques de Combustible", crit: "A", tipo: "subsistema",
+        hijos: [
+          comp("FUEL-TNK-TKG", "Tanques de Gasoil / HFO", {
+            rep: [["JD-TNK-FUEL", "Juntas y Sellos Tanque Combustible", "generico"]],
+            pm: [
+              ["Drenaje de agua e impurezas del fondo de tanque de combustible", null, "mensual"],
+              ["Inspección de fondos y paredes de tanques de combustible", null, "anual"],
+            ] }),
+          comp("FUEL-TNK-VCR", "Válvulas de Cierre Rápido (combustible)", {
+            rep: [["VCR-FUEL-OEM", "Válvula de Cierre Rápido Combustible (OEM)", "oem"]],
+            pm: [["Prueba de cierre rápido de válvulas de combustible", null, "semestral"]] }),
+        ],
+      },
+      {
+        cod: "FUEL-BMP", nom: "Transferencia de Combustible", crit: "A", tipo: "subsistema",
+        hijos: [
+          comp("FUEL-BMP-BMT", "Bomba de Trasiego / Transferencia", {
+            rep: [
+              ["BMP-TRF-OEM", "Bomba de Trasiego (OEM)", "oem"],
+              ["KIT-SEL-TRF", "Kit Sellos Bomba Trasiego", "generico"],
+            ],
+            pm: [["Inspección de sellos y funcionamiento de bomba de trasiego", 1000]] }),
+          comp("FUEL-BMP-CAL", "Calentador de Combustible (HFO)", { basico: false,
+            rep: [["RES-CAL-HFO-OEM", "Resistencias Calentador HFO (OEM)", "oem"]],
+            pm: [["Inspección de resistencias del calentador de combustible", 2000]] }),
+        ],
+      },
+      {
+        cod: "FUEL-SEP", nom: "Separador / Purificador de Combustible", crit: "A", tipo: "subsistema",
+        hijos: [
+          comp("FUEL-SEP-CEN", "Centrífuga / Purificador de Combustible", { basico: false,
+            rep: [
+              ["SEP-FUEL-OEM", "Platos de Centrífuga Purificador (OEM)", "oem"],
+              ["KIT-SEL-SEP", "Kit Sellos Separador Combustible", "generico"],
+            ],
+            pm: [
+              ["Limpieza de centrífuga / purificador de combustible", null, "mensual"],
+              ["Cambio de aceite de centrífuga / purificador", 1000],
+            ] }),
+          comp("FUEL-SEP-FLT", "Filtro Separador Agua-Combustible", {
+            rep: [
+              ["FLT-SEP-OEM", "Elemento Separador Agua-Combustible (OEM)", "oem"],
+              ["FLT-SEP-DON", "Elemento Separador Donaldson", "alternativo"],
+              ["FLT-SEP-GEN", "Elemento Separador Genérico", "generico"],
+            ],
+            pm: [["Cambio de filtro separador agua-combustible", 500]] }),
+        ],
+      },
     ],
   },
 
@@ -1391,8 +1437,44 @@ export const PLANTILLA_PESQUERA = [
             ] }),
         ],
       },
-      { cod: "RSW-BAM", nom: "Bomba Agua de Mar RSW",   crit: "A", tipo: "subsistema" },
-      { cod: "RSW-BOD", nom: "Bodegas de Pesca",        crit: "A", tipo: "subsistema" },
+      // SFI 663 — Sala de Procesado y Hielo
+      {
+        cod: "RSW-PRO", nom: "Sala de Procesado y Hielo", crit: "A", tipo: "subsistema",
+        hijos: [
+          comp("RSW-PRO-MES", "Mesa de Faena / Procesado", {
+            rep: [["JD-MES-GEN", "Juntas/Sellos Mesa de Faena", "generico"]],
+            pm: [["Limpieza e inspección de mesa de faena", null, "diario"]] }),
+          comp("RSW-PRO-BAN", "Banda Transportadora", { basico: false,
+            rep: [["BAN-PRO-OEM", "Banda Transportadora (OEM)", "oem"]],
+            pm: [["Inspección de tensión y alineación de banda transportadora", 500]] }),
+          comp("RSW-PRO-HIE", "Máquina de Hielo en Escamas", {
+            rep: [
+              ["FLT-HIE-GEN", "Filtros Máquina de Hielo", "generico"],
+              ["GAS-HIE-GEN", "Carga Refrigerante Máquina Hielo", "generico"],
+            ],
+            pm: [
+              ["Limpieza y desinfección de máquina de hielo", null, "semanal"],
+              ["Inspección de compresor de máquina de hielo", 2000],
+            ] }),
+        ],
+      },
+      {
+        cod: "RSW-BAM", nom: "Bomba Agua de Mar RSW", crit: "A", tipo: "subsistema",
+        hijos: [
+          comp("RSW-BAM-BMP", "Bomba de Agua de Mar (impeller)", {
+            rep: [
+              ["BMP-AM-RSW-OEM", "Bomba Agua Mar RSW (OEM)", "oem"],
+              ["IMP-AM-RSW-OEM", "Impeller Bomba RSW (OEM)", "oem"],
+              ["KIT-SEL-AM-RSW", "Kit Sellos Bomba Agua Mar RSW", "generico"],
+            ],
+            pm: [["Inspección de impeller y sellos de bomba de agua mar RSW", 1000]] }),
+        ],
+      },
+      { cod: "RSW-BOD", nom: "Bodegas de Pesca", crit: "A", tipo: "subsistema",
+        pm: [
+          ["Inspección visual de bodegas de pesca (corrosión/estanqueidad)", null, "mensual"],
+          ["Limpieza y desinfección de bodegas de pesca", null, "semestral"],
+        ] },
       inst("RSW-SEN-T", "Sensor Temperatura RSW", { crit: "A",
         param: PM_RSW_T,
         pm: [["Calibración de sensores / instrumentos", null, "semestral"]] }),
@@ -1493,9 +1575,51 @@ export const PLANTILLA_PESQUERA = [
             ] }),
         ],
       },
-      { cod: "ELEC-INT", nom: "Interruptores",        crit: "B", tipo: "subsistema" },
-      { cod: "ELEC-BAT", nom: "Banco de Baterías",    crit: "B", tipo: "subsistema" },
-      { cod: "ELEC-CAB", nom: "Cables y Conductores", crit: "B", tipo: "subsistema" },
+      {
+        cod: "ELEC-INT", nom: "Interruptores / Protecciones Eléctricas", crit: "B", tipo: "subsistema",
+        hijos: [
+          comp("ELEC-INT-DIS", "Disyuntores e Interruptores Automáticos", {
+            rep: [["KIT-DIS-GEN", "Kit Disyuntores/Relés (repuesto)", "generico"]],
+            pm: [["Prueba de disparo de protecciones y disyuntores", null, "anual"]] }),
+          comp("ELEC-INT-TRF", "Transformadores de Distribución", { basico: false,
+            rep: [["ACE-TRF-GEN", "Aceite Dieléctrico Transformador", "generico"]],
+            pm: [["Inspección de aceite e inspección visual de transformadores", null, "semestral"]] }),
+          comp("ELEC-INT-REL", "Relés de Protección (sobrecarga / diferencial)", {
+            rep: [["REL-PROT-OEM", "Relé de Protección (OEM)", "oem"]],
+            pm: [["Calibración y prueba de relés de protección", null, "anual"]] }),
+          comp("ELEC-INT-TIE", "Sistema de Puesta a Tierra", {
+            pm: [["Medición de resistencia de puesta a tierra", null, "anual"]] }),
+          inst("ELEC-INT-ISO", "Isómetro / Monitor de Aislamiento", {
+            pm: [["Prueba de funcionamiento del monitor de aislamiento (isómetro)", null, "semestral"]] }),
+        ],
+      },
+      {
+        cod: "ELEC-BAT", nom: "Banco de Baterías", crit: "B", tipo: "subsistema",
+        hijos: [
+          comp("ELEC-BAT-BAT", "Baterías de Servicios Generales", {
+            rep: [
+              ["BAT-12V-100AH-CAT", "Batería 12V 100Ah (OEM)", "oem"],
+              ["BAT-12V-100AH-GEN", "Batería 12V 100Ah Genérica", "generico"],
+            ],
+            pm: [
+              ["Revisión de nivel y bornas de banco de baterías", null, "mensual"],
+              ["Prueba de capacidad de baterías de servicios generales", null, "semestral"],
+            ] }),
+          comp("ELEC-BAT-CHR", "Cargadores de Baterías", {
+            rep: [["CHR-BAT-GEN", "Cargador de Baterías (genérico)", "generico"]],
+            pm: [["Inspección visual de cargadores de baterías", null, "trimestral"]] }),
+        ],
+      },
+      {
+        cod: "ELEC-CAB", nom: "Cables y Conductores", crit: "B", tipo: "subsistema",
+        hijos: [
+          comp("ELEC-CAB-PNC", "Cableado Principal y Armarios de Conexión", { basico: false,
+            pm: [
+              ["Torque de conexiones en bornas y armarios eléctricos", null, "semestral"],
+              ["Inspección de aislamiento y continuidad de conductores principales", null, "anual"],
+            ] }),
+        ],
+      },
       {
         cod: "ELEC-ALU", nom: "Alumbrado y Luces de Navegación", crit: "A", tipo: "subsistema",
         hijos: [
@@ -1528,18 +1652,55 @@ export const PLANTILLA_PESQUERA = [
     ],
   },
 
-  // ── Agua, Lastre y Potable ──────────────────────────────────────
+  // ── Agua, Lastre y Potable (E07/E10 ISO 14224) ─────────────────
   {
     cod: "WAT", nom: "Agua, Lastre y Potable", crit: "B", tipo: "sistema",
     hijos: [
-      { cod: "WAT-LST", nom: "Tanques y Bombas de Lastre", crit: "B", tipo: "subsistema" },
-      { cod: "WAT-TND", nom: "Tanques de Agua Dulce",      crit: "B", tipo: "subsistema" },
+      {
+        cod: "WAT-LST", nom: "Tanques y Bombas de Lastre", crit: "B", tipo: "subsistema",
+        hijos: [
+          comp("WAT-LST-BMP", "Bombas de Achique y Lastre", {
+            rep: [
+              ["BMP-LST-OEM", "Bomba de Lastre (OEM)", "oem"],
+              ["KIT-SEL-LST", "Kit Sellos Bomba Lastre", "generico"],
+            ],
+            pm: [["Inspección de sellos y funcionamiento de bomba de lastre", null, "semestral"]] }),
+          comp("WAT-LST-VLV", "Válvulas de Lastre (mariposa / esclusas)", {
+            rep: [["VLV-LST-OEM", "Válvula Mariposa de Lastre (OEM)", "oem"]],
+            pm: [["Prueba de operación de válvulas de lastre", null, "anual"]] }),
+          comp("WAT-LST-TNK", "Tanques de Lastre / Doble Fondo", { basico: false,
+            pm: [
+              ["Inspección de corrosión en tanques de lastre", null, "anual"],
+              ["Limpieza y pintura interior de tanques de lastre", null, "anual"],
+            ] }),
+        ],
+      },
+      {
+        cod: "WAT-TND", nom: "Tanques de Agua Dulce", crit: "B", tipo: "subsistema",
+        hijos: [
+          comp("WAT-TND-TNK", "Tanques de Almacenamiento de Agua Dulce", {
+            rep: [["CLORO-POT", "Pastillas de Cloración Potable", "generico"]],
+            pm: [
+              ["Análisis de calidad de agua potable", null, "semestral"],
+              ["Limpieza y desinfección de tanques de agua dulce", null, "anual"],
+            ] }),
+          comp("WAT-TND-BMP", "Bomba de Suministro de Agua Dulce", {
+            rep: [
+              ["BMP-POT-OEM", "Bomba de Agua Potable (OEM)", "oem"],
+              ["KIT-SEL-BMP-POT", "Kit Sellos Bomba Agua", "generico"],
+            ],
+            pm: [["Inspección de sellos y rodete de bomba de agua dulce", null, "anual"]] }),
+          comp("WAT-TND-TOM", "Toma de Agua de Mar (fondo / filtro strainer)", {
+            rep: [["STR-TOM-OEM", "Canasto Filtro Toma de Fondo (OEM)", "oem"]],
+            pm: [["Limpieza de filtro / strainer de toma de agua de mar", null, "semanal"]] }),
+        ],
+      },
       {
         cod: "WAT-POT", nom: "Planta de Agua Potable", crit: "B", tipo: "subsistema",
         hijos: [
           comp("WAT-POT-GEN", "Generador de Agua Dulce (ósmosis/evaporador)", { basico: false,
             rep: [["MEM-RO-OEM", "Membrana de Ósmosis (OEM)", "oem"], ["FLT-RO-GEN", "Prefiltros RO", "generico"]],
-            pm: [["Inspección visual / por condición", 2000]] }),
+            pm: [["Limpieza de tubos del evaporador / generador de agua dulce", 2000]] }),
           comp("WAT-POT-HID", "Grupo Hidróforo", {
             rep: [["BMP-HID-OEM", "Bomba Hidróforo (OEM)", "oem"], ["MEM-HID-GEN", "Membrana/Diafragma Estanque", "generico"]],
             pm: [["Engrase / lubricación general", 2000]] }),
@@ -1581,19 +1742,46 @@ export const PLANTILLA_PESQUERA = [
     ],
   },
 
-  // ── Ventilación y Climatización ─────────────────────────────────
+  // ── Ventilación y Climatización (E11 ISO 14224) ─────────────────
   {
     cod: "HVAC", nom: "Ventilación y Climatización", crit: "B", tipo: "sistema",
     hijos: [
-      comp("HVAC-SM", "Ventilación Sala de Máquinas", {
-        rep: [["VEN-SM-OEM", "Ventilador/Extractor Sala Máquinas", "oem"], ["COR-VEN-GEN", "Correa de Ventilador", "generico"]],
-        pm: [["Inspección visual / por condición", 1000]] }),
-      comp("HVAC-AC", "Aire Acondicionado de Acomodación", { basico: false,
-        rep: [["FLT-AC-GEN", "Filtros de A/C", "generico"], ["GAS-AC-GEN", "Carga de Refrigerante", "generico"]],
-        pm: [["Inspección visual / por condición", 2000]] }),
-      comp("HVAC-BOD", "Ventilación de Bodegas / Pañoles", {
-        rep: [["VEN-BOD-OEM", "Ventilador de Bodega", "oem"]],
-        pm: [["Inspección visual / por condición", 2000]] }),
+      {
+        cod: "HVAC-AC", nom: "Sistema de Climatización (A/C)", crit: "B", tipo: "subsistema",
+        hijos: [
+          comp("HVAC-AC-CMP", "Compresor de Climatización", {
+            rep: [
+              ["CMP-AC-OEM", "Compresor A/C (OEM)", "oem"],
+              ["GAS-AC-GEN", "Carga de Refrigerante A/C", "generico"],
+            ],
+            pm: [
+              ["Verificar presiones y temperatura del sistema A/C", null, "diario"],
+              ["Revisión de fugas de refrigerante y limpieza de compresor A/C", 2000],
+            ] }),
+          comp("HVAC-AC-EVA", "Evaporador / Condensador A/C", {
+            rep: [["FLT-AC-GEN", "Filtros de A/C (set)", "generico"]],
+            pm: [["Limpieza de filtros y serpentines del A/C", 2000]] }),
+          comp("HVAC-AC-DUC", "Conductos / Rejillas / Difusores", { basico: false,
+            pm: [["Limpieza de conductos y rejillas de aire acondicionado", null, "anual"]] }),
+        ],
+      },
+      {
+        cod: "HVAC-VNT", nom: "Sistema de Ventilación", crit: "B", tipo: "subsistema",
+        hijos: [
+          comp("HVAC-VNT-SM", "Ventiladores de Sala de Máquinas", {
+            rep: [
+              ["VEN-SM-OEM", "Ventilador/Extractor Sala Máquinas", "oem"],
+              ["COR-VEN-GEN", "Correa de Ventilador", "generico"],
+            ],
+            pm: [["Inspección de rodamientos y correas de ventiladores de máquinas", 2000]] }),
+          comp("HVAC-VNT-COC", "Extractor de Humos de Cocina", {
+            rep: [["FLT-COC-GEN", "Filtro de Grasa Extractor Cocina", "generico"]],
+            pm: [["Limpieza de filtros de extractor de humos de cocina", null, "mensual"]] }),
+          comp("HVAC-VNT-BOD", "Ventilación de Bodegas / Cámaras", {
+            rep: [["VEN-BOD-OEM", "Ventilador de Bodega / Cámara", "oem"]],
+            pm: [["Inspección de rodamientos de ventiladores de bodegas", 2000]] }),
+        ],
+      },
     ],
   },
 

@@ -77,13 +77,21 @@ describe("generarOTsPreventivas (disparador por horas)", () => {
     expect(r.total).toBe(0);
   });
 
-  it("calendario nunca ejecutado → vencido, con motivo claro", () => {
+  it("calendario sin historial (fecha_ult_pm null) NO genera OT automática", () => {
+    // Sin dato histórico → el operador debe ingresar el último PM primero.
     const cal = { id: "k", equipo_id: "e1", tipo_disparador: "calendario", unidad_calendario: "mensual", intervalo_calendario: 1, descripcion: "Inspección" };
     const { sugerencias } = generarOTsPreventivas({ planes: [cal], equipos: [EQ] });
+    expect(sugerencias).toHaveLength(0);
+  });
+
+  it("calendario vencido con historial SÍ genera OT, con motivo claro", () => {
+    // Con fecha_ult_pm hace 60 días y período mensual (30d) → vencido.
+    const hace60 = new Date(Date.now() - 60 * 86_400_000).toISOString().slice(0, 10);
+    const cal = { id: "k", equipo_id: "e1", tipo_disparador: "calendario", unidad_calendario: "mensual", intervalo_calendario: 1, fecha_ult_pm: hace60, descripcion: "Inspección" };
+    const { sugerencias } = generarOTsPreventivas({ planes: [cal], equipos: [EQ] });
     expect(sugerencias).toHaveLength(1);
-    expect(sugerencias[0].huella).toBe("pm:k:inicio");
-    expect(sugerencias[0].motivo).toContain("nunca ejecutado");
     expect(sugerencias[0].descripcion).toContain("PM Cal");
+    expect(sugerencias[0].motivo).toContain("Calendario vencido");
   });
 
   it("ordena por mayor exceso primero", () => {

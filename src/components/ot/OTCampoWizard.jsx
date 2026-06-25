@@ -3,8 +3,9 @@ import { Package, CheckCircle2, AlertTriangle, Check } from "lucide-react";
 import { C, lk, tint } from "../../theme";
 import { ESTADOS_OT, PRIORIDADES } from "../../theme";
 import { primaryBtn, ghostBtn, Pill, Empty, bluInput } from "../../ui";
-import { fetchAll, insertRow, upsertRow, updateRow } from "../../lib/db";
+import { fetchAll, rpcCall } from "../../lib/db";
 import { useAuth } from "../../lib/auth";
+import { useOnline } from "../../lib/offline";
 import { useShellOptional } from "../../context/ShellContext";
 import DetailShell from "../detail/DetailShell";
 import ChecklistOT from "./ChecklistOT";
@@ -20,6 +21,7 @@ function OTCampoRepuestos({ ot, onSkip }) {
   const { profile } = useAuth();
   const shell = useShellOptional();
   const embarcacionId = shell?.embarcacionId ?? null;
+  const online = useOnline();
 
   const [rawItems, setRawItems] = useState([]);
   const [dests, setDests] = useState([]);
@@ -86,36 +88,25 @@ function OTCampoRepuestos({ ot, onSkip }) {
     setGuardando(true);
     setError(null);
     try {
-      const HOY = hoyLocal();
-      let costoParcial = 0;
+      const fecha = hoyLocal();
       for (const [itemId, rawQty] of lineas) {
         const qty = Number(rawQty);
         if (!qty) continue;
         const item = rawItems.find((i) => i.id === itemId);
         if (!item) continue;
-        const actual = stockEnPanol(itemId);
-        await upsertRow("stock", profile.empresa_id, {
-          item_id: itemId, bodega_id: panolActivo.id, cantidad: Math.max(0, actual - qty),
-        }, "item_id,bodega_id");
-        await insertRow("movimientos", profile.empresa_id, {
-          tipo: "salida",
-          item_id: itemId,
-          bodega_from: panolActivo.id,
-          bodega_to: null,
-          cantidad: qty,
-          ot_id: ot.id,
-          responsable: profile.nombre,
-          fecha: HOY,
-          motivo: `Consumo OT ${ot.folio}`,
-          created_by: profile.id,
-        });
-        costoParcial += qty * (item.precio || 0);
-      }
-      if (costoParcial > 0) {
-        await updateRow("ordenes_trabajo", ot.id, {
-          costo_mat: (ot.costo_mat || 0) + costoParcial,
-          costos_por: profile.nombre,
-          costos_fecha: new Date().toISOString(),
+        // RPC atómico: stock + movimiento + cargo OT en una transacción
+        await rpcCall("fn_registrar_movimiento", {
+          p_empresa_id: profile.empresa_id,
+          p_tipo: "salida",
+          p_item_id: itemId,
+          p_bodega_from: panolActivo.id,
+          p_bodega_to: null,
+          p_cantidad: qty,
+          p_ot_id: ot.id,
+          p_responsable: profile.nombre,
+          p_motivo: `Consumo OT ${ot.folio}`,
+          p_fecha: fecha,
+          p_created_by: profile.id,
         });
       }
       setListo(true);
@@ -138,6 +129,27 @@ function OTCampoRepuestos({ ot, onSkip }) {
         <button type="button" className="cmms-campo-touch" onClick={onSkip}
           style={{ ...primaryBtn, width: "100%", justifyContent: "center" }}>
           Continuar al cierre
+        </button>
+      </div>
+    );
+  }
+
+  // Sin conexión: mostrar aviso y omitir — el stock se registra desde Almacén al regresar a puerto
+  if (!online) {
+    return (
+      <div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+          <Package size={18} color={C.steel} />
+          <span style={{ fontSize: 14, fontWeight: 700, color: C.ink }}>Repuestos consumidos</span>
+          <Pill tone="steel">opcional</Pill>
+        </div>
+        <div style={{ display: "flex", gap: 8, alignItems: "flex-start", background: tint(C.amber, 10), border: `1px solid ${tint(C.amber, 35)}`, borderRadius: 8, padding: "12px 14px", marginBottom: 14, fontSize: 12.5 }}>
+          <AlertTriangle size={14} color={C.amber} style={{ flexShrink: 0, marginTop: 1 }} />
+          <span>Sin conexión: el descuento de stock no está disponible. Registra el consumo desde <strong>Almacén → Movimientos</strong> al recuperar señal.</span>
+        </div>
+        <button type="button" className="cmms-campo-touch" onClick={onSkip}
+          style={{ ...primaryBtn, width: "100%", justifyContent: "center" }}>
+          Continuar sin registrar consumo
         </button>
       </div>
     );

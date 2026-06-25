@@ -34,7 +34,9 @@ export function huellaPM(plan) {
   if (!plan?.id) return null;
   const base = plan.tipo_disparador === "calendario"
     ? (plan.fecha_ult_pm || "inicio")
-    : (plan.horas_ult_pm ?? 0);
+    // round() para igualar la huella del cron SQL (_gen_ots usa round(horas_ult_pm)).
+    // Sin esto, con horómetros fraccionarios la OT manual no se deduplica y se duplica.
+    : Math.round(plan.horas_ult_pm ?? 0);
   return `pm:${plan.id}:${base}`;
 }
 
@@ -87,6 +89,13 @@ export function generarOTsPreventivas({ planes = [], equipos = [], ots = [] } = 
     const disparar = tone === "red" || (incluirProximos && tone === "yellow");
     if (!disparar) continue;
     if (!equipo) continue;                 // sin equipo no hay dónde colgar la OT
+
+    // Sin historial base: el operador aún no ingresó el último PM.
+    // El plan muestra "Sin historial" en la UI; sin dato no se genera OT automática.
+    const sinHistorial = plan.tipo_disparador === "calendario"
+      ? plan.fecha_ult_pm == null
+      : plan.horas_ult_pm == null;
+    if (sinHistorial) continue;
 
     const huella = huellaPM(plan);
     if (huella && huellasExistentes.has(huella)) {

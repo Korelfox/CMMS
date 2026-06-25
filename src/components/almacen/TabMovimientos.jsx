@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useRef, useEffect } from "react";
 import { Download, Plus, X, ChevronRight, ChevronDown, AlertCircle, Ship, Search } from "lucide-react";
-import { insertRow, updateRow, upsertRow, logActivity } from "../../lib/db";
+import { rpcCall, logActivity } from "../../lib/db";
 import { C, canOperate, clp, tint } from "../../theme";
 import { Card, Pill, primaryBtn, exportBtn, inputStyle, bluInput, thStyle, tdStyle, Field, Empty } from "../../ui";
 import { HOY, skey } from "./util";
@@ -90,42 +90,35 @@ export default function TabMovimientos({
     const cant = Number(form.cantidad);
     const fb   = form.bodega_from;
     const tb   = form.bodega_to;
+    const resp = form.responsable || profile?.nombre || "";
     try {
-      if (tipo === "entrada") {
-        await upsertRow("stock", profile.empresa_id, { item_id: form.item_id, bodega_id: tb, cantidad: stockDisp(form.item_id, tb) + cant }, "item_id,bodega_id");
-      } else if (tipo === "salida") {
-        await upsertRow("stock", profile.empresa_id, { item_id: form.item_id, bodega_id: fb, cantidad: Math.max(0, stockDisp(form.item_id, fb) - cant) }, "item_id,bodega_id");
-      } else if (tipo === "traslado") {
-        await upsertRow("stock", profile.empresa_id, { item_id: form.item_id, bodega_id: fb, cantidad: Math.max(0, stockDisp(form.item_id, fb) - cant) }, "item_id,bodega_id");
-        await upsertRow("stock", profile.empresa_id, { item_id: form.item_id, bodega_id: tb, cantidad: stockDisp(form.item_id, tb) + cant }, "item_id,bodega_id");
-      } else if (tipo === "ajuste") {
-        await upsertRow("stock", profile.empresa_id, { item_id: form.item_id, bodega_id: tb, cantidad: cant }, "item_id,bodega_id");
-      }
-      await insertRow("movimientos", profile.empresa_id, {
-        fecha: HOY(), tipo, item_id: form.item_id,
-        bodega_from: (tipo === "salida" || tipo === "traslado") ? fb : null,
-        bodega_to:   (tipo === "entrada" || tipo === "traslado" || tipo === "ajuste") ? tb : null,
-        cantidad: cant, ot_id: form.ot_id || null,
-        responsable: form.responsable || profile?.nombre || "",
-        motivo: form.motivo, created_by: profile.id,
-      });
-      logActivity(profile, `Movimiento: ${tipo}`, `${cant}× ${itemDesc(form.item_id)}`);
-      // Valorización automática (ISO 55000): el costo del repuesto consumido
-      // se carga a la OT asociada — el costo real del mantenimiento queda
-      // trazado sin digitación manual.
-      if (tipo === "salida" && form.ot_id) {
-        const ot    = ots.find((o) => o.id === form.ot_id);
-        const item  = items.find((i) => i.id === form.item_id);
-        const costo = cant * (Number(item?.precio) || 0);
-        if (ot && costo > 0) {
-          await updateRow("ordenes_trabajo", form.ot_id, {
-            costo_mat: (Number(ot.costo_mat) || 0) + costo,
-            costos_por: profile?.nombre || profile?.email || "",
-            costos_fecha: new Date().toISOString(),
-          });
-          logActivity(profile, "Cargo repuesto a OT", `${ot.folio} · ${cant}× ${itemDesc(form.item_id)} · +${clp(costo)}`);
+      if (tipo === "traslado") {
+        // Ambos lados atómicos en una sola transacción server-side
+        await rpcCall("fn_registrar_traslado", {
+          p_empresa_id: profile.empresa_id, p_item_id: form.item_id,
+          p_bodega_from: fb, p_bodega_to: tb, p_cantidad: cant,
+          p_responsable: resp, p_motivo: form.motivo,
+          p_fecha: HOY(), p_created_by: profile.id, p_tipo: "traslado",
+        });
+      } else {
+        // entrada / salida / ajuste: RPC unificado con stock atómico + movimiento + costo OT
+        await rpcCall("fn_registrar_movimiento", {
+          p_empresa_id: profile.empresa_id, p_tipo: tipo,
+          p_item_id: form.item_id,
+          p_bodega_from: (tipo === "salida")  ? fb : null,
+          p_bodega_to:   (tipo !== "salida")  ? tb : null,
+          p_cantidad: cant, p_ot_id: form.ot_id || null,
+          p_responsable: resp, p_motivo: form.motivo,
+          p_fecha: HOY(), p_created_by: profile.id,
+        });
+        if (tipo === "salida" && form.ot_id) {
+          const ot   = ots.find((o) => o.id === form.ot_id);
+          const item = items.find((i) => i.id === form.item_id);
+          const cost = cant * (Number(item?.precio) || 0);
+          if (ot && cost > 0) logActivity(profile, "Cargo repuesto a OT", `${ot.folio} · ${cant}× ${itemDesc(form.item_id)} · +${clp(cost)}`);
         }
       }
+      logActivity(profile, `Movimiento: ${tipo}`, `${cant}× ${itemDesc(form.item_id)}`);
       setForm((f) => ({ ...f, cantidad: 1, ot_id: "", motivo: "" }));
       recargar();
     } catch (e) { setError("No se pudo registrar el movimiento: " + e.message); }
@@ -140,16 +133,16 @@ export default function TabMovimientos({
     const toBod   = tipo === "despacho" ? batch.bodega_nave   : batch.bodega_tierra;
     const loteId  = crypto.randomUUID();
     const embNom  = embarcaciones.find((e) => e.id === batch.emb_id)?.nombre || "";
+    const resp = batch.responsable || profile?.nombre || "";
     try {
+      // Todos los ítems del lote usan el mismo lote_id para agrupación visual
       for (const it of batch.items) {
-        await upsertRow("stock", profile.empresa_id, { item_id: it.item_id, bodega_id: fromBod, cantidad: Math.max(0, stockDisp(it.item_id, fromBod) - it.cantidad) }, "item_id,bodega_id");
-        await upsertRow("stock", profile.empresa_id, { item_id: it.item_id, bodega_id: toBod,   cantidad: stockDisp(it.item_id, toBod) + it.cantidad }, "item_id,bodega_id");
-        await insertRow("movimientos", profile.empresa_id, {
-          fecha: HOY(), tipo, item_id: it.item_id,
-          bodega_from: fromBod, bodega_to: toBod,
-          cantidad: it.cantidad, lote_id: loteId,
-          responsable: batch.responsable || profile?.nombre || "",
-          motivo: batch.motivo, created_by: profile.id,
+        await rpcCall("fn_registrar_traslado", {
+          p_empresa_id: profile.empresa_id, p_item_id: it.item_id,
+          p_bodega_from: fromBod, p_bodega_to: toBod, p_cantidad: it.cantidad,
+          p_responsable: resp, p_motivo: batch.motivo,
+          p_fecha: HOY(), p_created_by: profile.id, p_tipo: tipo,
+          p_lote_id: loteId,
         });
       }
       logActivity(profile, tipo === "despacho" ? "Despacho a nave" : "Retorno de nave", `${batch.items.length} ítem(s) · ${embNom}`);

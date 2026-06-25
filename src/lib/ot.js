@@ -14,7 +14,13 @@ export const blankOT = (hoy) => ({
 // existente + 1 — count+1 colisionaba tras eliminar OTs); provisional (S/N)
 // offline. Ignora folios fuera del esquema OT-### (S/N, OT-RF-, legacy PM-).
 export function folioOT(ots, online, nowIso = new Date().toISOString()) {
-  if (!online) return `OT-S/N-${nowIso.slice(5, 16).replace("T", "-").replace(":", "")}`;
+  if (!online) {
+    // Resolución de segundos + sufijo aleatorio: evita el mismo folio visual para
+    // dos OTs creadas el mismo minuto sin conexión (el trigger lo reasigna al subir).
+    const stamp = nowIso.slice(5, 19).replace(/[-:T]/g, "");   // MMDDHHMMSS
+    const rnd = Math.random().toString(36).slice(2, 5).toUpperCase();
+    return `OT-S/N-${stamp}-${rnd}`;
+  }
   const maxN = (Array.isArray(ots) ? ots : []).reduce((mx, o) => {
     const m = /^OT-(\d+)$/.exec(o?.folio || "");
     return m ? Math.max(mx, parseInt(m[1], 10)) : mx;

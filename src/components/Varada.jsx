@@ -5,7 +5,7 @@ import {
   Flag, ClipboardList, CheckSquare, BookOpen,
 } from "lucide-react";
 import { useAuth } from "../lib/auth";
-import { fetchAll, insertRow, updateRow, deleteRow } from "../lib/db";
+import { fetchAll, insertRow, updateRow, updateRowLocked, deleteRow } from "../lib/db";
 import { supabase } from "../lib/supabase";
 import { folioOT } from "../lib/ot";
 import { scoreBacklog } from "../lib/operacional";
@@ -323,15 +323,20 @@ function DetalleVarada({ varada, ots, embarcaciones, equipos, empresaId, onBack,
     finally { setGuardando(false); }
   }
 
-  // Cierre formal de la varada
+  // Cierre formal de la varada (con lock optimista para detectar edición concurrente)
   async function confirmarCierre() {
     setGuardando(true);
     try {
-      const actualizada = await updateRow("varadas", varada.id, {
+      const result = await updateRowLocked("varadas", varada.id, {
         estado: "cerrada",
         fecha_fin_real: fechaCierre || hoy,
-      });
-      onVaradaUpdate(actualizada);
+      }, varada.updated_at ?? null);
+      if (result.conflict) {
+        alert("La varada fue modificada por otro usuario. Recarga la página antes de cerrar.");
+        setShowCierre(false);
+        return;
+      }
+      onVaradaUpdate(result.data);
       setShowCierre(false);
     } catch (err) { alert("Error al cerrar varada: " + err.message); }
     finally { setGuardando(false); }

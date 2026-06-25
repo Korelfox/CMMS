@@ -1,7 +1,7 @@
 ﻿import React, { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { ClipboardList, Plus, Download, CloudOff, DollarSign, Check, RefreshCw, ShieldCheck, CheckCircle2, AlertTriangle, List, Columns3 } from "lucide-react";
 import { useAuth } from "../lib/auth";
-import { fetchAll, insertRow, updateRow, deleteRow, logActivity, rpcCall } from "../lib/db";
+import { fetchAll, insertRow, updateRowLocked, deleteRow, logActivity, rpcCall } from "../lib/db";
 import { useOnline, cacheTable, getCached, queueInsert, queueUpdate, nuevoId } from "../lib/offline";
 import { subirFotos } from "../lib/fotos";
 import { C, clp, isAdmin, canOperate, TIPOS_OT, PRIORIDADES, ESTADOS_OT, lk, tint } from "../theme";
@@ -31,6 +31,7 @@ import {
 } from "../lib/savedViews";
 import { otStore } from "./ot/otStore";
 import { useMediaQuery } from "../lib/useMediaQuery";
+import { OFFICINA_NARROW_QUERY } from "../lib/breakpoints";
 import { useShellOptional } from "../context/ShellContext";
 import { findOtEnEjecucion } from "../lib/otCampoFlow";
 import { hoyLocal } from "../lib/fechas";
@@ -82,7 +83,7 @@ export default function OrdenesTrabajo({ navParams, onNavigate }) {
   const puedeOperar = canOperate(profile?.rol);
   const puedeBorrar = isAdmin(profile?.rol);
   const puedeCostos = isAdmin(profile?.rol);
-  const isMobile = useMediaQuery("(max-width: 1024px)");
+  const isMobile = useMediaQuery(OFFICINA_NARROW_QUERY);
   const isValorizar = vista === "valorizar";
   const isCampo = !!navParams?.campo;
 
@@ -494,12 +495,20 @@ function transicionValida(desde, hasta) {
       logActivity(profile, "Cambiar estado OT", `${ot.folio}: ${lk(ESTADOS_OT, anterior)} → ${lk(ESTADOS_OT, nuevoEstado)}`);
       return;
     }
+    const revertir = () => setOts((p) => p.map((o) => (o.id === ot.id ? { ...o, estado: anterior, cerrada_por: ot.cerrada_por ?? null, cerrada_fecha: ot.cerrada_fecha ?? null } : o)));
     try {
-      await updateRow("ordenes_trabajo", ot.id, cambios);
+      const res = await updateRowLocked("ordenes_trabajo", ot.id, cambios, ot.updated_at);
+      if (res.conflict) {
+        revertir();
+        setError(`No se pudo cambiar el estado: ${ot.folio} fue modificada por otro usuario. Recargando…`);
+        await cargar();
+        return;
+      }
+      if (res.data) setOts((p) => p.map((o) => (o.id === ot.id ? { ...o, updated_at: res.data.updated_at } : o)));
       logActivity(profile, "Cambiar estado OT", `${ot.folio}: ${lk(ESTADOS_OT, anterior)} → ${lk(ESTADOS_OT, nuevoEstado)}`);
     } catch (e) {
       // Si falla, revertimos al estado anterior.
-      setOts((p) => p.map((o) => (o.id === ot.id ? { ...o, estado: anterior, cerrada_por: ot.cerrada_por ?? null, cerrada_fecha: ot.cerrada_fecha ?? null } : o)));
+      revertir();
       setError("No se pudo cambiar el estado: " + e.message);
     }
   }
@@ -512,7 +521,14 @@ function transicionValida(desde, hasta) {
     setOts((p) => p.map((o) => (o.id === ot.id ? { ...o, ...cambios } : o)));
     setCierreOT(null); setError(null);
     try {
-      await updateRow("ordenes_trabajo", ot.id, cambios);
+      const res = await updateRowLocked("ordenes_trabajo", ot.id, cambios, ot.updated_at);
+      if (res.conflict) {
+        setOts((p) => p.map((o) => (o.id === ot.id ? { ...o, ...previo } : o)));
+        setError(`No se pudo cerrar la OT: ${ot.folio} fue modificada por otro usuario. Recargando…`);
+        await cargar();
+        return;
+      }
+      if (res.data) setOts((p) => p.map((o) => (o.id === ot.id ? { ...o, updated_at: res.data.updated_at } : o)));
       const modoLbl = codigos?.modo_falla ? lk(MODOS_FALLA_ISO, codigos.modo_falla) : "sin codificar";
       logActivity(profile, "Cerrar OT correctiva", `${ot.folio} · falla: ${modoLbl}`);
     } catch (e) {
@@ -529,7 +545,16 @@ function transicionValida(desde, hasta) {
       await queueUpdate("ordenes_trabajo", ot.id, { checklist: items }, `Checklist ${ot.folio}`, ot.updated_at);
       return;
     }
-    try { await updateRow("ordenes_trabajo", ot.id, { checklist: items }); }
+    try {
+      const res = await updateRowLocked("ordenes_trabajo", ot.id, { checklist: items }, ot.updated_at);
+      if (res.conflict) {
+        setOts((p) => p.map((o) => (o.id === ot.id ? { ...o, checklist: previo } : o)));
+        setError(`No se pudo guardar el checklist: ${ot.folio} fue modificada por otro usuario. Recargando…`);
+        await cargar();
+        return;
+      }
+      if (res.data) setOts((p) => p.map((o) => (o.id === ot.id ? { ...o, updated_at: res.data.updated_at } : o)));
+    }
     catch (e) {
       setOts((p) => p.map((o) => (o.id === ot.id ? { ...o, checklist: previo } : o)));
       setError("No se pudo guardar el checklist: " + e.message);
@@ -550,8 +575,13 @@ function transicionValida(desde, hasta) {
       ? { costos_por: profile?.nombre || profile?.email || "—", costos_fecha: new Date().toISOString() }
       : {};
     try {
-      await updateRow("ordenes_trabajo", ot.id, { costo_mo: ot.costo_mo || 0, costo_mat: ot.costo_mat || 0, ...firma });
-      if (tieneCostos) setOts((p) => p.map((o) => (o.id === ot.id ? { ...o, ...firma } : o)));
+      const res = await updateRowLocked("ordenes_trabajo", ot.id, { costo_mo: ot.costo_mo || 0, costo_mat: ot.costo_mat || 0, ...firma }, ot.updated_at);
+      if (res.conflict) {
+        setError(`No se pudieron guardar los costos: ${ot.folio} fue modificada por otro usuario. Recargando…`);
+        await cargar();
+        return;
+      }
+      setOts((p) => p.map((o) => (o.id === ot.id ? { ...o, ...firma, ...(res.data ? { updated_at: res.data.updated_at } : {}) } : o)));
       logActivity(profile, "Valorizar costos OT", `${ot.folio} · MO ${clp(ot.costo_mo || 0)} · Mat ${clp(ot.costo_mat || 0)}`);
       setCostoOk(ot.id);
       setTimeout(() => setCostoOk((c) => (c === ot.id ? null : c)), 2000);

@@ -50,15 +50,25 @@ export function sugerirMinMax({ item, equiposDestino = [], ots = [], periodoDias
   if (crit === "A" && minSugerido < 1) minSugerido = 1;
 
   let maxSugerido = minSugerido + Math.max(1, Math.ceil(demandaDiaria * CICLO));
-  // Si demanda es cero y no es crítico A → sin stock
-  if (demandaDiaria === 0 && crit !== "A") { minSugerido = 0; maxSugerido = 0; }
+  // Sin historial: críticos A conservan mínimo 1; B con lead largo conservan 1 como buffer
+  if (demandaDiaria === 0 && crit !== "A") {
+    if (crit === "B" && leadDias > 30) {
+      minSugerido = 0;
+      maxSugerido = 1;
+    } else {
+      minSugerido = 0;
+      maxSugerido = 0;
+    }
+  }
 
   const confianza = nCorrectivas >= 5 ? "alta" : nCorrectivas >= 2 ? "media" : "baja";
   const razon = nCorrectivas >= 2
     ? `${nCorrectivas} correctivas en ${periodoDias}d → demanda ${(demandaDiaria * 30).toFixed(1)}/mes · lead ${leadDias}d · seg ×${factorSeg} (crit ${crit})`
     : crit === "A"
       ? `Sin historial suficiente pero equipo crítico A → stock estratégico mínimo`
-      : `Sin historial de fallas correctivas en el período`;
+      : (crit === "B" && leadDias > 30)
+        ? `Sin fallas en el período; lead time ${leadDias}d en equipo B → buffer mínimo 1 ud.`
+        : `Sin historial de fallas correctivas en el período`;
 
   return { minSugerido, maxSugerido, demandaDiaria, confianza, razon };
 }

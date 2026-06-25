@@ -7,10 +7,11 @@ import { useAuth } from "../lib/auth";
 import { fetchAll, insertRow, updateRow, deleteRow, logActivity } from "../lib/db";
 import { fetchPronosticoOperacional } from "../lib/pronosticoApi";
 import { resumirClimaParaZarpe, textoClimaObservacion } from "../lib/clima";
-import { useOnline, cacheTable, getCached, queueInsert, nuevoId } from "../lib/offline";
+import { useOnline, cacheTable, getCached, queueInsert, queueUpdate, nuevoId } from "../lib/offline";
 import { subirFotos, listarFotos, borrarFoto } from "../lib/fotos";
 import { C, canOperate, isAdmin } from "../theme";
 import { buildEquipoTree } from "../lib/equipTree";
+import { validarLectura } from "../lib/horometro";
 import { Card, PageHead, Pill, primaryBtn, ghostBtn, InlineSpinner, ErrorBanner, Empty, Field } from "../ui";
 import { FotoInput, FotoGaleria } from "./Fotos";
 import { HOY, SEGURIDAD_FIJA } from "./prezarpe/util";
@@ -132,22 +133,32 @@ export default function Prezarpe({ navParams }) {
   }
 
   function abrirRecalada(m) {
-    if (!online) { setError("Registrar la recalada requiere conexión."); return; }
     setMareaRec(m); setVista("recalada");
   }
 
   async function guardarRecalada(m, datos) {
+    const errHoro = validarHorometrosRecalada(datos.horometros_fin, m.horometros_ini || {});
+    if (errHoro) { setError(errHoro); return; }
+    const recaladaData = {
+      estado: "cerrada", recalada_at: new Date().toISOString(),
+      comb_fin: datos.comb_fin, agua_fin: datos.agua_fin, aceite_fin: datos.aceite_fin,
+      horometros_fin: datos.horometros_fin,
+    };
     try {
-      await updateRow("mareas", m.id, {
-        estado: "cerrada", recalada_at: new Date().toISOString(),
-        comb_fin: datos.comb_fin, agua_fin: datos.agua_fin, aceite_fin: datos.aceite_fin,
-        horometros_fin: datos.horometros_fin,
-      });
+      if (!online) {
+        // Offline: encola el cierre; las lecturas ISO se sincronizan al recuperar señal
+        await queueUpdate("mareas", m.id, recaladaData, `Recalada · ${embName(m.embarcacion_id)}`);
+        logActivity(profile, "Recalada (offline)", embName(m.embarcacion_id));
+        setMareas((p) => p.map((x) => x.id === m.id ? { ...x, ...recaladaData } : x));
+        setVista("flota"); setMareaRec(null); setError(null);
+        return;
+      }
+      await updateRow("mareas", m.id, recaladaData);
       // Lecturas ISO 14224 para horómetros de fin de marea + propagación a descendientes
       const horosFin = datos.horometros_fin || {};
       if (Object.keys(horosFin).length > 0) {
         const byIdRec = new Map(equipos.map((e) => [e.id, e]));
-        const recaladaAt = new Date().toISOString();
+        const recaladaAt = recaladaData.recalada_at;
         for (const [eqId, horas] of Object.entries(horosFin)) {
           const eq = byIdRec.get(eqId);
           if (!eq) continue;
@@ -165,32 +176,57 @@ export default function Prezarpe({ navParams }) {
   }
 
   async function guardarRetornoFalla(marea, datos) {
-    if (!online) { setError("Registrar retorno por falla requiere conexión."); return; }
+    const mareaUpdate = {
+      estado: "cerrada", recalada_at: new Date().toISOString(),
+      retorno_falla: true, falla_descripcion: datos.descripcion,
+      falla_equipo_id: datos.equipo_id || null,
+      falla_severidad: datos.severidad, falla_riesgo_trip: datos.riesgoTrip,
+    };
+    const detalle = [
+      `RETORNO POR FALLA · ${embName(marea.embarcacion_id)}`,
+      `Sistema/Equipo: ${datos.sistemaLabel}`,
+      `Severidad: ${datos.severidad.toUpperCase()}`,
+      datos.riesgoTrip ? "RIESGO PARA LA TRIPULACION" : null,
+      `Descripción: ${datos.descripcion}`,
+    ].filter(Boolean).join("\n");
     try {
+      if (!online) {
+        // Offline: encola el cierre de marea + OT urgente + solicitud
+        await queueUpdate("mareas", marea.id, mareaUpdate, `Retorno falla · ${embName(marea.embarcacion_id)}`);
+        const otId  = nuevoId();
+        const solId = nuevoId();
+        await queueInsert("ordenes_trabajo", {
+          id: otId, empresa_id: profile.empresa_id,
+          folio: `OT-RF-${nuevoId().slice(0, 8)}`,
+          embarcacion_id: marea.embarcacion_id, equipo_id: datos.equipo_id || null,
+          sistema: datos.sistemaLabel, tipo: "correctivo", prioridad: "critica",
+          descripcion: detalle, fecha: HOY(), estado: "solicitada", created_by: profile.id,
+        }, `OT retorno falla · ${datos.sistemaLabel}`);
+        await queueInsert("solicitudes", {
+          id: solId, empresa_id: profile.empresa_id,
+          folio: `SOL-RF-${nuevoId().slice(0, 8)}`,
+          solicitante: profile.nombre || "", embarcacion_id: marea.embarcacion_id,
+          sistema: datos.sistemaLabel,
+          descripcion: `RETORNO POR FALLA [${datos.severidad.toUpperCase()}] · ${embName(marea.embarcacion_id)} · ${datos.descripcion}`,
+          prioridad: "alta", fecha: HOY(), estado: "pendiente", created_by: profile.id,
+        }, `Solicitud retorno falla · ${datos.sistemaLabel}`);
+        logActivity(profile, "Retorno por falla (offline)", `${embName(marea.embarcacion_id)} · ${datos.sistemaLabel}`);
+        setMareas((p) => p.map((x) => x.id === marea.id ? { ...x, ...mareaUpdate } : x));
+        setVista("flota"); setMareaFalla(null); setError(null);
+        return;
+      }
       // 1) Cerrar la marea como retorno por falla
-      await updateRow("mareas", marea.id, {
-        estado: "cerrada", recalada_at: new Date().toISOString(),
-        retorno_falla: true, falla_descripcion: datos.descripcion,
-        falla_equipo_id: datos.equipo_id || null,
-        falla_severidad: datos.severidad, falla_riesgo_trip: datos.riesgoTrip,
-      });
+      await updateRow("mareas", marea.id, mareaUpdate);
       // 2) OT urgente para el jefe de mantención
-      const detalle = [
-        `🚨 RETORNO POR FALLA · ${embName(marea.embarcacion_id)}`,
-        `Sistema/Equipo: ${datos.sistemaLabel}`,
-        `Severidad: ${datos.severidad.toUpperCase()}`,
-        datos.riesgoTrip ? "⚠️ RIESGO PARA LA TRIPULACIÓN" : null,
-        `Descripción: ${datos.descripcion}`,
-      ].filter(Boolean).join("\n");
       await insertRow("ordenes_trabajo", profile.empresa_id, {
-        folio: `OT-RF-${Date.now().toString().slice(-6)}`,
+        folio: `OT-RF-${nuevoId().slice(0, 8)}`,
         embarcacion_id: marea.embarcacion_id, equipo_id: datos.equipo_id || null,
         sistema: datos.sistemaLabel, tipo: "correctivo", prioridad: "critica",
         descripcion: detalle, fecha: HOY(), estado: "solicitada", created_by: profile.id,
       });
       // 3) Solicitud visible para el Jefe de Mantención
       await insertRow("solicitudes", profile.empresa_id, {
-        folio: `SOL-RF-${Date.now().toString().slice(-6)}`,
+        folio: `SOL-RF-${nuevoId().slice(0, 8)}`,
         solicitante: profile.nombre || "", embarcacion_id: marea.embarcacion_id,
         sistema: datos.sistemaLabel,
         descripcion: `RETORNO POR FALLA [${datos.severidad.toUpperCase()}] · ${embName(marea.embarcacion_id)} · ${datos.descripcion}`,
@@ -202,12 +238,50 @@ export default function Prezarpe({ navParams }) {
     } catch (e) { setError("No se pudo registrar el retorno por falla: " + e.message); }
   }
 
+  // Valida un mapa { eqId: horas } contra la lectura actual de cada equipo.
+  // Devuelve un mensaje de error con el primer retroceso detectado, o null.
+  function validarHorometros(horos) {
+    const byIdV = new Map(equipos.map((e) => [e.id, e]));
+    for (const [eqId, horas] of Object.entries(horos || {})) {
+      if (horas === "" || horas == null) continue;
+      const eq = byIdV.get(eqId);
+      if (!eq) continue;
+      const v = validarLectura({ horasPrev: eq.horas_actual ?? null, horas });
+      if (!v.ok) return `${eq.id_visible || eq.sistema || "Equipo"}: ${v.error}`;
+    }
+    return null;
+  }
+
+  // Valida horómetros de recalada contra las horas de zarpe de ESA marea,
+  // no contra el global del equipo (D4: evita falsos rechazos si hubo otra
+  // lectura entre el zarpe y la recalada).
+  function validarHorometrosRecalada(horosFin, horometrosIni = {}) {
+    for (const [eqId, horas] of Object.entries(horosFin || {})) {
+      if (horas === "" || horas == null) continue;
+      const ini = horometrosIni[eqId];
+      if (ini == null) continue; // sin referencia de zarpe → no validar este equipo
+      const v = validarLectura({ horasPrev: Number(ini), horas });
+      if (!v.ok) {
+        const eq = equipos.find((e) => e.id === eqId);
+        return `${eq?.id_visible || eq?.sistema || "Equipo"}: horas de recalada (${horas}) no pueden ser menores a las de zarpe (${ini}).`;
+      }
+    }
+    return null;
+  }
+
   // Guarda el prezarpe: abre la marea + registra el checklist. El trigger de
   // la base aplica los horómetros a los equipos (también al sincronizar offline).
   async function guardarPrezarpe(payload, fotos = []) {
+    const errHoro = validarHorometros(payload.horometros);
+    if (errHoro) { setError(errHoro); return; }
     const mareaId = nuevoId();
     const prezId = nuevoId();
-    const folio = `M-${String(mareas.length + 1).padStart(3, "0")}`;
+    // Max-based folio: inmune a borrados (length+1 colisiona si se eliminó una marea)
+    const maxMarea = mareas.reduce((m, x) => {
+      const n = parseInt((x.folio || "").replace(/[^\d]/g, ""), 10);
+      return isNaN(n) ? m : Math.max(m, n);
+    }, 0);
+    const folio = `M-${String(maxMarea + 1).padStart(3, "0")}`;
     const marea = { id: mareaId, empresa_id: profile.empresa_id, embarcacion_id: nave.id, folio, estado: "navegando", zarpe_at: new Date().toISOString(), responsable: profile.nombre || "", created_by: profile.id,
       comb_ini: payload.combustible_l, agua_ini: payload.agua_l, aceite_ini: payload.aceite_l, horometros_ini: payload.horometros };
     const prez = { id: prezId, empresa_id: profile.empresa_id, embarcacion_id: nave.id, marea_id: mareaId, fecha: HOY(), responsable: profile.nombre || "", ...payload, created_by: profile.id };
@@ -218,7 +292,7 @@ export default function Prezarpe({ navParams }) {
       const obs = observacionesDe(payload);
       sol = {
         id: nuevoId(), empresa_id: profile.empresa_id,
-        folio: `SOL-PZ-${Date.now().toString().slice(-6)}`,
+        folio: `SOL-PZ-${nuevoId().slice(0, 8)}`,
         solicitante: profile.nombre || "", embarcacion_id: nave.id, sistema: "Prezarpe",
         descripcion: `Prezarpe NO APTO de ${nave.nombre}. ${obs.length ? "Observaciones: " + obs.join("; ") + "." : ""}`.trim(),
         prioridad: "alta", fecha: HOY(), estado: "pendiente", created_by: profile.id,
@@ -249,6 +323,20 @@ export default function Prezarpe({ navParams }) {
         await queueInsert("mareas", marea, `Zarpe ${nave.nombre}`);
         await queueInsert("prezarpes", prez, `Prezarpe ${nave.nombre}`);
         if (sol) await queueInsert("solicitudes", sol, `Solicitud prezarpe ${nave.nombre}`);
+        // Lecturas ISO 14224 también offline: el trigger de la base las aplica y
+        // propaga a los descendientes al sincronizar (queueInsert → flushOutbox).
+        const byIdPz = new Map(equipos.map((e) => [e.id, e]));
+        const zarpeAt = new Date().toISOString();
+        for (const [eqId, horas] of Object.entries(payload.horometros || {})) {
+          const eq = byIdPz.get(eqId);
+          if (!eq) continue;
+          await queueInsert("lecturas_horometro", {
+            id: nuevoId(), empresa_id: profile.empresa_id,
+            equipo_id: eqId, horas: Number(horas), horas_anterior: eq.horas_actual ?? null,
+            fuente: "prezarpe", usuario_id: profile.id, usuario_nombre: profile.nombre || "",
+            fecha: zarpeAt,
+          }, `Horómetro ${eq.id_visible || eq.nombre || ""}`.trim());
+        }
         setMareas((p) => [{ ...marea, _pending: true }, ...p]);
       }
       setVista("flota"); setNave(null); setError(null);

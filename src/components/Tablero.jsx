@@ -82,8 +82,8 @@ export default function Tablero({ onNavigate, navParams }) {
   }, [navParams?.seccion, loading]);
 
   const planesEval = useMemo(() => {
-    const { planes = [], eqs = [], lecturas = [] } = data;
-    return evaluarPlanes(planes, eqs, lecturas);
+    const { planes = [], eqs = [] } = data;
+    return evaluarPlanes(planes, eqs);
   }, [data]);
 
   const m = useMemo(() => {
@@ -91,7 +91,9 @@ export default function Tablero({ onNavigate, navParams }) {
     const otsAbiertas = ots.filter((o) => o.estado !== "cerrada");
     const otsCriticas = ots.filter((o) => (o.prioridad === "critica" || o.prioridad === "alta") && o.estado !== "cerrada");
     const eqIdsPMVencido = new Set(
-      evaluarPlanes(planes, eqs).filter((r) => r.tone === "red").map((r) => r.plan.equipo_id)
+      evaluarPlanes(planes, eqs)
+        .filter((r) => r.tone === "red" && r.plan?.equipo_id != null)
+        .map((r) => r.plan.equipo_id)
     );
     const pmVencidos = eqIdsPMVencido.size;
     const stockBajo = its.filter((i) => {

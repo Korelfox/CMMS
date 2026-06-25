@@ -253,9 +253,18 @@ export default function OTAutonomas({ onNavigate }) {
     let otId = actuales.find((o) => o.huella === sug.huella)?.id || null;
     let folio = null;
     if (!otId) {
-      const ot = await crearOT(sug, actuales);
-      otId = ot.id; folio = ot.folio;
-      actuales.unshift(ot);
+      try {
+        const ot = await crearOT(sug, actuales);
+        otId = ot.id; folio = ot.folio;
+        actuales.unshift(ot);
+      } catch (e) {
+        // 23505: el cron u otro usuario ya creó la OT de esta huella (índice
+        // único ux_ot_empresa_huella). La recuperamos en vez de duplicar.
+        if (e?.code !== "23505") throw e;
+        const refetch = await fetchAll("ordenes_trabajo");
+        otId = refetch.find((o) => o.huella === sug.huella)?.id || null;
+        if (!otId) throw e;
+      }
     }
     await updateRow("ot_sugerencias", sug.id, {
       estado: "confirmada", ot_id: otId,

@@ -75,10 +75,11 @@ describe("evaluarPlanes (semáforo real para Alertas/Tablero)", () => {
     expect(r[2].esCalendario).toBe(false);
   });
 
-  it("plan calendario nunca realizado queda vencido (elapsed Infinity)", () => {
+  it("plan calendario sin historial muestra 'Sin historial' gris, no 'Vencido'", () => {
     const planes = [{ id: "k", equipo_id: "e1", tipo_disparador: "calendario", unidad_calendario: "mensual", intervalo_calendario: 1 }];
     const [r] = evaluarPlanes(planes, [EQ]);
-    expect(r.tone).toBe("red");
+    expect(r.tone).toBe("slate");
+    expect(r.label).toBe("Sin historial");
     expect(r.elapsed).toBe(Infinity);
     expect(r.limite).toBe(30);
     expect(r.esCalendario).toBe(true);

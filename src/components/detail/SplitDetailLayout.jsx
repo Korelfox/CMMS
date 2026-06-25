@@ -51,7 +51,10 @@ export default function SplitDetailLayout({
 
   return (
     <div className={rootClass} data-detail-open={showDetailPane ? "1" : "0"}>
-      <div className="cmms-split-detail-queue">{queue}</div>
+      {/* min-width:0 — sin esto, en pantallas angostas el grid item no se
+          encoge bajo el ancho de su contenido (kanban/tabla) y desborda el
+          viewport en vez de dejar que el carril scrollee horizontal. */}
+      <div className="cmms-split-detail-queue" style={{ minWidth: 0 }}>{queue}</div>
       {showDetailPane && (
         <div className="cmms-split-detail-pane">
           <button

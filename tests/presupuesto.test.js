@@ -83,11 +83,13 @@ describe("serieMensual", () => {
 
 // ── runRate ───────────────────────────────────────────────────────────────────
 describe("runRate", () => {
-  it("promedia gasto en ventana de meses", () => {
-    // últimos 3 meses (abr+may+jun): o6(180k) + o7(160k) = 340k / 3 ≈ 113k/mes
+  it("promedia gasto en meses con datos (no diluye por meses vacíos)", () => {
+    // últimos 3 meses (abr+may+jun): o6(180k) + o7(160k) = 340k en 2 meses con datos
+    // Divide por conData=2, no por ventana=3, para no subestimar naves con historial corto
     const r = runRate(otsBase, EMB1, HOY, 3);
-    expect(r.mensual).toBeCloseTo(340_000 / 3, -1);
-    expect(r.anualProyectado).toBeCloseTo((340_000 / 3) * 12, -1);
+    expect(r.mesesConData).toBe(2);
+    expect(r.mensual).toBeCloseTo(340_000 / 2, -1);
+    expect(r.anualProyectado).toBeCloseTo((340_000 / 2) * 12, -1);
   });
 
   it("sin OTs → mensual=0", () => {

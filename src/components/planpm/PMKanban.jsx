@@ -47,7 +47,7 @@ function KanbanCard({ item, selected, onSelect, embName }) {
 }
 
 export default function PMKanban({ lista, selectedId, onSelect, embName }) {
-  const toneMap = { red: C.red, yellow: C.amber, green: C.green };
+  const toneMap = { red: C.red, yellow: C.amber, green: C.green, slate: C.slate };
 
   return (
     <div
@@ -59,6 +59,7 @@ export default function PMKanban({ lista, selectedId, onSelect, embName }) {
     >
       {PM_KANBAN_COLS.map((col) => {
         const items = lista.filter((x) => x.tone === col.value);
+        if (col.ocultarSiVacio && items.length === 0) return null;
         const headerColor = toneMap[col.tone] || C.steel;
         const esPrincipal = col.value === "green";
         return (

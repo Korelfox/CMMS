@@ -98,13 +98,14 @@ export function serieMensual(ots = [], embId, hoy, meses = 12) {
 }
 
 // Run-rate anual: proyección basada en los últimos `ventana` meses.
+// Divide por meses con datos reales para no subestimar en naves con historial corto.
 // embId null → flota completa.
 // → { mensual, anualProyectado, mesesConData }
 export function runRate(ots = [], embId, hoy, ventana = 3) {
   const serie    = serieMensual(ots, embId, hoy, ventana);
   const conData  = serie.filter((s) => s.total > 0).length;
   const totalPer = serie.reduce((s, m) => s + m.total, 0);
-  const mensual  = ventana > 0 ? totalPer / ventana : 0;
+  const mensual  = conData > 0 ? totalPer / conData : 0;
   return { mensual, anualProyectado: mensual * 12, mesesConData: conData };
 }
 

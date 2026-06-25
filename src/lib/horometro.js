@@ -42,6 +42,7 @@ export function validarLectura({ horasPrev = null, fechaPrev = null, horas, fech
 
 // Tendencia de uso en horas/día: pendiente entre la primera y la última de las
 // últimas `n` lecturas (ordenadas por fecha). null si no hay datos suficientes.
+// Requiere ≥3 días de cobertura para evitar inflación por lecturas agrupadas en un solo día.
 export function tendenciaHorasDia(lecturas, n = 6) {
   const ordenadas = (lecturas || [])
     .filter((l) => l && l.fecha != null && Number.isFinite(Number(l.horas)))
@@ -50,7 +51,7 @@ export function tendenciaHorasDia(lecturas, n = 6) {
   const ventana = ordenadas.slice(-n);
   if (ventana.length < 2) return null;
   const dias = (new Date(ventana[ventana.length - 1].fecha) - new Date(ventana[0].fecha)) / MS_DIA;
-  if (dias <= 0) return null;
+  if (dias < 3) return null;
   const delta = Number(ventana[ventana.length - 1].horas) - Number(ventana[0].horas);
   if (delta < 0) return null;
   return delta / dias;

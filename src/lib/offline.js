@@ -75,43 +75,52 @@ export async function outboxCount() {
   try { return await outboxStore.length(); } catch (e) { console.debug("[CMMS] outboxCount:", e.message); return 0; }
 }
 
+let _flushing = false;
+
 // Sube todo lo pendiente. Devuelve { ok, fail, total }.
+// Saltea ops marcadas como "conflicto" — requieren revisión manual.
 export async function flushOutbox() {
-  const items = await getOutbox();
-  let ok = 0, fail = 0;
-  // Procesar en batches de 5 para concurrencia controlada (M1)
-  for (let i = 0; i < items.length; i += 5) {
-    const batch = items.slice(i, i + 5);
-    const results = await Promise.allSettled(batch.map(async (op) => {
-      if (op.tipo === "update") {
-        let q = supabase.from(op.tabla).update(op.cambios).eq("id", op.id);
-        if (op.updatedAt) q = q.eq("updated_at", op.updatedAt);
-        const { data, error } = await q.select();
-        if (error) throw error;
-        // Si optimistic locking y 0 filas afectadas → conflicto de versión
-        if (op.updatedAt && (!data || data.length === 0)) {
-          window.dispatchEvent(new CustomEvent("cmms-conflict", { detail: { op, msg: `Conflicto: ${op.descripcion} fue modificado por otro usuario mientras trabajabas sin conexión.` } }));
-          return { ok: false, localId: op.localId, conflict: true }; // mantener en cola para revisión manual
+  if (_flushing) return { ok: 0, fail: 0, total: 0 };
+  _flushing = true;
+  try {
+    const all   = await getOutbox();
+    const items = all.filter((op) => op.estado !== "conflicto");
+    let ok = 0, fail = 0;
+    // Procesar secuencialmente (batch de 1) para respetar dependencias FK
+    for (const op of items) {
+      try {
+        if (op.tipo === "update") {
+          let q = supabase.from(op.tabla).update(op.cambios).eq("id", op.id);
+          if (op.updatedAt) q = q.eq("updated_at", op.updatedAt);
+          const { data, error } = await q.select();
+          if (error) throw error;
+          // Optimistic locking: 0 filas → conflicto de versión
+          if (op.updatedAt && (!data || data.length === 0)) {
+            const conflictedOp = { ...op, estado: "conflicto" };
+            await outboxStore.setItem(op.localId, conflictedOp);
+            window.dispatchEvent(new CustomEvent("cmms-conflict", {
+              detail: { op, msg: `"${op.descripcion || op.tabla}" fue modificado por otro usuario mientras estabas sin conexión.` },
+            }));
+            fail++;
+            avisarCambio();
+            continue;
+          }
+        } else {
+          // insert (tipo === "insert" o campo ausente — compatibilidad con ops antiguas)
+          const { error } = await supabase.from(op.tabla).insert(op.row);
+          // 23505 = clave duplicada: ya estaba subida; la damos por buena.
+          if (error && error.code !== "23505") throw error;
         }
-      } else {
-        // insert (tipo === "insert" o campo ausente — compatibilidad con ops antiguas)
-        const { error } = await supabase.from(op.tabla).insert(op.row);
-        // 23505 = clave duplicada: ya estaba subida; la damos por buena.
-        if (error && error.code !== "23505") throw error;
-      }
-      return { ok: true, localId: op.localId };
-    }));
-    for (const r of results) {
-      if (r.status === "fulfilled" && r.value?.ok) {
-        await outboxStore.removeItem(r.value.localId);
+        await outboxStore.removeItem(op.localId);
         ok++;
-      } else {
-         const errMsg = r.status === "fulfilled" && r.value?.conflict ? "Conflicto de version: " : r.status === "rejected" ? r.reason?.message : "unknown";
-        console.warn("[CMMS] No se pudo sincronizar", r.status === "fulfilled" ? r.value?.localId : "?", errMsg);
+      } catch (e) {
+        console.warn("[CMMS] No se pudo sincronizar", op.localId, e?.message);
         fail++;
       }
     }
+    if (ok > 0) { avisarCambio(); window.dispatchEvent(new CustomEvent("cmms-synced", { detail: { ok } })); }
+    return { ok, fail, total: all.length };
+  } finally {
+    _flushing = false;
   }
-  if (ok > 0) { avisarCambio(); window.dispatchEvent(new CustomEvent("cmms-synced", { detail: { ok } })); }
-  return { ok, fail, total: items.length };
 }

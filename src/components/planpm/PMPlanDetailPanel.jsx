@@ -45,7 +45,7 @@ export default function PMPlanDetailPanel({
   const { plan, equipo, esCalendario, elapsed, tone, label } = item;
   const isReg = registrando === plan.id;
   const isHito = editHitoId === plan.id;
-  const barColor = tone === "red" ? C.red : tone === "yellow" ? C.amber : C.green;
+  const barColor = tone === "red" ? C.red : tone === "yellow" ? C.amber : tone === "slate" ? C.slate : C.green;
 
   return (
     <div data-testid="pm-plan-detail" style={{ display: "flex", flexDirection: "column", height: panelHeight, minHeight: 440, overflow: "hidden", background: C.surface, borderRadius: 12, border: `1px solid ${C.line}`, borderLeft: `4px solid ${barColor}` }}>

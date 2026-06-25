@@ -46,12 +46,14 @@ export function analizarDesgasteFlota({
   }
 
   // Proyección de vida por plan (solo planes de horas con intervalo > 0)
+  let rawTrendSum = 0, rawTrendN = 0;
   const proyecciones = (planesEval || [])
     .filter((p) => !p.esCalendario && p.limite > 0 && p.equipo)
     .map((p) => {
       const eq = p.equipo;
       const puntoId = puntoHorometro(eq, byId);
       const trend   = puntoId != null ? (tendPorPunto.get(puntoId) ?? null) : null;
+      if (trend != null) { rawTrendSum += trend; rawTrendN++; }
       const vidaPct = p.elapsed != null
         ? Math.min(Math.round((p.elapsed / p.limite) * 100), 999)
         : null;
@@ -73,10 +75,10 @@ export function analizarDesgasteFlota({
       };
     });
 
-  // Estadísticas generales
+  // Estadísticas generales — avgTend desde valores sin redondear
   const conTend = proyecciones.filter((p) => p.tendenciaHDia != null);
-  const avgTend = conTend.length > 0
-    ? Math.round(conTend.reduce((s, p) => s + p.tendenciaHDia, 0) / conTend.length * 10) / 10
+  const avgTend = rawTrendN > 0
+    ? Math.round(rawTrendSum / rawTrendN * 10) / 10
     : null;
 
   const criticos    = proyecciones.filter((p) => p.vidaPct != null && p.vidaPct >= 90);

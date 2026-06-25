@@ -147,6 +147,13 @@ export function WindowHost() {
 
         /* Ocultar el handle en móvil */
         @media (max-width: 1024px) { .cmms-resize-handle { display: none !important; } }
+
+        /* Celular: la ventana flotante ocupa todo el ancho (sin la franja muerta
+           de overlay del 95vw) para aprovechar la pantalla angosta. El ancho va
+           inline, por eso se fuerza con !important; PC y tablet no se tocan. */
+        @media (max-width: 640px) {
+          .cmms-win-panel { width: 100vw !important; max-width: 100vw !important; }
+        }
       `}</style>
 
       {/* Overlay — clic cierra el panel de arriba */}

@@ -197,10 +197,21 @@ function _computeEvaluarPlanes(planes, equipos) {
       const eq = eqById.get(p.equipo_id) || null;
       const esCalendario = p.tipo_disparador === "calendario";
       if (esCalendario) {
+        // Sin historial: el operador aún no ingresó el último PM.
+        // Mostrar gris para diferenciarlo de un plan genuinamente vencido.
+        if (p.fecha_ult_pm == null) {
+          const limite = totalDiasCalendario(p.unidad_calendario, p.intervalo_calendario ?? 1);
+          return { plan: p, equipo: eq, esCalendario, elapsed: Infinity, limite, tone: "slate", label: "Sin historial" };
+        }
         const elapsed = diasDesde(p.fecha_ult_pm);
         const limite  = totalDiasCalendario(p.unidad_calendario, p.intervalo_calendario ?? 1);
         const [tone, label] = statusPlanCalendario(elapsed, p.unidad_calendario, p.intervalo_calendario ?? 1);
         return { plan: p, equipo: eq, esCalendario, elapsed, limite, tone, label };
+      }
+      // Sin historial de horas: horas_ult_pm null = nunca configurado.
+      if (p.horas_ult_pm == null) {
+        const limite = Number(p.intervalo_horas) || 0;
+        return { plan: p, equipo: eq, esCalendario, elapsed: 0, limite, tone: "slate", label: "Sin historial" };
       }
       const elapsed = (eq?.horas_actual || 0) - (p.horas_ult_pm || 0);
       const limite  = Number(p.intervalo_horas) || 0;

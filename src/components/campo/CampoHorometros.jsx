@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Timer, Save } from "lucide-react";
 import { useAuth } from "../../lib/auth";
 import { fetchAll, insertRow, logActivity } from "../../lib/db";
+import { useOnline, queueInsert, nuevoId } from "../../lib/offline";
 import { filterByEmbarcacion } from "../../lib/embarcacionActiva";
 import {
   validarLectura, modoHorometro, idsBajoPunto, compararPuntosHorometro,
@@ -97,6 +98,7 @@ function CampoHorometroFila({
 
 export default function CampoHorometros({ navParams }) {
   const { profile } = useAuth();
+  const online = useOnline();
   const { embarcacionId, embarcacionActiva } = useShell();
   const [equipos, setEquipos] = useState([]);
   const [lecturas, setLecturas] = useState([]);
@@ -164,7 +166,7 @@ export default function CampoHorometros({ navParams }) {
       }
       if (v.warning && !window.confirm(`${eq.sistema}\n\n${v.warning}\n\n¿Guardar de todas formas?`)) return;
 
-      const row = await insertRow("lecturas_horometro", profile.empresa_id, {
+      const lectura = {
         equipo_id: puntoId,
         horas,
         horas_anterior: lecPrev ? Number(lecPrev.horas) : (eq.horas_actual ?? null),
@@ -172,13 +174,21 @@ export default function CampoHorometros({ navParams }) {
         usuario_id: profile.id,
         usuario_nombre: profile.nombre || "",
         fecha: fechaLec.toISOString(),
-      });
+      };
+      let row;
+      if (online) {
+        row = await insertRow("lecturas_horometro", profile.empresa_id, lectura);
+      } else {
+        // Offline: encolar; el trigger de la base propaga al sincronizar.
+        row = { id: nuevoId(), empresa_id: profile.empresa_id, ...lectura, _pending: true };
+        await queueInsert("lecturas_horometro", row, `Horómetro ${eq.id_visible || eq.sistema || ""}`.trim());
+      }
 
       const ids = idsBajoPunto(puntoId, equipos, byId);
       setEquipos((p) => p.map((x) => (ids.includes(x.id) ? { ...x, horas_actual: horas } : x)));
       setLecturas((p) => [row, ...p]);
       setValores((p) => { const n = { ...p }; delete n[puntoId]; return n; });
-      setOkMsg(`Lectura guardada · ${eq.sistema} → ${num(horas)} h`);
+      setOkMsg(`Lectura guardada${online ? "" : " (offline · se sincroniza al recuperar señal)"} · ${eq.sistema} → ${num(horas)} h`);
       logActivity(profile, "Registrar horómetro (Campo)", `${eq.id_visible} → ${horas} h`);
     } catch (e) {
       setError("No se pudo guardar: " + e.message);

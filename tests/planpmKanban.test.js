@@ -2,8 +2,8 @@ import { describe, it, expect } from "vitest";
 import { ordenarPlanesPM, PM_KANBAN_COLS } from "../src/lib/planpmKanban.js";
 
 describe("planpmKanban", () => {
-  it("define columnas por semáforo", () => {
-    expect(PM_KANBAN_COLS.map((c) => c.value)).toEqual(["green", "yellow", "red"]);
+  it("define columnas por semáforo (incluye slate para sin historial)", () => {
+    expect(PM_KANBAN_COLS.map((c) => c.value)).toEqual(["green", "yellow", "red", "slate"]);
   });
 
   it("ordena vencidos primero y por ratio de avance", () => {
