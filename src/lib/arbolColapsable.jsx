@@ -8,7 +8,7 @@
 //  Reutilizado por Plan Preventivo, Criticidad, CGM y Optimización.
 // ============================================================
 import React, { useState, useEffect } from "react";
-import { PlusCircle, MinusCircle } from "lucide-react";
+import { PlusCircle, MinusCircle, ChevronRight, ChevronDown } from "lucide-react";
 import { C, tint } from "../theme";
 import { Pill } from "../ui";
 import { TIPO_NODO_META } from "./plantillaPesquera";
